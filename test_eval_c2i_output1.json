@@ -1,0 +1,130 @@
+{
+  "plan": {
+    "rationale": "Start with a fine-grained semantic check because class alignment is already doubtful from the visible coat pattern and head/body appearance. Then do a dedicated whole-animal structural pass focused on the previously flagged lower-half ambiguity, treating unreadable appendage identity or attachment as failure risk rather than as acceptable softness. Finish with a local artifact pass on face, extremities, and branch-contact boundaries. Omit vqa initially because the key questions are directly inspectable in the image and do not yet require a separate question-answering step.",
+    "steps": [
+      {
+        "step_id": 1,
+        "expert": "semantic",
+        "goal": "Judge whether the visible animal is plausibly a hussar monkey from image evidence alone, and identify the strongest confirming versus contradicting class traits.",
+        "model_profile": "local_stronger",
+        "prompt_focus": "Inspect the monkey’s overall phenotype against the class label: long-limbed slender build, tail length and carriage, facial shape and muzzle, pale facial framing, coat color distribution, and whether the gray-cream body with dark limbs/underside reads as a hussar monkey or more like another guenon/vervet-type monkey. Use only what is visible in this image and name the most diagnostic supporting and conflicting traits.",
+        "allow_escalation": false
+      },
+      {
+        "step_id": 2,
+        "expert": "structural",
+        "goal": "Test whether the image contains one globally coherent monkey instance, with special attention to lower-body anatomy and appendage identity.",
+        "model_profile": "local_stronger",
+        "prompt_focus": "Evaluate whole-subject coherence first: head-to-torso-to-pelvis continuity, plausible limb count, joint placement, and hanging pose. Then target this image’s main risks: whether the dark curved appendage on the left is a tail or an extra limb, whether the darker element under the torso is a hind limb or overlaps impossibly, where the tail actually attaches, how the hind limbs pass around the pale vertical branches, and whether rear-limb placement, extremity count, and part boundaries form one valid monkey rather than a collapsed cluster.",
+        "allow_escalation": false
+      },
+      {
+        "step_id": 3,
+        "expert": "artifact",
+        "goal": "Rate localized synthesis failures, especially where anatomy meets branches and where fine features may melt or fuse.",
+        "model_profile": "local_richer",
+        "prompt_focus": "Inspect the face and muzzle for soft or melted features; check the right forelimb/hand area, lower limb and foot regions, tail/leg edges, and belly-to-limb boundaries for fused anatomy, broken joints, malformed hands or feet, asymmetric or duplicated appendages, wrong tail attachment, and branch-boundary corruption where limbs or extremities blend into the supports.",
+        "allow_escalation": false
+      }
+    ]
+  },
+  "plan_review": {
+    "approved": true,
+    "feedback": "The plan is well targeted and should be approved. It jointly grounds on the class label and visible image evidence rather than treating quality assessment as a generic anatomy pass: the semantic step explicitly tests whether the animal reads as a hussar monkey versus another monkey type using diagnostic phenotype cues, the structural step is adapted to this image’s actual risks around tail-versus-limb identity, lower-body coherence, and branch occlusion, and the artifact step focuses on the specific high-risk local regions where generative failures would likely appear. The ordering is sensible: class alignment first because misclassification risk is already salient, then global coherence, then local artifact severity. It also uses VQA appropriately by deferring it unless direct inspection proves insufficient.",
+    "missing_checks": []
+  },
+  "expert_results": [
+    {
+      "expert": "semantic",
+      "summary": "The animal has a slim, long-limbed, long-tailed monkey build that is broadly compatible with a hussar monkey, but the visible phenotype does not read cleanly as hussar because the coat appears mostly gray-cream/tan rather than distinctly rufous, making it look closer to another guenon/vervet-type monkey.",
+      "findings": [
+        "The body is slender with long limbs and a long tail, which supports a hussar-like ground monkey silhouette.",
+        "The face appears fairly narrow with a pale cheek or beard fringe, giving some support to the label.",
+        "The strongest contradiction is the coat color: the visible body is mostly gray-cream/tan and lacks a clear reddish or chestnut back/cap that is a key diagnostic trait of hussar monkeys.",
+        "The dark limbs and overall grayish coloration read more like another guenon/vervet-type monkey than a classic hussar monkey.",
+        "Tail carriage and full dorsal color pattern are only partly visible, so the identification cannot be strongly confirmed from this image alone."
+      ],
+      "severity": 1.0,
+      "confidence": 0.8,
+      "source": "remote",
+      "model": "claude-sonnet-4-6"
+    },
+    {
+      "expert": "structural",
+      "summary": "The head and upper torso read as one monkey, but the pelvis-to-lower-body region is not globally coherent: tail attachment, hind-limb identity, and the dark overlapping appendages around the branches are anatomically ambiguous enough to indicate a severe structural failure risk.",
+      "findings": [
+        "The upper body is recognizable as a single monkey, with a coherent head, neck, and torso silhouette.",
+        "The dark curved appendage on the left is not cleanly readable as a tail versus an extra limb; its attachment point to the pelvis is unclear.",
+        "A darker element directly under the torso overlaps the pale vertical branches in a way that makes the hind-limb path and joint placement unreadable.",
+        "The rear-limb region does not separate cleanly into two plausible hind legs with clear knees, ankles, and feet; the lower body appears collapsed into overlapping dark parts.",
+        "The visible extremities near the lower branches do not resolve into a clearly valid hanging pose, and part boundaries around the pelvis and branches look fused or impossibly interpenetrating."
+      ],
+      "severity": 1.0,
+      "confidence": 0.8,
+      "source": "remote",
+      "model": "claude-sonnet-4-6"
+    },
+    {
+      "expert": "artifact",
+      "summary": "Severe localized synthesis issues are visible at the extremities and branch-contact regions, with indistinct malformed hand/foot structure and limb-support blending.",
+      "findings": [
+        "The right forelimb/hand area is malformed: the distal limb ends in a dark fused mass against the pale branch, with no clear hand shape or separated digits.",
+        "The lower limb/foot region near the central lower branches is structurally unclear and appears blended into the supports, making the foot attachment and joint geometry look broken.",
+        "Belly-to-limb and limb-to-branch boundaries are corrupted in the lower body, where dark limbs merge into adjacent branches instead of remaining cleanly separated.",
+        "The face and muzzle are somewhat soft, with reduced fine detail around the mouth/nose area, though the most severe failures are in the limb and extremity regions."
+      ],
+      "severity": 1.0,
+      "confidence": 0.8,
+      "source": "remote",
+      "model": "claude-sonnet-4-6"
+    }
+  ],
+  "report": {
+    "alignment_reasoning": "The image clearly depicts a monkey, but it does not read cleanly as a hussar monkey. The overall build is slender and long-tailed, which is broadly compatible, yet the visible phenotype is off: the coat is mostly gray-cream/tan with dark limbs rather than showing the more distinctly rufous/chestnut hussar coloration. The face and pale cheek fringe give only weak support to the label. Alignment is further reduced because the lower body anatomy is not clearly valid, so even the animal depiction itself is only partially reliable for species identification.",
+    "artifact_reasoning": "Visible generation artifacts are severe in the pelvis, hind-limb, tail, and branch-contact regions. The lower body collapses into overlapping dark appendages whose identities and attachment points are unclear, making it hard to resolve two plausible hind legs plus a tail. Extremities near the branches are fused and malformed, with broken or unreadable hand/foot structure, and boundaries between limbs and branches are corrupted. The head and upper torso are more coherent, but the anatomical failure in the lower half is strong enough to count as a major quality defect.",
+    "alignment_score": 0.32,
+    "artifact_score": 0.16,
+    "hard_failure": true,
+    "confidence": 0.88,
+    "key_issues": [
+      "Likely species mismatch or at least weak match for hussar monkey coloration",
+      "Lower body anatomy is not globally coherent",
+      "Tail attachment is ambiguous",
+      "Hind limbs are fused/unclear and may not resolve into valid joints",
+      "Extremities near branches appear malformed",
+      "Limb-to-branch boundaries show severe blending/corruption"
+    ],
+    "role_timings": {
+      "planner": 45.2616,
+      "judge": 9.8276,
+      "report": 19.9676,
+      "reflector": 31.7443,
+      "experts": {
+        "semantic": 22.0156,
+        "structural": 16.0771,
+        "artifact": 18.1249
+      }
+    }
+  },
+  "reflection": {
+    "approved": false,
+    "feedback": "I do not approve this report. It is directionally negative, but it is still too optimistic about the class match and slightly understates the appendage-level failure risk. On direct inspection, this does not merely look like a weak hussar monkey match; it reads as a different monkey type altogether, with a gray-tan body, no clear rufous/chestnut hussar coloration, and a facial presentation that does not strongly support hussar/patas identity. The anatomy issue is also harsher than a generic 'unclear lower body': the left curved dark structure, the central dark lower limb, and the obscured right-side lower appendage do not cleanly resolve into one tail plus two hind legs with valid joints and attachment points, creating real extra-appendage/duplicated-part risk. The distal grasping/contact regions remain fused and stump-like against the branches. Re-evaluation is needed with a stronger downgrade for species mismatch and an explicit severe failure callout for appendage identity, tail attachment, and malformed extremities.",
+    "suggested_fixes": [
+      "Lower the alignment assessment further and treat the species mismatch as strong rather than only weak or partial.",
+      "Explicitly evaluate appendage count and attachment: verify whether the lower dark structures resolve into exactly one tail and two hind legs, and mark unresolved duplication as severe failure.",
+      "Call out the branch-contact extremities as malformed/fused rather than merely soft or unclear, since the distal structures do not read as clean hands or feet."
+    ]
+  },
+  "role_models": {
+    "planner": "claude-sonnet-4-6",
+    "judge": "claude-sonnet-4-6",
+    "report": "claude-sonnet-4-6",
+    "reflector": "claude-sonnet-4-6",
+    "experts": {
+      "semantic": "claude-sonnet-4-6",
+      "structural": "claude-sonnet-4-6",
+      "artifact": "claude-sonnet-4-6"
+    }
+  },
+  "final_score": 0.0512
+}

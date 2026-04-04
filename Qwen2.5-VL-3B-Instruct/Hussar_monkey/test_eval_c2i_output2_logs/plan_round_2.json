@@ -1,0 +1,37 @@
+{
+  "round": 2,
+  "revision": 2,
+  "planner_model": "claude-sonnet-4-6",
+  "planner_route": "remote",
+  "planner_feedback_source": "judge",
+  "planner_feedback": "The plan has the right broad phases, but it is not specific enough to the joint image+label grounding task to approve. The rationale is weak and partly generic: it cites a light body and dark limbs, but does not test the key Hussar monkey indicators visible or expected for this label, such as very long slender limbs, long tail, facial patterning/muzzle, and overall patas-like proportions. The structural step mentions subject-specific morphology, but its wording is still too generic and does not name the likely failure modes for this species, so it risks devolving into a rote coherence check. The VQA step is also included as a normal final stage rather than being explicitly conditional on unresolved ambiguity after the earlier passes.",
+  "plan": {
+    "rationale": "Because the label is fine-grained but the image shows a single visible monkey with enough body evidence, start with a cheap but species-aware semantic pass, then verify whole-animal coherence with Hussar-monkey-specific proportions and attachment logic, then run a separate local artifact pass on the face, limbs, tail, and branch-occlusion boundaries. Omit vqa for now because the key questions should be answerable directly from the visible evidence; add it only if earlier passes leave real ambiguity about species cues or part count.",
+    "steps": [
+      {
+        "step_id": 1,
+        "expert": "semantic",
+        "goal": "Judge whether the visible animal is plausibly a Hussar monkey from image evidence alone and record the strongest confirming versus contradicting class cues.",
+        "model_profile": "local_stronger",
+        "prompt_focus": "Inspect the monkey as a joint image+label grounding task: very long slender limbs, long narrow tail, lean patas-like body proportions, small head with elongated muzzle/facial patterning, pale tan coat versus darker limbs/extremities, and whether the overall look fits a Hussar monkey rather than a generic langur, vervet, or mixed monkey appearance.",
+        "allow_escalation": false
+      },
+      {
+        "step_id": 2,
+        "expert": "structural",
+        "goal": "Test whether the animal forms one coherent Hussar-monkey instance with plausible global anatomy, pose, and part attachments for this species.",
+        "model_profile": "local_stronger",
+        "prompt_focus": "Check whole-subject coherence and species-specific structure: unusually long limbs relative to torso, tail originating cleanly from the pelvis, believable shoulder/hip placement, consistent hand and foot attachment on the branches, and a plausible perched pose. Target likely failures visible for this subject such as mixed-species proportions, forelimbs melting into the chest, extra or fused legs where branches cross the body, broken wrist/ankle joints, hindlimb-tail confusion, or the tail attaching from the wrong flank or back.",
+        "allow_escalation": false
+      },
+      {
+        "step_id": 3,
+        "expert": "artifact",
+        "goal": "Inspect localized synthesis artifacts and rate their severity independently of class alignment.",
+        "model_profile": "local_richer",
+        "prompt_focus": "Zoom in on the face and muzzle for melting, asymmetric eyes, broken ear or cheek boundaries, and fur smearing; inspect all visible hands and feet for fused or missing digits, malformed grasping shapes, and broken joints; inspect limb edges, belly fur, and tail contour for duplication, edge corruption, impossible overlaps with branches, or texture discontinuities; also check for wrong shadowing or part-boundary seams that could hide extra limbs or malformed attachments.",
+        "allow_escalation": false
+      }
+    ]
+  }
+}
