@@ -8,6 +8,13 @@ from time import perf_counter
 from typing import Any
 
 from .client import ClaudeVisionClient
+from .expert_performance import (
+    EXPERT_PERFORMANCE_TABLE,
+    get_expert_performance,
+    get_reliability_weight,
+    detect_expert_conflicts,
+    calculate_weighted_severity,
+)
 from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert
 from .prompts import (
     EXPERT_SYSTEM,
@@ -16,11 +23,15 @@ from .prompts import (
     REFLECTOR_SYSTEM,
     REPORT_SYSTEM,
     build_task_context,
+    get_reflector_prompt_with_reliability,
+    get_report_prompt_with_reliability,
 )
 from .schemas import (
     EvaluationPlan,
     EvaluationReport,
     ExpertResult,
+    ExpertReliabilitySummary,
+    ExpertConflictInfo,
     FinalResult,
     GraphState,
     PlanReview,
@@ -493,13 +504,46 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
 def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     started_at, stop_event, heartbeat = _start_stage("report", "synthesize_report", client.settings.report_model)
     image_input = state["input"]
-    expert_payload = [item.model_dump() for item in state["expert_results"]]
+    expert_results = state["expert_results"]
+    
+    expert_payload = []
+    for item in expert_results:
+        result_dict = item.model_dump()
+        performance = get_expert_performance(item.expert)
+        if performance:
+            result_dict["reliability"] = performance.reliability.value
+            result_dict["confidence_weight"] = performance.confidence_weight
+            result_dict["benchmark"] = performance.benchmark
+            result_dict["accuracy"] = performance.accuracy
+        else:
+            result_dict["reliability"] = "unknown"
+            result_dict["confidence_weight"] = 0.5
+        expert_payload.append(result_dict)
+    
+    conflicts = detect_expert_conflicts(expert_payload)
+    weighted_severity = calculate_weighted_severity(expert_payload)
+    
+    reliability_summary = {
+        "high_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "high"),
+        "medium_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "medium"),
+        "low_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "low"),
+        "unknown_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "unknown"),
+        "weighted_severity": weighted_severity,
+        "conflicts": conflicts,
+    }
 
     user_text = (
         f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        f"Expert outputs:\n{expert_payload}\n"
+        f"Expert outputs:\n{json.dumps(expert_payload, indent=2)}\n"
+        f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
+        f"Weighted severity: {weighted_severity:.3f}\n"
         "Synthesize a report with separate alignment and artifact scores. "
         "Directly reinspect the image and do not defer blindly to the experts if they appear too optimistic. "
+        "Consider expert reliability when weighing their conclusions:\n"
+        "- HIGH reliability experts (weight 1.0): Trust unless directly contradicted by visual evidence\n"
+        "- MEDIUM reliability experts (weight 0.7): Consider but seek confirmation\n"
+        "- LOW reliability experts (weight 0.4): Use as hints only\n"
+        "- When experts conflict, prioritize higher reliability\n"
         "Artifact score must be a quality score where 1 means minimal visible artifacts and 0 means severe visible artifacts. "
         "If the image shows likely species mismatch, extra appendages, impossible limbs, malformed extremities, duplicated parts, broken joints, wrong tail attachment, impossible anatomy, or severe boundary corruption, lower the scores even if some experts missed the issue. "
         "If visible evidence supports a severe anatomical or structural generation failure, set hard_failure to true. "
@@ -515,8 +559,20 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             model=model_used,
         )
         elapsed = _finish_stage("report", "synthesize_report", model_used, started_at, stop_event, heartbeat)
+        
+        report = EvaluationReport.model_validate(payload)
+        report.expert_reliability_summary = ExpertReliabilitySummary(
+            high_reliability_count=reliability_summary["high_reliability_count"],
+            medium_reliability_count=reliability_summary["medium_reliability_count"],
+            low_reliability_count=reliability_summary["low_reliability_count"],
+            unknown_reliability_count=reliability_summary["unknown_reliability_count"],
+            weighted_severity=weighted_severity,
+            conflicts=[ExpertConflictInfo(**c) for c in conflicts],
+        )
+        report.reliability_adjusted_scores = len(conflicts) > 0 or weighted_severity > 0.3
+        
         return {
-            "report": EvaluationReport.model_validate(payload),
+            "report": report,
             "report_model_used": model_used,
             "report_elapsed_seconds": elapsed,
         }
@@ -530,13 +586,51 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     reflection_revision = f"{state.get('reflection_revision_count', 0) + 1}/{client.settings.max_reflection_revisions + 1}"
     started_at, stop_event, heartbeat = _start_stage("reflector", "review_report", client.settings.reflector_model, reflection_revision)
     image_input = state["input"]
-    expert_payload = [item.model_dump() for item in state["expert_results"]]
+    expert_results = state["expert_results"]
+    
+    expert_payload = []
+    for item in expert_results:
+        result_dict = item.model_dump()
+        performance = get_expert_performance(item.expert)
+        if performance:
+            result_dict["reliability"] = performance.reliability.value
+            result_dict["confidence_weight"] = performance.confidence_weight
+            result_dict["benchmark"] = performance.benchmark
+            result_dict["accuracy"] = performance.accuracy
+        else:
+            result_dict["reliability"] = "unknown"
+            result_dict["confidence_weight"] = 0.5
+        expert_payload.append(result_dict)
+    
+    conflicts = detect_expert_conflicts(expert_payload)
+    weighted_severity = calculate_weighted_severity(expert_payload)
+    
+    reliability_summary = {
+        "high_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "high"),
+        "medium_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "medium"),
+        "low_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "low"),
+        "unknown_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "unknown"),
+        "weighted_severity": weighted_severity,
+        "overall_confidence": sum(r.get("confidence_weight", 0.5) for r in expert_payload) / len(expert_payload) if expert_payload else 0.5,
+    }
+    
     report_payload = state["report"].model_dump()
+    
     user_text = (
         f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        f"Expert outputs:\n{expert_payload}\n"
-        f"Report:\n{report_payload}\n"
+        f"Expert outputs with reliability:\n{json.dumps(expert_payload, indent=2)}\n"
+        f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
+        f"Weighted severity: {weighted_severity:.3f}\n"
+        f"Reliability summary: {json.dumps(reliability_summary, indent=2)}\n"
+        f"Report:\n{json.dumps(report_payload, indent=2)}\n"
         "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed. "
+        "Consider expert reliability when evaluating the report:\n"
+        "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly\n"
+        "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence\n"
+        "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation\n"
+        "- When experts conflict, prioritize the one with higher reliability\n"
+        "- If report relies heavily on LOW reliability experts, flag for additional verification\n"
+        "- If weighted severity significantly differs from report severity, note the discrepancy\n"
         "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption. "
         "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean. "
         "If disapproving, explain which severe issue was missed and why replanning or re-evaluation is needed."
@@ -558,12 +652,14 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             "reflector_elapsed_seconds": elapsed,
         }
         _write_json(state, f"reflector_round_{state.get('reflection_revision_count', 0) + 1}.json", {
-            "revision": state.get("reflection_revision_count", 0) + 1,
+            "revision": state.get('reflection_revision_count', 0) + 1,
             "approved": review.approved,
             "feedback": review.feedback,
             "suggested_fixes": review.suggested_fixes,
             "report": state["report"].model_dump(mode="json"),
-            "expert_results": [item.model_dump(mode="json") for item in state["expert_results"]],
+            "expert_results": expert_payload,
+            "conflicts": conflicts,
+            "reliability_summary": reliability_summary,
             "reflector_model": model_used,
         })
         if review.approved:
@@ -572,12 +668,14 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         else:
             _print_stage(f"reflector_rejected feedback={review.feedback}")
             _append_log(state, "reflector_rejections.jsonl", {
-                "revision": state.get("reflection_revision_count", 0) + 1,
+                "revision": state.get('reflection_revision_count', 0) + 1,
                 "approved": review.approved,
                 "feedback": review.feedback,
                 "suggested_fixes": review.suggested_fixes,
                 "report": state["report"].model_dump(mode="json"),
-                "expert_results": [item.model_dump(mode="json") for item in state["expert_results"]],
+                "expert_results": expert_payload,
+                "conflicts": conflicts,
+                "reliability_summary": reliability_summary,
             })
             result["planner_feedback"] = review.feedback
             result["planner_feedback_source"] = "reflector"

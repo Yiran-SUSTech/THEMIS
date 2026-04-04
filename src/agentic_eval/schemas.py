@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,16 @@ ModelProfile = Literal[
     "remote_mid",
     "remote_strong",
 ]
+
+
+class ExpertReliabilityInfo(BaseModel):
+    expert_name: str
+    model_name: str
+    reliability: str = "medium"
+    confidence_weight: float = 0.7
+    benchmark: Optional[str] = None
+    accuracy: Optional[float] = None
+    notes: str = ""
 
 
 class ImageInput(BaseModel):
@@ -50,6 +60,25 @@ class ExpertResult(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     source: str = "remote"
     model: str | None = None
+    reliability: str = "medium"
+    confidence_weight: float = 0.7
+
+
+class ExpertConflictInfo(BaseModel):
+    experts: list[str]
+    severity_difference: float
+    recommended_trust: str
+    reason: str
+
+
+class ExpertReliabilitySummary(BaseModel):
+    high_reliability_count: int = 0
+    medium_reliability_count: int = 0
+    low_reliability_count: int = 0
+    unknown_reliability_count: int = 0
+    conflicts: list[ExpertConflictInfo] = Field(default_factory=list)
+    weighted_severity: float = 0.0
+    overall_confidence: float = 0.7
 
 
 class RoleTimings(BaseModel):
@@ -69,6 +98,8 @@ class EvaluationReport(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     key_issues: list[str] = Field(default_factory=list)
     role_timings: RoleTimings = Field(default_factory=RoleTimings)
+    expert_reliability_summary: ExpertReliabilitySummary = Field(default_factory=ExpertReliabilitySummary)
+    reliability_adjusted_scores: bool = False
 
 
 class ReflectionReview(BaseModel):
