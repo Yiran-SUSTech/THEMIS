@@ -708,24 +708,21 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     if review.approved:
         result["planner_feedback"] = None
         result["planner_feedback_source"] = None
-        else:
-            _print_stage(f"reflector_rejected feedback={review.feedback}")
-            _append_log(state, "reflector_rejections.jsonl", {
-                "revision": state.get('reflection_revision_count', 0) + 1,
-                "approved": review.approved,
-                "feedback": review.feedback,
-                "suggested_fixes": review.suggested_fixes,
-                "report": state["report"].model_dump(mode="json"),
-                "expert_results": expert_payload,
-                "conflicts": conflicts,
-                "reliability_summary": reliability_summary,
-            })
-            result["planner_feedback"] = review.feedback
-            result["planner_feedback_source"] = "reflector"
-        return result
-    except Exception as exc:
-        _fail_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, exc, reflection_revision)
-        raise
+    else:
+        _print_stage(f"reflector_rejected feedback={review.feedback}")
+        _append_log(state, "reflector_rejections.jsonl", {
+            "revision": state.get('reflection_revision_count', 0) + 1,
+            "approved": review.approved,
+            "feedback": review.feedback,
+            "suggested_fixes": review.suggested_fixes,
+            "report": state["report"].model_dump(mode="json"),
+            "expert_results": expert_payload,
+            "conflicts": conflicts,
+            "reliability_summary": reliability_summary,
+        })
+        result["planner_feedback"] = review.feedback
+        result["planner_feedback_source"] = "reflector"
+    return result
 
 
 

@@ -56,23 +56,55 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", default=None, help="Text prompt for t2i")
     parser.add_argument("--class-label", default=None, help="Class label for c2i")
     parser.add_argument("--output", default="single_eval_output.json", help="Path to save output JSON")
-    parser.add_argument("--planner-model", default=None, help="Override planner model. Use a local model path or a remote model name.")
+    parser.add_argument("--planner-model", default=None, 
+                        help="Override planner model. Use a local path (e.g., /path/to/Qwen2.5-VL-3B) or HuggingFace ID (e.g., Qwen/Qwen2.5-VL-3B-Instruct).")
+    parser.add_argument("--judge-model", default=None,
+                        help="Override judge model. Use a local path or HuggingFace ID.")
+    parser.add_argument("--reflector-model", default=None,
+                        help="Override reflector model. Use a local path or HuggingFace ID.")
     parser.add_argument("--planner-log-dir", default=None, help="Directory to save planner/judge/reflector rejection logs.")
     return parser.parse_args()
+
+
+
+def _apply_model_override(settings: Settings, model_type: str, model_value: str | None) -> None:
+    if not model_value:
+        return
+    
+    model_override = model_value.strip()
+    is_local = model_override.startswith("/")
+    
+    if model_type == "planner":
+        if is_local:
+            settings.planner_local_enabled = True
+            settings.planner_local_model = model_override
+        else:
+            settings.planner_local_enabled = False
+            settings.planner_model = model_override
+    elif model_type == "judge":
+        if is_local:
+            settings.judge_local_enabled = True
+            settings.judge_local_model = model_override
+        else:
+            settings.judge_local_enabled = False
+            settings.judge_model = model_override
+    elif model_type == "reflector":
+        if is_local:
+            settings.reflector_local_enabled = True
+            settings.reflector_local_model = model_override
+        else:
+            settings.reflector_local_enabled = False
+            settings.reflector_model = model_override
 
 
 
 def main() -> None:
     args = parse_args()
     settings = Settings.from_env()
-    if args.planner_model:
-        planner_override = args.planner_model.strip()
-        if planner_override.startswith("/"):
-            settings.planner_local_enabled = True
-            settings.planner_local_model = planner_override
-        else:
-            settings.planner_local_enabled = False
-            settings.planner_model = planner_override
+    
+    _apply_model_override(settings, "planner", args.planner_model)
+    _apply_model_override(settings, "judge", args.judge_model)
+    _apply_model_override(settings, "reflector", args.reflector_model)
 
     output_path, log_dir = _resolve_output_paths(
         output_arg=args.output,
