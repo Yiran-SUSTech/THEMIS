@@ -49,6 +49,8 @@ class Settings:
     
     planner_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     planner_local_path: Optional[str] = None
+    planner_local_model: Optional[str] = None
+    planner_local_enabled: bool = False
     planner_device: str = "cuda:0"
     planner_profile: ModelProfile = "fast"
     planner_max_new_tokens: int = 420
@@ -106,6 +108,8 @@ class Settings:
         planner_profile = os.getenv("PLANNER_PROFILE", "fast").strip()
         planner_model = os.getenv("PLANNER_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
         planner_local_path = os.getenv("PLANNER_LOCAL_MODEL_PATH", None)
+        planner_local_model = planner_local_path if planner_local_path else None
+        planner_local_enabled = bool(planner_local_path)
         planner_device = os.getenv("PLANNER_DEVICE", "cuda:0").strip()
         planner_max_new_tokens = env_int("PLANNER_MAX_NEW_TOKENS", 420)
         
@@ -142,6 +146,8 @@ class Settings:
             evaluation_profile=evaluation_profile,
             planner_model=planner_model,
             planner_local_path=planner_local_path,
+            planner_local_model=planner_local_model,
+            planner_local_enabled=planner_local_enabled,
             planner_device=planner_device,
             planner_profile=planner_profile,
             planner_max_new_tokens=planner_max_new_tokens,
