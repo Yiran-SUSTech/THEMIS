@@ -16,6 +16,7 @@ from .expert_performance import (
     calculate_weighted_severity,
 )
 from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
+from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -348,47 +349,157 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
     expert_name = step.expert
     model_profile = step.model_profile
     prompt_focus = step.prompt_focus
-    original_model = client.settings.local_semantic_model
-
-    if expert_name in {"semantic", "structural", "vqa"}:
-        if not client.settings.local_semantic_enabled:
-            raise RuntimeError(f"Local semantic model is disabled for expert '{expert_name}'")
-        try:
-            if model_profile == "local_stronger":
-                client.settings.local_semantic_model = client.settings.semantic_local_stronger_model
-            else:
-                client.settings.local_semantic_model = client.settings.semantic_local_fast_model
-
-            if expert_name == "semantic":
-                payload = LocalSemanticExpert(client.settings).evaluate(
-                    image_path=image_input.image_path,
-                    prompt=image_input.prompt,
-                    class_label=image_input.class_label,
-                )
-            elif expert_name == "structural":
-                payload = LocalStructuralExpert(client.settings).evaluate(
-                    image_path=image_input.image_path,
-                    prompt=image_input.prompt,
-                    class_label=image_input.class_label,
-                    prompt_focus=prompt_focus,
-                )
-            else:
-                payload = LocalVQAExpert(client.settings).evaluate(
+    settings = client.settings
+    
+    if settings.use_specialized_experts:
+        if expert_name == "semantic":
+            clip_config = ExpertModelConfig(
+                name="clip_semantic",
+                model_type="clip",
+                model=settings.clip_model_path,
+                device=settings.clip_device,
+            )
+            result = CLIPExpert(clip_config, settings).evaluate(
+                image_path=image_input.image_path,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+            )
+            return result
+            
+        elif expert_name == "structural":
+            findings = []
+            severities = []
+            confidences = []
+            
+            yolo_config = ExpertModelConfig(
+                name="yolo_pose",
+                model_type="yolo_pose",
+                model=settings.yolo_model_path,
+                device=settings.yolo_device,
+            )
+            try:
+                yolo_result = YOLOPoseExpert(yolo_config, settings).evaluate(image_path=image_input.image_path)
+                findings.extend(yolo_result.findings)
+                severities.append(yolo_result.severity)
+                confidences.append(yolo_result.confidence)
+            except Exception:
+                pass
+            
+            places_config = ExpertModelConfig(
+                name="places365",
+                model_type="places365",
+                model="places365",
+                device=settings.places365_device,
+            )
+            if settings.places365_model_path:
+                try:
+                    places_result = Places365Expert(places_config, settings).evaluate(image_path=image_input.image_path)
+                    findings.extend(places_result.findings)
+                    severities.append(places_result.severity)
+                    confidences.append(places_result.confidence)
+                except Exception:
+                    pass
+            
+            if not findings:
+                original_model = settings.local_semantic_model
+                try:
+                    if model_profile == "local_stronger":
+                        settings.local_semantic_model = settings.semantic_local_stronger_model
+                    else:
+                        settings.local_semantic_model = settings.semantic_local_fast_model
+                    payload = LocalStructuralExpert(settings).evaluate(
+                        image_path=image_input.image_path,
+                        prompt=image_input.prompt,
+                        class_label=image_input.class_label,
+                        prompt_focus=prompt_focus,
+                    )
+                    return ExpertResult.model_validate(payload)
+                finally:
+                    settings.local_semantic_model = original_model
+            
+            avg_severity = sum(severities) / len(severities) if severities else 0.5
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.5
+            
+            return ExpertResult(
+                expert="structural",
+                summary=f"Structural analysis from {len(findings)} checks",
+                findings=findings,
+                severity=avg_severity,
+                confidence=avg_confidence,
+                source="local",
+                model="yolo+places365",
+            )
+            
+        elif expert_name == "artifact":
+            iqa_config = ExpertModelConfig(
+                name="iqa",
+                model_type="iqa",
+                model="iqa",
+                device=settings.local_artifact_device,
+                metrics=["maniqa", "musiq", "niqe"],
+            )
+            result = IQAExpert(iqa_config, settings).evaluate(image_path=image_input.image_path)
+            return result
+            
+        elif expert_name == "vqa":
+            original_model = settings.local_semantic_model
+            try:
+                if model_profile == "local_stronger":
+                    settings.local_semantic_model = settings.semantic_local_stronger_model
+                else:
+                    settings.local_semantic_model = settings.semantic_local_fast_model
+                payload = LocalVQAExpert(settings).evaluate(
                     image_path=image_input.image_path,
                     prompt=image_input.prompt,
                     class_label=image_input.class_label,
                     goal=step.goal,
                     prompt_focus=prompt_focus,
                 )
-            return ExpertResult.model_validate(payload)
-        finally:
-            client.settings.local_semantic_model = original_model
+                return ExpertResult.model_validate(payload)
+            finally:
+                settings.local_semantic_model = original_model
+    
+    else:
+        original_model = settings.local_semantic_model
+        if expert_name in {"semantic", "structural", "vqa"}:
+            if not settings.local_semantic_enabled:
+                raise RuntimeError(f"Local semantic model is disabled for expert '{expert_name}'")
+            try:
+                if model_profile == "local_stronger":
+                    settings.local_semantic_model = settings.semantic_local_stronger_model
+                else:
+                    settings.local_semantic_model = settings.semantic_local_fast_model
 
-    if expert_name == "artifact":
-        if not client.settings.local_artifact_enabled:
-            raise RuntimeError("Local artifact expert is disabled")
-        payload = LocalArtifactExpert(client.settings).evaluate(image_path=image_input.image_path)
-        return ExpertResult.model_validate(payload)
+                if expert_name == "semantic":
+                    payload = LocalSemanticExpert(settings).evaluate(
+                        image_path=image_input.image_path,
+                        prompt=image_input.prompt,
+                        class_label=image_input.class_label,
+                    )
+                elif expert_name == "structural":
+                    payload = LocalStructuralExpert(settings).evaluate(
+                        image_path=image_input.image_path,
+                        prompt=image_input.prompt,
+                        class_label=image_input.class_label,
+                        prompt_focus=prompt_focus,
+                    )
+                else:
+                    payload = LocalVQAExpert(settings).evaluate(
+                        image_path=image_input.image_path,
+                        prompt=image_input.prompt,
+                        class_label=image_input.class_label,
+                        goal=step.goal,
+                        prompt_focus=prompt_focus,
+                    )
+                return ExpertResult.model_validate(payload)
+            finally:
+                settings.local_semantic_model = original_model
+
+        if expert_name == "artifact":
+            if not settings.local_artifact_enabled:
+                raise RuntimeError("Local artifact expert is disabled")
+            payload = LocalArtifactExpert(settings).evaluate(image_path=image_input.image_path)
+            return ExpertResult.model_validate(payload)
 
     raise RuntimeError(f"Unsupported expert '{expert_name}'")
 

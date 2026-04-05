@@ -103,6 +103,10 @@ def test_iqa():
     import warnings
     warnings.filterwarnings('ignore')
     
+    cache_dir = f'{MODEL_DIR}/pyiqa'
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ['PYIQA_CACHE_DIR'] = cache_dir
+    
     metrics = ['musiq', 'niqe']
     for metric in metrics:
         try:

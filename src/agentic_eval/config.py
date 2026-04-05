@@ -84,7 +84,27 @@ class Settings:
     local_artifact_device: str = "cuda:4"
     local_artifact_metrics: str = "maniqa,musiq,niqe"
     
+    iqa_cache_dir: str = "./models/pyiqa"
+    
     report_model: str = "Qwen/Qwen2.5-VL-7B-Instruct"
+    
+    use_specialized_experts: bool = True
+    
+    clip_model_path: str = "openai/clip-vit-base-patch32"
+    clip_device: str = "cuda:3"
+    
+    imagenet_model: str = "tf_efficientnetv2_s.in21k"
+    imagenet_weights: Optional[str] = None
+    imagenet_device: str = "cuda:3"
+    
+    yolo_model_path: str = "yolo11n-pose"
+    yolo_device: str = "cuda:3"
+    
+    places365_model_path: Optional[str] = None
+    places365_device: str = "cuda:3"
+    
+    rmbg_model_path: Optional[str] = None
+    rmbg_device: str = "cuda:3"
     
     expert_configs: Dict[str, ExpertModelConfig] = field(default_factory=dict)
     
@@ -160,7 +180,27 @@ class Settings:
         local_artifact_device = os.getenv("LOCAL_ARTIFACT_DEVICE", "cuda:4").strip()
         local_artifact_metrics = os.getenv("LOCAL_ARTIFACT_METRICS", "maniqa,musiq,niqe").strip()
         
+        iqa_cache_dir = os.getenv("IQA_CACHE_DIR", "./models/pyiqa").strip()
+        
         report_model = os.getenv("REPORT_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct").strip()
+        
+        use_specialized_experts = env_bool("USE_SPECIALIZED_EXPERTS", True)
+        
+        clip_model_path = os.getenv("CLIP_MODEL_PATH", "openai/clip-vit-base-patch32").strip()
+        clip_device = os.getenv("CLIP_DEVICE", "cuda:3").strip()
+        
+        imagenet_model = os.getenv("IMAGENET_MODEL", "tf_efficientnetv2_s.in21k").strip()
+        imagenet_weights = os.getenv("IMAGENET_WEIGHTS", None)
+        imagenet_device = os.getenv("IMAGENET_DEVICE", "cuda:3").strip()
+        
+        yolo_model_path = os.getenv("YOLO_MODEL_PATH", "yolo11n-pose").strip()
+        yolo_device = os.getenv("YOLO_DEVICE", "cuda:3").strip()
+        
+        places365_model_path = os.getenv("PLACES365_MODEL_PATH", None)
+        places365_device = os.getenv("PLACES365_DEVICE", "cuda:3").strip()
+        
+        rmbg_model_path = os.getenv("RMBG_MODEL_PATH", None)
+        rmbg_device = os.getenv("RMBG_DEVICE", "cuda:3").strip()
         
         max_plan_revisions = env_int("MAX_PLAN_REVISIONS", 2)
         max_reflection_revisions = env_int("MAX_REFLECTION_REVISIONS", 1)
@@ -208,7 +248,20 @@ class Settings:
             local_artifact_enabled=local_artifact_enabled,
             local_artifact_device=local_artifact_device,
             local_artifact_metrics=local_artifact_metrics,
+            iqa_cache_dir=iqa_cache_dir,
             report_model=report_model,
+            use_specialized_experts=use_specialized_experts,
+            clip_model_path=clip_model_path,
+            clip_device=clip_device,
+            imagenet_model=imagenet_model,
+            imagenet_weights=imagenet_weights,
+            imagenet_device=imagenet_device,
+            yolo_model_path=yolo_model_path,
+            yolo_device=yolo_device,
+            places365_model_path=places365_model_path,
+            places365_device=places365_device,
+            rmbg_model_path=rmbg_model_path,
+            rmbg_device=rmbg_device,
             max_plan_revisions=max_plan_revisions,
             max_reflection_revisions=max_reflection_revisions,
             semantic_escalation_threshold=semantic_escalation_threshold,

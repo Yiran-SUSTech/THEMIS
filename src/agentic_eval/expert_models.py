@@ -296,7 +296,17 @@ class YOLOPoseExpert(BaseExpert):
         try:
             from ultralytics import YOLO
             
-            model = YOLO(f"{self.config.model}.pt")
+            model_path = self.config.model
+            if not model_path.endswith('.pt'):
+                model_path = f"{model_path}.pt"
+            
+            if not Path(model_path).exists():
+                yolo_dir = Path(self.settings.model_dir) / "yolo"
+                alt_path = yolo_dir / Path(model_path).name
+                if alt_path.exists():
+                    model_path = str(alt_path)
+            
+            model = YOLO(model_path)
             
             self.registry.set_model(model_key, model)
             self._model = model
@@ -361,17 +371,20 @@ class Places365Expert(BaseExpert):
             return self.registry.get_model(model_key)
         
         places_dir = Path(self.settings.model_dir) / "places365"
-        model_path = places_dir / "resnet18_places365.pt"
+        model_path = places_dir / "resnet18_imagenet.pt"
         
         if not model_path.exists():
-            raise ExpertModelError(f"Places365 model not found at {model_path}")
+            model_path = places_dir / "resnet18_places365.pt"
+        
+        if not model_path.exists():
+            raise ExpertModelError(f"Places365 model not found at {places_dir}")
         
         if HAS_TORCHVISION:
             from torchvision import models
-            model = models.resnet18(num_classes=365)
+            model = models.resnet18(num_classes=1000)
         else:
             import timm
-            model = timm.create_model('resnet18', num_classes=365)
+            model = timm.create_model('resnet18', num_classes=1000)
         
         checkpoint = torch.load(model_path, map_location=self.config.device)
         
@@ -429,6 +442,11 @@ class IQAExpert(BaseExpert):
     def load_model(self) -> Any:
         if not self.config.metrics:
             raise ExpertModelError("No IQA metrics specified")
+        
+        cache_dir = getattr(self.settings, 'iqa_cache_dir', None)
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
+            os.environ['PYIQA_CACHE_DIR'] = cache_dir
         
         metrics = {}
         try:
