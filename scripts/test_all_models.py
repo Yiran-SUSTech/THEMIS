@@ -24,10 +24,10 @@ def test_model(name, test_func):
 
 def test_qwen_3b():
     """Test Qwen2.5-VL-3B"""
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
     model_path = f'{MODEL_DIR}/Qwen2.5-VL-3B-Instruct'
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path, 
         trust_remote_code=True,
         device_map='cpu',
@@ -37,10 +37,10 @@ def test_qwen_3b():
 
 def test_qwen_7b():
     """Test Qwen2.5-VL-7B"""
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
     model_path = f'{MODEL_DIR}/Qwen2.5-VL-7B-Instruct'
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path, 
         trust_remote_code=True,
         device_map='cpu',
