@@ -13,15 +13,13 @@ VALID_MODEL_PROFILES = {
     "local_default",
     "local_richer",
     "local_stronger",
-    "remote_mid",
-    "remote_strong",
 }
 
 EXPERT_ALLOWED_MODEL_PROFILES = {
-    "semantic": {"local_fast", "local_stronger", "remote_strong"},
-    "artifact": {"local_fast", "local_default", "local_richer", "remote_strong"},
-    "structural": {"remote_mid", "remote_strong"},
-    "vqa": {"remote_mid", "remote_strong"},
+    "semantic": {"local_fast", "local_stronger"},
+    "artifact": {"local_fast", "local_default", "local_richer"},
+    "structural": {"local_fast", "local_stronger"},
+    "vqa": {"local_fast", "local_stronger"},
 }
 
 _LOCAL_VLM_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -48,8 +46,9 @@ def _resolve_vlm_model_class() -> type[Any]:
 
 def _build_vlm_load_kwargs(torch: Any, quantization: Optional[str], device: str) -> dict[str, Any]:
     load_kwargs: dict[str, Any] = {"trust_remote_code": True}
-    if torch.cuda.is_available() and device == "cuda":
-        load_kwargs["device_map"] = "auto"
+    normalized_device = (device or "").strip().lower()
+    if torch.cuda.is_available() and normalized_device.startswith("cuda"):
+        load_kwargs["device_map"] = {"": device}
         normalized_quantization = quantization.lower() if quantization else ""
         if normalized_quantization == "4bit":
             from transformers import BitsAndBytesConfig
@@ -143,7 +142,7 @@ class LocalPlanner:
 
     def _normalize_model_profile(self, expert: str, model_profile: str) -> str:
         candidate = (model_profile or "").strip().lower()
-        allowed_profiles = EXPERT_ALLOWED_MODEL_PROFILES.get(expert, {"remote_mid"})
+        allowed_profiles = EXPERT_ALLOWED_MODEL_PROFILES.get(expert, {"local_fast"})
         if candidate in VALID_MODEL_PROFILES and candidate in allowed_profiles:
             return candidate
         if expert == "semantic":
@@ -151,10 +150,10 @@ class LocalPlanner:
         if expert == "artifact":
             return "local_default"
         if expert == "structural":
-            return "remote_mid"
+            return "local_fast"
         if expert == "vqa":
-            return "remote_mid"
-        return "remote_mid"
+            return "local_fast"
+        return "local_fast"
 
     def _normalize_plan(self, payload: dict[str, Any], class_label: str | None = None) -> dict[str, Any]:
         steps = payload.get("steps")
@@ -215,7 +214,7 @@ class LocalPlanner:
                     "step_id": insert_index + 1,
                     "expert": "structural",
                     "goal": "Assess whole-subject structural coherence and class-specific morphology.",
-                    "model_profile": "remote_mid",
+                    "model_profile": "local_fast",
                     "prompt_focus": f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for {label_text}.",
                     "allow_escalation": True,
                 },
@@ -262,11 +261,11 @@ class LocalPlanner:
             "For artifact, inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, and corrupted fur or edge boundaries when relevant.",
             "Do not compare against external reference images or do open-ended species research; inspect this image directly.",
             "Prefer the cheapest adequate route first.",
-            "Default preferences: semantic -> local_fast first, artifact -> local_default/local_richer first, structural -> remote_mid only when needed, vqa -> use only if unresolved after earlier steps.",
-            "Use remote_strong only for hard unresolved fine-grained cases.",
+            "Default preferences: semantic -> local_fast first, structural -> local_fast first, artifact -> local_default/local_richer first, vqa -> local_fast when needed.",
+            "Use local_stronger only for harder unresolved cases.",
             "Set prompt_focus to the exact visual evidence to inspect, using subject-specific failure modes instead of a generic checklist.",
             "Return valid JSON only.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger|remote_mid|remote_strong","prompt_focus":"string","allow_escalation":true}]}',
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","prompt_focus":"string","allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
@@ -518,7 +517,7 @@ class LocalArtifactExpert:
         self.settings = settings
         self._pyiqa: Any | None = None
         self._metrics: dict[str, Any] = {}
-        self._device = "cuda" if settings.local_artifact_device == "cuda" else "cpu"
+        self._device = settings.local_artifact_device if (settings.local_artifact_device or "").strip().lower().startswith("cuda") else "cpu"
 
     @property
     def metric_names(self) -> list[str]:
@@ -536,7 +535,7 @@ class LocalArtifactExpert:
                 "Local artifact dependencies are missing. Install pyiqa and torch."
             ) from exc
 
-        if self.settings.local_artifact_device == "cuda" and not torch.cuda.is_available():
+        if (self.settings.local_artifact_device or "").strip().lower().startswith("cuda") and not torch.cuda.is_available():
             self._device = "cpu"
 
         self._pyiqa = pyiqa
@@ -815,3 +814,303 @@ class LocalReflector:
             "feedback": str(payload.get("feedback", "")).strip(),
             "suggested_fixes": list(payload.get("suggested_fixes", [])),
         }
+
+
+class LocalStructuralExpert:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._processor: Any | None = None
+        self._model: Any | None = None
+        self._torch: Any | None = None
+        self._image_module: Any | None = None
+
+    def _load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+
+        bundle = _load_vlm_bundle(
+            self.settings.local_semantic_model,
+            self.settings.local_semantic_quantization,
+            self.settings.local_semantic_device,
+            "Failed to load local structural model",
+        )
+        self._processor = bundle["processor"]
+        self._model = bundle["model"]
+        self._torch = bundle["torch"]
+        self._image_module = bundle["image_module"]
+
+    def _load_image(self, image_path: str):
+        if self._image_module is None:
+            raise LocalExpertError("PIL is not loaded")
+
+        image = self._image_module.open(image_path).convert("RGB")
+        max_side = self.settings.local_image_max_side
+        image.thumbnail((max_side, max_side))
+        return image
+
+    def evaluate(self, *, image_path: str, prompt: str | None, class_label: str | None, prompt_focus: str | None = None) -> dict[str, Any]:
+        self._load()
+        if self._processor is None or self._model is None or self._torch is None:
+            raise LocalExpertError("Local structural expert failed to initialize")
+
+        task_lines = [
+            "You are the structural expert in an image generation evaluator.",
+            "Assess whole-subject structural coherence, anatomy, and part attachment integrity only.",
+            "Focus on whether the visible subject forms a coherent instance of the requested class.",
+            "Pay special attention to malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, and impossible boundaries when relevant.",
+            "Return valid JSON only.",
+            "Use severity where 0 means no structural issue and 1 means severe structural failure.",
+            "Use confidence where 0 means very uncertain and 1 means highly confident.",
+            'JSON schema: {"expert":"structural","summary":"string","findings":["string"],"severity":0.0,"confidence":0.0,"source":"local","model":"string"}',
+        ]
+        if prompt:
+            task_lines.append(f"Prompt: {prompt}")
+        if class_label:
+            task_lines.append(f"Class label: {class_label}")
+        if prompt_focus:
+            task_lines.append(f"Prompt focus: {prompt_focus}")
+
+        user_text = "\n".join(task_lines)
+        image = self._load_image(image_path)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
+
+        try:
+            prompt_text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self._processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self._model.device)
+            generated_ids = self._model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.settings.local_semantic_max_new_tokens,
+            )
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = self._processor.batch_decode(
+                trimmed_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0]
+        except Exception as exc:
+            raise LocalExpertError("Local structural inference failed") from exc
+
+        payload = extract_json(output_text)
+        payload.setdefault("expert", "structural")
+        raw_severity = payload.get("severity", 0.0)
+        try:
+            payload["severity"] = round(max(0.0, min(1.0, float(raw_severity))), 4)
+        except (TypeError, ValueError):
+            payload["severity"] = 0.0
+        payload.setdefault("confidence", 0.0)
+        payload.setdefault("source", "local")
+        payload.setdefault("model", self.settings.local_semantic_model)
+        return payload
+
+
+class LocalVQAExpert:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._processor: Any | None = None
+        self._model: Any | None = None
+        self._torch: Any | None = None
+        self._image_module: Any | None = None
+
+    def _load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+
+        bundle = _load_vlm_bundle(
+            self.settings.local_semantic_model,
+            self.settings.local_semantic_quantization,
+            self.settings.local_semantic_device,
+            "Failed to load local VQA model",
+        )
+        self._processor = bundle["processor"]
+        self._model = bundle["model"]
+        self._torch = bundle["torch"]
+        self._image_module = bundle["image_module"]
+
+    def _load_image(self, image_path: str):
+        if self._image_module is None:
+            raise LocalExpertError("PIL is not loaded")
+
+        image = self._image_module.open(image_path).convert("RGB")
+        max_side = self.settings.local_image_max_side
+        image.thumbnail((max_side, max_side))
+        return image
+
+    def evaluate(self, *, image_path: str, prompt: str | None, class_label: str | None, goal: str | None = None, prompt_focus: str | None = None) -> dict[str, Any]:
+        self._load()
+        if self._processor is None or self._model is None or self._torch is None:
+            raise LocalExpertError("Local VQA expert failed to initialize")
+
+        task_lines = [
+            "You are the VQA expert in an image generation evaluator.",
+            "Answer only the unresolved visual question needed for evaluation.",
+            "Use the image as evidence and summarize only what is directly visible.",
+            "Return valid JSON only.",
+            "Use severity where 0 means no issue was found and 1 means the answer reveals a severe issue.",
+            "Use confidence where 0 means very uncertain and 1 means highly confident.",
+            'JSON schema: {"expert":"vqa","summary":"string","findings":["string"],"severity":0.0,"confidence":0.0,"source":"local","model":"string"}',
+        ]
+        if prompt:
+            task_lines.append(f"Prompt: {prompt}")
+        if class_label:
+            task_lines.append(f"Class label: {class_label}")
+        if goal:
+            task_lines.append(f"Goal: {goal}")
+        if prompt_focus:
+            task_lines.append(f"Prompt focus: {prompt_focus}")
+
+        user_text = "\n".join(task_lines)
+        image = self._load_image(image_path)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
+
+        try:
+            prompt_text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self._processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self._model.device)
+            generated_ids = self._model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.settings.local_semantic_max_new_tokens,
+            )
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = self._processor.batch_decode(
+                trimmed_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0]
+        except Exception as exc:
+            raise LocalExpertError("Local VQA inference failed") from exc
+
+        payload = extract_json(output_text)
+        payload.setdefault("expert", "vqa")
+        raw_severity = payload.get("severity", 0.0)
+        try:
+            payload["severity"] = round(max(0.0, min(1.0, float(raw_severity))), 4)
+        except (TypeError, ValueError):
+            payload["severity"] = 0.0
+        payload.setdefault("confidence", 0.0)
+        payload.setdefault("source", "local")
+        payload.setdefault("model", self.settings.local_semantic_model)
+        return payload
+
+
+class LocalReport:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._processor: Any | None = None
+        self._model: Any | None = None
+        self._torch: Any | None = None
+        self._image_module: Any | None = None
+
+    def _load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+
+        report_model = self.settings.reflector_local_model or self.settings.judge_local_model or self.settings.local_semantic_model
+        report_device = self.settings.reflector_device or self.settings.judge_device or self.settings.local_semantic_device
+        bundle = _load_vlm_bundle(
+            report_model,
+            self.settings.local_semantic_quantization,
+            report_device,
+            "Failed to load local report model",
+        )
+        self._processor = bundle["processor"]
+        self._model = bundle["model"]
+        self._torch = bundle["torch"]
+        self._image_module = bundle["image_module"]
+
+    def _load_image(self, image_path: str):
+        if self._image_module is None:
+            raise LocalExpertError("PIL is not loaded")
+
+        image = self._image_module.open(image_path).convert("RGB")
+        max_side = self.settings.local_image_max_side
+        image.thumbnail((max_side, max_side))
+        return image
+
+    def evaluate(self, *, image_path: str, expert_results: list[dict[str, Any]], conflicts: list[dict[str, Any]], weighted_severity: float, prompt: str | None, class_label: str | None) -> dict[str, Any]:
+        self._load()
+        if self._processor is None or self._model is None or self._torch is None:
+            raise LocalExpertError("Local report model failed to initialize")
+
+        expert_json = json.dumps(expert_results, indent=2, ensure_ascii=False)
+        conflicts_json = json.dumps(conflicts, indent=2, ensure_ascii=False) if conflicts else "None"
+        task_lines = [
+            "You synthesize expert evidence into an evaluation report, but you are not bound by the experts if the image itself suggests they missed a serious failure.",
+            "Directly inspect the image again while reading the expert outputs.",
+            "Use a conservative standard: when visible evidence suggests species mismatch, impossible anatomy, extra appendages, malformed extremities, duplicated limbs, broken joints, wrong tail attachment, or severe boundary corruption, lower the scores accordingly.",
+            "Artifact score is a quality score where 1 means minimal visible artifacts and 0 means severe visible artifacts.",
+            "Set hard_failure true when the image shows severe species mismatch or severe anatomical or structural generation failure.",
+            "Return valid JSON only.",
+            'JSON schema: {"alignment_reasoning":"string","artifact_reasoning":"string","alignment_score":0.0,"artifact_score":0.0,"hard_failure":false,"confidence":0.0,"key_issues":["string"]}',
+            f"Prompt: {prompt or 'N/A'}",
+            f"Class label: {class_label or 'N/A'}",
+            f"Expert outputs:\n{expert_json}",
+            f"Detected conflicts:\n{conflicts_json}",
+            f"Weighted severity: {weighted_severity:.3f}",
+        ]
+
+        user_text = "\n".join(task_lines)
+        image = self._load_image(image_path)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
+
+        try:
+            prompt_text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self._processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self._model.device)
+            generated_ids = self._model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.settings.reflector_local_max_new_tokens,
+            )
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = self._processor.batch_decode(
+                trimmed_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0]
+        except Exception as exc:
+            raise LocalExpertError("Local report inference failed") from exc
+
+        payload = extract_json(output_text)
+        for key in ("alignment_score", "artifact_score", "confidence"):
+            try:
+                payload[key] = round(max(0.0, min(1.0, float(payload.get(key, 0.0)))), 4)
+            except (TypeError, ValueError):
+                payload[key] = 0.0
+        payload["hard_failure"] = bool(payload.get("hard_failure", False))
+        payload["alignment_reasoning"] = str(payload.get("alignment_reasoning", "")).strip()
+        payload["artifact_reasoning"] = str(payload.get("artifact_reasoning", "")).strip()
+        payload["key_issues"] = list(payload.get("key_issues", []))
+        return payload

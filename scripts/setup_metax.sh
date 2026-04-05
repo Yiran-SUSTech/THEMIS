@@ -242,7 +242,7 @@ check_and_install "scipy scikit-learn pandas matplotlib seaborn tqdm pyyaml pyth
 check_and_install "transformers accelerate sentencepiece protobuf einops timm" "Transformers 相关包"
 
 # LangChain 相关
-check_and_install "langgraph langchain langchain-core langchain-anthropic" "LangChain 相关包"
+check_and_install "langgraph langchain langchain-core" "LangChain 相关包"
 
 # 视觉模型相关 (全部使用 --no-deps 保护 opencv)
 echo -e "${BLUE}检查 视觉模型相关包...${NC}"
@@ -433,8 +433,19 @@ REFLECTOR_DEVICE=cuda:2
 REFLECTOR_MAX_NEW_TOKENS=400
 
 # =============================================================================
-# 专家模型路径
+# 本地专家模型配置
 # =============================================================================
+
+LOCAL_PRIMARY_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+LOCAL_SEMANTIC_ENABLED=true
+LOCAL_SEMANTIC_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+SEMANTIC_LOCAL_FAST_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+SEMANTIC_LOCAL_STRONGER_MODEL=${MODEL_DIR}/Qwen2.5-VL-7B-Instruct
+LOCAL_SEMANTIC_DEVICE=cuda:3
+LOCAL_ARTIFACT_ENABLED=true
+LOCAL_ARTIFACT_METRICS=maniqa,musiq,niqe
+LOCAL_ARTIFACT_DEVICE=cuda:4
+REPORT_MODEL=${MODEL_DIR}/Qwen2.5-VL-7B-Instruct
 
 IMAGENET_MODEL_PATH=${MODEL_DIR}/efficientnetv2_s_in21k.pth
 CLIP_MODEL_PATH=${MODEL_DIR}/clip-vit-base-patch32

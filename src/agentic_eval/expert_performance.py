@@ -211,11 +211,11 @@ EXPERT_PERFORMANCE_TABLE: Dict[str, ExpertPerformanceMetrics] = {
     ),
     "structural": ExpertPerformanceMetrics(
         expert_name="StructuralExpert",
-        model_name="Claude/Qwen-VL",
+        model_name="Qwen2.5-VL",
         task_type="structural_analysis",
         reliability=ReliabilityLevel.MEDIUM,
-        notes="VLM-based structural inspection",
-        source="Anthropic/Qwen",
+        notes="Local VLM-based structural inspection",
+        source="Qwen Team",
     ),
     "artifact": ExpertPerformanceMetrics(
         expert_name="ArtifactExpert",

@@ -6,19 +6,10 @@ if [ -f ".env" ]; then
   set +a
 fi
 
-export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-sonnet-4-6}"
-export PLANNER_MODEL="${PLANNER_MODEL:-claude-sonnet-4-6}"
-export PLANNER_MODEL_BUDGET="${PLANNER_MODEL_BUDGET:-claude-haiku-4-5}"
-export JUDGE_MODEL="${JUDGE_MODEL:-claude-haiku-4-5}"
-export JUDGE_MODEL_UPGRADE="${JUDGE_MODEL_UPGRADE:-claude-sonnet-4-6}"
-export REPORT_MODEL="${REPORT_MODEL:-claude-sonnet-4-6}"
-export REFLECTOR_MODEL="${REFLECTOR_MODEL:-claude-sonnet-4-6}"
-export REMOTE_EXPERT_MODEL="${REMOTE_EXPERT_MODEL:-claude-sonnet-4-6}"
-export STRUCTURAL_REMOTE_MID_MODEL="${STRUCTURAL_REMOTE_MID_MODEL:-claude-haiku-4-5}"
-export STRUCTURAL_REMOTE_STRONG_MODEL="${STRUCTURAL_REMOTE_STRONG_MODEL:-claude-sonnet-4-6}"
-export ARTIFACT_REMOTE_STRONG_MODEL="${ARTIFACT_REMOTE_STRONG_MODEL:-claude-sonnet-4-6}"
-export VQA_REMOTE_MID_MODEL="${VQA_REMOTE_MID_MODEL:-claude-haiku-4-5}"
-export VQA_REMOTE_STRONG_MODEL="${VQA_REMOTE_STRONG_MODEL:-claude-sonnet-4-6}"
+export PLANNER_MODEL="${PLANNER_MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}"
+export JUDGE_MODEL="${JUDGE_MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}"
+export REPORT_MODEL="${REPORT_MODEL:-Qwen/Qwen2.5-VL-7B-Instruct}"
+export REFLECTOR_MODEL="${REFLECTOR_MODEL:-Qwen/Qwen2.5-VL-7B-Instruct}"
 
 export LOCAL_SEMANTIC_ENABLED="${LOCAL_SEMANTIC_ENABLED:-true}"
 export SEMANTIC_LOCAL_FAST_MODEL="${SEMANTIC_LOCAL_FAST_MODEL:-/home/ronin/THEMIS/models/Qwen2.5-VL-3B-Instruct}"

@@ -212,8 +212,6 @@ pip install \
     python-dotenv \
     langgraph \
     langchain \
-    openai \
-    anthropic \
     requests \
     aiohttp
 
@@ -271,9 +269,17 @@ PLANNER_PROFILE=fast
 JUDGE_PROFILE=fast
 REFLECTOR_PROFILE=standard
 
-# API Configuration (if using remote models)
-ANTHROPIC_BASE_URL=https://api.anthropic.com
-ANTHROPIC_API_KEY=your-api-key-here
+# Local expert routing
+LOCAL_PRIMARY_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+LOCAL_SEMANTIC_ENABLED=true
+LOCAL_SEMANTIC_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+SEMANTIC_LOCAL_FAST_MODEL=${MODEL_DIR}/Qwen2.5-VL-3B-Instruct
+SEMANTIC_LOCAL_STRONGER_MODEL=${MODEL_DIR}/Qwen2.5-VL-7B-Instruct
+LOCAL_SEMANTIC_DEVICE=cuda:3
+LOCAL_ARTIFACT_ENABLED=true
+LOCAL_ARTIFACT_METRICS=maniqa,musiq,niqe
+LOCAL_ARTIFACT_DEVICE=cuda:4
+REPORT_MODEL=${MODEL_DIR}/Qwen2.5-VL-7B-Instruct
 
 # Evaluation Settings
 MAX_PLAN_REVISIONS=2

@@ -78,6 +78,9 @@ def _apply_model_override(settings: Settings, model_type: str, model_value: str 
         if is_local:
             settings.planner_local_enabled = True
             settings.planner_local_model = model_override
+            settings.local_semantic_model = model_override
+            if settings.semantic_local_fast_model == "Qwen/Qwen2.5-VL-3B-Instruct":
+                settings.semantic_local_fast_model = model_override
         else:
             settings.planner_local_enabled = False
             settings.planner_model = model_override
@@ -92,6 +95,8 @@ def _apply_model_override(settings: Settings, model_type: str, model_value: str 
         if is_local:
             settings.reflector_local_enabled = True
             settings.reflector_local_model = model_override
+            if settings.semantic_local_stronger_model == "Qwen/Qwen2.5-VL-7B-Instruct":
+                settings.semantic_local_stronger_model = model_override
         else:
             settings.reflector_local_enabled = False
             settings.reflector_model = model_override

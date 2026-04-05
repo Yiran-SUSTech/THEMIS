@@ -40,9 +40,7 @@ class ExpertModelConfig:
 
 @dataclass
 class Settings:
-    anthropic_base_url: str
-    anthropic_api_key: str
-    model: str = "claude-sonnet-4-6"
+    model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     
     model_dir: str = "./models"
     evaluation_profile: EvaluationProfile = "standard"
@@ -86,14 +84,7 @@ class Settings:
     local_artifact_device: str = "cuda:4"
     local_artifact_metrics: str = "maniqa,musiq,niqe"
     
-    report_model: str = "claude-sonnet-4-6"
-    
-    remote_expert_model: str = "claude-sonnet-4-6"
-    structural_remote_mid_model: str = "claude-sonnet-4-6"
-    structural_remote_strong_model: str = "claude-sonnet-4-6"
-    vqa_remote_mid_model: str = "claude-sonnet-4-6"
-    vqa_remote_strong_model: str = "claude-sonnet-4-6"
-    artifact_remote_strong_model: str = "claude-sonnet-4-6"
+    report_model: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     
     expert_configs: Dict[str, ExpertModelConfig] = field(default_factory=dict)
     
@@ -125,9 +116,7 @@ class Settings:
                 return default
             return int(value)
 
-        base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip()
-        api_key = (os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY") or "").strip()
-        model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6").strip() or "claude-sonnet-4-6"
+        model = os.getenv("LOCAL_PRIMARY_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip() or "Qwen/Qwen2.5-VL-3B-Instruct"
         
         model_dir = os.getenv("MODEL_DIR", "./models").strip()
         
@@ -171,14 +160,7 @@ class Settings:
         local_artifact_device = os.getenv("LOCAL_ARTIFACT_DEVICE", "cuda:4").strip()
         local_artifact_metrics = os.getenv("LOCAL_ARTIFACT_METRICS", "maniqa,musiq,niqe").strip()
         
-        report_model = os.getenv("REPORT_MODEL", model).strip()
-        
-        remote_expert_model = os.getenv("REMOTE_EXPERT_MODEL", model).strip()
-        structural_remote_mid_model = os.getenv("STRUCTURAL_REMOTE_MID_MODEL", model).strip()
-        structural_remote_strong_model = os.getenv("STRUCTURAL_REMOTE_STRONG_MODEL", model).strip()
-        vqa_remote_mid_model = os.getenv("VQA_REMOTE_MID_MODEL", model).strip()
-        vqa_remote_strong_model = os.getenv("VQA_REMOTE_STRONG_MODEL", model).strip()
-        artifact_remote_strong_model = os.getenv("ARTIFACT_REMOTE_STRONG_MODEL", model).strip()
+        report_model = os.getenv("REPORT_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct").strip()
         
         max_plan_revisions = env_int("MAX_PLAN_REVISIONS", 2)
         max_reflection_revisions = env_int("MAX_REFLECTION_REVISIONS", 1)
@@ -188,14 +170,7 @@ class Settings:
         log_level = os.getenv("LOG_LEVEL", "INFO").strip()
         log_dir = os.getenv("LOG_DIR", "./logs").strip()
 
-        if not base_url:
-            pass
-        if not api_key:
-            pass
-
         return cls(
-            anthropic_base_url=base_url,
-            anthropic_api_key=api_key,
             model=model,
             model_dir=model_dir,
             evaluation_profile=evaluation_profile,
@@ -234,12 +209,6 @@ class Settings:
             local_artifact_device=local_artifact_device,
             local_artifact_metrics=local_artifact_metrics,
             report_model=report_model,
-            remote_expert_model=remote_expert_model,
-            structural_remote_mid_model=structural_remote_mid_model,
-            structural_remote_strong_model=structural_remote_strong_model,
-            vqa_remote_mid_model=vqa_remote_mid_model,
-            vqa_remote_strong_model=vqa_remote_strong_model,
-            artifact_remote_strong_model=artifact_remote_strong_model,
             max_plan_revisions=max_plan_revisions,
             max_reflection_revisions=max_reflection_revisions,
             semantic_escalation_threshold=semantic_escalation_threshold,
@@ -266,6 +235,8 @@ class Settings:
                     p = profiles[default_profile]
                     settings.planner_model = p.get("model", settings.planner_model)
                     settings.planner_local_path = p.get("local_path", None)
+                    settings.planner_local_model = settings.planner_local_path if settings.planner_local_path else settings.planner_local_model
+                    settings.planner_local_enabled = bool(settings.planner_local_model)
                     settings.planner_device = p.get("device", settings.planner_device)
                     settings.planner_max_new_tokens = p.get("max_new_tokens", settings.planner_max_new_tokens)
                     settings.planner_profile = default_profile
@@ -278,6 +249,8 @@ class Settings:
                     p = profiles[default_profile]
                     settings.judge_model = p.get("model", settings.judge_model)
                     settings.judge_local_path = p.get("local_path", None)
+                    settings.judge_local_model = settings.judge_local_path if settings.judge_local_path else settings.judge_local_model
+                    settings.judge_local_enabled = bool(settings.judge_local_model)
                     settings.judge_device = p.get("device", settings.judge_device)
                     settings.judge_max_new_tokens = p.get("max_new_tokens", settings.judge_max_new_tokens)
                     settings.judge_profile = default_profile
@@ -290,6 +263,8 @@ class Settings:
                     p = profiles[default_profile]
                     settings.reflector_model = p.get("model", settings.reflector_model)
                     settings.reflector_local_path = p.get("local_path", None)
+                    settings.reflector_local_model = settings.reflector_local_path if settings.reflector_local_path else settings.reflector_local_model
+                    settings.reflector_local_enabled = bool(settings.reflector_local_model)
                     settings.reflector_device = p.get("device", settings.reflector_device)
                     settings.reflector_max_new_tokens = p.get("max_new_tokens", settings.reflector_max_new_tokens)
                     settings.reflector_profile = default_profile

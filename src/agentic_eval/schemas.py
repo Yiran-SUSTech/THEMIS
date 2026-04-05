@@ -11,8 +11,6 @@ ModelProfile = Literal[
     "local_default",
     "local_richer",
     "local_stronger",
-    "remote_mid",
-    "remote_strong",
 ]
 
 
@@ -58,7 +56,7 @@ class ExpertResult(BaseModel):
     findings: list[str] = Field(default_factory=list)
     severity: float = Field(default=0.0, ge=0.0, le=1.0)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    source: str = "remote"
+    source: str = "local"
     model: str | None = None
     reliability: str = "medium"
     confidence_weight: float = 0.7

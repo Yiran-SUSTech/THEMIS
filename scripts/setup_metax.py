@@ -114,7 +114,7 @@ def install_packages():
     
     # LangChain 相关
     print("安装 LangChain 相关包...")
-    lc_packages = "langgraph langchain langchain-core langchain-anthropic"
+    lc_packages = "langgraph langchain langchain-core"
     if pip_install(lc_packages):
         print_success("LangChain 相关包安装完成")
     

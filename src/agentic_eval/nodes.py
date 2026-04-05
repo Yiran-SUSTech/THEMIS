@@ -15,7 +15,7 @@ from .expert_performance import (
     detect_expert_conflicts,
     calculate_weighted_severity,
 )
-from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector
+from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -59,8 +59,6 @@ PLAN_SCHEMA: dict[str, Any] = {
                             "local_default",
                             "local_richer",
                             "local_stronger",
-                            "remote_mid",
-                            "remote_strong",
                         ],
                     },
                     "prompt_focus": {"type": "string"},
@@ -209,14 +207,13 @@ def _artifact_local_model_name(model_profile: str) -> str:
 
 
 def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_profile: str) -> str:
-    if expert_name == "semantic" and model_profile in {"local_fast", "local_stronger"} and client.settings.local_semantic_enabled:
-        if model_profile == "local_fast":
-            return client.settings.semantic_local_fast_model
-        return client.settings.semantic_local_stronger_model
-    if expert_name == "artifact" and model_profile in {"local_fast", "local_default", "local_richer"} and client.settings.local_artifact_enabled:
+    if expert_name in {"semantic", "structural", "vqa"} and client.settings.local_semantic_enabled:
+        if model_profile == "local_stronger":
+            return client.settings.semantic_local_stronger_model
+        return client.settings.semantic_local_fast_model
+    if expert_name == "artifact" and client.settings.local_artifact_enabled:
         return _artifact_local_model_name(model_profile)
-    fallback_profile = model_profile if model_profile in {"remote_mid", "remote_strong"} else "remote_strong"
-    return resolve_remote_model(client, expert_name, fallback_profile)
+    raise RuntimeError(f"No local model configured for expert '{expert_name}'")
 
 
 def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
@@ -241,63 +238,32 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass. "
         "Unless the image is trivially simple, include at least one semantic step, one structural step, and one artifact step; include vqa only if earlier evidence leaves a material unresolved question. "
         "Step order should usually be: semantic alignment first, structural coherence second, local artifact severity third, then optional vqa. "
-        "For each step, choose a model_profile. Strongly prefer the cheapest adequate route first: semantic should start with local_fast or local_stronger, artifact should start with local_default or local_richer, structural should avoid remote_strong unless remote_mid is clearly insufficient, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
+        "For each step, choose a model_profile. Strongly prefer the cheapest adequate local route first: semantic should start with local_fast, structural should start with local_fast, artifact should start with local_default or local_richer, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
         "For semantic steps, check whether the visible subject is plausibly the labeled class from image evidence alone, then note the strongest confirming or contradicting traits. "
         "For structural steps, first test whether the whole animal forms a coherent instance of the labeled subject, then target the most likely subject-specific confusion risks and part-integrity failures visible in this image. Use the class label to name distinguishing morphology, body proportions, pose plausibility, and scene compatibility that separate this subject from nearby lookalikes. "
         "For artifact steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
         "Do not frame any step as comparing against external reference photos or doing open-ended species research; inspect this image directly. "
-        "Escalate to remote_strong only when the task is fine-grained, evidence is ambiguous, or prior judge/reflector feedback indicates the earlier route was insufficient. "
+        "Escalate to local_stronger only when the task is fine-grained, evidence is ambiguous, or prior judge/reflector feedback indicates the earlier route was insufficient. "
         "Set prompt_focus to the exact visual evidence the expert should inspect, using subject-specific failure modes instead of a generic checklist. Set allow_escalation to false for steps that should stay on the chosen route."
         f"{prior_feedback}"
     )
     try:
-        if client.settings.planner_local_enabled:
-            try:
-                _print_stage(f"planner route=local model={client.settings.planner_local_model}")
-                payload = LocalPlanner(client.settings).plan(
-                    image_path=image_input.image_path,
-                    prompt=image_input.prompt,
-                    class_label=image_input.class_label,
-                    prior_feedback=prior_feedback.strip(),
-                )
-                elapsed = _finish_stage("planner", "build_plan", client.settings.planner_local_model, started_at, stop_event, heartbeat, planner_revision)
-                plan = EvaluationPlan.model_validate(payload)
-                _write_json(state, f"plan_round_{planner_run_number}.json", {
-                    "round": planner_run_number,
-                    "revision": state.get("plan_revision_count", 0) + 1,
-                    "planner_model": client.settings.planner_local_model,
-                    "planner_route": "local",
-                    "planner_feedback_source": state.get("planner_feedback_source"),
-                    "planner_feedback": state.get("planner_feedback"),
-                    "plan": plan.model_dump(mode="json"),
-                })
-                return {
-                    "plan": plan,
-                    "expert_results": [],
-                    "planner_feedback": None,
-                    "planner_feedback_source": None,
-                    "planner_model_used": client.settings.planner_local_model,
-                    "planner_elapsed_seconds": elapsed,
-                    "planner_run_count": planner_run_number,
-                }
-            except (LocalExpertError, ValueError):
-                _write_stage_line(_stage_message("planner", "build_plan", client.settings.planner_model, perf_counter() - started_at, "running", planner_revision), final=False)
-
-        model_used = client.settings.planner_model
-        payload = client.invoke_json(
-            system=PLANNER_SYSTEM,
-            user_text=user_text,
+        if not client.settings.planner_local_enabled or not client.settings.planner_local_model:
+            raise RuntimeError("Planner local model is not configured")
+        _print_stage(f"planner route=local model={client.settings.planner_local_model}")
+        payload = LocalPlanner(client.settings).plan(
             image_path=image_input.image_path,
-            schema=PLAN_SCHEMA,
-            model=model_used,
+            prompt=image_input.prompt,
+            class_label=image_input.class_label,
+            prior_feedback=prior_feedback.strip(),
         )
-        elapsed = _finish_stage("planner", "build_plan", model_used, started_at, stop_event, heartbeat, planner_revision)
+        elapsed = _finish_stage("planner", "build_plan", client.settings.planner_local_model, started_at, stop_event, heartbeat, planner_revision)
         plan = EvaluationPlan.model_validate(payload)
         _write_json(state, f"plan_round_{planner_run_number}.json", {
             "round": planner_run_number,
             "revision": state.get("plan_revision_count", 0) + 1,
-            "planner_model": model_used,
-            "planner_route": "remote",
+            "planner_model": client.settings.planner_local_model,
+            "planner_route": "local",
             "planner_feedback_source": state.get("planner_feedback_source"),
             "planner_feedback": state.get("planner_feedback"),
             "plan": plan.model_dump(mode="json"),
@@ -307,12 +273,12 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             "expert_results": [],
             "planner_feedback": None,
             "planner_feedback_source": None,
-            "planner_model_used": model_used,
+            "planner_model_used": client.settings.planner_local_model,
             "planner_elapsed_seconds": elapsed,
             "planner_run_count": planner_run_number,
         }
     except Exception as exc:
-        _fail_stage("planner", "build_plan", client.settings.planner_model, started_at, stop_event, heartbeat, exc, planner_revision)
+        _fail_stage("planner", "build_plan", client.settings.planner_local_model or client.settings.planner_model, started_at, stop_event, heartbeat, exc, planner_revision)
         raise
 
 
@@ -326,38 +292,22 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     
     settings = client.settings
     
-    if settings.judge_local_enabled and settings.judge_local_model:
-        _print_stage(f"judge route=local model={settings.judge_local_model}")
-        try:
-            local_judge = LocalJudge(settings)
-            payload = local_judge.evaluate(
-                image_path=image_input.image_path,
-                plan=plan,
-                prompt=image_input.prompt,
-                class_label=image_input.class_label,
-            )
-            review = PlanReview.model_validate(payload)
-            model_used = settings.judge_local_model
-        except LocalExpertError as exc:
-            _fail_stage("judge", "review_plan", settings.judge_local_model, started_at, stop_event, heartbeat, exc, planner_revision)
-            raise
-    else:
-        plan_json = plan.model_dump_json(indent=2)
-        user_text = (
-            f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-            f"Plan:\n{plan_json}\n"
-            "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label. "
-            "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist."
-        )
-        model_used = settings.judge_model
-        payload = client.invoke_json(
-            system=JUDGE_SYSTEM,
-            user_text=user_text,
+    if not settings.judge_local_enabled or not settings.judge_local_model:
+        raise RuntimeError("Judge local model is not configured")
+    _print_stage(f"judge route=local model={settings.judge_local_model}")
+    try:
+        local_judge = LocalJudge(settings)
+        payload = local_judge.evaluate(
             image_path=image_input.image_path,
-            schema=PLAN_REVIEW_SCHEMA,
-            model=model_used,
+            plan=plan,
+            prompt=image_input.prompt,
+            class_label=image_input.class_label,
         )
         review = PlanReview.model_validate(payload)
+        model_used = settings.judge_local_model
+    except LocalExpertError as exc:
+        _fail_stage("judge", "review_plan", settings.judge_local_model, started_at, stop_event, heartbeat, exc, planner_revision)
+        raise
     
     elapsed = _finish_stage("judge", "review_plan", model_used, started_at, stop_event, heartbeat, planner_revision)
     result: GraphState = {
@@ -393,107 +343,54 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
 
 
 
-def resolve_remote_model(client: ClaudeVisionClient, expert_name: str, model_profile: str) -> str:
-    settings = client.settings
-    if expert_name == "structural":
-        if model_profile == "remote_mid":
-            return settings.structural_remote_mid_model
-        return settings.structural_remote_strong_model
-    if expert_name == "vqa":
-        if model_profile == "remote_mid":
-            return settings.vqa_remote_mid_model
-        return settings.vqa_remote_strong_model
-    if expert_name == "artifact":
-        return settings.artifact_remote_strong_model
-    return settings.remote_expert_model
-
-
-
-def run_remote_expert(
-    state: GraphState,
-    client: ClaudeVisionClient,
-    expert_name: str,
-    goal: str,
-    model_profile: str,
-    prompt_focus: str,
-) -> ExpertResult:
-    image_input = state["input"]
-    remote_model = resolve_remote_model(client, expert_name, model_profile)
-    expert_instruction = ""
-    if expert_name == "structural":
-        expert_instruction = (
-            " For structural evaluation, inspect the most relevant anatomical and part-attachment failures for this image, "
-            "such as facial melting, extra or fused fingers, extra limbs, wrong tail attachment, melted hands or feet, broken joints, "
-            "or impossible boundaries. When evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the structure is correct."
-        )
-    elif expert_name == "artifact":
-        expert_instruction = (
-            " For artifact evaluation, extra appendages, impossible limbs, malformed extremities, duplicated parts, broken joints, "
-            "wrong tail attachment, impossible anatomy, and severe boundary corruption should be treated as severe failures, not minor issues, whenever visible evidence supports them."
-        )
-    user_text = (
-        f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        f"Expert: {expert_name}\n"
-        f"Goal: {goal}\n"
-        f"Prompt focus: {prompt_focus or 'Use the goal and image evidence.'}\n"
-        "Return grounded findings only. Severity is 0 for no issue and 1 for severe issue."
-        f"{expert_instruction}"
-    )
-    payload = client.invoke_json(
-        system=EXPERT_SYSTEM,
-        user_text=user_text,
-        image_path=image_input.image_path,
-        schema=EXPERT_SCHEMA,
-        model=remote_model,
-    )
-    payload.setdefault("confidence", 0.8)
-    payload.setdefault("source", "remote")
-    payload.setdefault("model", remote_model)
-    return ExpertResult.model_validate(payload)
-
-
-
 def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertResult:
     image_input = state["input"]
     expert_name = step.expert
-    goal = step.goal
     model_profile = step.model_profile
     prompt_focus = step.prompt_focus
-    allow_escalation = step.allow_escalation
-    is_fine_grained_class_only = bool(image_input.class_label and not image_input.prompt)
+    original_model = client.settings.local_semantic_model
 
-    if expert_name == "semantic" and is_fine_grained_class_only:
-        return run_remote_expert(state, client, expert_name, goal, "remote_strong", prompt_focus)
-
-    if expert_name == "semantic" and client.settings.local_semantic_enabled and model_profile in {"local_fast", "local_stronger"}:
-        original_model = client.settings.local_semantic_model
+    if expert_name in {"semantic", "structural", "vqa"}:
+        if not client.settings.local_semantic_enabled:
+            raise RuntimeError(f"Local semantic model is disabled for expert '{expert_name}'")
         try:
-            if model_profile == "local_fast":
-                client.settings.local_semantic_model = client.settings.semantic_local_fast_model
-            else:
+            if model_profile == "local_stronger":
                 client.settings.local_semantic_model = client.settings.semantic_local_stronger_model
-            local_payload = LocalSemanticExpert(client.settings).evaluate(
-                image_path=image_input.image_path,
-                prompt=image_input.prompt,
-                class_label=image_input.class_label,
-            )
-            local_result = ExpertResult.model_validate(local_payload)
-            if not allow_escalation or local_result.confidence >= client.settings.semantic_escalation_threshold:
-                return local_result
-        except LocalExpertError:
-            pass
+            else:
+                client.settings.local_semantic_model = client.settings.semantic_local_fast_model
+
+            if expert_name == "semantic":
+                payload = LocalSemanticExpert(client.settings).evaluate(
+                    image_path=image_input.image_path,
+                    prompt=image_input.prompt,
+                    class_label=image_input.class_label,
+                )
+            elif expert_name == "structural":
+                payload = LocalStructuralExpert(client.settings).evaluate(
+                    image_path=image_input.image_path,
+                    prompt=image_input.prompt,
+                    class_label=image_input.class_label,
+                    prompt_focus=prompt_focus,
+                )
+            else:
+                payload = LocalVQAExpert(client.settings).evaluate(
+                    image_path=image_input.image_path,
+                    prompt=image_input.prompt,
+                    class_label=image_input.class_label,
+                    goal=step.goal,
+                    prompt_focus=prompt_focus,
+                )
+            return ExpertResult.model_validate(payload)
         finally:
             client.settings.local_semantic_model = original_model
 
     if expert_name == "artifact":
-        return run_remote_expert(state, client, expert_name, goal, "remote_strong", prompt_focus)
+        if not client.settings.local_artifact_enabled:
+            raise RuntimeError("Local artifact expert is disabled")
+        payload = LocalArtifactExpert(client.settings).evaluate(image_path=image_input.image_path)
+        return ExpertResult.model_validate(payload)
 
-    fallback_profile = model_profile
-    if expert_name == "structural" and fallback_profile not in {"remote_mid", "remote_strong"}:
-        fallback_profile = "remote_strong" if is_fine_grained_class_only else "remote_mid"
-    elif fallback_profile not in {"remote_mid", "remote_strong"}:
-        fallback_profile = "remote_strong"
-    return run_remote_expert(state, client, expert_name, goal, fallback_profile, prompt_focus)
+    raise RuntimeError(f"Unsupported expert '{expert_name}'")
 
 
 
@@ -566,17 +463,19 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         "If visible evidence supports a severe anatomical or structural generation failure, set hard_failure to true. "
         "When evidence is ambiguous, prefer a conservative judgment rather than assuming the image is correct."
     )
-    model_used = client.settings.report_model
+    model_used = client.settings.reflector_local_model or client.settings.judge_local_model or client.settings.local_semantic_model
     try:
-        payload = client.invoke_json(
-            system=REPORT_SYSTEM,
-            user_text=user_text,
+        local_report = LocalReport(client.settings)
+        payload = local_report.evaluate(
             image_path=image_input.image_path,
-            schema=REPORT_SCHEMA,
-            model=model_used,
+            expert_results=expert_payload,
+            conflicts=conflicts,
+            weighted_severity=weighted_severity,
+            prompt=image_input.prompt,
+            class_label=image_input.class_label,
         )
         elapsed = _finish_stage("report", "synthesize_report", model_used, started_at, stop_event, heartbeat)
-        
+
         report = EvaluationReport.model_validate(payload)
         report.expert_reliability_summary = ExpertReliabilitySummary(
             high_reliability_count=reliability_summary["high_reliability_count"],
@@ -635,58 +534,26 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     
     report_payload = state["report"].model_dump()
     
-    if settings.reflector_local_enabled and settings.reflector_local_model:
-        _print_stage(f"reflector route=local model={settings.reflector_local_model}")
-        try:
-            local_reflector = LocalReflector(settings)
-            payload = local_reflector.evaluate(
-                image_path=image_input.image_path,
-                report=report_payload,
-                expert_results=expert_payload,
-                reliability_summary=reliability_summary,
-                conflicts=conflicts,
-                weighted_severity=weighted_severity,
-                prompt=image_input.prompt,
-                class_label=image_input.class_label,
-            )
-            review = ReflectionReview.model_validate(payload)
-            model_used = settings.reflector_local_model
-        except LocalExpertError as exc:
-            _fail_stage("reflector", "review_report", settings.reflector_local_model, started_at, stop_event, heartbeat, exc, reflection_revision)
-            raise
-    else:
-        user_text = (
-            f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-            f"Expert outputs with reliability:\n{json.dumps(expert_payload, indent=2)}\n"
-            f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
-            f"Weighted severity: {weighted_severity:.3f}\n"
-            f"Reliability summary: {json.dumps(reliability_summary, indent=2)}\n"
-            f"Report:\n{json.dumps(report_payload, indent=2)}\n"
-            "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed. "
-            "Consider expert reliability when evaluating the report:\n"
-            "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly\n"
-            "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence\n"
-            "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation\n"
-            "- When experts conflict, prioritize the one with higher reliability\n"
-            "- If report relies heavily on LOW reliability experts, flag for additional verification\n"
-            "- If weighted severity significantly differs from report severity, note the discrepancy\n"
-            "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption. "
-            "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean. "
-            "If disapproving, explain which severe issue was missed and why replanning or re-evaluation is needed."
+    if not settings.reflector_local_enabled or not settings.reflector_local_model:
+        raise RuntimeError("Reflector local model is not configured")
+    _print_stage(f"reflector route=local model={settings.reflector_local_model}")
+    try:
+        local_reflector = LocalReflector(settings)
+        payload = local_reflector.evaluate(
+            image_path=image_input.image_path,
+            report=report_payload,
+            expert_results=expert_payload,
+            reliability_summary=reliability_summary,
+            conflicts=conflicts,
+            weighted_severity=weighted_severity,
+            prompt=image_input.prompt,
+            class_label=image_input.class_label,
         )
-        model_used = settings.reflector_model
-        try:
-            payload = client.invoke_json(
-                system=REFLECTOR_SYSTEM,
-                user_text=user_text,
-                image_path=image_input.image_path,
-                schema=REFLECTION_SCHEMA,
-                model=model_used,
-            )
-            review = ReflectionReview.model_validate(payload)
-        except Exception as exc:
-            _fail_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, exc, reflection_revision)
-            raise
+        review = ReflectionReview.model_validate(payload)
+        model_used = settings.reflector_local_model
+    except LocalExpertError as exc:
+        _fail_stage("reflector", "review_report", settings.reflector_local_model, started_at, stop_event, heartbeat, exc, reflection_revision)
+        raise
     
     elapsed = _finish_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, reflection_revision)
     result: GraphState = {
