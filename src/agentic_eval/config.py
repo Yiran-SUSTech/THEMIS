@@ -52,7 +52,7 @@ class Settings:
     planner_device: str = "cuda:0"
     planner_profile: ModelProfile = "fast"
     planner_max_new_tokens: int = 420
-    planner_local_max_new_tokens: int = 420
+    planner_local_max_new_tokens: int = 512
     
     judge_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     judge_local_path: Optional[str] = None

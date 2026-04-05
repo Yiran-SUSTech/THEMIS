@@ -268,22 +268,14 @@ class LocalPlanner:
             raise LocalExpertError("Local planner failed to initialize")
 
         task_lines = [
-            "You are the planning expert in an image generation evaluator.",
-            "Your ONLY job is to create an evaluation plan. DO NOT judge or describe the image content yourself.",
-            "Create a concise evaluation plan using the available experts: semantic, structural, artifact, vqa.",
-            "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass.",
-            "Unless the image is trivially simple, include semantic first, structural second, artifact third, and omit vqa unless earlier steps leave a material unresolved question.",
-            "For semantic, the expert will verify whether the visible subject plausibly matches the class label.",
-            "For structural, the expert will check whole-subject coherence, body proportions, pose plausibility, and likely confusion risks.",
-            "For artifact, the expert will inspect localized generation failures such as malformed face, duplicated limbs, broken joints, wrong tail attachment, etc.",
-            "DO NOT say things like 'The image shows...' or 'The subject appears to be...' - you have NOT inspected the image, only the experts will.",
-            "Prefer the cheapest adequate route first.",
-            "Default preferences: semantic -> local_fast first, structural -> local_fast first, artifact -> local_default/local_richer first, vqa -> local_fast when needed.",
-            "Use local_stronger only for harder unresolved cases.",
-            "Set prompt_focus to the exact visual evidence to inspect, using subject-specific failure modes instead of a generic checklist.",
-            "Return valid JSON only.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","prompt_focus":"string","allow_escalation":true}]}',
-            f"Prompt: {prompt or 'N/A'}",
+            "You are a planning expert. Create an evaluation plan for the given image.",
+            "Available experts: semantic, structural, artifact, vqa.",
+            "Typical order: semantic -> structural -> artifact. Use vqa only if needed.",
+            "Return ONLY a valid JSON object, no other text.",
+            "",
+            "Required JSON format:",
+            '{"rationale":"brief explanation","steps":[{"step_id":1,"expert":"semantic","goal":"check alignment","model_profile":"local_fast","prompt_focus":"specific checks","allow_escalation":true}]}',
+            "",
             f"Class label: {class_label or 'N/A'}",
         ]
         if prior_feedback:
@@ -321,7 +313,14 @@ class LocalPlanner:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local planner inference failed") from exc
 
-        return self._normalize_plan(extract_json(output_text), class_label=class_label)
+        print(f"[agentic_eval] Planner raw output: {output_text[:500]}...", flush=True)
+        
+        try:
+            return self._normalize_plan(extract_json(output_text), class_label=class_label)
+        except LocalExpertError as e:
+            print(f"[agentic_eval] Planner JSON extraction failed: {e}", flush=True)
+            print(f"[agentic_eval] Full output: {output_text}", flush=True)
+            raise
 
 
 def extract_json(text: str) -> dict[str, Any]:
