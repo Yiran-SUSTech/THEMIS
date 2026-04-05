@@ -79,10 +79,21 @@ class Settings:
     local_semantic_device: str = "cuda:3"
     local_semantic_enabled: bool = True
     local_semantic_max_new_tokens: int = 512
+    semantic_local_fast_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
+    semantic_local_stronger_model: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     
     local_artifact_enabled: bool = True
     local_artifact_device: str = "cuda:4"
     local_artifact_metrics: str = "maniqa,musiq,niqe"
+    
+    report_model: str = "claude-sonnet-4-6"
+    
+    remote_expert_model: str = "claude-sonnet-4-6"
+    structural_remote_mid_model: str = "claude-sonnet-4-6"
+    structural_remote_strong_model: str = "claude-sonnet-4-6"
+    vqa_remote_mid_model: str = "claude-sonnet-4-6"
+    vqa_remote_strong_model: str = "claude-sonnet-4-6"
+    artifact_remote_strong_model: str = "claude-sonnet-4-6"
     
     expert_configs: Dict[str, ExpertModelConfig] = field(default_factory=dict)
     
@@ -153,16 +164,21 @@ class Settings:
         local_semantic_device = os.getenv("LOCAL_SEMANTIC_DEVICE", "cuda:3").strip()
         local_semantic_enabled = env_bool("LOCAL_SEMANTIC_ENABLED", True)
         local_semantic_max_new_tokens = env_int("LOCAL_SEMANTIC_MAX_NEW_TOKENS", 512)
-        
-        local_semantic_model = os.getenv("LOCAL_SEMANTIC_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
-        local_semantic_quantization = os.getenv("LOCAL_SEMANTIC_QUANTIZATION", None)
-        local_semantic_device = os.getenv("LOCAL_SEMANTIC_DEVICE", "cuda:3").strip()
-        local_semantic_enabled = env_bool("LOCAL_SEMANTIC_ENABLED", True)
-        local_semantic_max_new_tokens = env_int("LOCAL_SEMANTIC_MAX_NEW_TOKENS", 512)
+        semantic_local_fast_model = os.getenv("SEMANTIC_LOCAL_FAST_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
+        semantic_local_stronger_model = os.getenv("SEMANTIC_LOCAL_STRONGER_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct").strip()
         
         local_artifact_enabled = env_bool("LOCAL_ARTIFACT_ENABLED", True)
         local_artifact_device = os.getenv("LOCAL_ARTIFACT_DEVICE", "cuda:4").strip()
         local_artifact_metrics = os.getenv("LOCAL_ARTIFACT_METRICS", "maniqa,musiq,niqe").strip()
+        
+        report_model = os.getenv("REPORT_MODEL", model).strip()
+        
+        remote_expert_model = os.getenv("REMOTE_EXPERT_MODEL", model).strip()
+        structural_remote_mid_model = os.getenv("STRUCTURAL_REMOTE_MID_MODEL", model).strip()
+        structural_remote_strong_model = os.getenv("STRUCTURAL_REMOTE_STRONG_MODEL", model).strip()
+        vqa_remote_mid_model = os.getenv("VQA_REMOTE_MID_MODEL", model).strip()
+        vqa_remote_strong_model = os.getenv("VQA_REMOTE_STRONG_MODEL", model).strip()
+        artifact_remote_strong_model = os.getenv("ARTIFACT_REMOTE_STRONG_MODEL", model).strip()
         
         max_plan_revisions = env_int("MAX_PLAN_REVISIONS", 2)
         max_reflection_revisions = env_int("MAX_REFLECTION_REVISIONS", 1)
@@ -193,22 +209,37 @@ class Settings:
             planner_local_max_new_tokens=planner_local_max_new_tokens,
             judge_model=judge_model,
             judge_local_path=judge_local_path,
+            judge_local_model=judge_local_model,
+            judge_local_enabled=judge_local_enabled,
             judge_device=judge_device,
             judge_profile=judge_profile,
             judge_max_new_tokens=judge_max_new_tokens,
+            judge_local_max_new_tokens=judge_local_max_new_tokens,
             reflector_model=reflector_model,
             reflector_local_path=reflector_local_path,
+            reflector_local_model=reflector_local_model,
+            reflector_local_enabled=reflector_local_enabled,
             reflector_device=reflector_device,
             reflector_profile=reflector_profile,
             reflector_max_new_tokens=reflector_max_new_tokens,
+            reflector_local_max_new_tokens=reflector_local_max_new_tokens,
             local_semantic_model=local_semantic_model,
             local_semantic_quantization=local_semantic_quantization,
             local_semantic_device=local_semantic_device,
             local_semantic_enabled=local_semantic_enabled,
             local_semantic_max_new_tokens=local_semantic_max_new_tokens,
+            semantic_local_fast_model=semantic_local_fast_model,
+            semantic_local_stronger_model=semantic_local_stronger_model,
             local_artifact_enabled=local_artifact_enabled,
             local_artifact_device=local_artifact_device,
             local_artifact_metrics=local_artifact_metrics,
+            report_model=report_model,
+            remote_expert_model=remote_expert_model,
+            structural_remote_mid_model=structural_remote_mid_model,
+            structural_remote_strong_model=structural_remote_strong_model,
+            vqa_remote_mid_model=vqa_remote_mid_model,
+            vqa_remote_strong_model=vqa_remote_strong_model,
+            artifact_remote_strong_model=artifact_remote_strong_model,
             max_plan_revisions=max_plan_revisions,
             max_reflection_revisions=max_reflection_revisions,
             semantic_escalation_threshold=semantic_escalation_threshold,
