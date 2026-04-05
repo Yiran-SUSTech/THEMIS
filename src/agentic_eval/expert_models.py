@@ -11,10 +11,39 @@ from enum import Enum
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 import numpy as np
 
+try:
+    from torchvision import transforms
+    HAS_TORCHVISION = True
+except ImportError:
+    HAS_TORCHVISION = False
+
 from .config import Settings, ExpertModelConfig
+
+
+def get_image_transform(size: Tuple[int, int], 
+                        mean: List[float] = [0.485, 0.456, 0.406],
+                        std: List[float] = [0.229, 0.224, 0.225]):
+    if HAS_TORCHVISION:
+        return transforms.Compose([
+            transforms.Resize(size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std)
+        ])
+    else:
+        def transform(image: Image.Image) -> torch.Tensor:
+            image = image.convert('RGB')
+            image = image.resize(size, Image.BILINEAR)
+            img_array = np.array(image).astype(np.float32) / 255.0
+            img_tensor = torch.from_numpy(img_array).permute(2, 0, 1)
+            mean_tensor = torch.tensor(mean).view(3, 1, 1)
+            std_tensor = torch.tensor(std).view(3, 1, 1)
+            img_tensor = (img_tensor - mean_tensor) / std_tensor
+            return img_tensor
+        return transform
 
 
 class ExpertType(Enum):
@@ -321,45 +350,39 @@ class Places365Expert(BaseExpert):
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key)
         
-        try:
-            from torchvision import models, transforms
-            
-            places_dir = Path(self.settings.model_dir) / "places365"
-            model_path = places_dir / "resnet18_places365.pt"
-            
-            if not model_path.exists():
-                raise ExpertModelError(f"Places365 model not found at {model_path}")
-            
+        places_dir = Path(self.settings.model_dir) / "places365"
+        model_path = places_dir / "resnet18_places365.pt"
+        
+        if not model_path.exists():
+            raise ExpertModelError(f"Places365 model not found at {model_path}")
+        
+        if HAS_TORCHVISION:
+            from torchvision import models
             model = models.resnet18(num_classes=365)
-            checkpoint = torch.load(model_path, map_location=self.config.device)
-            
-            if 'state_dict' in checkpoint:
-                state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
-            else:
-                state_dict = checkpoint
-            
-            model.load_state_dict(state_dict)
-            model = model.to(self.config.device)
-            model.eval()
-            
-            self.registry.set_model(model_key, model)
-            self._model = model
-            
-            return model
-        except ImportError as e:
-            raise ExpertModelError(f"torchvision not installed: {e}")
+        else:
+            import timm
+            model = timm.create_model('resnet18', num_classes=365)
+        
+        checkpoint = torch.load(model_path, map_location=self.config.device)
+        
+        if 'state_dict' in checkpoint:
+            state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        else:
+            state_dict = checkpoint
+        
+        model.load_state_dict(state_dict)
+        model = model.to(self.config.device)
+        model.eval()
+        
+        self.registry.set_model(model_key, model)
+        self._model = model
+        
+        return model
 
     def evaluate(self, image_path: str, **kwargs) -> ExpertResult:
         model = self.load_model()
         
-        from torchvision import transforms
-        
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        
+        transform = get_image_transform((224, 224))
         image = self._load_image(image_path)
         img_tensor = transform(image).unsqueeze(0).to(self.config.device)
         
@@ -520,14 +543,7 @@ class BackgroundExpert(BaseExpert):
     def evaluate(self, image_path: str, **kwargs) -> ExpertResult:
         model = self.load_model()
         
-        from torchvision import transforms
-        
-        transform = transforms.Compose([
-            transforms.Resize((1024, 1024)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-        
+        transform = get_image_transform((1024, 1024))
         image = self._load_image(image_path)
         original_size = image.size
         img_tensor = transform(image).unsqueeze(0).to(self.config.device)

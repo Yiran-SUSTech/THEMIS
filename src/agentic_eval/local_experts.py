@@ -532,7 +532,7 @@ class LocalArtifactExpert:
             import torch
         except ImportError as exc:
             raise LocalExpertError(
-                "Local artifact dependencies are missing. Install pyiqa and torch/torchvision."
+                "Local artifact dependencies are missing. Install pyiqa and torch."
             ) from exc
 
         if self.settings.local_artifact_device == "cuda" and not torch.cuda.is_available():

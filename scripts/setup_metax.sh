@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# THEMIS 完整部署脚本 - MetaX GPU 服务器 (修复版)
-# 运行此脚本后即可进行图像质量评估
+# THEMIS 完整部署脚本 - MetaX GPU 服务器
+# 适用于已有 MetaX PyTorch 环境的情况
 # =============================================================================
 
 set -e
@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 配置变量
+# 配置变量 (根据实际情况修改)
 MODEL_DIR="/mnt/afs/zhengmingkai/zyr/THEMIS/models"
 PROJECT_DIR="/mnt/afs/zhengmingkai/zyr/THEMIS"
 LOG_DIR="${PROJECT_DIR}/logs"
@@ -25,17 +25,128 @@ export PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 export PIP_TRUSTED_HOST="pypi.tuna.tsinghua.edu.cn"
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}THEMIS 完整部署脚本 - MetaX GPU 服务器 (修复版)${NC}"
+echo -e "${BLUE}THEMIS 完整部署脚本 - MetaX GPU 服务器${NC}"
 echo -e "${BLUE}============================================================${NC}"
+echo ""
+echo -e "${YELLOW}⚠ 重要提示:${NC}"
+echo -e "${YELLOW}   本脚本会严格保护 MetaX 包版本，不会修改:${NC}"
+echo -e "${YELLOW}   - torch (MetaX 版本)${NC}"
+echo -e "${YELLOW}   - torchvision (MetaX 版本)${NC}"
+echo -e "${YELLOW}   - numpy${NC}"
+echo -e "${YELLOW}   - opencv${NC}"
+echo -e "${YELLOW}   - triton (MetaX 版本)${NC}"
+echo ""
+echo -e "${YELLOW}   如果检测到版本被修改，脚本会立即退出。${NC}"
+echo -e "${YELLOW}   此时需要删除环境并重新从 base 克隆。${NC}"
 echo ""
 echo -e "模型目录: ${GREEN}${MODEL_DIR}${NC}"
 echo -e "项目目录: ${GREEN}${PROJECT_DIR}${NC}"
 echo -e "HF镜像:   ${GREEN}${HF_ENDPOINT}${NC}"
-echo -e "约束文件: ${GREEN}${CONSTRAINTS_FILE}${NC}"
 echo ""
 
-# 创建目录
-echo -e "${YELLOW}[1/8] 创建目录...${NC}"
+# =============================================================================
+# Step 1: 检查 MetaX 环境并记录版本
+# =============================================================================
+echo -e "${YELLOW}[1/7] 检查 MetaX 环境...${NC}"
+
+# 记录当前关键包版本
+CURRENT_TORCH_VERSION=""
+CURRENT_TORCHVISION_VERSION=""
+CURRENT_NUMPY_VERSION=""
+CURRENT_CV2_VERSION=""
+CURRENT_TRITON_VERSION=""
+
+python << 'PYEOF'
+import sys
+
+# 检查 PyTorch
+try:
+    import torch
+    print(f"✓ torch: {torch.__version__}")
+    if 'metax' not in torch.__version__:
+        print("  ⚠ 警告: 不是 MetaX 版本的 PyTorch")
+    print(f"  CUDA 可用: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"  GPU 数量: {torch.cuda.device_count()}")
+    # 写入版本到临时文件
+    with open('/tmp/themis_torch_version.txt', 'w') as f:
+        f.write(torch.__version__)
+except ImportError:
+    print("✗ torch 未安装!")
+    sys.exit(1)
+
+# 检查 torchvision
+try:
+    import torchvision
+    print(f"✓ torchvision: {torchvision.__version__}")
+    with open('/tmp/themis_torchvision_version.txt', 'w') as f:
+        f.write(torchvision.__version__)
+except ImportError:
+    print("  torchvision 未安装")
+    with open('/tmp/themis_torchvision_version.txt', 'w') as f:
+        f.write("")
+
+# 检查 numpy
+try:
+    import numpy
+    print(f"✓ numpy: {numpy.__version__}")
+    if numpy.__version__.startswith('2.'):
+        print("  ⚠ 警告: numpy 2.x 可能与 MetaX PyTorch 不兼容")
+    with open('/tmp/themis_numpy_version.txt', 'w') as f:
+        f.write(numpy.__version__)
+except ImportError:
+    print("✗ numpy 未安装!")
+    sys.exit(1)
+
+# 检查 opencv
+try:
+    import cv2
+    print(f"✓ cv2: {cv2.__version__}")
+    with open('/tmp/themis_cv2_version.txt', 'w') as f:
+        f.write(cv2.__version__)
+except ImportError:
+    print("✗ opencv 未安装!")
+    with open('/tmp/themis_cv2_version.txt', 'w') as f:
+        f.write("")
+
+# 检查 triton
+try:
+    import triton
+    print(f"✓ triton: {triton.__version__}")
+    with open('/tmp/themis_triton_version.txt', 'w') as f:
+        f.write(triton.__version__)
+except ImportError:
+    print("  triton 未安装")
+    with open('/tmp/themis_triton_version.txt', 'w') as f:
+        f.write("")
+
+print("\n环境检查通过!")
+PYEOF
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}环境检查失败，请先配置 MetaX PyTorch 环境${NC}"
+    exit 1
+fi
+
+# 读取版本
+CURRENT_TORCH_VERSION=$(cat /tmp/themis_torch_version.txt)
+CURRENT_TORCHVISION_VERSION=$(cat /tmp/themis_torchvision_version.txt)
+CURRENT_NUMPY_VERSION=$(cat /tmp/themis_numpy_version.txt)
+CURRENT_CV2_VERSION=$(cat /tmp/themis_cv2_version.txt)
+CURRENT_TRITON_VERSION=$(cat /tmp/themis_triton_version.txt)
+
+echo -e "${GREEN}当前版本已锁定:${NC}"
+echo -e "  torch: ${CURRENT_TORCH_VERSION}"
+echo -e "  torchvision: ${CURRENT_TORCHVISION_VERSION}"
+echo -e "  numpy: ${CURRENT_NUMPY_VERSION}"
+echo -e "  opencv-python: ${CURRENT_CV2_VERSION}"
+echo -e "  triton: ${CURRENT_TRITON_VERSION}"
+
+# =============================================================================
+# Step 2: 创建目录
+# =============================================================================
+echo ""
+echo -e "${YELLOW}[2/7] 创建目录...${NC}"
 mkdir -p "${MODEL_DIR}"
 mkdir -p "${LOG_DIR}"
 mkdir -p "${PROJECT_DIR}/test_images"
@@ -43,116 +154,128 @@ mkdir -p "${PROJECT_DIR}/outputs"
 mkdir -p "${PROJECT_DIR}/scripts"
 echo -e "${GREEN}✓ 目录创建完成${NC}"
 
-# 创建版本约束文件
+# =============================================================================
+# Step 3: 创建版本约束文件 (动态锁定当前版本)
+# =============================================================================
 echo ""
-echo -e "${YELLOW}[2/8] 创建版本约束文件...${NC}"
-cat > "${CONSTRAINTS_FILE}" << 'EOF'
+echo -e "${YELLOW}[3/7] 创建版本约束文件...${NC}"
+
+# 动态生成 constraints.txt，锁定当前已安装的关键包版本
+cat > "${CONSTRAINTS_FILE}" << EOF
 # =============================================================================
 # THEMIS 依赖版本约束文件
-# 用于防止 numpy 和 opencv 版本冲突
+# 自动生成 - 锁定当前环境的关键包版本
 # =============================================================================
 
-# numpy 版本约束 (MetaX PyTorch 需要 numpy<2.0.0)
-numpy==1.26.4
-
-# opencv 版本约束 (兼容 numpy 1.x)
-opencv-python==4.9.0.80
+# 核心包版本锁定 (禁止修改)
+torch==${CURRENT_TORCH_VERSION}
+numpy==${CURRENT_NUMPY_VERSION}
 EOF
-echo -e "${GREEN}✓ 版本约束文件创建完成: ${CONSTRAINTS_FILE}${NC}"
 
-# 安装 Python 包
+# 如果 torchvision 已安装，也锁定
+if [ -n "${CURRENT_TORCHVISION_VERSION}" ]; then
+    echo "torchvision==${CURRENT_TORCHVISION_VERSION}" >> "${CONSTRAINTS_FILE}"
+fi
+
+# 如果 opencv 已安装，也锁定
+if [ -n "${CURRENT_CV2_VERSION}" ]; then
+    echo "opencv-python==${CURRENT_CV2_VERSION}" >> "${CONSTRAINTS_FILE}"
+fi
+
+# 如果 triton 已安装，锁定版本
+if [ -n "${CURRENT_TRITON_VERSION}" ]; then
+    echo "triton==${CURRENT_TRITON_VERSION}" >> "${CONSTRAINTS_FILE}"
+fi
+
+# 禁止安装 opencv-python-headless (它会要求 numpy>=2)
+cat >> "${CONSTRAINTS_FILE}" << EOF
+
+# 禁止安装 opencv-python-headless (它会要求 numpy>=2)
+opencv-python-headless<0
+EOF
+
+echo -e "${GREEN}✓ 版本约束文件创建完成${NC}"
+echo -e "${BLUE}约束内容:${NC}"
+cat "${CONSTRAINTS_FILE}"
+
+# =============================================================================
+# Step 4: 安装 Python 依赖 (不修改已有包版本)
+# =============================================================================
 echo ""
-echo -e "${YELLOW}[3/8] 安装 Python 依赖包...${NC}"
+echo -e "${YELLOW}[4/7] 安装 Python 依赖...${NC}"
 
 pip install --upgrade pip setuptools wheel -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}"
 
-# 先安装 numpy (使用约束)
-echo -e "${YELLOW}安装 numpy (兼容 MetaX PyTorch)...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    "numpy==1.26.4"
+# 检查包是否已安装的函数
+check_and_install() {
+    local packages="$1"
+    local description="$2"
+    local need_install=""
+    
+    echo -e "${BLUE}检查 ${description}...${NC}"
+    
+    for pkg in $packages; do
+        # 获取包名 (去掉版本 specifier)
+        pkg_name=$(echo "$pkg" | sed 's/[<>=!].*//' | sed 's/\[.*//')
+        
+        # 检查是否已安装
+        if pip show "$pkg_name" > /dev/null 2>&1; then
+            version=$(pip show "$pkg_name" | grep "^Version:" | awk '{print $2}')
+            echo -e "  ${GREEN}✓ ${pkg_name} 已安装 (${version})${NC}"
+        else
+            need_install="$need_install $pkg"
+        fi
+    done
+    
+    # 只安装未安装的包
+    if [ -n "$need_install" ]; then
+        echo -e "  ${YELLOW}安装缺失的包:${need_install}${NC}"
+        pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+            --constraint "${CONSTRAINTS_FILE}" \
+            $need_install
+    else
+        echo -e "  ${GREEN}所有包已安装，跳过${NC}"
+    fi
+}
 
-# 核心依赖 (使用约束)
-echo -e "${YELLOW}安装核心依赖...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    scipy scikit-learn pandas \
-    pillow opencv-python matplotlib seaborn \
-    tqdm pyyaml python-dotenv requests aiohttp \
-    huggingface_hub safetensors
+# 核心依赖
+check_and_install "scipy scikit-learn pandas matplotlib seaborn tqdm pyyaml python-dotenv requests aiohttp huggingface_hub safetensors" "核心依赖"
 
-echo -e "${GREEN}✓ 基础包安装完成${NC}"
+# Transformers 相关
+check_and_install "transformers accelerate sentencepiece protobuf einops timm" "Transformers 相关包"
 
-# Transformers 相关 (使用约束)
-echo -e "${YELLOW}安装 Transformers 相关包...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    transformers accelerate sentencepiece protobuf einops timm
+# LangChain 相关
+check_and_install "langgraph langchain langchain-core langchain-anthropic" "LangChain 相关包"
 
-# 安装 kornia 和 albumentations (使用约束，排除 opencv-python-headless)
-echo -e "${YELLOW}安装 kornia 和 albumentations...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    kornia --no-deps
+# 视觉模型相关
+check_and_install "ultralytics pyiqa kornia" "视觉模型相关包"
 
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    albumentations --no-deps
-
-# 安装 albumentations 的必要依赖
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    albucore scipy scikit-image
-
-# LangChain 相关 (使用约束)
-echo -e "${YELLOW}安装 LangChain 相关包...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    langgraph langchain langchain-core langchain-anthropic
-
-# 视觉模型相关 (使用约束)
-echo -e "${YELLOW}安装视觉模型相关包...${NC}"
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    ultralytics pyiqa
-
-# ===== 关键步骤：强制锁定版本 =====
-echo ""
-echo -e "${RED}[重要] 锁定 numpy 和 opencv 版本...${NC}"
-
-# 卸载可能被安装的冲突包
-pip uninstall opencv-python-headless -y 2>/dev/null || true
-
-# 强制安装兼容版本 (使用约束)
-pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    --constraint "${CONSTRAINTS_FILE}" \
-    "numpy==1.26.4" "opencv-python==4.9.0.80" --force-reinstall
+# albumentations (使用 --no-deps 避免 opencv-python-headless)
+echo -e "${BLUE}检查 albumentations...${NC}"
+if pip show albumentations > /dev/null 2>&1; then
+    version=$(pip show albumentations | grep "^Version:" | awk '{print $2}')
+    echo -e "  ${GREEN}✓ albumentations 已安装 (${version})${NC}"
+else
+    echo -e "  ${YELLOW}安装 albumentations (不安装依赖)...${NC}"
+    pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+        --constraint "${CONSTRAINTS_FILE}" \
+        albumentations --no-deps
+fi
 
 echo -e "${GREEN}✓ Python 依赖安装完成${NC}"
 
-# 验证核心包版本
+# =============================================================================
+# Step 5: 下载模型
+# =============================================================================
 echo ""
-echo -e "${YELLOW}[4/8] 验证核心包版本...${NC}"
-python -c "
-import numpy, torch, cv2
-print(f'numpy: {numpy.__version__}')
-print(f'torch: {torch.__version__}')
-print(f'cv2: {cv2.__version__}')
-assert numpy.__version__.startswith('1.26'), f'numpy 版本错误: {numpy.__version__}'
-assert cv2.__version__.startswith('4.9'), f'cv2 版本错误: {cv2.__version__}'
-print('✓ 核心包版本正确')
-"
-
-# 下载 Qwen 模型
-echo ""
-echo -e "${YELLOW}[5/8] 下载 Qwen VL 模型...${NC}"
+echo -e "${YELLOW}[5/7] 下载模型权重...${NC}"
 
 download_model() {
     local repo_id=$1
     local local_dir=$2
     local model_name=$3
     
-    echo -e "${BLUE}下载 ${model_name}...${NC}"
+    echo -e "${BLUE}____ ${model_name}...${NC}"
     
     if [ -d "${local_dir}" ] && [ "$(ls -A ${local_dir} 2>/dev/null)" ]; then
         echo -e "${GREEN}✓ ${model_name} 已存在，跳过下载${NC}"
@@ -180,78 +303,72 @@ download_model "Qwen/Qwen2.5-VL-3B-Instruct" "${MODEL_DIR}/Qwen2.5-VL-3B-Instruc
 # Qwen2.5-VL-7B (Reflector)
 download_model "Qwen/Qwen2.5-VL-7B-Instruct" "${MODEL_DIR}/Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-7B-Instruct"
 
-# 下载 CLIP 模型
-echo ""
-echo -e "${YELLOW}[6/8] 下载 CLIP 模型...${NC}"
+# CLIP 模型
 download_model "openai/clip-vit-base-patch32" "${MODEL_DIR}/clip-vit-base-patch32" "CLIP-ViT-B-32"
 
-# 下载 EfficientNet 模型 (通过 timm 自动下载)
+echo -e "${GREEN}✓ Qwen 和 CLIP 模型下载完成${NC}"
+
+# =============================================================================
+# Step 6: 预下载其他模型权重
+# =============================================================================
 echo ""
-echo -e "${YELLOW}[7/8] 预下载 EfficientNet 模型...${NC}"
-python << 'EOF'
+echo -e "${YELLOW}[6/7] 预下载其他模型权重...${NC}"
+
+python << 'PYEOF'
 import os
+import sys
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
-import timm
-import torch
+import warnings
+warnings.filterwarnings('ignore')
 
-print("预下载 EfficientNetV2-S...")
-model = timm.create_model('tf_efficientnetv2_s.in21k', pretrained=True)
-print("✓ EfficientNetV2-S 预下载完成")
+# EfficientNet
+print("____ EfficientNetV2-S...")
+try:
+    import timm
+    import torch
+    model = timm.create_model('tf_efficientnetv2_s.in21k', pretrained=True)
+    torch.save(model.state_dict(), '/mnt/afs/zhengmingkai/zyr/THEMIS/models/efficientnetv2_s_in21k.pth')
+    print("_ EfficientNetV2-S ________")
+except Exception as e:
+    print(f"EfficientNet 下载失败: {e}")
 
-# 保存模型
-torch.save(model.state_dict(), '/mnt/afs/zhengmingkai/zyr/THEMIS/models/efficientnetv2_s_in21k.pth')
-print("✓ 模型权重已保存")
-EOF
+# YOLO 模型
+print("____ YOLO...")
+try:
+    from ultralytics import YOLO
+    import os
+    os.makedirs('/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo', exist_ok=True)
+    
+    for model_name in ['yolo11n.pt', 'yolo11n-pose.pt', 'yolo11m-pose.pt']:
+        print(f"  下载 {model_name}...")
+        model = YOLO(model_name)
+        model.save(f'/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo/{model_name}')
+    print("_ YOLO ________")
+except Exception as e:
+    print(f"YOLO 下载失败: {e}")
 
-# 下载 YOLO 模型
-python << 'EOF'
-from ultralytics import YOLO
-import os
+# IQA 模型
+print("____ IQA...")
+try:
+    import pyiqa
+    for metric in ['maniqa', 'musiq', 'niqe']:
+        print(f"  下载 {metric}...")
+        pyiqa.create_metric(metric, device='cpu')
+    print("_ IQA ________")
+except Exception as e:
+    print(f"IQA 下载失败: {e}")
 
-os.makedirs('/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo', exist_ok=True)
+print("\n✓ 所有模型权重下载完成")
+PYEOF
 
-print("下载 YOLO11n...")
-model = YOLO('yolo11n.pt')
-model.save('/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo/yolo11n.pt')
-print("✓ YOLO11n 下载完成")
+echo -e "${GREEN}✓ 模型权重下载完成${NC}"
 
-print("下载 YOLO11n-pose...")
-model = YOLO('yolo11n-pose.pt')
-model.save('/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo/yolo11n-pose.pt')
-print("✓ YOLO11n-pose 下载完成")
-
-print("下载 YOLO11m-pose...")
-model = YOLO('yolo11m-pose.pt')
-model.save('/mnt/afs/zhengmingkai/zyr/THEMIS/models/yolo/yolo11m-pose.pt')
-print("✓ YOLO11m-pose 下载完成")
-EOF
-
-# 预下载 IQA 模型
-python << 'EOF'
-import pyiqa
-import os
-
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-
-print("预下载 MANIQA...")
-metric = pyiqa.create_metric('maniqa', device='cpu')
-print("✓ MANIQA 预下载完成")
-
-print("预下载 MUSIQ...")
-metric = pyiqa.create_metric('musiq', device='cpu')
-print("✓ MUSIQ 预下载完成")
-
-print("预下载 NIQE...")
-metric = pyiqa.create_metric('niqe', device='cpu')
-print("✓ NIQE 预下载完成")
-EOF
-
-echo -e "${GREEN}✓ 所有模型下载完成${NC}"
-
-# 创建环境配置文件
+# =============================================================================
+# Step 7: 创建配置文件
+# =============================================================================
 echo ""
-echo -e "${YELLOW}[8/8] 创建配置文件...${NC}"
+echo -e "${YELLOW}[7/7] 创建配置文件...${NC}"
 
 cat > "${PROJECT_DIR}/.env" << EOF
 # =============================================================================
@@ -329,39 +446,110 @@ EOF
 
 echo -e "${GREEN}✓ 配置文件创建完成${NC}"
 
+# =============================================================================
 # 验证安装
+# =============================================================================
 echo ""
 echo -e "${BLUE}============================================================${NC}"
 echo -e "${BLUE}验证安装...${NC}"
 echo -e "${BLUE}============================================================${NC}"
 
-python << 'EOF'
+# 读取之前保存的版本
+ORIGINAL_TORCH=$(cat /tmp/themis_torch_version.txt)
+ORIGINAL_NUMPY=$(cat /tmp/themis_numpy_version.txt)
+ORIGINAL_TORCHVISION=$(cat /tmp/themis_torchvision_version.txt)
+ORIGINAL_CV2=$(cat /tmp/themis_cv2_version.txt)
+ORIGINAL_TRITON=$(cat /tmp/themis_triton_version.txt)
+
+python << PYEOF
 import sys
 
-print("\n[包版本检查]")
+# 版本验证
+print("\n[关键包版本验证]")
+version_ok = True
+
+# 检查 torch
+import torch
+original_torch = "${ORIGINAL_TORCH}"
+if torch.__version__ != original_torch:
+    print(f"  ✗ torch 版本已改变: {original_torch} -> {torch.__version__}")
+    version_ok = False
+else:
+    print(f"  ✓ torch: {torch.__version__} (未改变)")
+
+# 检查 numpy
+import numpy
+original_numpy = "${ORIGINAL_NUMPY}"
+if numpy.__version__ != original_numpy:
+    print(f"  ✗ numpy 版本已改变: {original_numpy} -> {numpy.__version__}")
+    version_ok = False
+else:
+    print(f"  ✓ numpy: {numpy.__version__} (未改变)")
+
+# 检查 torchvision
+original_torchvision = "${ORIGINAL_TORCHVISION}"
+try:
+    import torchvision
+    if original_torchvision and torchvision.__version__ != original_torchvision:
+        print(f"  ✗ torchvision 版本已改变: {original_torchvision} -> {torchvision.__version__}")
+        version_ok = False
+    else:
+        print(f"  ✓ torchvision: {torchvision.__version__} (未改变)")
+except ImportError:
+    print("  - torchvision: 未安装")
+
+# 检查 opencv
+original_cv2 = "${ORIGINAL_CV2}"
+try:
+    import cv2
+    if original_cv2 and cv2.__version__ != original_cv2:
+        print(f"  ✗ cv2 版本已改变: {original_cv2} -> {cv2.__version__}")
+        version_ok = False
+    else:
+        print(f"  ✓ cv2: {cv2.__version__} (未改变)")
+except ImportError:
+    print("  - cv2: 未安装")
+
+# 检查 triton
+original_triton = "${ORIGINAL_TRITON}"
+try:
+    import triton
+    if original_triton and triton.__version__ != original_triton:
+        print(f"  ✗ triton 版本已改变: {original_triton} -> {triton.__version__}")
+        version_ok = False
+    else:
+        print(f"  ✓ triton: {triton.__version__} (未改变)")
+except ImportError:
+    print("  - triton: 未安装")
+
+if not version_ok:
+    print("\n⚠ 警告: 关键包版本已被修改!")
+    sys.exit(1)
+
+print("\n[其他包版本]")
 packages = [
-    "torch", "transformers", "timm", "ultralytics", "pyiqa",
-    "langchain", "langgraph", "numpy", "pillow", "cv2"
+    ("transformers", "transformers"),
+    ("timm", "timm"),
+    ("ultralytics", "ultralytics"),
+    ("pyiqa", "pyiqa"),
+    ("langchain", "langchain"),
+    ("langgraph", "langgraph"),
 ]
 
-for pkg in packages:
+for import_name, display_name in packages:
     try:
-        if pkg == "cv2":
-            import cv2
-            version = cv2.__version__
-        else:
-            mod = __import__(pkg)
-            version = getattr(mod, '__version__', 'unknown')
-        print(f"  ✓ {pkg}: {version}")
+        mod = __import__(import_name)
+        version = getattr(mod, '__version__', 'unknown')
+        print(f"  ✓ {display_name}: {version}")
     except ImportError:
-        print(f"  ✗ {pkg}: 未安装")
+        print(f"  ✗ {display_name}: 未安装")
 
 print("\n[GPU 检查]")
-import torch
 print(f"  CUDA 可用: {torch.cuda.is_available()}")
 print(f"  GPU 数量: {torch.cuda.device_count()}")
 if torch.cuda.is_available():
-    print(f"  GPU 名称: {torch.cuda.get_device_name(0)}")
+    for i in range(torch.cuda.device_count()):
+        print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
 
 print("\n[模型检查]")
 import os
@@ -370,6 +558,7 @@ models = [
     "Qwen2.5-VL-3B-Instruct",
     "Qwen2.5-VL-7B-Instruct",
     "clip-vit-base-patch32",
+    "efficientnetv2_s_in21k.pth",
     "yolo"
 ]
 
@@ -381,9 +570,27 @@ for model in models:
         print(f"  ✗ {model}: 不存在")
 
 print("\n✓ 验证完成")
-EOF
+PYEOF
 
+if [ $? -ne 0 ]; then
+    echo -e "${RED}============================================================${NC}"
+    echo -e "${RED}严重错误: 关键包版本已被修改!${NC}"
+    echo -e "${RED}============================================================${NC}"
+    echo ""
+    echo -e "${YELLOW}MetaX 的 PyTorch 来自系统镜像，无法通过 pip 恢复。${NC}"
+    echo -e "${YELLOW}请删除当前环境并重新从 base 环境克隆:${NC}"
+    echo ""
+    echo -e "  ${BLUE}conda deactivate${NC}"
+    echo -e "  ${BLUE}conda env remove -p /mnt/afs/zhengmingkai/zyr/themis_evn${NC}"
+    echo -e "  ${BLUE}conda create -p /mnt/afs/zhengmingkai/zyr/themis_evn --clone base${NC}"
+    echo -e "  ${BLUE}conda activate /mnt/afs/zhengmingkai/zyr/themis_evn${NC}"
+    echo ""
+    exit 1
+fi
+
+# =============================================================================
 # 完成
+# =============================================================================
 echo ""
 echo -e "${GREEN}============================================================${NC}"
 echo -e "${GREEN}部署完成！${NC}"
@@ -395,7 +602,7 @@ echo -e "约束文件: ${CONSTRAINTS_FILE}"
 echo ""
 echo -e "运行评估:"
 echo -e "  ${YELLOW}cd ${PROJECT_DIR}${NC}"
-echo -e "  ${YELLOW}python -m src.agentic_eval.run_single ./test_images/test_image.png --class-label 'test' --output ./outputs/result.json${NC}"
+echo -e "  ${YELLOW}python -m src.agentic_eval.run_single ./test_images/test.png --class-label 'test' --output ./outputs/result.json${NC}"
 echo ""
 echo -e "${BLUE}提示: 以后安装新包时请使用:${NC}"
 echo -e "  ${YELLOW}pip install <package> --constraint ${CONSTRAINTS_FILE}${NC}"
