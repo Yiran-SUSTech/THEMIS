@@ -15,7 +15,7 @@ from .expert_performance import (
     detect_expert_conflicts,
     calculate_weighted_severity,
 )
-from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert
+from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -322,15 +322,34 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     planner_revision = f"{state.get('plan_revision_count', 0) + 1}/{client.settings.max_plan_revisions + 1}"
     started_at, stop_event, heartbeat = _start_stage("judge", "review_plan", client.settings.judge_model, planner_revision)
     image_input = state["input"]
-    plan = state["plan"].model_dump_json(indent=2)
-    user_text = (
-        f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        f"Plan:\n{plan}\n"
-        "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label. "
-        "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist."
-    )
-    model_used = client.settings.judge_model
-    try:
+    plan = state["plan"]
+    
+    settings = client.settings
+    
+    if settings.judge_local_enabled and settings.judge_local_model:
+        _print_stage(f"judge route=local model={settings.judge_local_model}")
+        try:
+            local_judge = LocalJudge(settings)
+            payload = local_judge.evaluate(
+                image_path=image_input.image_path,
+                plan=plan,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+            )
+            review = PlanReview.model_validate(payload)
+            model_used = settings.judge_local_model
+        except LocalExpertError as exc:
+            _fail_stage("judge", "review_plan", settings.judge_local_model, started_at, stop_event, heartbeat, exc, planner_revision)
+            raise
+    else:
+        plan_json = plan.model_dump_json(indent=2)
+        user_text = (
+            f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
+            f"Plan:\n{plan_json}\n"
+            "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label. "
+            "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist."
+        )
+        model_used = settings.judge_model
         payload = client.invoke_json(
             system=JUDGE_SYSTEM,
             user_text=user_text,
@@ -339,40 +358,38 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             model=model_used,
         )
         review = PlanReview.model_validate(payload)
-        elapsed = _finish_stage("judge", "review_plan", model_used, started_at, stop_event, heartbeat, planner_revision)
-        result: GraphState = {
-            "plan_review": review,
-            "judge_model_used": model_used,
-            "judge_elapsed_seconds": elapsed,
-            "judge_run_count": judge_run_number,
-        }
-        _write_json(state, f"judge_round_{judge_run_number}.json", {
-            "round": judge_run_number,
+    
+    elapsed = _finish_stage("judge", "review_plan", model_used, started_at, stop_event, heartbeat, planner_revision)
+    result: GraphState = {
+        "plan_review": review,
+        "judge_model_used": model_used,
+        "judge_elapsed_seconds": elapsed,
+        "judge_run_count": judge_run_number,
+    }
+    _write_json(state, f"judge_round_{judge_run_number}.json", {
+        "round": judge_run_number,
+        "revision": state.get("plan_revision_count", 0) + 1,
+        "approved": review.approved,
+        "feedback": review.feedback,
+        "missing_checks": review.missing_checks,
+        "plan": plan.model_dump(mode="json"),
+        "judge_model": model_used,
+    })
+    if review.approved:
+        result["planner_feedback"] = None
+        result["planner_feedback_source"] = None
+    else:
+        _print_stage(f"judge_rejected feedback={review.feedback}")
+        _append_log(state, "judge_rejections.jsonl", {
             "revision": state.get("plan_revision_count", 0) + 1,
             "approved": review.approved,
             "feedback": review.feedback,
             "missing_checks": review.missing_checks,
-            "plan": state["plan"].model_dump(mode="json"),
-            "judge_model": model_used,
+            "plan": plan.model_dump(mode="json"),
         })
-        if review.approved:
-            result["planner_feedback"] = None
-            result["planner_feedback_source"] = None
-        else:
-            _print_stage(f"judge_rejected feedback={review.feedback}")
-            _append_log(state, "judge_rejections.jsonl", {
-                "revision": state.get("plan_revision_count", 0) + 1,
-                "approved": review.approved,
-                "feedback": review.feedback,
-                "missing_checks": review.missing_checks,
-                "plan": state["plan"].model_dump(mode="json"),
-            })
-            result["planner_feedback"] = review.feedback
-            result["planner_feedback_source"] = "judge"
-        return result
-    except Exception as exc:
-        _fail_stage("judge", "review_plan", model_used, started_at, stop_event, heartbeat, exc, planner_revision)
-        raise
+        result["planner_feedback"] = review.feedback
+        result["planner_feedback_source"] = "judge"
+    return result
 
 
 
@@ -588,6 +605,8 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     image_input = state["input"]
     expert_results = state["expert_results"]
     
+    settings = client.settings
+    
     expert_payload = []
     for item in expert_results:
         result_dict = item.model_dump()
@@ -616,55 +635,79 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     
     report_payload = state["report"].model_dump()
     
-    user_text = (
-        f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        f"Expert outputs with reliability:\n{json.dumps(expert_payload, indent=2)}\n"
-        f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
-        f"Weighted severity: {weighted_severity:.3f}\n"
-        f"Reliability summary: {json.dumps(reliability_summary, indent=2)}\n"
-        f"Report:\n{json.dumps(report_payload, indent=2)}\n"
-        "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed. "
-        "Consider expert reliability when evaluating the report:\n"
-        "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly\n"
-        "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence\n"
-        "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation\n"
-        "- When experts conflict, prioritize the one with higher reliability\n"
-        "- If report relies heavily on LOW reliability experts, flag for additional verification\n"
-        "- If weighted severity significantly differs from report severity, note the discrepancy\n"
-        "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption. "
-        "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean. "
-        "If disapproving, explain which severe issue was missed and why replanning or re-evaluation is needed."
-    )
-    model_used = client.settings.reflector_model
-    try:
-        payload = client.invoke_json(
-            system=REFLECTOR_SYSTEM,
-            user_text=user_text,
-            image_path=image_input.image_path,
-            schema=REFLECTION_SCHEMA,
-            model=model_used,
+    if settings.reflector_local_enabled and settings.reflector_local_model:
+        _print_stage(f"reflector route=local model={settings.reflector_local_model}")
+        try:
+            local_reflector = LocalReflector(settings)
+            payload = local_reflector.evaluate(
+                image_path=image_input.image_path,
+                report=report_payload,
+                expert_results=expert_payload,
+                reliability_summary=reliability_summary,
+                conflicts=conflicts,
+                weighted_severity=weighted_severity,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+            )
+            review = ReflectionReview.model_validate(payload)
+            model_used = settings.reflector_local_model
+        except LocalExpertError as exc:
+            _fail_stage("reflector", "review_report", settings.reflector_local_model, started_at, stop_event, heartbeat, exc, reflection_revision)
+            raise
+    else:
+        user_text = (
+            f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
+            f"Expert outputs with reliability:\n{json.dumps(expert_payload, indent=2)}\n"
+            f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
+            f"Weighted severity: {weighted_severity:.3f}\n"
+            f"Reliability summary: {json.dumps(reliability_summary, indent=2)}\n"
+            f"Report:\n{json.dumps(report_payload, indent=2)}\n"
+            "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed. "
+            "Consider expert reliability when evaluating the report:\n"
+            "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly\n"
+            "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence\n"
+            "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation\n"
+            "- When experts conflict, prioritize the one with higher reliability\n"
+            "- If report relies heavily on LOW reliability experts, flag for additional verification\n"
+            "- If weighted severity significantly differs from report severity, note the discrepancy\n"
+            "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption. "
+            "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean. "
+            "If disapproving, explain which severe issue was missed and why replanning or re-evaluation is needed."
         )
-        review = ReflectionReview.model_validate(payload)
-        elapsed = _finish_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, reflection_revision)
-        result: GraphState = {
-            "reflection": review,
-            "reflector_model_used": model_used,
-            "reflector_elapsed_seconds": elapsed,
-        }
-        _write_json(state, f"reflector_round_{state.get('reflection_revision_count', 0) + 1}.json", {
-            "revision": state.get('reflection_revision_count', 0) + 1,
-            "approved": review.approved,
-            "feedback": review.feedback,
-            "suggested_fixes": review.suggested_fixes,
-            "report": state["report"].model_dump(mode="json"),
-            "expert_results": expert_payload,
-            "conflicts": conflicts,
-            "reliability_summary": reliability_summary,
-            "reflector_model": model_used,
-        })
-        if review.approved:
-            result["planner_feedback"] = None
-            result["planner_feedback_source"] = None
+        model_used = settings.reflector_model
+        try:
+            payload = client.invoke_json(
+                system=REFLECTOR_SYSTEM,
+                user_text=user_text,
+                image_path=image_input.image_path,
+                schema=REFLECTION_SCHEMA,
+                model=model_used,
+            )
+            review = ReflectionReview.model_validate(payload)
+        except Exception as exc:
+            _fail_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, exc, reflection_revision)
+            raise
+    
+    elapsed = _finish_stage("reflector", "review_report", model_used, started_at, stop_event, heartbeat, reflection_revision)
+    result: GraphState = {
+        "reflection": review,
+        "reflector_model_used": model_used,
+        "reflector_elapsed_seconds": elapsed,
+    }
+    _write_json(state, f"reflector_round_{state.get('reflection_revision_count', 0) + 1}.json", {
+        "revision": state.get('reflection_revision_count', 0) + 1,
+        "approved": review.approved,
+        "feedback": review.feedback,
+        "suggested_fixes": review.suggested_fixes,
+        "report": state["report"].model_dump(mode="json"),
+        "expert_results": expert_payload,
+        "conflicts": conflicts,
+        "reliability_summary": reliability_summary,
+        "reflector_model": model_used,
+    })
+    if review.approved:
+        result["planner_feedback"] = None
+        result["planner_feedback_source"] = None
         else:
             _print_stage(f"reflector_rejected feedback={review.feedback}")
             _append_log(state, "reflector_rejections.jsonl", {

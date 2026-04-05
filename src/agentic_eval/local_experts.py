@@ -124,7 +124,7 @@ class LocalPlanner:
         bundle = _load_vlm_bundle(
             self.settings.planner_local_model,
             self.settings.local_semantic_quantization,
-            self.settings.local_semantic_device,
+            self.settings.planner_device,
             "Failed to load local planner model",
         )
         self._processor = bundle["processor"]
@@ -617,4 +617,201 @@ class LocalArtifactExpert:
             "confidence": round(max(0.0, min(1.0, confidence)), 4),
             "source": "local_iqa",
             "model": "+".join(self.metric_names),
+        }
+
+
+class LocalJudge:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._processor: Any | None = None
+        self._model: Any | None = None
+        self._torch: Any | None = None
+        self._image_module: Any | None = None
+
+    def _load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+
+        bundle = _load_vlm_bundle(
+            self.settings.judge_local_model,
+            self.settings.local_semantic_quantization,
+            self.settings.judge_device,
+            "Failed to load local judge model",
+        )
+        self._processor = bundle["processor"]
+        self._model = bundle["model"]
+        self._torch = bundle["torch"]
+        self._image_module = bundle["image_module"]
+
+    def _load_image(self, image_path: str) -> Any:
+        if self._image_module is None:
+            raise LocalExpertError("Image module not loaded")
+        return self._image_module.open(image_path).convert("RGB")
+
+    def evaluate(self, *, image_path: str, plan: Any, prompt: str | None, class_label: str | None) -> dict[str, Any]:
+        if not self.settings.judge_local_enabled:
+            raise LocalExpertError("Local judge is disabled")
+
+        self._load()
+        if self._processor is None or self._model is None:
+            raise LocalExpertError("Local judge failed to initialize")
+
+        plan_dict = plan.model_dump() if hasattr(plan, "model_dump") else plan
+        plan_json = json.dumps(plan_dict, indent=2, ensure_ascii=False)
+
+        task_lines = [
+            "You are the judge expert in an image generation evaluator.",
+            "Review the evaluation plan and decide if it is adequate.",
+            "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label.",
+            "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
+            "Return valid JSON only.",
+            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"]}',
+            f"Prompt: {prompt or 'N/A'}",
+            f"Class label: {class_label or 'N/A'}",
+            f"Plan:\n{plan_json}",
+        ]
+
+        user_text = "\n".join(task_lines)
+        image = self._load_image(image_path)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
+
+        try:
+            prompt_text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self._processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self._model.device)
+            generated_ids = self._model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.settings.judge_local_max_new_tokens,
+            )
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = self._processor.batch_decode(
+                trimmed_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0]
+        except Exception as exc:
+            raise LocalExpertError("Local judge inference failed") from exc
+
+        payload = extract_json(output_text)
+        return {
+            "approved": bool(payload.get("approved", False)),
+            "feedback": str(payload.get("feedback", "")).strip(),
+            "missing_checks": list(payload.get("missing_checks", [])),
+        }
+
+
+class LocalReflector:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._processor: Any | None = None
+        self._model: Any | None = None
+        self._torch: Any | None = None
+        self._image_module: Any | None = None
+
+    def _load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+
+        bundle = _load_vlm_bundle(
+            self.settings.reflector_local_model,
+            self.settings.local_semantic_quantization,
+            self.settings.reflector_device,
+            "Failed to load local reflector model",
+        )
+        self._processor = bundle["processor"]
+        self._model = bundle["model"]
+        self._torch = bundle["torch"]
+        self._image_module = bundle["image_module"]
+
+    def _load_image(self, image_path: str) -> Any:
+        if self._image_module is None:
+            raise LocalExpertError("Image module not loaded")
+        return self._image_module.open(image_path).convert("RGB")
+
+    def evaluate(self, *, image_path: str, report: dict[str, Any], expert_results: list[dict[str, Any]], 
+                 reliability_summary: dict[str, Any], conflicts: list[dict[str, Any]], 
+                 weighted_severity: float, prompt: str | None, class_label: str | None) -> dict[str, Any]:
+        if not self.settings.reflector_local_enabled:
+            raise LocalExpertError("Local reflector is disabled")
+
+        self._load()
+        if self._processor is None or self._model is None:
+            raise LocalExpertError("Local reflector failed to initialize")
+
+        report_json = json.dumps(report, indent=2, ensure_ascii=False)
+        expert_json = json.dumps(expert_results, indent=2, ensure_ascii=False)
+        conflicts_json = json.dumps(conflicts, indent=2, ensure_ascii=False) if conflicts else "None"
+        reliability_json = json.dumps(reliability_summary, indent=2, ensure_ascii=False)
+
+        task_lines = [
+            "You are the reflector expert in an image generation evaluator.",
+            "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed.",
+            "Consider expert reliability when evaluating the report:",
+            "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly",
+            "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence",
+            "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation",
+            "- When experts conflict, prioritize the one with higher reliability",
+            "- If report relies heavily on LOW reliability experts, flag for additional verification",
+            "- If weighted severity significantly differs from report severity, note the discrepancy",
+            "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption.",
+            "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean.",
+            "Return valid JSON only.",
+            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"]}',
+            f"Prompt: {prompt or 'N/A'}",
+            f"Class label: {class_label or 'N/A'}",
+            f"Expert outputs:\n{expert_json}",
+            f"Detected conflicts:\n{conflicts_json}",
+            f"Weighted severity: {weighted_severity:.3f}",
+            f"Reliability summary:\n{reliability_json}",
+            f"Report:\n{report_json}",
+        ]
+
+        user_text = "\n".join(task_lines)
+        image = self._load_image(image_path)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
+
+        try:
+            prompt_text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self._processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(self._model.device)
+            generated_ids = self._model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.settings.reflector_local_max_new_tokens,
+            )
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = self._processor.batch_decode(
+                trimmed_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0]
+        except Exception as exc:
+            raise LocalExpertError("Local reflector inference failed") from exc
+
+        payload = extract_json(output_text)
+        return {
+            "approved": bool(payload.get("approved", False)),
+            "feedback": str(payload.get("feedback", "")).strip(),
+            "suggested_fixes": list(payload.get("suggested_fixes", [])),
         }

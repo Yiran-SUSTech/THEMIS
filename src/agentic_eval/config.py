@@ -58,15 +58,21 @@ class Settings:
     
     judge_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     judge_local_path: Optional[str] = None
+    judge_local_model: Optional[str] = None
+    judge_local_enabled: bool = False
     judge_device: str = "cuda:1"
     judge_profile: ModelProfile = "fast"
     judge_max_new_tokens: int = 256
+    judge_local_max_new_tokens: int = 256
     
     reflector_model: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     reflector_local_path: Optional[str] = None
+    reflector_local_model: Optional[str] = None
+    reflector_local_enabled: bool = False
     reflector_device: str = "cuda:2"
     reflector_profile: ModelProfile = "standard"
     reflector_max_new_tokens: int = 400
+    reflector_local_max_new_tokens: int = 400
     
     local_semantic_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     local_semantic_quantization: Optional[str] = None
@@ -128,14 +134,25 @@ class Settings:
         judge_profile = os.getenv("JUDGE_PROFILE", "fast").strip()
         judge_model = os.getenv("JUDGE_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
         judge_local_path = os.getenv("JUDGE_LOCAL_MODEL_PATH", None)
+        judge_local_model = judge_local_path if judge_local_path else None
+        judge_local_enabled = bool(judge_local_path)
         judge_device = os.getenv("JUDGE_DEVICE", "cuda:1").strip()
         judge_max_new_tokens = env_int("JUDGE_MAX_NEW_TOKENS", 256)
+        judge_local_max_new_tokens = env_int("JUDGE_LOCAL_MAX_NEW_TOKENS", 256)
         
         reflector_profile = os.getenv("REFLECTOR_PROFILE", "standard").strip()
         reflector_model = os.getenv("REFLECTOR_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct").strip()
         reflector_local_path = os.getenv("REFLECTOR_LOCAL_MODEL_PATH", None)
+        reflector_local_model = reflector_local_path if reflector_local_path else None
+        reflector_local_enabled = bool(reflector_local_path)
         reflector_device = os.getenv("REFLECTOR_DEVICE", "cuda:2").strip()
         reflector_max_new_tokens = env_int("REFLECTOR_MAX_NEW_TOKENS", 400)
+        reflector_local_max_new_tokens = env_int("REFLECTOR_LOCAL_MAX_NEW_TOKENS", 400)        
+        local_semantic_model = os.getenv("LOCAL_SEMANTIC_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
+        local_semantic_quantization = os.getenv("LOCAL_SEMANTIC_QUANTIZATION", None)
+        local_semantic_device = os.getenv("LOCAL_SEMANTIC_DEVICE", "cuda:3").strip()
+        local_semantic_enabled = env_bool("LOCAL_SEMANTIC_ENABLED", True)
+        local_semantic_max_new_tokens = env_int("LOCAL_SEMANTIC_MAX_NEW_TOKENS", 512)
         
         local_semantic_model = os.getenv("LOCAL_SEMANTIC_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
         local_semantic_quantization = os.getenv("LOCAL_SEMANTIC_QUANTIZATION", None)
