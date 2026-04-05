@@ -17,6 +17,7 @@ NC='\033[0m'
 MODEL_DIR="/mnt/afs/zhengmingkai/zyr/THEMIS/models"
 PROJECT_DIR="/mnt/afs/zhengmingkai/zyr/THEMIS"
 LOG_DIR="${PROJECT_DIR}/logs"
+CONSTRAINTS_FILE="${PROJECT_DIR}/scripts/constraints.txt"
 
 # 国内镜像配置
 export HF_ENDPOINT="https://hf-mirror.com"
@@ -30,29 +31,51 @@ echo ""
 echo -e "模型目录: ${GREEN}${MODEL_DIR}${NC}"
 echo -e "项目目录: ${GREEN}${PROJECT_DIR}${NC}"
 echo -e "HF镜像:   ${GREEN}${HF_ENDPOINT}${NC}"
+echo -e "约束文件: ${GREEN}${CONSTRAINTS_FILE}${NC}"
 echo ""
 
 # 创建目录
-echo -e "${YELLOW}[1/7] 创建目录...${NC}"
+echo -e "${YELLOW}[1/8] 创建目录...${NC}"
 mkdir -p "${MODEL_DIR}"
 mkdir -p "${LOG_DIR}"
 mkdir -p "${PROJECT_DIR}/test_images"
 mkdir -p "${PROJECT_DIR}/outputs"
+mkdir -p "${PROJECT_DIR}/scripts"
 echo -e "${GREEN}✓ 目录创建完成${NC}"
+
+# 创建版本约束文件
+echo ""
+echo -e "${YELLOW}[2/8] 创建版本约束文件...${NC}"
+cat > "${CONSTRAINTS_FILE}" << 'EOF'
+# =============================================================================
+# THEMIS 依赖版本约束文件
+# 用于防止 numpy 和 opencv 版本冲突
+# =============================================================================
+
+# numpy 版本约束 (MetaX PyTorch 需要 numpy<2.0.0)
+numpy==1.26.4
+
+# opencv 版本约束 (兼容 numpy 1.x)
+opencv-python==4.9.0.80
+EOF
+echo -e "${GREEN}✓ 版本约束文件创建完成: ${CONSTRAINTS_FILE}${NC}"
 
 # 安装 Python 包
 echo ""
-echo -e "${YELLOW}[2/7] 安装 Python 依赖包...${NC}"
+echo -e "${YELLOW}[3/8] 安装 Python 依赖包...${NC}"
 
 pip install --upgrade pip setuptools wheel -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}"
 
-# 先固定 numpy 版本 (MetaX PyTorch 需要 numpy<2.0.0)
-echo -e "${YELLOW}固定 numpy 版本 (兼容 MetaX PyTorch)...${NC}"
+# 先安装 numpy (使用约束)
+echo -e "${YELLOW}安装 numpy (兼容 MetaX PyTorch)...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    "numpy<2.0.0,>=1.24.0"
+    --constraint "${CONSTRAINTS_FILE}" \
+    "numpy==1.26.4"
 
-# 核心依赖 (不包含 numpy，避免版本冲突)
+# 核心依赖 (使用约束)
+echo -e "${YELLOW}安装核心依赖...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
     scipy scikit-learn pandas \
     pillow opencv-python matplotlib seaborn \
     tqdm pyyaml python-dotenv requests aiohttp \
@@ -60,36 +83,69 @@ pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
 
 echo -e "${GREEN}✓ 基础包安装完成${NC}"
 
-# Transformers 相关 (不升级 numpy)
+# Transformers 相关 (使用约束)
 echo -e "${YELLOW}安装 Transformers 相关包...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    transformers accelerate sentencepiece protobuf einops \
-    timm kornia albumentations
+    --constraint "${CONSTRAINTS_FILE}" \
+    transformers accelerate sentencepiece protobuf einops timm
 
-# 再次确保 numpy 版本正确
+# 安装 kornia 和 albumentations (使用约束，排除 opencv-python-headless)
+echo -e "${YELLOW}安装 kornia 和 albumentations...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    "numpy<2.0.0,>=1.24.0"
+    --constraint "${CONSTRAINTS_FILE}" \
+    kornia --no-deps
 
-# LangChain 相关
+pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
+    albumentations --no-deps
+
+# 安装 albumentations 的必要依赖
+pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
+    albucore scipy scikit-image
+
+# LangChain 相关 (使用约束)
 echo -e "${YELLOW}安装 LangChain 相关包...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
     langgraph langchain langchain-core langchain-anthropic
 
-# 视觉模型相关
+# 视觉模型相关 (使用约束)
 echo -e "${YELLOW}安装视觉模型相关包...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
     ultralytics pyiqa
+
+# ===== 关键步骤：强制锁定版本 =====
+echo ""
+echo -e "${RED}[重要] 锁定 numpy 和 opencv 版本...${NC}"
+
+# 卸载可能被安装的冲突包
+pip uninstall opencv-python-headless -y 2>/dev/null || true
+
+# 强制安装兼容版本 (使用约束)
+pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    --constraint "${CONSTRAINTS_FILE}" \
+    "numpy==1.26.4" "opencv-python==4.9.0.80" --force-reinstall
 
 echo -e "${GREEN}✓ Python 依赖安装完成${NC}"
 
-# 验证 numpy 版本
+# 验证核心包版本
 echo ""
-echo -e "${YELLOW}验证 numpy 版本...${NC}"
-python -c "import numpy; print(f'numpy 版本: {numpy.__version__}')"
+echo -e "${YELLOW}[4/8] 验证核心包版本...${NC}"
+python -c "
+import numpy, torch, cv2
+print(f'numpy: {numpy.__version__}')
+print(f'torch: {torch.__version__}')
+print(f'cv2: {cv2.__version__}')
+assert numpy.__version__.startswith('1.26'), f'numpy 版本错误: {numpy.__version__}'
+assert cv2.__version__.startswith('4.9'), f'cv2 版本错误: {cv2.__version__}'
+print('✓ 核心包版本正确')
+"
 
 # 下载 Qwen 模型
 echo ""
-echo -e "${YELLOW}[3/7] 下载 Qwen VL 模型...${NC}"
+echo -e "${YELLOW}[5/8] 下载 Qwen VL 模型...${NC}"
 
 download_model() {
     local repo_id=$1
@@ -126,12 +182,12 @@ download_model "Qwen/Qwen2.5-VL-7B-Instruct" "${MODEL_DIR}/Qwen2.5-VL-7B-Instruc
 
 # 下载 CLIP 模型
 echo ""
-echo -e "${YELLOW}[4/7] 下载 CLIP 模型...${NC}"
+echo -e "${YELLOW}[6/8] 下载 CLIP 模型...${NC}"
 download_model "openai/clip-vit-base-patch32" "${MODEL_DIR}/clip-vit-base-patch32" "CLIP-ViT-B-32"
 
 # 下载 EfficientNet 模型 (通过 timm 自动下载)
 echo ""
-echo -e "${YELLOW}[5/7] 预下载 EfficientNet 模型...${NC}"
+echo -e "${YELLOW}[7/8] 预下载 EfficientNet 模型...${NC}"
 python << 'EOF'
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
@@ -149,8 +205,6 @@ print("✓ 模型权重已保存")
 EOF
 
 # 下载 YOLO 模型
-echo ""
-echo -e "${YELLOW}[6/7] 下载 YOLO 模型...${NC}"
 python << 'EOF'
 from ultralytics import YOLO
 import os
@@ -174,8 +228,6 @@ print("✓ YOLO11m-pose 下载完成")
 EOF
 
 # 预下载 IQA 模型
-echo ""
-echo -e "${YELLOW}预下载 IQA 模型...${NC}"
 python << 'EOF'
 import pyiqa
 import os
@@ -199,7 +251,7 @@ echo -e "${GREEN}✓ 所有模型下载完成${NC}"
 
 # 创建环境配置文件
 echo ""
-echo -e "${YELLOW}[7/7] 创建配置文件...${NC}"
+echo -e "${YELLOW}[8/8] 创建配置文件...${NC}"
 
 cat > "${PROJECT_DIR}/.env" << EOF
 # =============================================================================
@@ -289,13 +341,17 @@ import sys
 print("\n[包版本检查]")
 packages = [
     "torch", "transformers", "timm", "ultralytics", "pyiqa",
-    "langchain", "langgraph", "numpy", "pillow"
+    "langchain", "langgraph", "numpy", "pillow", "cv2"
 ]
 
 for pkg in packages:
     try:
-        mod = __import__(pkg)
-        version = getattr(mod, '__version__', 'unknown')
+        if pkg == "cv2":
+            import cv2
+            version = cv2.__version__
+        else:
+            mod = __import__(pkg)
+            version = getattr(mod, '__version__', 'unknown')
         print(f"  ✓ {pkg}: {version}")
     except ImportError:
         print(f"  ✗ {pkg}: 未安装")
@@ -335,8 +391,12 @@ echo -e "${GREEN}============================================================${N
 echo ""
 echo -e "模型目录: ${MODEL_DIR}"
 echo -e "配置文件: ${PROJECT_DIR}/.env"
+echo -e "约束文件: ${CONSTRAINTS_FILE}"
 echo ""
 echo -e "运行评估:"
 echo -e "  ${YELLOW}cd ${PROJECT_DIR}${NC}"
 echo -e "  ${YELLOW}python -m src.agentic_eval.run_single ./test_images/test_image.png --class-label 'test' --output ./outputs/result.json${NC}"
+echo ""
+echo -e "${BLUE}提示: 以后安装新包时请使用:${NC}"
+echo -e "  ${YELLOW}pip install <package> --constraint ${CONSTRAINTS_FILE}${NC}"
 echo ""
