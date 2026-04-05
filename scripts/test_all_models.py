@@ -61,10 +61,10 @@ def test_efficientnet():
     import torch
     import timm
     model_path = f'{MODEL_DIR}/efficientnetv2_s_in21k.pth'
-    model = timm.create_model('tf_efficientnetv2_s.in21k', num_classes=1000)
+    model = timm.create_model('tf_efficientnetv2_s.in21k', num_classes=21843)
     state_dict = torch.load(model_path, map_location='cpu')
     model.load_state_dict(state_dict, strict=False)
-    print(f"  Model type: EfficientNetV2-S")
+    print(f"  Model type: EfficientNetV2-S (ImageNet-21K, 21843 classes)")
 
 def test_yolo():
     """Test YOLO"""

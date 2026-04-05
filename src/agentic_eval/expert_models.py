@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
@@ -149,11 +150,20 @@ class ImageNetExpert(BaseExpert):
         try:
             import timm
             
-            model = timm.create_model(
-                self.config.model,
-                pretrained=True,
-                num_classes=self.config.num_classes or 1000
-            )
+            model_name = self.config.model
+            
+            if "in21k" in model_name.lower():
+                num_classes = self.config.num_classes or 21843
+            else:
+                num_classes = self.config.num_classes or 1000
+            
+            if self.config.weights and os.path.exists(self.config.weights):
+                model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
+                state_dict = torch.load(self.config.weights, map_location=self.config.device)
+                model.load_state_dict(state_dict, strict=False)
+            else:
+                model = timm.create_model(model_name, pretrained=True, num_classes=num_classes)
+            
             model = model.to(self.config.device)
             model.eval()
             
