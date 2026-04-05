@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# THEMIS 完整部署脚本 - MetaX GPU 服务器
+# THEMIS 完整部署脚本 - MetaX GPU 服务器 (修复版)
 # 运行此脚本后即可进行图像质量评估
 # =============================================================================
 
@@ -24,7 +24,7 @@ export PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 export PIP_TRUSTED_HOST="pypi.tuna.tsinghua.edu.cn"
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}THEMIS 完整部署脚本 - MetaX GPU 服务器${NC}"
+echo -e "${BLUE}THEMIS 完整部署脚本 - MetaX GPU 服务器 (修复版)${NC}"
 echo -e "${BLUE}============================================================${NC}"
 echo ""
 echo -e "模型目录: ${GREEN}${MODEL_DIR}${NC}"
@@ -46,21 +46,29 @@ echo -e "${YELLOW}[2/7] 安装 Python 依赖包...${NC}"
 
 pip install --upgrade pip setuptools wheel -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}"
 
-# 核心依赖
+# 先固定 numpy 版本 (MetaX PyTorch 需要 numpy<2.0.0)
+echo -e "${YELLOW}固定 numpy 版本 (兼容 MetaX PyTorch)...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-    numpy scipy scikit-learn pandas \
+    "numpy<2.0.0,>=1.24.0"
+
+# 核心依赖 (不包含 numpy，避免版本冲突)
+pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    scipy scikit-learn pandas \
     pillow opencv-python matplotlib seaborn \
     tqdm pyyaml python-dotenv requests aiohttp \
     huggingface_hub safetensors
 
-# PyTorch 相关 (MetaX 已有定制版 PyTorch，跳过)
 echo -e "${GREEN}✓ 基础包安装完成${NC}"
 
-# Transformers 相关
+# Transformers 相关 (不升级 numpy)
 echo -e "${YELLOW}安装 Transformers 相关包...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
     transformers accelerate sentencepiece protobuf einops \
     timm kornia albumentations
+
+# 再次确保 numpy 版本正确
+pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+    "numpy<2.0.0,>=1.24.0"
 
 # LangChain 相关
 echo -e "${YELLOW}安装 LangChain 相关包...${NC}"
@@ -72,11 +80,12 @@ echo -e "${YELLOW}安装视觉模型相关包...${NC}"
 pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
     ultralytics pyiqa
 
-# 可选：PaddleOCR (如果需要)
-# pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-#     paddlepaddle paddleocr
-
 echo -e "${GREEN}✓ Python 依赖安装完成${NC}"
+
+# 验证 numpy 版本
+echo ""
+echo -e "${YELLOW}验证 numpy 版本...${NC}"
+python -c "import numpy; print(f'numpy 版本: {numpy.__version__}')"
 
 # 下载 Qwen 模型
 echo ""
@@ -120,7 +129,7 @@ echo ""
 echo -e "${YELLOW}[4/7] 下载 CLIP 模型...${NC}"
 download_model "openai/clip-vit-base-patch32" "${MODEL_DIR}/clip-vit-base-patch32" "CLIP-ViT-B-32"
 
-# 下载 EfficientNet 模型 (通过 timm 自动下载，这里预下载)
+# 下载 EfficientNet 模型 (通过 timm 自动下载)
 echo ""
 echo -e "${YELLOW}[5/7] 预下载 EfficientNet 模型...${NC}"
 python << 'EOF'
@@ -128,13 +137,13 @@ import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 import timm
+import torch
 
 print("预下载 EfficientNetV2-S...")
 model = timm.create_model('tf_efficientnetv2_s.in21k', pretrained=True)
 print("✓ EfficientNetV2-S 预下载完成")
 
 # 保存模型
-import torch
 torch.save(model.state_dict(), '/mnt/afs/zhengmingkai/zyr/THEMIS/models/efficientnetv2_s_in21k.pth')
 print("✓ 模型权重已保存")
 EOF
@@ -268,72 +277,6 @@ EOF
 
 echo -e "${GREEN}✓ 配置文件创建完成${NC}"
 
-# 创建测试脚本
-cat > "${PROJECT_DIR}/run_test.sh" << 'EOF'
-#!/bin/bash
-# THEMIS 测试运行脚本
-
-source .env 2>/dev/null || true
-
-echo "=========================================="
-echo "THEMIS 测试运行"
-echo "=========================================="
-
-# 测试1: 模型加载测试
-echo ""
-echo "[测试1] Qwen 模型加载测试..."
-python << 'PYTHON'
-import torch
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-import os
-
-model_path = os.environ.get('PLANNER_LOCAL_MODEL_PATH', '/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-3B-Instruct')
-
-print(f"加载模型: {model_path}")
-processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    model_path,
-    torch_dtype=torch.bfloat16,
-    device_map="auto",
-    local_files_only=True
-)
-
-print(f"✓ 模型加载成功")
-print(f"  设备: {model.device}")
-print(f"  显存: {torch.cuda.memory_allocated()/1e9:.2f} GB")
-PYTHON
-
-# 测试2: 快速评估测试
-echo ""
-echo "[测试2] 创建测试图片..."
-python << 'PYTHON'
-from PIL import Image
-import os
-
-os.makedirs('/mnt/afs/zhengmingkai/zyr/THEMIS/test_images', exist_ok=True)
-
-# 创建测试图片
-img = Image.new('RGB', (256, 256), color=(100, 150, 200))
-img.save('/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/test_image.png')
-print("✓ 测试图片创建完成")
-PYTHON
-
-echo ""
-echo "=========================================="
-echo "部署完成！"
-echo "=========================================="
-echo ""
-echo "运行评估命令示例:"
-echo "  cd ${PROJECT_DIR}"
-echo "  python -m src.agentic_eval.run_single \\"
-echo "      ./test_images/test_image.png \\"
-echo "      --class-label 'test object' \\"
-echo "      --output ./outputs/result.json"
-echo ""
-EOF
-
-chmod +x "${PROJECT_DIR}/run_test.sh"
-
 # 验证安装
 echo ""
 echo -e "${BLUE}============================================================${NC}"
@@ -392,9 +335,6 @@ echo -e "${GREEN}============================================================${N
 echo ""
 echo -e "模型目录: ${MODEL_DIR}"
 echo -e "配置文件: ${PROJECT_DIR}/.env"
-echo ""
-echo -e "运行测试:"
-echo -e "  ${YELLOW}bash ${PROJECT_DIR}/run_test.sh${NC}"
 echo ""
 echo -e "运行评估:"
 echo -e "  ${YELLOW}cd ${PROJECT_DIR}${NC}"
