@@ -258,16 +258,25 @@ class CLIPExpert(BaseExpert):
         if class_label:
             target_text = f"a photo of {class_label}"
             texts.append(target_text)
+            
+            class_lower = class_label.lower()
+            
+            similar_species = self._get_similar_species(class_lower)
+            for species in similar_species:
+                texts.append(f"a photo of a {species}")
+            
+            contrast_animals = ["a photo of a dog", "a photo of a cat", "a photo of a bird", 
+                               "a photo of a person", "a photo of a horse", "a photo of a cow"]
+            for contrast in contrast_animals:
+                if contrast not in texts:
+                    texts.append(contrast)
         
         contrast_texts = [
-            "a photo of a different animal",
-            "a photo of a dog",
-            "a photo of a cat",
-            "a photo of a bird",
-            "a photo of a person",
             "a low quality image",
             "an unrealistic image",
             "a distorted image",
+            "a cartoon image",
+            "a painting",
         ]
         texts.extend(contrast_texts)
         
@@ -293,9 +302,21 @@ class CLIPExpert(BaseExpert):
         
         if target_idx is not None:
             target_prob = probs_list[target_idx]
-            severity = 1.0 - target_prob
-            confidence = target_prob
-            summary = f"Target '{target_text}': probability {target_prob:.4f}"
+            
+            similar_probs = []
+            for i, (text, prob) in enumerate(zip(texts, probs_list)):
+                if i != target_idx and "photo of" in text.lower() and class_label and class_label.lower() not in text.lower():
+                    if any(sp in text.lower() for sp in self._get_similar_species(class_label.lower())):
+                        similar_probs.append(prob)
+            
+            if similar_probs and max(similar_probs) > target_prob:
+                severity = 0.7
+                confidence = 0.3
+                summary = f"Target '{target_text}' ({target_prob:.4f}) is LOWER than similar species ({max(similar_probs):.4f}) - likely species mismatch"
+            else:
+                severity = 1.0 - target_prob
+                confidence = target_prob
+                summary = f"Target '{target_text}': probability {target_prob:.4f}"
         else:
             max_prob = max(probs_list)
             max_idx = probs_list.index(max_prob)
@@ -322,6 +343,22 @@ class CLIPExpert(BaseExpert):
                 "target_index": target_idx,
             }
         )
+    
+    def _get_similar_species(self, class_label: str) -> list[str]:
+        similar_species_map = {
+            "monkey": ["chimpanzee", "gorilla", "baboon", "lemur", "ape", "primate"],
+            "hussar monkey": ["patas monkey", "guinea baboon", "chimpanzee", "baboon", "monkey"],
+            "dog": ["wolf", "fox", "coyote", "puppy"],
+            "cat": ["tiger", "lion", "leopard", "kitten"],
+            "bird": ["eagle", "hawk", "sparrow", "parrot"],
+            "horse": ["zebra", "donkey", "mule", "pony"],
+        }
+        
+        for key, similar in similar_species_map.items():
+            if key in class_label:
+                return similar
+        
+        return []
 
 
 class YOLODetectExpert(BaseExpert):

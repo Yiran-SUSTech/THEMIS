@@ -89,6 +89,7 @@ class Settings:
     report_model: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     
     use_specialized_experts: bool = True
+    use_vlm_overseer: bool = True
     
     clip_model_path: str = "openai/clip-vit-base-patch32"
     clip_device: str = "cuda:3"
@@ -185,6 +186,7 @@ class Settings:
         report_model = os.getenv("REPORT_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct").strip()
         
         use_specialized_experts = env_bool("USE_SPECIALIZED_EXPERTS", True)
+        use_vlm_overseer = env_bool("USE_VLM_OVERSEER", True)
         
         clip_model_path = os.getenv("CLIP_MODEL_PATH", "openai/clip-vit-base-patch32").strip()
         clip_device = os.getenv("CLIP_DEVICE", "cuda:3").strip()
@@ -251,6 +253,7 @@ class Settings:
             iqa_cache_dir=iqa_cache_dir,
             report_model=report_model,
             use_specialized_experts=use_specialized_experts,
+            use_vlm_overseer=use_vlm_overseer,
             clip_model_path=clip_model_path,
             clip_device=clip_device,
             imagenet_model=imagenet_model,

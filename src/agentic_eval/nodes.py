@@ -511,6 +511,68 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
     raise RuntimeError(f"Unsupported expert '{expert_name}'")
 
 
+def vlm_overseer_verify(state: GraphState, client: ClaudeVisionClient, expert_result: ExpertResult, expert_name: str) -> ExpertResult:
+    """Use VLM to verify and correct expert output"""
+    settings = client.settings
+    if not settings.use_vlm_overseer:
+        return expert_result
+    
+    image_input = state["input"]
+    
+    original_model = settings.local_semantic_model
+    try:
+        settings.local_semantic_model = settings.semantic_local_stronger_model
+        
+        from .local_experts import LocalVQAExpert
+        
+        overseer_prompt = f"""You are a VLM overseer. Your job is to VERIFY and CORRECT the expert's assessment.
+
+EXPERT: {expert_name}
+EXPERT OUTPUT:
+- Summary: {expert_result.summary}
+- Severity: {expert_result.severity}
+- Confidence: {expert_result.confidence}
+- Findings: {expert_result.findings}
+
+INSTRUCTIONS:
+1. Look at the image YOURSELF
+2. Check if the expert's assessment is accurate
+3. If the expert missed issues or was too optimistic, CORRECT the assessment
+4. If the expert was accurate, confirm it
+
+DEFAULT ASSUMPTION: AI-generated images often have subtle flaws. Be CONSERVATIVE.
+
+Return JSON with:
+- verified: true/false (is the expert's assessment accurate?)
+- corrected_severity: 0.0-1.0 (your assessment)
+- corrected_confidence: 0.0-1.0
+- correction_reasoning: string (why did you correct/confirm?)
+- additional_findings: [strings] (issues the expert missed)
+"""
+        
+        payload = LocalVQAExpert(settings).evaluate(
+            image_path=image_input.image_path,
+            prompt=image_input.prompt,
+            class_label=image_input.class_label,
+            goal=f"Verify expert {expert_name} assessment",
+            prompt_focus=overseer_prompt,
+        )
+        
+        if payload.get("verified") == False:
+            corrected = expert_result.model_dump()
+            corrected["severity"] = payload.get("corrected_severity", expert_result.severity)
+            corrected["confidence"] = payload.get("corrected_confidence", expert_result.confidence)
+            corrected["findings"] = list(expert_result.findings) + payload.get("additional_findings", [])
+            corrected["summary"] = f"[VLM Corrected] {payload.get('correction_reasoning', expert_result.summary)}"
+            corrected["source"] = "vlm_overseen"
+            print(f"[agentic_eval] VLM Overseer corrected {expert_name}: {payload.get('correction_reasoning', '')}", flush=True)
+            return ExpertResult.model_validate(corrected)
+        
+        return expert_result
+        
+    finally:
+        settings.local_semantic_model = original_model
+
 
 def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     steps = state["plan"].steps
@@ -523,7 +585,15 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
         started_at, stop_event, heartbeat = _start_stage(step.expert, action, model_name)
         try:
             result = run_expert(state, client, step)
-            elapsed = _finish_stage(step.expert, action, model_name, started_at, stop_event, heartbeat)
+            
+            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"]:
+                overseer_started = perf_counter()
+                result = vlm_overseer_verify(state, client, result, step.expert)
+                overseer_elapsed = perf_counter() - overseer_started
+                elapsed = _finish_stage(step.expert, action, model_name, started_at, stop_event, heartbeat)
+                elapsed += overseer_elapsed
+            else:
+                elapsed = _finish_stage(step.expert, action, model_name, started_at, stop_event, heartbeat)
         except Exception as exc:
             _fail_stage(step.expert, action, model_name, started_at, stop_event, heartbeat, exc)
             raise
