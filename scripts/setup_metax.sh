@@ -165,6 +165,7 @@ cat > "${CONSTRAINTS_FILE}" << EOF
 # =============================================================================
 # THEMIS 依赖版本约束文件
 # 自动生成 - 锁定当前环境的关键包版本
+# 注意: opencv 来自系统镜像，不在 PyPI 上，所以不锁定其版本
 # =============================================================================
 
 # 核心包版本锁定 (禁止修改)
@@ -177,17 +178,13 @@ if [ -n "${CURRENT_TORCHVISION_VERSION}" ]; then
     echo "torchvision==${CURRENT_TORCHVISION_VERSION}" >> "${CONSTRAINTS_FILE}"
 fi
 
-# 如果 opencv 已安装，也锁定
-if [ -n "${CURRENT_CV2_VERSION}" ]; then
-    echo "opencv-python==${CURRENT_CV2_VERSION}" >> "${CONSTRAINTS_FILE}"
-fi
-
 # 如果 triton 已安装，锁定版本
 if [ -n "${CURRENT_TRITON_VERSION}" ]; then
     echo "triton==${CURRENT_TRITON_VERSION}" >> "${CONSTRAINTS_FILE}"
 fi
 
 # 禁止安装 opencv-python-headless (它会要求 numpy>=2)
+# 注意: 不锁定 opencv-python 版本，因为它来自系统镜像，PyPI 上可能没有对应版本
 cat >> "${CONSTRAINTS_FILE}" << EOF
 
 # 禁止安装 opencv-python-headless (它会要求 numpy>=2)
@@ -247,10 +244,40 @@ check_and_install "transformers accelerate sentencepiece protobuf einops timm" "
 # LangChain 相关
 check_and_install "langgraph langchain langchain-core langchain-anthropic" "LangChain 相关包"
 
-# 视觉模型相关
-check_and_install "ultralytics pyiqa kornia" "视觉模型相关包"
+# 视觉模型相关 (全部使用 --no-deps 保护 opencv)
+echo -e "${BLUE}检查 视觉模型相关包...${NC}"
 
-# albumentations (使用 --no-deps 避免 opencv-python-headless)
+# ultralytics (使用 --no-deps 保护 opencv)
+if pip show ultralytics > /dev/null 2>&1; then
+    version=$(pip show ultralytics | grep "^Version:" | awk '{print $2}')
+    echo -e "  ${GREEN}✓ ultralytics 已安装 (${version})${NC}"
+else
+    echo -e "  ${YELLOW}安装 ultralytics (不安装依赖，保护 opencv)...${NC}"
+    pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+        ultralytics --no-deps
+fi
+
+# kornia (使用 --no-deps 保护 opencv)
+if pip show kornia > /dev/null 2>&1; then
+    version=$(pip show kornia | grep "^Version:" | awk '{print $2}')
+    echo -e "  ${GREEN}✓ kornia 已安装 (${version})${NC}"
+else
+    echo -e "  ${YELLOW}安装 kornia (不安装依赖)...${NC}"
+    pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+        kornia --no-deps
+fi
+
+# pyiqa (使用 --no-deps 保护 opencv)
+if pip show pyiqa > /dev/null 2>&1; then
+    version=$(pip show pyiqa | grep "^Version:" | awk '{print $2}')
+    echo -e "  ${GREEN}✓ pyiqa 已安装 (${version})${NC}"
+else
+    echo -e "  ${YELLOW}安装 pyiqa (不安装依赖，系统已有 opencv)...${NC}"
+    pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+        pyiqa --no-deps
+fi
+
+# albumentations (使用 --no-deps 保护 opencv)
 echo -e "${BLUE}检查 albumentations...${NC}"
 if pip show albumentations > /dev/null 2>&1; then
     version=$(pip show albumentations | grep "^Version:" | awk '{print $2}')
@@ -258,7 +285,6 @@ if pip show albumentations > /dev/null 2>&1; then
 else
     echo -e "  ${YELLOW}安装 albumentations (不安装依赖)...${NC}"
     pip install -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
-        --constraint "${CONSTRAINTS_FILE}" \
         albumentations --no-deps
 fi
 
