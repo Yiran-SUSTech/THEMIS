@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
-from typing import Any
+from typing import Any, Optional
 
 
 VALID_MODEL_PROFILES = {
@@ -46,11 +46,11 @@ def _resolve_vlm_model_class() -> type[Any]:
             ) from exc
 
 
-def _build_vlm_load_kwargs(torch: Any, quantization: str, device: str) -> dict[str, Any]:
+def _build_vlm_load_kwargs(torch: Any, quantization: Optional[str], device: str) -> dict[str, Any]:
     load_kwargs: dict[str, Any] = {"trust_remote_code": True}
     if torch.cuda.is_available() and device == "cuda":
         load_kwargs["device_map"] = "auto"
-        normalized_quantization = quantization.lower()
+        normalized_quantization = quantization.lower() if quantization else ""
         if normalized_quantization == "4bit":
             from transformers import BitsAndBytesConfig
 
@@ -71,8 +71,9 @@ def _build_vlm_load_kwargs(torch: Any, quantization: str, device: str) -> dict[s
     return load_kwargs
 
 
-def _load_vlm_bundle(model_id: str, quantization: str, device: str, error_prefix: str) -> dict[str, Any]:
-    cache_key = (model_id, quantization.lower(), device)
+def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, error_prefix: str) -> dict[str, Any]:
+    quantization_key = quantization.lower() if quantization else "none"
+    cache_key = (model_id, quantization_key, device)
     cached = _LOCAL_VLM_CACHE.get(cache_key)
     if cached is not None:
         return cached
