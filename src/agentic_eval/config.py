@@ -54,6 +54,7 @@ class Settings:
     planner_device: str = "cuda:0"
     planner_profile: ModelProfile = "fast"
     planner_max_new_tokens: int = 420
+    planner_local_max_new_tokens: int = 420
     
     judge_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     judge_local_path: Optional[str] = None
@@ -66,6 +67,16 @@ class Settings:
     reflector_device: str = "cuda:2"
     reflector_profile: ModelProfile = "standard"
     reflector_max_new_tokens: int = 400
+    
+    local_semantic_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
+    local_semantic_quantization: Optional[str] = None
+    local_semantic_device: str = "cuda:3"
+    local_semantic_enabled: bool = True
+    local_semantic_max_new_tokens: int = 512
+    
+    local_artifact_enabled: bool = True
+    local_artifact_device: str = "cuda:4"
+    local_artifact_metrics: str = "maniqa,musiq,niqe"
     
     expert_configs: Dict[str, ExpertModelConfig] = field(default_factory=dict)
     
@@ -112,6 +123,7 @@ class Settings:
         planner_local_enabled = bool(planner_local_path)
         planner_device = os.getenv("PLANNER_DEVICE", "cuda:0").strip()
         planner_max_new_tokens = env_int("PLANNER_MAX_NEW_TOKENS", 420)
+        planner_local_max_new_tokens = env_int("PLANNER_LOCAL_MAX_NEW_TOKENS", 420)
         
         judge_profile = os.getenv("JUDGE_PROFILE", "fast").strip()
         judge_model = os.getenv("JUDGE_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
@@ -124,6 +136,16 @@ class Settings:
         reflector_local_path = os.getenv("REFLECTOR_LOCAL_MODEL_PATH", None)
         reflector_device = os.getenv("REFLECTOR_DEVICE", "cuda:2").strip()
         reflector_max_new_tokens = env_int("REFLECTOR_MAX_NEW_TOKENS", 400)
+        
+        local_semantic_model = os.getenv("LOCAL_SEMANTIC_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
+        local_semantic_quantization = os.getenv("LOCAL_SEMANTIC_QUANTIZATION", None)
+        local_semantic_device = os.getenv("LOCAL_SEMANTIC_DEVICE", "cuda:3").strip()
+        local_semantic_enabled = env_bool("LOCAL_SEMANTIC_ENABLED", True)
+        local_semantic_max_new_tokens = env_int("LOCAL_SEMANTIC_MAX_NEW_TOKENS", 512)
+        
+        local_artifact_enabled = env_bool("LOCAL_ARTIFACT_ENABLED", True)
+        local_artifact_device = os.getenv("LOCAL_ARTIFACT_DEVICE", "cuda:4").strip()
+        local_artifact_metrics = os.getenv("LOCAL_ARTIFACT_METRICS", "maniqa,musiq,niqe").strip()
         
         max_plan_revisions = env_int("MAX_PLAN_REVISIONS", 2)
         max_reflection_revisions = env_int("MAX_REFLECTION_REVISIONS", 1)
@@ -151,6 +173,7 @@ class Settings:
             planner_device=planner_device,
             planner_profile=planner_profile,
             planner_max_new_tokens=planner_max_new_tokens,
+            planner_local_max_new_tokens=planner_local_max_new_tokens,
             judge_model=judge_model,
             judge_local_path=judge_local_path,
             judge_device=judge_device,
@@ -161,6 +184,14 @@ class Settings:
             reflector_device=reflector_device,
             reflector_profile=reflector_profile,
             reflector_max_new_tokens=reflector_max_new_tokens,
+            local_semantic_model=local_semantic_model,
+            local_semantic_quantization=local_semantic_quantization,
+            local_semantic_device=local_semantic_device,
+            local_semantic_enabled=local_semantic_enabled,
+            local_semantic_max_new_tokens=local_semantic_max_new_tokens,
+            local_artifact_enabled=local_artifact_enabled,
+            local_artifact_device=local_artifact_device,
+            local_artifact_metrics=local_artifact_metrics,
             max_plan_revisions=max_plan_revisions,
             max_reflection_revisions=max_reflection_revisions,
             semantic_escalation_threshold=semantic_escalation_threshold,
