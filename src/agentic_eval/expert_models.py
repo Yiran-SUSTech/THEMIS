@@ -250,10 +250,26 @@ class CLIPExpert(BaseExpert):
         image = self._load_image(image_path)
         
         texts = []
+        target_text = None
+        
         if prompt:
             texts.append(prompt)
+            target_text = prompt
         if class_label:
-            texts.append(f"a photo of {class_label}")
+            target_text = f"a photo of {class_label}"
+            texts.append(target_text)
+        
+        contrast_texts = [
+            "a photo of a different animal",
+            "a photo of a dog",
+            "a photo of a cat",
+            "a photo of a bird",
+            "a photo of a person",
+            "a low quality image",
+            "an unrealistic image",
+            "a distorted image",
+        ]
+        texts.extend(contrast_texts)
         
         if not texts:
             texts = ["a good quality image", "a bad quality image"]
@@ -268,23 +284,148 @@ class CLIPExpert(BaseExpert):
         
         probs_list = probs[0].cpu().numpy().tolist()
         
-        findings = [f"Text '{text}': probability {prob:.4f}" 
-                   for text, prob in zip(texts, probs_list)]
+        target_idx = None
+        if target_text:
+            for i, t in enumerate(texts):
+                if t == target_text:
+                    target_idx = i
+                    break
         
-        max_prob = max(probs_list)
-        severity = 1.0 - max_prob
+        if target_idx is not None:
+            target_prob = probs_list[target_idx]
+            severity = 1.0 - target_prob
+            confidence = target_prob
+            summary = f"Target '{target_text}': probability {target_prob:.4f}"
+        else:
+            max_prob = max(probs_list)
+            max_idx = probs_list.index(max_prob)
+            severity = 1.0 - max_prob
+            confidence = max_prob
+            summary = f"Best match: '{texts[max_idx]}' with probability {max_prob:.4f}"
+        
+        findings = []
+        for i, (text, prob) in enumerate(zip(texts, probs_list)):
+            marker = " [TARGET]" if i == target_idx else ""
+            findings.append(f"Text '{text}': {prob:.4f}{marker}")
         
         return ExpertResult(
             expert=self.config.name,
-            summary=f"Best match: '{texts[probs_list.index(max_prob)]}' with probability {max_prob:.4f}",
+            summary=summary,
             findings=findings,
             severity=severity,
-            confidence=max_prob,
+            confidence=confidence,
             source="local",
             model=self.config.model,
             extra_info={
                 "texts": texts,
                 "probabilities": probs_list,
+                "target_index": target_idx,
+            }
+        )
+
+
+class YOLODetectExpert(BaseExpert):
+    def load_model(self) -> Any:
+        model_key = f"yolo_detect_{self.config.model}"
+        
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key)
+        
+        try:
+            from ultralytics import YOLO
+            
+            model_path = self.config.model
+            if not model_path.endswith('.pt'):
+                model_path = f"{model_path}.pt"
+            
+            if not Path(model_path).exists():
+                yolo_dir = Path(self.settings.model_dir) / "yolo"
+                alt_path = yolo_dir / Path(model_path).name
+                if alt_path.exists():
+                    model_path = str(alt_path)
+            
+            model = YOLO(model_path)
+            
+            self.registry.set_model(model_key, model)
+            self._model = model
+            
+            return model
+        except ImportError as e:
+            raise ExpertModelError(f"ultralytics not installed: {e}")
+
+    def evaluate(self, image_path: str, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
+        model = self.load_model()
+        
+        results = model(image_path, verbose=False)
+        
+        findings = []
+        detected_classes = []
+        target_detected = False
+        target_confidence = 0.0
+        
+        COCO_CLASSES = [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+            'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+            'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+            'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+            'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+            'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
+            'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop',
+            'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
+            'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
+        
+        animal_classes = ['bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe']
+        
+        if results and len(results) > 0:
+            result = results[0]
+            
+            if result.boxes is not None:
+                for box in result.boxes:
+                    cls_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    cls_name = COCO_CLASSES[cls_id] if cls_id < len(COCO_CLASSES) else f"class_{cls_id}"
+                    detected_classes.append((cls_name, conf))
+                    findings.append(f"Detected: {cls_name} (confidence: {conf:.2f})")
+                    
+                    if class_label:
+                        label_lower = class_label.lower()
+                        if label_lower in cls_name.lower() or cls_name.lower() in label_lower:
+                            target_detected = True
+                            target_confidence = max(target_confidence, conf)
+                        if cls_name in animal_classes and 'monkey' in label_lower:
+                            findings.append(f"Note: YOLO detected '{cls_name}' but expected '{class_label}' - COCO dataset does not have 'monkey' class")
+        
+        if not findings:
+            findings.append("No objects detected by YOLO")
+        
+        if class_label and not target_detected:
+            if any(cls_name in animal_classes for cls_name, _ in detected_classes):
+                severity = 0.3
+                confidence = 0.5
+            else:
+                severity = 0.8
+                confidence = 0.2
+        elif target_detected:
+            severity = 1.0 - target_confidence
+            confidence = target_confidence
+        else:
+            severity = 0.5
+            confidence = 0.5
+        
+        return ExpertResult(
+            expert=self.config.name,
+            summary=f"Detected {len(detected_classes)} objects, target '{class_label}': {'found' if target_detected else 'not found'}",
+            findings=findings,
+            severity=severity,
+            confidence=confidence,
+            source="local",
+            model=self.config.model,
+            extra_info={
+                "detected_classes": detected_classes,
+                "target_class": class_label,
+                "target_detected": target_detected,
             }
         )
 

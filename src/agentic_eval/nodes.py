@@ -16,7 +16,7 @@ from .expert_performance import (
     calculate_weighted_severity,
 )
 from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
-from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig, ExpertResult as DataclassExpertResult
+from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, YOLODetectExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig, ExpertResult as DataclassExpertResult
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -370,20 +370,25 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
             findings = []
             severities = []
             confidences = []
+            models_used = []
             
             yolo_config = ExpertModelConfig(
-                name="yolo_pose",
-                model_type="yolo_pose",
-                model=settings.yolo_model_path,
+                name="yolo_detect",
+                model_type="yolo_detect",
+                model=settings.yolo_model_path.replace("-pose", "").replace("pose", ""),
                 device=settings.yolo_device,
             )
             try:
-                yolo_result = YOLOPoseExpert(yolo_config, settings).evaluate(image_path=image_input.image_path)
+                yolo_result = YOLODetectExpert(yolo_config, settings).evaluate(
+                    image_path=image_input.image_path,
+                    class_label=image_input.class_label,
+                )
                 findings.extend(yolo_result.findings)
                 severities.append(yolo_result.severity)
                 confidences.append(yolo_result.confidence)
-            except Exception:
-                pass
+                models_used.append("yolo")
+            except Exception as e:
+                print(f"[agentic_eval] YOLO failed: {e}", flush=True)
             
             places_config = ExpertModelConfig(
                 name="places365",
@@ -397,10 +402,12 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
                     findings.extend(places_result.findings)
                     severities.append(places_result.severity)
                     confidences.append(places_result.confidence)
-                except Exception:
-                    pass
+                    models_used.append("places365")
+                except Exception as e:
+                    print(f"[agentic_eval] Places365 failed: {e}", flush=True)
             
             if not findings:
+                print(f"[agentic_eval] Structural: no findings from YOLO/Places365, using VLM fallback", flush=True)
                 original_model = settings.local_semantic_model
                 try:
                     if model_profile == "local_stronger":
@@ -422,12 +429,12 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
             
             return ExpertResult(
                 expert="structural",
-                summary=f"Structural analysis from {len(findings)} checks",
+                summary=f"Structural analysis from {len(findings)} checks using {', '.join(models_used)}",
                 findings=findings,
                 severity=avg_severity,
                 confidence=avg_confidence,
                 source="local",
-                model="yolo+places365",
+                model="+".join(models_used),
             )
             
         elif expert_name == "artifact":
