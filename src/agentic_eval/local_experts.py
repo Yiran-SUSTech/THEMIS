@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import json
 import math
+import warnings
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
 from typing import Any, Optional
 
+try:
+    import torchvision
+    torchvision.disable_beta_transforms_warning()
+except Exception:
+    pass
+
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+warnings.filterwarnings("ignore", message=".*beta.*")
 
 VALID_MODEL_PROFILES = {
     "local_fast",
@@ -75,6 +84,7 @@ def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, er
     cache_key = (model_id, quantization_key, device)
     cached = _LOCAL_VLM_CACHE.get(cache_key)
     if cached is not None:
+        print(f"[agentic_eval] Using cached model: {model_id}", flush=True)
         return cached
 
     try:
@@ -88,13 +98,20 @@ def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, er
 
     model_cls = _resolve_vlm_model_class()
     load_kwargs = _build_vlm_load_kwargs(torch, quantization, device)
+    
+    print(f"[agentic_eval] Loading model: {model_id} (device={device})", flush=True)
 
     with _LOCAL_VLM_CACHE_LOCK:
         cached = _LOCAL_VLM_CACHE.get(cache_key)
         if cached is not None:
             return cached
         try:
-            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, local_files_only=True)
+            processor = AutoProcessor.from_pretrained(
+                model_id, 
+                trust_remote_code=True, 
+                local_files_only=True,
+                use_fast=True
+            )
             model = model_cls.from_pretrained(model_id, local_files_only=True, **load_kwargs)
             model.eval()
         except Exception as exc:  # noqa: BLE001

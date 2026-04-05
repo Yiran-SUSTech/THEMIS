@@ -16,7 +16,7 @@ from .expert_performance import (
     calculate_weighted_severity,
 )
 from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
-from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig
+from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig, ExpertResult as DataclassExpertResult
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -364,7 +364,7 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
                 prompt=image_input.prompt,
                 class_label=image_input.class_label,
             )
-            return result
+            return ExpertResult.model_validate(result.to_dict())
             
         elif expert_name == "structural":
             findings = []
@@ -439,7 +439,7 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
                 metrics=["maniqa", "musiq", "niqe"],
             )
             result = IQAExpert(iqa_config, settings).evaluate(image_path=image_input.image_path)
-            return result
+            return ExpertResult.model_validate(result.to_dict())
             
         elif expert_name == "vqa":
             original_model = settings.local_semantic_model

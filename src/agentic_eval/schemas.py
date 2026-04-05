@@ -5,7 +5,7 @@ from typing import Literal, TypedDict, Optional
 from pydantic import BaseModel, Field
 
 
-ExpertName = Literal["semantic", "structural", "artifact", "vqa"]
+ExpertName = Literal["semantic", "structural", "artifact", "vqa", "clip_semantic", "yolo_pose", "places365", "iqa", "background", "imagenet", "vqa_expert"]
 ModelProfile = Literal[
     "local_fast",
     "local_default",

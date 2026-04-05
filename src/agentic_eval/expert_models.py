@@ -83,6 +83,9 @@ class ExpertResult:
             "model": self.model,
             "extra_info": self.extra_info,
         }
+    
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        return self.to_dict()
 
 
 class ExpertModelError(RuntimeError):
