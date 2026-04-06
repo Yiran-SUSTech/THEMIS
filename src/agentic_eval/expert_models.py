@@ -822,25 +822,32 @@ class QwenVLExpert(BaseExpert):
         
         try:
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-            
+
             model_path = self.config.local_path or self.config.model
-            
+            load_kwargs = {
+                "trust_remote_code": True,
+            }
+            if torch.cuda.is_available() and self.config.device.startswith("cuda"):
+                load_kwargs["torch_dtype"] = torch.bfloat16
+                load_kwargs["device_map"] = {"": self.config.device}
+            else:
+                load_kwargs["torch_dtype"] = torch.float32
+                load_kwargs["device_map"] = "cpu"
+
             if Path(model_path).exists():
-                processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     model_path,
-                    torch_dtype=torch.bfloat16,
-                    device_map="auto",
-                    local_files_only=True
+                    local_files_only=True,
+                    **load_kwargs,
                 )
             else:
-                processor = AutoProcessor.from_pretrained(model_path)
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     model_path,
-                    torch_dtype=torch.bfloat16,
-                    device_map="auto"
+                    **load_kwargs,
                 )
-            
+
             model.eval()
             
             self.registry.set_model(model_key, model)
