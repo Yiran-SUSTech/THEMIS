@@ -878,7 +878,8 @@ EXPERT_CLASS_MAP = {
     "clip": CLIPExpert,
     "clip_score": CLIPExpert,
     "yolo_pose": YOLOPoseExpert,
-    "yolo_detect": YOLOPoseExpert,
+    "yolo_detect": YOLODetectExpert,
+    "detection": YOLODetectExpert,
     "places365": Places365Expert,
     "iqa": IQAExpert,
     "segmentation": BackgroundExpert,
@@ -887,11 +888,14 @@ EXPERT_CLASS_MAP = {
 
 
 def create_expert(config: ExpertModelConfig, settings: Settings) -> BaseExpert:
+    if config.model_type == "classification" and (config.weights or "").lower() == "places365":
+        return Places365Expert(config, settings)
+
     expert_class = EXPERT_CLASS_MAP.get(config.model_type)
-    
+
     if expert_class is None:
         raise ExpertModelError(f"Unknown expert type: {config.model_type}")
-    
+
     return expert_class(config, settings)
 
 

@@ -5,7 +5,7 @@ from typing import Literal, TypedDict, Optional
 from pydantic import BaseModel, Field
 
 
-ExpertName = Literal["semantic", "structural", "artifact", "vqa", "clip_semantic", "yolo_pose", "places365", "iqa", "background", "imagenet", "vqa_expert"]
+ExpertName = Literal["semantic", "structural", "artifact", "vqa", "clip_semantic", "yolo_pose", "places365", "iqa", "background", "imagenet", "vqa_expert", "clip", "clip_score", "imagenet_fast", "imagenet_strong", "animal_pose", "body_pose", "body_pose_strong", "hand_detection", "face_detection", "places365_strong", "building_expert", "background_removal", "complexity", "iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact", "aigen_detection", "ocr", "dog_breed", "bird_expert"]
 ModelProfile = Literal[
     "local_fast",
     "local_default",
@@ -35,6 +35,8 @@ class PlanStep(BaseModel):
     expert: ExpertName
     goal: str
     model_profile: ModelProfile
+    planned_model: str = ""
+    selection_reason: str = ""
     prompt_focus: str = ""
     allow_escalation: bool = True
 

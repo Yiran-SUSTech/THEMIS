@@ -30,6 +30,7 @@ class ExpertModelConfig:
     name: str
     model_type: str
     model: str
+    local_path: Optional[str] = None
     device: str = "cuda"
     weights: Optional[str] = None
     num_classes: Optional[int] = None
@@ -332,6 +333,7 @@ class Settings:
                         name=expert_config.get("name", expert_name),
                         model_type=expert_config.get("model_type", "unknown"),
                         model=expert_config.get("model", ""),
+                        local_path=expert_config.get("local_path"),
                         device=expert_config.get("device", "cuda"),
                         weights=expert_config.get("weights"),
                         num_classes=expert_config.get("num_classes"),

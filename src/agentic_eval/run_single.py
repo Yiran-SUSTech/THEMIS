@@ -114,7 +114,11 @@ def _apply_model_override(settings: Settings, model_type: str, model_value: str 
 def main() -> None:
     args = parse_args()
     settings = Settings.from_env()
-    
+    default_expert_config = Path(__file__).resolve().parents[2] / "configs" / "expert_config.yaml"
+    if default_expert_config.exists():
+        yaml_settings = Settings.from_yaml(str(default_expert_config))
+        settings.expert_configs = yaml_settings.expert_configs
+
     _apply_model_override(settings, "planner", args.planner_model)
     _apply_model_override(settings, "judge", args.judge_model)
     _apply_model_override(settings, "reflector", args.reflector_model)

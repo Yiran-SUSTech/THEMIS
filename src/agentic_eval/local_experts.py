@@ -22,10 +22,102 @@ EXPERT_ALLOWED_MODEL_PROFILES = {
     "vqa": {"local_fast", "local_stronger"},
 }
 
+EXPERT_ROLE_MODEL_KEYS = {
+    "semantic": ["clip", "imagenet_fast", "imagenet_strong", "clip_score", "vqa"],
+    "structural": [
+        "animal_pose",
+        "body_pose",
+        "body_pose_strong",
+        "places365",
+        "places365_strong",
+        "background_removal",
+        "vqa",
+    ],
+    "artifact": ["iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"],
+    "vqa": ["vqa"],
+}
+
 _LOCAL_VLM_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
 _LOCAL_VLM_CACHE_LOCK = Lock()
 
 from .config import Settings
+from .expert_performance import get_expert_performance
+
+
+def _default_planned_model(expert: str, model_profile: str) -> str:
+    if expert == "semantic":
+        return "clip" if model_profile != "local_stronger" else "vqa"
+    if expert == "structural":
+        return "animal_pose" if model_profile != "local_stronger" else "vqa"
+    if expert == "artifact":
+        if model_profile == "local_fast":
+            return "iqa_fast"
+        if model_profile == "local_richer":
+            return "iqa_richer"
+        return "iqa_default"
+    if expert == "vqa":
+        return "vqa"
+    return ""
+
+
+def _normalize_planned_model(settings: Settings, expert: str, model_profile: str, planned_model: str) -> str:
+    candidate = (planned_model or "").strip()
+    allowed = set(EXPERT_ROLE_MODEL_KEYS.get(expert, []))
+    if candidate in allowed and settings.get_expert_config(candidate) is not None:
+        return candidate
+    return _default_planned_model(expert, model_profile)
+
+
+def _describe_available_experts(settings: Settings) -> str:
+    profile_map = {
+        "semantic": {
+            "local_fast": ["clip", "imagenet_fast"],
+            "local_stronger": ["imagenet_strong", "vqa"],
+        },
+        "structural": {
+            "local_fast": ["animal_pose", "body_pose", "places365", "background_removal"],
+            "local_stronger": ["body_pose_strong", "places365_strong", "vqa"],
+        },
+        "artifact": {
+            "local_default": ["iqa_default"],
+            "local_richer": ["iqa_richer", "boundary_artifact"],
+            "local_fast": ["iqa_fast"],
+        },
+        "vqa": {
+            "local_fast": ["vqa"],
+            "local_stronger": ["vqa"],
+        },
+    }
+    lines = ["Available model options by expert/profile:"]
+    for expert, profiles in profile_map.items():
+        lines.append(f"- {expert}:")
+        for profile, config_keys in profiles.items():
+            descriptions = []
+            for key in config_keys:
+                config = settings.get_expert_config(key)
+                perf = get_expert_performance(key)
+                if config is None:
+                    continue
+                model_name = config.local_path or config.model
+                parts = [f"key={key}", config.name, config.model_type, model_name]
+                if config.metrics:
+                    parts.append(f"metrics={','.join(config.metrics)}")
+                if perf is not None:
+                    stats = []
+                    if perf.accuracy is not None:
+                        stats.append(f"acc={perf.accuracy:.1%}")
+                    if perf.mAP is not None:
+                        stats.append(f"mAP={perf.mAP:.1%}")
+                    if perf.srcc is not None:
+                        stats.append(f"SRCC={perf.srcc:.3f}")
+                    stats.append(f"reliability={perf.reliability.value}")
+                    parts.append("; ".join(stats))
+                if config.description:
+                    parts.append(config.description)
+                descriptions.append(" | ".join(parts))
+            if descriptions:
+                lines.append(f"  - {profile}: {' ; '.join(descriptions)}")
+    return "\n".join(lines)
 
 
 def _resolve_vlm_model_class() -> type[Any]:
@@ -182,12 +274,21 @@ class LocalPlanner:
                     prompt_focus = f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, and likely lookalike confusions for {label_text}."
                 elif expert == "artifact":
                     prompt_focus = "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant."
+            model_profile = self._normalize_model_profile(expert, str(step.get("model_profile", "")))
+            normalized_planned_model = _normalize_planned_model(
+                self.settings,
+                expert,
+                model_profile,
+                str(step.get("planned_model", "")).strip(),
+            )
             normalized_steps.append(
                 {
                     "step_id": len(normalized_steps) + 1,
                     "expert": expert,
                     "goal": goal,
-                    "model_profile": self._normalize_model_profile(expert, str(step.get("model_profile", ""))),
+                    "model_profile": model_profile,
+                    "planned_model": normalized_planned_model,
+                    "selection_reason": str(step.get("selection_reason", "")).strip() or f"Default concrete model choice for {expert} via {normalized_planned_model}.",
                     "prompt_focus": prompt_focus,
                     "allow_escalation": bool(step.get("allow_escalation", True)),
                 }
@@ -204,6 +305,8 @@ class LocalPlanner:
                     "expert": "semantic",
                     "goal": "Assess whether the image content matches the prompt/class label semantically.",
                     "model_profile": "local_fast",
+                    "planned_model": "clip",
+                    "selection_reason": "Default low-cost semantic first pass with CLIP.",
                     "prompt_focus": f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image.",
                     "allow_escalation": True,
                 },
@@ -217,6 +320,8 @@ class LocalPlanner:
                     "expert": "structural",
                     "goal": "Assess whole-subject structural coherence and class-specific morphology.",
                     "model_profile": "local_fast",
+                    "planned_model": "animal_pose",
+                    "selection_reason": "Default low-cost structural first pass with pose evidence.",
                     "prompt_focus": f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for {label_text}.",
                     "allow_escalation": True,
                 },
@@ -228,6 +333,8 @@ class LocalPlanner:
                     "expert": "artifact",
                     "goal": "Estimate visible artifact severity and perceptual degradation.",
                     "model_profile": "local_default",
+                    "planned_model": "iqa_default",
+                    "selection_reason": "Default artifact pass using standard IQA metrics.",
                     "prompt_focus": "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
                     "allow_escalation": True,
                 }
@@ -268,11 +375,14 @@ class LocalPlanner:
             "Do not compare against external reference images or do open-ended species research; inspect this image directly.",
             "Prefer the cheapest adequate route first. Use local_stronger only for harder unresolved cases.",
             "Set prompt_focus to the exact visual evidence to inspect, using subject-specific failure modes instead of a generic checklist.",
+            "For each step, set planned_model to the concrete expert key from the available catalog and explain why in selection_reason.",
             "Return valid JSON only.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","prompt_focus":"string","allow_escalation":true}]}',
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
+        expert_catalog = _describe_available_experts(self.settings)
+        task_lines.append(expert_catalog)
         if prior_feedback:
             task_lines.append(prior_feedback)
 
@@ -669,10 +779,12 @@ class LocalJudge:
             "For semantic inspection, prefer an explicit broad-category versus fine-grained class distinction when the label is fine-grained.",
             "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
             "Do not reject solely because the plan omits color, lighting, or composition checks unless the class label or prompt specifically requires them.",
+            "Check that each step's planned_model and selection_reason are consistent with the available model catalog and the stated task.",
             "Return valid JSON only.",
             'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
+            _describe_available_experts(self.settings),
             f"Plan:\n{plan_json}",
         ]
 

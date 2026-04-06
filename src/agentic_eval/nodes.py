@@ -16,7 +16,7 @@ from .expert_performance import (
     calculate_weighted_severity,
 )
 from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
-from .expert_models import CLIPExpert, ImageNetExpert, YOLOPoseExpert, YOLODetectExpert, Places365Expert, IQAExpert, BackgroundExpert, QwenVLExpert, ExpertModelConfig, ExpertResult as DataclassExpertResult
+from .expert_models import run_expert_evaluation
 from .prompts import (
     EXPERT_SYSTEM,
     JUDGE_SYSTEM,
@@ -62,10 +62,12 @@ PLAN_SCHEMA: dict[str, Any] = {
                             "local_stronger",
                         ],
                     },
+                    "planned_model": {"type": "string"},
+                    "selection_reason": {"type": "string"},
                     "prompt_focus": {"type": "string"},
                     "allow_escalation": {"type": "boolean"},
                 },
-                "required": ["step_id", "expert", "goal", "model_profile", "prompt_focus", "allow_escalation"],
+                "required": ["step_id", "expert", "goal", "model_profile", "planned_model", "selection_reason", "prompt_focus", "allow_escalation"],
                 "additionalProperties": False,
             },
         },
@@ -207,7 +209,12 @@ def _artifact_local_model_name(model_profile: str) -> str:
     return "maniqa+musiq"
 
 
-def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_profile: str) -> str:
+def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_profile: str, planned_model: str) -> str:
+    config = client.settings.get_expert_config(planned_model)
+    if config is not None:
+        if config.metrics:
+            return "+".join(config.metrics)
+        return config.local_path or config.model or planned_model
     if expert_name in {"semantic", "structural", "vqa"} and client.settings.local_semantic_enabled:
         if model_profile == "local_stronger":
             return client.settings.semantic_local_stronger_model
@@ -215,6 +222,41 @@ def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_prof
     if expert_name == "artifact" and client.settings.local_artifact_enabled:
         return _artifact_local_model_name(model_profile)
     raise RuntimeError(f"No local model configured for expert '{expert_name}'")
+
+
+def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
+    image_input = state["input"]
+    original_model = settings.local_semantic_model
+    try:
+        if step.model_profile == "local_stronger":
+            settings.local_semantic_model = settings.semantic_local_stronger_model
+        else:
+            settings.local_semantic_model = settings.semantic_local_fast_model
+
+        if step.expert == "semantic":
+            payload = LocalSemanticExpert(settings).evaluate(
+                image_path=image_input.image_path,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+            )
+        elif step.expert == "structural":
+            payload = LocalStructuralExpert(settings).evaluate(
+                image_path=image_input.image_path,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+                prompt_focus=step.prompt_focus,
+            )
+        else:
+            payload = LocalVQAExpert(settings).evaluate(
+                image_path=image_input.image_path,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+                goal=step.goal,
+                prompt_focus=step.prompt_focus,
+            )
+        return ExpertResult.model_validate(payload)
+    finally:
+        settings.local_semantic_model = original_model
 
 
 def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
@@ -346,169 +388,50 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
 
 def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertResult:
     image_input = state["input"]
-    expert_name = step.expert
-    model_profile = step.model_profile
-    prompt_focus = step.prompt_focus
     settings = client.settings
-    
-    if settings.use_specialized_experts:
-        if expert_name == "semantic":
-            clip_config = ExpertModelConfig(
-                name="clip_semantic",
-                model_type="clip",
-                model=settings.clip_model_path,
-                device=settings.clip_device,
-            )
-            result = CLIPExpert(clip_config, settings).evaluate(
-                image_path=image_input.image_path,
-                prompt=image_input.prompt,
-                class_label=image_input.class_label,
-            )
-            return ExpertResult.model_validate(result.to_dict())
-            
-        elif expert_name == "structural":
-            findings = []
-            severities = []
-            confidences = []
-            models_used = []
-            
-            yolo_config = ExpertModelConfig(
-                name="yolo_detect",
-                model_type="yolo_detect",
-                model=settings.yolo_model_path.replace("-pose", "").replace("pose", ""),
-                device=settings.yolo_device,
-            )
-            try:
-                yolo_result = YOLODetectExpert(yolo_config, settings).evaluate(
-                    image_path=image_input.image_path,
-                    class_label=image_input.class_label,
-                )
-                findings.extend(yolo_result.findings)
-                severities.append(yolo_result.severity)
-                confidences.append(yolo_result.confidence)
-                models_used.append("yolo")
-            except Exception as e:
-                print(f"[agentic_eval] YOLO failed: {e}", flush=True)
-            
-            places_config = ExpertModelConfig(
-                name="places365",
-                model_type="places365",
-                model="places365",
-                device=settings.places365_device,
-            )
-            if settings.places365_model_path:
-                try:
-                    places_result = Places365Expert(places_config, settings).evaluate(image_path=image_input.image_path)
-                    findings.extend(places_result.findings)
-                    severities.append(places_result.severity)
-                    confidences.append(places_result.confidence)
-                    models_used.append("places365")
-                except Exception as e:
-                    print(f"[agentic_eval] Places365 failed: {e}", flush=True)
-            
-            if not findings:
-                print(f"[agentic_eval] Structural: no findings from YOLO/Places365, using VLM fallback", flush=True)
-                original_model = settings.local_semantic_model
-                try:
-                    if model_profile == "local_stronger":
-                        settings.local_semantic_model = settings.semantic_local_stronger_model
-                    else:
-                        settings.local_semantic_model = settings.semantic_local_fast_model
-                    payload = LocalStructuralExpert(settings).evaluate(
-                        image_path=image_input.image_path,
-                        prompt=image_input.prompt,
-                        class_label=image_input.class_label,
-                        prompt_focus=prompt_focus,
-                    )
-                    return ExpertResult.model_validate(payload)
-                finally:
-                    settings.local_semantic_model = original_model
-            
-            avg_severity = sum(severities) / len(severities) if severities else 0.5
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.5
-            
-            return ExpertResult(
-                expert="structural",
-                summary=f"Structural analysis from {len(findings)} checks using {', '.join(models_used)}",
-                findings=findings,
-                severity=avg_severity,
-                confidence=avg_confidence,
-                source="local",
-                model="+".join(models_used),
-            )
-            
-        elif expert_name == "artifact":
-            iqa_config = ExpertModelConfig(
-                name="iqa",
-                model_type="iqa",
-                model="iqa",
-                device=settings.local_artifact_device,
-                metrics=["maniqa", "musiq", "niqe"],
-            )
-            result = IQAExpert(iqa_config, settings).evaluate(image_path=image_input.image_path)
-            return ExpertResult.model_validate(result.to_dict())
-            
-        elif expert_name == "vqa":
-            original_model = settings.local_semantic_model
-            try:
-                if model_profile == "local_stronger":
-                    settings.local_semantic_model = settings.semantic_local_stronger_model
-                else:
-                    settings.local_semantic_model = settings.semantic_local_fast_model
-                payload = LocalVQAExpert(settings).evaluate(
-                    image_path=image_input.image_path,
-                    prompt=image_input.prompt,
-                    class_label=image_input.class_label,
-                    goal=step.goal,
-                    prompt_focus=prompt_focus,
-                )
-                return ExpertResult.model_validate(payload)
-            finally:
-                settings.local_semantic_model = original_model
-    
-    else:
-        original_model = settings.local_semantic_model
-        if expert_name in {"semantic", "structural", "vqa"}:
-            if not settings.local_semantic_enabled:
-                raise RuntimeError(f"Local semantic model is disabled for expert '{expert_name}'")
-            try:
-                if model_profile == "local_stronger":
-                    settings.local_semantic_model = settings.semantic_local_stronger_model
-                else:
-                    settings.local_semantic_model = settings.semantic_local_fast_model
+    planned_model = (step.planned_model or "").strip()
 
-                if expert_name == "semantic":
-                    payload = LocalSemanticExpert(settings).evaluate(
-                        image_path=image_input.image_path,
-                        prompt=image_input.prompt,
-                        class_label=image_input.class_label,
-                    )
-                elif expert_name == "structural":
-                    payload = LocalStructuralExpert(settings).evaluate(
-                        image_path=image_input.image_path,
-                        prompt=image_input.prompt,
-                        class_label=image_input.class_label,
-                        prompt_focus=prompt_focus,
-                    )
-                else:
-                    payload = LocalVQAExpert(settings).evaluate(
-                        image_path=image_input.image_path,
-                        prompt=image_input.prompt,
-                        class_label=image_input.class_label,
-                        goal=step.goal,
-                        prompt_focus=prompt_focus,
-                    )
-                return ExpertResult.model_validate(payload)
-            finally:
-                settings.local_semantic_model = original_model
+    if settings.use_specialized_experts and planned_model:
+        config = settings.get_expert_config(planned_model)
+        if config is not None:
+            kwargs: dict[str, Any] = {}
+            if planned_model in {"clip", "clip_score"}:
+                kwargs["prompt"] = image_input.prompt
+                kwargs["class_label"] = image_input.class_label
+            elif planned_model in {"imagenet_fast", "imagenet_strong"}:
+                kwargs["class_label"] = image_input.class_label
+            elif planned_model in {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal"}:
+                pass
+            elif planned_model in {"iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"}:
+                pass
+            elif planned_model == "vqa":
+                question = step.prompt_focus or step.goal or "Describe this image."
+                kwargs["question"] = question
+            else:
+                raise RuntimeError(f"Unsupported planned model '{planned_model}'")
 
-        if expert_name == "artifact":
-            if not settings.local_artifact_enabled:
-                raise RuntimeError("Local artifact expert is disabled")
-            payload = LocalArtifactExpert(settings).evaluate(image_path=image_input.image_path)
-            return ExpertResult.model_validate(payload)
+            result = run_expert_evaluation(
+                planned_model,
+                image_input.image_path,
+                settings,
+                **kwargs,
+            )
+            result_payload = result.to_dict()
+            result_payload["expert"] = planned_model
+            return ExpertResult.model_validate(result_payload)
 
-    raise RuntimeError(f"Unsupported expert '{expert_name}'")
+    if step.expert in {"semantic", "structural", "vqa"}:
+        if not settings.local_semantic_enabled:
+            raise RuntimeError(f"Local semantic model is disabled for expert '{step.expert}'")
+        return _run_vlm_role_step(state, settings, step)
+
+    if step.expert == "artifact":
+        if not settings.local_artifact_enabled:
+            raise RuntimeError("Local artifact expert is disabled")
+        payload = LocalArtifactExpert(settings).evaluate(image_path=image_input.image_path)
+        return ExpertResult.model_validate(payload)
+
+    raise RuntimeError(f"Unsupported expert '{step.expert}'")
 
 
 def vlm_overseer_verify(state: GraphState, client: ClaudeVisionClient, expert_result: ExpertResult, expert_name: str) -> ExpertResult:
@@ -581,13 +504,13 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
     results: list[ExpertResult] = []
     expert_elapsed_seconds: dict[str, float] = {}
     for step in steps:
-        action = f"expert_{step.expert}_step_{step.step_id}"
-        model_name = _planned_step_model(client, step.expert, step.model_profile)
+        action = f"expert_{step.expert}_{step.planned_model}_step_{step.step_id}"
+        model_name = _planned_step_model(client, step.expert, step.model_profile, step.planned_model)
         started_at, stop_event, heartbeat = _start_stage(step.expert, action, model_name)
         try:
             result = run_expert(state, client, step)
-            
-            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"]:
+
+            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"] and step.planned_model in {"clip", "imagenet_fast", "imagenet_strong"}:
                 overseer_started = perf_counter()
                 result = vlm_overseer_verify(state, client, result, step.expert)
                 overseer_elapsed = perf_counter() - overseer_started
@@ -669,19 +592,23 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         elapsed = _finish_stage("report", "synthesize_report", model_used, started_at, stop_event, heartbeat)
 
         report = EvaluationReport.model_validate(payload)
-        structural_result = next((r for r in expert_payload if r.get("expert") == "structural"), None)
-        semantic_result = next((r for r in expert_payload if r.get("expert") == "clip_semantic"), None)
-        if structural_result is not None:
-            structural_severity = float(structural_result.get("severity", 0.0))
-            if structural_severity >= 0.75:
-                report.artifact_score = min(report.artifact_score, 0.2)
-                report.hard_failure = True
-            elif structural_severity >= 0.55:
-                report.artifact_score = min(report.artifact_score, 0.4)
-        if semantic_result is not None:
-            semantic_severity = float(semantic_result.get("severity", 0.0))
-            if semantic_severity >= 0.5:
-                report.alignment_score = min(report.alignment_score, 0.5)
+        structural_experts = {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal", "structural"}
+        semantic_experts = {"clip", "clip_score", "imagenet_fast", "imagenet_strong", "clip_semantic", "semantic"}
+        structural_severity = max(
+            (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in structural_experts),
+            default=0.0,
+        )
+        semantic_severity = max(
+            (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in semantic_experts),
+            default=0.0,
+        )
+        if structural_severity >= 0.75:
+            report.artifact_score = min(report.artifact_score, 0.2)
+            report.hard_failure = True
+        elif structural_severity >= 0.55:
+            report.artifact_score = min(report.artifact_score, 0.4)
+        if semantic_severity >= 0.5:
+            report.alignment_score = min(report.alignment_score, 0.5)
         report.expert_reliability_summary = ExpertReliabilitySummary(
             high_reliability_count=reliability_summary["high_reliability_count"],
             medium_reliability_count=reliability_summary["medium_reliability_count"],
