@@ -195,14 +195,11 @@ class ImageNetExpert(BaseExpert):
 
     def evaluate(self, image_path: str, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
         model = self.load_model()
-        
+
+        transform = get_image_transform(self.config.input_size)
         image = self._load_image(image_path)
-        image = image.resize(self.config.input_size)
-        
-        img_array = np.array(image) / 255.0
-        img_tensor = torch.from_numpy(img_array).permute(2, 0, 1).unsqueeze(0)
-        img_tensor = img_tensor.to(self.config.device)
-        
+        img_tensor = transform(image).unsqueeze(0).to(self.config.device)
+
         with torch.no_grad():
             output = model(img_tensor)
             probs = torch.nn.functional.softmax(output, dim=1)
