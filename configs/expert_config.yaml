@@ -77,34 +77,34 @@ expert_models:
     imagenet_fast:
       name: "ImageNetExpert-Fast"
       model_type: "classification"
-      model: "efficientnetv2_s"
-      weights: "imagenet"
+      model: "tf_efficientnetv2_s.in21k"
+      weights: "${MODEL_DIR}/efficientnetv2_s_in21k.pth"
       device: "cuda:3"
-      num_classes: 1000
+      num_classes: 21843
       input_size: [224, 224]
-      description: "Fast ImageNet 1000-class classification"
+      description: "Fast ImageNet-21K classification using local EfficientNetV2-S weights"
       
     imagenet_strong:
       name: "ImageNetExpert-Strong"
       model_type: "classification"
-      model: "efficientnetv2_l"
-      weights: "imagenet"
+      model: "tf_efficientnetv2_l.in21k"
+      weights: "${MODEL_DIR}/efficientnetv2_l_in21k.pth"
       device: "cuda:3"
-      num_classes: 1000
+      num_classes: 21843
       input_size: [224, 224]
-      description: "High-accuracy ImageNet 1000-class classification"
+      description: "High-accuracy ImageNet-21K classification using local EfficientNetV2-L weights"
       
     clip:
       name: "SemanticExpert"
       model_type: "clip"
-      model: "openai/clip-vit-base-patch32"
+      model: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:3"
       description: "CLIP-based semantic alignment detection"
       
     clip_score:
       name: "PromptExpert"
       model_type: "clip_score"
-      model: "openai/clip-vit-base-patch32"
+      model: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:3"
       description: "CLIP-based prompt alignment scoring"
 
@@ -114,27 +114,26 @@ expert_models:
       name: "AnimalPoseExpert"
       model_type: "yolo_pose"
       model: "yolo11n-pose"
+      local_path: "${MODEL_DIR}/yolo/yolo11n-pose.pt"
       weights: "coco-pose"
       device: "cuda:4"
       description: "Animal pose detection"
       
     dog_breed:
       name: "DogBreedExpert"
-      model_type: "classification"
-      model: "efficientnetv2_s"
-      weights: "stanford-dogs"
+      model_type: "clip"
+      model: "${MODEL_DIR}/clip-vit-base-patch32"
+      local_path: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:4"
-      num_classes: 120
-      description: "Dog breed fine-grained classification"
+      description: "Dog-category proxy classification via local CLIP"
       
     bird_expert:
       name: "BirdExpert"
-      model_type: "classification"
-      model: "deit_small_patch16_224"
-      weights: "cub-200"
+      model_type: "clip"
+      model: "${MODEL_DIR}/clip-vit-base-patch32"
+      local_path: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:4"
-      num_classes: 200
-      description: "Bird species classification"
+      description: "Bird-category proxy classification via local CLIP"
 
   # Human Group
   human_group:
@@ -142,6 +141,7 @@ expert_models:
       name: "HumanBodyExpert"
       model_type: "yolo_pose"
       model: "yolo11n-pose"
+      local_path: "${MODEL_DIR}/yolo/yolo11n-pose.pt"
       weights: "coco-pose"
       device: "cuda:4"
       num_keypoints: 17
@@ -150,7 +150,8 @@ expert_models:
     body_pose_strong:
       name: "HumanBodyExpert-Strong"
       model_type: "yolo_pose"
-      model: "yolo11m-pose"
+      model: "yolo11x-pose"
+      local_path: "${MODEL_DIR}/yolo11x-pose.pt"
       weights: "coco-pose"
       device: "cuda:4"
       num_keypoints: 17
@@ -159,16 +160,18 @@ expert_models:
     hand_detection:
       name: "HandExpert"
       model_type: "detection"
-      model: "hadm-local"
+      model: "yolo11n"
+      local_path: "${MODEL_DIR}/yolo/yolo11n.pt"
       device: "cuda:5"
-      description: "Hand artifact detection (extra fingers, malformed hands)"
+      description: "Hand-region proxy detection via local YOLO"
       
     face_detection:
       name: "FaceExpert"
       model_type: "detection"
-      model: "yolo11n-face"
+      model: "yolo11n"
+      local_path: "${MODEL_DIR}/yolo/yolo11n.pt"
       device: "cuda:4"
-      description: "Face structure detection"
+      description: "Face-region proxy detection via local YOLO"
 
   # Scene/Building Group
   scene_group:
@@ -176,7 +179,7 @@ expert_models:
       name: "SceneExpert"
       model_type: "classification"
       model: "resnet18"
-      weights: "places365"
+      weights: "${MODEL_DIR}/places365/resnet18_places365.pt"
       device: "cuda:3"
       num_classes: 365
       description: "Scene classification (365 categories)"
@@ -185,7 +188,7 @@ expert_models:
       name: "SceneExpert-Strong"
       model_type: "classification"
       model: "resnet50"
-      weights: "places365"
+      weights: "${MODEL_DIR}/places365/resnet50_places365.pt"
       device: "cuda:3"
       num_classes: 365
       description: "High-accuracy scene classification"
@@ -193,7 +196,8 @@ expert_models:
     building_expert:
       name: "BuildingExpert"
       model_type: "detection"
-      model: "yolo11n-detect"
+      model: "yolo11n"
+      local_path: "${MODEL_DIR}/yolo/yolo11n.pt"
       weights: "building"
       device: "cuda:4"
       description: "Building structure detection"
@@ -223,10 +227,11 @@ expert_models:
       
     aigen_detection:
       name: "AIGenExpert"
-      model_type: "aigen_detection"
-      model: "distildire"
+      model_type: "clip"
+      model: "${MODEL_DIR}/clip-vit-base-patch32"
+      local_path: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:4"
-      description: "AI-generated image detection"
+      description: "AI-generation proxy scoring via local CLIP"
       
     boundary_artifact:
       name: "BoundaryExpert"
@@ -241,15 +246,18 @@ expert_models:
       name: "BackgroundExpert"
       model_type: "segmentation"
       model: "briaai/RMBG-2.0"
+      local_path: "${MODEL_DIR}/RMBG-2.0"
       device: "cuda:5"
       description: "Background separation for complex scenes"
       
     complexity:
       name: "ComplexityExpert"
-      model_type: "complexity"
-      model: "resnet50"
+      model_type: "classification"
+      model: "resnet18"
+      weights: "${MODEL_DIR}/places365/resnet18_places365.pt"
       device: "cuda:3"
-      description: "Image complexity assessment"
+      num_classes: 365
+      description: "Scene-complexity proxy assessment via local Places365"
 
   # Special Group
   special_group:
@@ -258,15 +266,16 @@ expert_models:
       model_type: "vqa"
       model: "Qwen/Qwen2.5-VL-3B-Instruct"
       local_path: "${MODEL_DIR}/Qwen2.5-VL-3B-Instruct"
-      device: "cuda:6"
+      device: "cuda:5"
       description: "Visual Question Answering for unresolved questions"
       
     ocr:
       name: "TextExpert"
-      model_type: "ocr"
-      model: "paddleocr"
+      model_type: "vqa"
+      model: "Qwen/Qwen2.5-VL-3B-Instruct"
+      local_path: "${MODEL_DIR}/Qwen2.5-VL-3B-Instruct"
       device: "cuda:3"
-      description: "Text detection and recognition"
+      description: "Text understanding via local Qwen-VL"
 
 # Expert Selection Strategies
 expert_strategies:

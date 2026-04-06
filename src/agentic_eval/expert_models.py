@@ -144,35 +144,51 @@ class BaseExpert:
 
 
 class ImageNetExpert(BaseExpert):
+    def _resolve_weights_path(self) -> Optional[str]:
+        if self.config.weights and os.path.exists(self.config.weights):
+            return self.config.weights
+        model_dir = Path(self.settings.model_dir)
+        candidates = []
+        model_name = self.config.model
+        if model_name == "tf_efficientnetv2_s.in21k":
+            candidates.append(model_dir / "efficientnetv2_s_in21k.pth")
+        elif model_name == "tf_efficientnetv2_l.in21k":
+            candidates.append(model_dir / "efficientnetv2_l_in21k.pth")
+        elif self.config.weights:
+            candidates.append(model_dir / Path(self.config.weights).name)
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+        return None
+
     def load_model(self) -> Any:
         model_key = f"imagenet_{self.config.model}"
-        
+
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key)
-        
+
         try:
             import timm
-            
+
             model_name = self.config.model
-            
-            if "in21k" in model_name.lower():
-                num_classes = self.config.num_classes or 21843
-            else:
-                num_classes = self.config.num_classes or 1000
-            
-            if self.config.weights and os.path.exists(self.config.weights):
+            num_classes = self.config.num_classes or (21843 if "in21k" in model_name.lower() else 1000)
+            weights_path = self._resolve_weights_path()
+
+            if weights_path:
                 model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
-                state_dict = torch.load(self.config.weights, map_location=self.config.device)
+                state_dict = torch.load(weights_path, map_location=self.config.device)
+                if isinstance(state_dict, dict) and "state_dict" in state_dict:
+                    state_dict = state_dict["state_dict"]
                 model.load_state_dict(state_dict, strict=False)
             else:
                 model = timm.create_model(model_name, pretrained=True, num_classes=num_classes)
-            
+
             model = model.to(self.config.device)
             model.eval()
-            
+
             self.registry.set_model(model_key, model)
             self._model = model
-            
+
             return model
         except ImportError as e:
             raise ExpertModelError(f"timm not installed: {e}")
@@ -229,8 +245,9 @@ class CLIPExpert(BaseExpert):
         try:
             from transformers import CLIPModel, CLIPProcessor
             
-            model = CLIPModel.from_pretrained(self.config.model)
-            processor = CLIPProcessor.from_pretrained(self.config.model)
+            model_path = self.config.local_path or self.config.model
+            model = CLIPModel.from_pretrained(model_path, local_files_only=Path(model_path).exists())
+            processor = CLIPProcessor.from_pretrained(model_path, local_files_only=Path(model_path).exists())
             
             model = model.to(self.config.device)
             model.eval()
@@ -370,17 +387,17 @@ class YOLODetectExpert(BaseExpert):
         
         try:
             from ultralytics import YOLO
-            
-            model_path = self.config.model
+
+            model_path = self.config.local_path or self.config.model
             if not model_path.endswith('.pt'):
                 model_path = f"{model_path}.pt"
-            
+
             if not Path(model_path).exists():
                 yolo_dir = Path(self.settings.model_dir) / "yolo"
                 alt_path = yolo_dir / Path(model_path).name
                 if alt_path.exists():
                     model_path = str(alt_path)
-            
+
             model = YOLO(model_path)
             
             self.registry.set_model(model_key, model)
@@ -476,17 +493,17 @@ class YOLOPoseExpert(BaseExpert):
         
         try:
             from ultralytics import YOLO
-            
-            model_path = self.config.model
+
+            model_path = self.config.local_path or self.config.model
             if not model_path.endswith('.pt'):
                 model_path = f"{model_path}.pt"
-            
+
             if not Path(model_path).exists():
                 yolo_dir = Path(self.settings.model_dir) / "yolo"
                 alt_path = yolo_dir / Path(model_path).name
                 if alt_path.exists():
                     model_path = str(alt_path)
-            
+
             model = YOLO(model_path)
             
             self.registry.set_model(model_key, model)
@@ -546,41 +563,45 @@ class YOLOPoseExpert(BaseExpert):
 
 class Places365Expert(BaseExpert):
     def load_model(self) -> Any:
-        model_key = "places365"
-        
+        model_key = f"places365_{self.config.model}"
+
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key)
-        
+
         places_dir = Path(self.settings.model_dir) / "places365"
-        model_path = places_dir / "resnet18_imagenet.pt"
-        
-        if not model_path.exists():
-            model_path = places_dir / "resnet18_places365.pt"
-        
-        if not model_path.exists():
+        if "50" in self.config.model:
+            candidates = [places_dir / "resnet50_places365.pt"]
+            model_name = "resnet50"
+        else:
+            candidates = [places_dir / "resnet18_places365.pt", places_dir / "resnet18_imagenet.pt"]
+            model_name = "resnet18"
+
+        model_path = next((candidate for candidate in candidates if candidate.exists()), None)
+        if model_path is None:
             raise ExpertModelError(f"Places365 model not found at {places_dir}")
-        
+
         if HAS_TORCHVISION:
             from torchvision import models
-            model = models.resnet18(num_classes=1000)
+            model_factory = getattr(models, model_name)
+            model = model_factory(num_classes=self.config.num_classes or 365)
         else:
             import timm
-            model = timm.create_model('resnet18', num_classes=1000)
-        
+            model = timm.create_model(model_name, num_classes=self.config.num_classes or 365)
+
         checkpoint = torch.load(model_path, map_location=self.config.device)
-        
-        if 'state_dict' in checkpoint:
+
+        if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
             state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
         else:
             state_dict = checkpoint
-        
-        model.load_state_dict(state_dict)
+
+        model.load_state_dict(state_dict, strict=False)
         model = model.to(self.config.device)
         model.eval()
-        
+
         self.registry.set_model(model_key, model)
         self._model = model
-        
+
         return model
 
     def evaluate(self, image_path: str, **kwargs) -> ExpertResult:
@@ -728,11 +749,11 @@ class BackgroundExpert(BaseExpert):
         try:
             from transformers import AutoModelForImageSegmentation
             
-            model_path = Path(self.settings.model_dir) / "rmbg_2.0"
-            
-            if model_path.exists():
+            model_path = self.config.local_path or str(Path(self.settings.model_dir) / "RMBG-2.0")
+
+            if Path(model_path).exists():
                 model = AutoModelForImageSegmentation.from_pretrained(
-                    str(model_path), trust_remote_code=True
+                    str(model_path), trust_remote_code=True, local_files_only=True
                 )
             else:
                 model = AutoModelForImageSegmentation.from_pretrained(
@@ -888,7 +909,11 @@ EXPERT_CLASS_MAP = {
 
 
 def create_expert(config: ExpertModelConfig, settings: Settings) -> BaseExpert:
-    if config.model_type == "classification" and (config.weights or "").lower() == "places365":
+    if config.model_type == "classification" and (
+        (config.weights or "").lower() == "places365"
+        or "places365" in (config.name or "").lower()
+        or (config.num_classes == 365 and config.model in {"resnet18", "resnet50"})
+    ):
         return Places365Expert(config, settings)
 
     expert_class = EXPERT_CLASS_MAP.get(config.model_type)

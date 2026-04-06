@@ -39,6 +39,15 @@ class ExpertModelConfig:
     metrics: Optional[List[str]] = None
 
 
+def _expand_config_value(value: Optional[str], model_dir: str) -> Optional[str]:
+    if value is None:
+        return None
+    expanded = os.path.expandvars(value)
+    if "${MODEL_DIR}" in expanded:
+        expanded = expanded.replace("${MODEL_DIR}", model_dir)
+    return expanded
+
+
 @dataclass
 class Settings:
     model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
@@ -290,8 +299,8 @@ class Settings:
                 profiles = planner.get("profiles", {})
                 if default_profile in profiles:
                     p = profiles[default_profile]
-                    settings.planner_model = p.get("model", settings.planner_model)
-                    settings.planner_local_path = p.get("local_path", None)
+                    settings.planner_model = _expand_config_value(p.get("model", settings.planner_model), settings.model_dir) or settings.planner_model
+                    settings.planner_local_path = _expand_config_value(p.get("local_path", None), settings.model_dir)
                     settings.planner_local_model = settings.planner_local_path if settings.planner_local_path else settings.planner_local_model
                     settings.planner_local_enabled = bool(settings.planner_local_model)
                     settings.planner_device = p.get("device", settings.planner_device)
@@ -305,8 +314,8 @@ class Settings:
                 profiles = judge.get("profiles", {})
                 if default_profile in profiles:
                     p = profiles[default_profile]
-                    settings.judge_model = p.get("model", settings.judge_model)
-                    settings.judge_local_path = p.get("local_path", None)
+                    settings.judge_model = _expand_config_value(p.get("model", settings.judge_model), settings.model_dir) or settings.judge_model
+                    settings.judge_local_path = _expand_config_value(p.get("local_path", None), settings.model_dir)
                     settings.judge_local_model = settings.judge_local_path if settings.judge_local_path else settings.judge_local_model
                     settings.judge_local_enabled = bool(settings.judge_local_model)
                     settings.judge_device = p.get("device", settings.judge_device)
@@ -319,8 +328,8 @@ class Settings:
                 profiles = reflector.get("profiles", {})
                 if default_profile in profiles:
                     p = profiles[default_profile]
-                    settings.reflector_model = p.get("model", settings.reflector_model)
-                    settings.reflector_local_path = p.get("local_path", None)
+                    settings.reflector_model = _expand_config_value(p.get("model", settings.reflector_model), settings.model_dir) or settings.reflector_model
+                    settings.reflector_local_path = _expand_config_value(p.get("local_path", None), settings.model_dir)
                     settings.reflector_local_model = settings.reflector_local_path if settings.reflector_local_path else settings.reflector_local_model
                     settings.reflector_local_enabled = bool(settings.reflector_local_model)
                     settings.reflector_device = p.get("device", settings.reflector_device)
@@ -333,10 +342,10 @@ class Settings:
                     settings.expert_configs[expert_name] = ExpertModelConfig(
                         name=expert_config.get("name", expert_name),
                         model_type=expert_config.get("model_type", "unknown"),
-                        model=expert_config.get("model", ""),
-                        local_path=expert_config.get("local_path"),
+                        model=_expand_config_value(expert_config.get("model", ""), settings.model_dir) or "",
+                        local_path=_expand_config_value(expert_config.get("local_path"), settings.model_dir),
                         device=expert_config.get("device", "cuda"),
-                        weights=expert_config.get("weights"),
+                        weights=_expand_config_value(expert_config.get("weights"), settings.model_dir),
                         num_classes=expert_config.get("num_classes"),
                         input_size=tuple(expert_config.get("input_size", [224, 224])),
                         description=expert_config.get("description", ""),
