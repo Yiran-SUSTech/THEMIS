@@ -53,7 +53,7 @@ class Settings:
     planner_device: str = "cuda:0"
     planner_profile: ModelProfile = "fast"
     planner_max_new_tokens: int = 420
-    planner_local_max_new_tokens: int = 512
+    planner_local_max_new_tokens: int = 640
     
     judge_model: str = "Qwen/Qwen2.5-VL-3B-Instruct"
     judge_local_path: Optional[str] = None
@@ -151,7 +151,7 @@ class Settings:
         planner_local_enabled = bool(planner_local_path)
         planner_device = os.getenv("PLANNER_DEVICE", "cuda:0").strip()
         planner_max_new_tokens = env_int("PLANNER_MAX_NEW_TOKENS", 420)
-        planner_local_max_new_tokens = env_int("PLANNER_LOCAL_MAX_NEW_TOKENS", 420)
+        planner_local_max_new_tokens = env_int("PLANNER_LOCAL_MAX_NEW_TOKENS", 640)
         
         judge_profile = os.getenv("JUDGE_PROFILE", "fast").strip()
         judge_model = os.getenv("JUDGE_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct").strip()
@@ -296,6 +296,7 @@ class Settings:
                     settings.planner_local_enabled = bool(settings.planner_local_model)
                     settings.planner_device = p.get("device", settings.planner_device)
                     settings.planner_max_new_tokens = p.get("max_new_tokens", settings.planner_max_new_tokens)
+                    settings.planner_local_max_new_tokens = p.get("max_new_tokens", settings.planner_local_max_new_tokens)
                     settings.planner_profile = default_profile
             
             if "judge" in core:

@@ -361,21 +361,13 @@ class LocalPlanner:
 
         task_lines = [
             "You are the planning expert in an image generation evaluator.",
-            "Create a concise evaluation plan using the available experts: semantic, structural, artifact, vqa.",
-            "Reason jointly from the image and the prompt/class label as one multimodal grounding task.",
-            "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass.",
-            "Default structure is semantic first, structural second, artifact third; add vqa only when earlier steps leave a material unresolved question.",
-            "Model-profile guidance: semantic local_fast is the cheap first pass for broad-category and initial fine-grained class checking; semantic local_stronger is for ambiguous fine-grained lookalikes.",
-            "Model-profile guidance: structural local_fast is the cheap first pass for whole-body coherence and obvious anatomy failures; structural local_stronger is for ambiguous morphology or disputed local regions.",
-            "Model-profile guidance: artifact local_default/local_richer are perceptual-quality and visible-artifact passes; they help with blur, texture, boundary, and visible corruption, but should not be used to decide species identity.",
-            "Model-profile guidance: vqa is only for a focused unresolved visual question, such as broad-category versus fine-grained class uncertainty or a disputed local anatomy region.",
-            "For semantic, explicitly distinguish broad category match from fine-grained class or species match. Use only visible evidence. If fine-grained evidence is weak, ask for a follow-up vqa step instead of forcing a specific alternative species.",
-            "For structural, first check whole-subject coherence, then target subject-specific distinguishing morphology, body proportions, pose plausibility, scene compatibility, and likely confusion risks versus nearby lookalikes.",
-            "For artifact, inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, and corrupted fur or edge boundaries when relevant.",
-            "Do not compare against external reference images or do open-ended species research; inspect this image directly.",
-            "Prefer the cheapest adequate route first. Use local_stronger only for harder unresolved cases.",
-            "Set prompt_focus to the exact visual evidence to inspect, using subject-specific failure modes instead of a generic checklist.",
-            "For each step, set planned_model to the concrete expert key from the available catalog and explain why in selection_reason.",
+            "Return a short JSON plan with semantic, structural, artifact, and optional vqa steps.",
+            "Reason jointly from the image and the prompt/class label.",
+            "Use semantic for category/class match, structural for whole-subject coherence and anatomy, artifact for local visible corruption, vqa only for unresolved questions.",
+            "Prefer the cheapest adequate route first; use stronger routes only for ambiguous hard cases.",
+            "Use only visible evidence; do not do external research.",
+            "Each step must include the concrete planned_model expert key and a brief selection_reason.",
+            "Keep rationale and goals brief.",
             "Return valid JSON only.",
             'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
@@ -418,7 +410,19 @@ class LocalPlanner:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local planner inference failed") from exc
 
-        return self._normalize_plan(extract_json(output_text), class_label=class_label)
+        return self._normalize_plan(extract_plan_payload(output_text), class_label=class_label)
+
+
+def extract_plan_payload(text: str) -> dict[str, Any]:
+    try:
+        return extract_json(text)
+    except LocalExpertError as exc:
+        if "complete JSON object" not in str(exc):
+            raise
+        return {
+            "rationale": "Planner output was truncated; use the fallback normalized plan.",
+            "steps": [],
+        }
 
 
 def extract_json(text: str) -> dict[str, Any]:
