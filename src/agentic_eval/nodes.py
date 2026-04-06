@@ -565,6 +565,7 @@ Return JSON with:
             corrected["findings"] = list(expert_result.findings) + payload.get("additional_findings", [])
             corrected["summary"] = f"[VLM Corrected] {payload.get('correction_reasoning', expert_result.summary)}"
             corrected["source"] = "vlm_overseen"
+            corrected["model"] = f"{expert_result.model} + VLM({settings.semantic_local_stronger_model})"
             print(f"[agentic_eval] VLM Overseer corrected {expert_name}: {payload.get('correction_reasoning', '')}", flush=True)
             return ExpertResult.model_validate(corrected)
         
@@ -641,12 +642,15 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         f"Weighted severity: {weighted_severity:.3f}\n"
         "Synthesize a report with separate alignment and artifact scores. "
         "Directly reinspect the image and do not defer blindly to the experts if they appear too optimistic. "
+        "Use only visible evidence from the image and distinguish broad category match from fine-grained class or species match. "
+        "Do not name a specific alternative species unless at least two visible diagnostic traits support it; otherwise describe a broad-category match or fine-grained mismatch/uncertainty. "
         "Consider expert reliability when weighing their conclusions:\n"
         "- HIGH reliability experts (weight 1.0): Trust unless directly contradicted by visual evidence\n"
         "- MEDIUM reliability experts (weight 0.7): Consider but seek confirmation\n"
         "- LOW reliability experts (weight 0.4): Use as hints only\n"
         "- When experts conflict, prioritize higher reliability\n"
         "Artifact score must be a quality score where 1 means minimal visible artifacts and 0 means severe visible artifacts. "
+        "For artifact assessment, prioritize visible anatomy, boundaries, texture consistency, duplicated or melted parts, implausible structure, and other visible generation failures over generic perceptual pleasantness. "
         "If the image shows likely species mismatch, extra appendages, impossible limbs, malformed extremities, duplicated parts, broken joints, wrong tail attachment, impossible anatomy, or severe boundary corruption, lower the scores even if some experts missed the issue. "
         "If visible evidence supports a severe anatomical or structural generation failure, set hard_failure to true. "
         "When evidence is ambiguous, prefer a conservative judgment rather than assuming the image is correct."
@@ -665,6 +669,19 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         elapsed = _finish_stage("report", "synthesize_report", model_used, started_at, stop_event, heartbeat)
 
         report = EvaluationReport.model_validate(payload)
+        structural_result = next((r for r in expert_payload if r.get("expert") == "structural"), None)
+        semantic_result = next((r for r in expert_payload if r.get("expert") == "clip_semantic"), None)
+        if structural_result is not None:
+            structural_severity = float(structural_result.get("severity", 0.0))
+            if structural_severity >= 0.75:
+                report.artifact_score = min(report.artifact_score, 0.2)
+                report.hard_failure = True
+            elif structural_severity >= 0.55:
+                report.artifact_score = min(report.artifact_score, 0.4)
+        if semantic_result is not None:
+            semantic_severity = float(semantic_result.get("severity", 0.0))
+            if semantic_severity >= 0.5:
+                report.alignment_score = min(report.alignment_score, 0.5)
         report.expert_reliability_summary = ExpertReliabilitySummary(
             high_reliability_count=reliability_summary["high_reliability_count"],
             medium_reliability_count=reliability_summary["medium_reliability_count"],

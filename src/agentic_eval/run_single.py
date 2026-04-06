@@ -63,6 +63,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reflector-model", default=None,
                         help="Override reflector model. Use a local path or HuggingFace ID.")
     parser.add_argument("--planner-log-dir", default=None, help="Directory to save planner/judge/reflector rejection logs.")
+    parser.add_argument("--use-vlm-overseer", action="store_true", default=None,
+                        help="Use VLM overseer to verify expert outputs. Default is from .env (USE_VLM_OVERSEER).")
+    parser.add_argument("--no-vlm-overseer", action="store_true",
+                        help="Disable VLM overseer verification.")
+    parser.add_argument("--use-specialized-experts", action="store_true", default=None,
+                        help="Use specialized expert models (CLIP, YOLO, IQA). Default is from .env.")
+    parser.add_argument("--no-specialized-experts", action="store_true",
+                        help="Disable specialized experts, use VLM for all tasks.")
     return parser.parse_args()
 
 
@@ -110,6 +118,16 @@ def main() -> None:
     _apply_model_override(settings, "planner", args.planner_model)
     _apply_model_override(settings, "judge", args.judge_model)
     _apply_model_override(settings, "reflector", args.reflector_model)
+    
+    if args.no_vlm_overseer:
+        settings.use_vlm_overseer = False
+    elif args.use_vlm_overseer:
+        settings.use_vlm_overseer = True
+    
+    if args.no_specialized_experts:
+        settings.use_specialized_experts = False
+    elif args.use_specialized_experts:
+        settings.use_specialized_experts = True
 
     output_path, log_dir = _resolve_output_paths(
         output_arg=args.output,

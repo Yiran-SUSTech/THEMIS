@@ -232,6 +232,14 @@ EXPERT_PERFORMANCE_TABLE: Dict[str, ExpertPerformanceMetrics] = {
 
 def get_expert_performance(expert_name: str) -> Optional[ExpertPerformanceMetrics]:
     normalized = expert_name.lower().replace("-", "_").replace(" ", "_")
+    alias_map = {
+        "clip_semantic": "clip",
+        "iqa": "artifact",
+        "local_iqa": "artifact",
+        "yolo_detect": "structural",
+        "yolo_pose": "body_pose",
+    }
+    normalized = alias_map.get(normalized, normalized)
     for key, metrics in EXPERT_PERFORMANCE_TABLE.items():
         if key.lower() == normalized:
             return metrics

@@ -2,20 +2,11 @@ from __future__ import annotations
 
 import json
 import math
-import warnings
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
 from typing import Any, Optional
 
-try:
-    import torchvision
-    torchvision.disable_beta_transforms_warning()
-except Exception:
-    pass
-
-warnings.filterwarnings("ignore", message=".*torchvision.*")
-warnings.filterwarnings("ignore", message=".*beta.*")
 
 VALID_MODEL_PROFILES = {
     "local_fast",
@@ -84,7 +75,6 @@ def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, er
     cache_key = (model_id, quantization_key, device)
     cached = _LOCAL_VLM_CACHE.get(cache_key)
     if cached is not None:
-        print(f"[agentic_eval] Using cached model: {model_id}", flush=True)
         return cached
 
     try:
@@ -98,20 +88,13 @@ def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, er
 
     model_cls = _resolve_vlm_model_class()
     load_kwargs = _build_vlm_load_kwargs(torch, quantization, device)
-    
-    print(f"[agentic_eval] Loading model: {model_id} (device={device})", flush=True)
 
     with _LOCAL_VLM_CACHE_LOCK:
         cached = _LOCAL_VLM_CACHE.get(cache_key)
         if cached is not None:
             return cached
         try:
-            processor = AutoProcessor.from_pretrained(
-                model_id, 
-                trust_remote_code=True, 
-                local_files_only=True,
-                use_fast=True
-            )
+            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, local_files_only=True)
             model = model_cls.from_pretrained(model_id, local_files_only=True, **load_kwargs)
             model.eval()
         except Exception as exc:  # noqa: BLE001
@@ -179,17 +162,19 @@ class LocalPlanner:
 
         label_text = (class_label or "the labeled subject").strip() or "the labeled subject"
         normalized_steps: list[dict[str, Any]] = []
-        seen_experts: set[str] = set()
+        seen_step_signatures: set[tuple[str, str]] = set()
         for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 continue
             expert = str(step.get("expert", "semantic")).strip().lower() or "semantic"
             if expert not in {"semantic", "structural", "artifact", "vqa"}:
                 continue
-            if expert in seen_experts:
-                continue
-            seen_experts.add(expert)
             prompt_focus = str(step.get("prompt_focus", "")).strip()
+            goal = str(step.get("goal", "")).strip() or f"Inspect {expert} evidence."
+            step_signature = (expert, (prompt_focus or goal).lower())
+            if step_signature in seen_step_signatures:
+                continue
+            seen_step_signatures.add(step_signature)
             if not prompt_focus:
                 if expert == "semantic":
                     prompt_focus = f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image."
@@ -201,7 +186,7 @@ class LocalPlanner:
                 {
                     "step_id": len(normalized_steps) + 1,
                     "expert": expert,
-                    "goal": str(step.get("goal", "")).strip() or f"Inspect {expert} evidence.",
+                    "goal": goal,
                     "model_profile": self._normalize_model_profile(expert, str(step.get("model_profile", ""))),
                     "prompt_focus": prompt_focus,
                     "allow_escalation": bool(step.get("allow_escalation", True)),
@@ -268,14 +253,24 @@ class LocalPlanner:
             raise LocalExpertError("Local planner failed to initialize")
 
         task_lines = [
-            "You are a planning expert. Create an evaluation plan for the given image.",
-            "Available experts: semantic, structural, artifact, vqa.",
-            "Typical order: semantic -> structural -> artifact. Use vqa only if needed.",
-            "Return ONLY a valid JSON object, no other text.",
-            "",
-            "Required JSON format:",
-            '{"rationale":"brief explanation","steps":[{"step_id":1,"expert":"semantic","goal":"check alignment","model_profile":"local_fast","prompt_focus":"specific checks","allow_escalation":true}]}',
-            "",
+            "You are the planning expert in an image generation evaluator.",
+            "Create a concise evaluation plan using the available experts: semantic, structural, artifact, vqa.",
+            "Reason jointly from the image and the prompt/class label as one multimodal grounding task.",
+            "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass.",
+            "Default structure is semantic first, structural second, artifact third; add vqa only when earlier steps leave a material unresolved question.",
+            "Model-profile guidance: semantic local_fast is the cheap first pass for broad-category and initial fine-grained class checking; semantic local_stronger is for ambiguous fine-grained lookalikes.",
+            "Model-profile guidance: structural local_fast is the cheap first pass for whole-body coherence and obvious anatomy failures; structural local_stronger is for ambiguous morphology or disputed local regions.",
+            "Model-profile guidance: artifact local_default/local_richer are perceptual-quality and visible-artifact passes; they help with blur, texture, boundary, and visible corruption, but should not be used to decide species identity.",
+            "Model-profile guidance: vqa is only for a focused unresolved visual question, such as broad-category versus fine-grained class uncertainty or a disputed local anatomy region.",
+            "For semantic, explicitly distinguish broad category match from fine-grained class or species match. Use only visible evidence. If fine-grained evidence is weak, ask for a follow-up vqa step instead of forcing a specific alternative species.",
+            "For structural, first check whole-subject coherence, then target subject-specific distinguishing morphology, body proportions, pose plausibility, scene compatibility, and likely confusion risks versus nearby lookalikes.",
+            "For artifact, inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, and corrupted fur or edge boundaries when relevant.",
+            "Do not compare against external reference images or do open-ended species research; inspect this image directly.",
+            "Prefer the cheapest adequate route first. Use local_stronger only for harder unresolved cases.",
+            "Set prompt_focus to the exact visual evidence to inspect, using subject-specific failure modes instead of a generic checklist.",
+            "Return valid JSON only.",
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","prompt_focus":"string","allow_escalation":true}]}',
+            f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
         if prior_feedback:
@@ -313,14 +308,7 @@ class LocalPlanner:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local planner inference failed") from exc
 
-        print(f"[agentic_eval] Planner raw output: {output_text[:500]}...", flush=True)
-        
-        try:
-            return self._normalize_plan(extract_json(output_text), class_label=class_label)
-        except LocalExpertError as e:
-            print(f"[agentic_eval] Planner JSON extraction failed: {e}", flush=True)
-            print(f"[agentic_eval] Full output: {output_text}", flush=True)
-            raise
+        return self._normalize_plan(extract_json(output_text), class_label=class_label)
 
 
 def extract_json(text: str) -> dict[str, Any]:
@@ -475,19 +463,8 @@ class LocalSemanticExpert:
             raise LocalExpertError("Local semantic expert failed to initialize")
 
         task_lines = [
-            "You are a CRITICAL semantic expert in an image generation evaluator.",
-            "Your job is to FIND PROBLEMS, not to confirm the image is good.",
-            "",
-            "Carefully inspect the image and check:",
-            "1. SPECIES MATCH: Does the subject match the claimed class label? Look for distinctive features.",
-            "2. ANATOMY: Are there extra limbs, missing limbs, duplicated fingers/toes, malformed body parts?",
-            "3. PROPORTIONS: Are body proportions realistic for the claimed species?",
-            "4. POSE: Is the pose physically possible?",
-            "5. BOUNDARIES: Are edges clean or are there artifacts around the subject?",
-            "",
-            "DEFAULT ASSUMPTION: AI-generated images often have subtle but serious flaws.",
-            "Be CONSERVATIVE. If you see ANY anatomical issues, report them.",
-            "",
+            "You are the semantic expert in an image generation evaluator.",
+            "Assess only semantic alignment between the image and the requested prompt/class label.",
             "Return valid JSON only.",
             "Use severity where 0 means no semantic issue and 1 means severe semantic mismatch.",
             "Use confidence where 0 means very uncertain and 1 means highly confident.",
@@ -689,7 +666,9 @@ class LocalJudge:
             "You are the judge expert in an image generation evaluator.",
             "Review the evaluation plan and decide if it is adequate.",
             "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label.",
+            "For semantic inspection, prefer an explicit broad-category versus fine-grained class distinction when the label is fine-grained.",
             "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
+            "Do not reject solely because the plan omits color, lighting, or composition checks unless the class label or prompt specifically requires them.",
             "Return valid JSON only.",
             'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
@@ -782,10 +761,9 @@ class LocalReflector:
 
         task_lines = [
             "You are the reflector expert in an image generation evaluator.",
-            "Act as a CRITICAL second-pass inspector. Your job is to FIND PROBLEMS, not to confirm the report.",
-            "DEFAULT ASSUMPTION: AI-generated images often have subtle but serious flaws that experts miss.",
-            "Reinspect the image directly and look specifically for severe failures the experts or report may have missed.",
-            "Be SKEPTICAL of high scores. If the report gives high alignment/artifact scores, verify with your own eyes.",
+            "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed.",
+            "Use only visible evidence from the image. Distinguish broad category match from fine-grained class or species match.",
+            "Do not name a specific alternative species unless at least two visible diagnostic traits support it; otherwise describe a broad-category match or fine-grained mismatch/uncertainty.",
             "Consider expert reliability when evaluating the report:",
             "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly",
             "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence",
@@ -793,10 +771,8 @@ class LocalReflector:
             "- When experts conflict, prioritize the one with higher reliability",
             "- If report relies heavily on LOW reliability experts, flag for additional verification",
             "- If weighted severity significantly differs from report severity, note the discrepancy",
-            "CRITICAL: Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption.",
-            "Look for: wrong species, extra limbs, missing limbs, malformed face, wrong proportions, impossible poses, duplicated fingers/toes, broken joints, incorrect tail position, blurry boundaries.",
+            "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption.",
             "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean.",
-            "DO NOT approve a report just because experts didn't find issues - LOOK AT THE IMAGE YOURSELF.",
             "Return valid JSON only.",
             'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
@@ -886,20 +862,10 @@ class LocalStructuralExpert:
             raise LocalExpertError("Local structural expert failed to initialize")
 
         task_lines = [
-            "You are a CRITICAL structural expert in an image generation evaluator.",
-            "Your job is to FIND STRUCTURAL PROBLEMS, not to confirm the image is good.",
-            "",
-            "Carefully inspect the image and check for:",
-            "1. EXTRA/MISSING PARTS: Extra limbs, fingers, toes, tails, ears, eyes? Missing parts?",
-            "2. DUPLICATED PARTS: Any body part appearing more than once?",
-            "3. MALFORMED PARTS: Distorted faces, wrong proportions, bent joints?",
-            "4. IMPOSSIBLE ANATOMY: Poses that are physically impossible?",
-            "5. BOUNDARY ISSUES: Blurred edges, artifacts around the subject?",
-            "6. TAIL ATTACHMENT: Is the tail attached at the correct position?",
-            "",
-            "DEFAULT ASSUMPTION: AI-generated images often have anatomical errors.",
-            "Be CONSERVATIVE. If you see ANY structural issues, report them with HIGH severity.",
-            "",
+            "You are the structural expert in an image generation evaluator.",
+            "Assess whole-subject structural coherence, anatomy, and part attachment integrity only.",
+            "Focus on whether the visible subject forms a coherent instance of the requested class.",
+            "Pay special attention to malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, and impossible boundaries when relevant.",
             "Return valid JSON only.",
             "Use severity where 0 means no structural issue and 1 means severe structural failure.",
             "Use confidence where 0 means very uncertain and 1 means highly confident.",
@@ -1101,18 +1067,13 @@ class LocalReport:
         task_lines = [
             "You synthesize expert evidence into an evaluation report, but you are not bound by the experts if the image itself suggests they missed a serious failure.",
             "Directly inspect the image again while reading the expert outputs.",
-            "CRITICAL: Be CONSERVATIVE. Do NOT assume the image is good. Look for problems actively.",
+            "Use only visible evidence from the image. Distinguish broad category match from fine-grained class or species match.",
+            "Do not name a specific alternative species unless at least two visible diagnostic traits support it; otherwise describe a broad-category match or fine-grained mismatch/uncertainty.",
             "Use a conservative standard: when visible evidence suggests species mismatch, impossible anatomy, extra appendages, malformed extremities, duplicated limbs, broken joints, wrong tail attachment, or severe boundary corruption, lower the scores accordingly.",
-            "Specifically check for:",
-            "- Is the subject actually the claimed species/class? Look for distinctive features.",
-            "- Are there extra limbs, fingers, toes, or duplicated body parts?",
-            "- Is the face malformed? Eyes, nose, mouth in correct positions?",
-            "- Are proportions realistic for the claimed species?",
-            "- Is the pose physically possible?",
-            "- Are boundaries clean or are there artifacts around edges?",
             "Artifact score is a quality score where 1 means minimal visible artifacts and 0 means severe visible artifacts.",
+            "For artifact assessment, prioritize visible anatomy, boundaries, texture consistency, duplicated or melted parts, implausible structure, and other visible generation failures over generic perceptual pleasantness.",
+            "If broad category matches but fine-grained class evidence is weak, keep alignment in the partial-match range rather than treating it as a clean match.",
             "Set hard_failure true when the image shows severe species mismatch or severe anatomical or structural generation failure.",
-            "DO NOT give high scores just because experts didn't find issues - LOOK AT THE IMAGE YOURSELF.",
             "Return valid JSON only.",
             'JSON schema: {"alignment_reasoning":"string","artifact_reasoning":"string","alignment_score":0.0,"artifact_score":0.0,"hard_failure":false,"confidence":0.0,"key_issues":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
