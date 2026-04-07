@@ -1,36 +1,50 @@
 {
   "round": 3,
   "revision": 2,
-  "approved": false,
-  "feedback": "The plan does not cover all aspects of the image evaluation. It focuses on semantic matching and structural alignment but misses the critical aspect of artifact detection. Additionally, the plan does not clearly reason jointly from the image and the prompt/class label.",
-  "missing_checks": [
-    "artifact"
-  ],
+  "approved": true,
+  "feedback": "The evaluation plan is adequate and covers all necessary aspects for aligning the image with the Hussar monkey class label. The plan includes steps to identify the primate species, assess structural coherence, verify the identification through VQA, and evaluate image quality. Each step is justified based on the available models and their respective accuracies and reliabilities. The plan also allows for escalation if needed, ensuring comprehensive coverage.",
+  "missing_checks": [],
   "plan": {
-    "rationale": "The image shows a primate that appears to be a Hussar monkey but has structural issues such as a missing or incorrectly positioned left arm and a duplicated or misaligned right hand.",
+    "rationale": "The plan needs to address the potential misclassification issue between the Hussar monkey and the baboon, as well as provide a detailed explanation of how the IQA metrics relate to the image quality and the primate's species identification.",
     "steps": [
       {
         "step_id": 1,
         "expert": "semantic",
-        "goal": "Assess whether the image content matches the prompt/class label semantically.",
-        "model_profile": "local_fast",
-        "prompt_focus": "Inspect whether the visible subject matches Hussar monkey using the strongest confirming and contradicting species markers in the image.",
+        "goal": "Identify the primate species",
+        "model_profile": "local_stronger",
+        "planned_model": "imagenet_strong",
+        "selection_reason": "High accuracy for species identification",
+        "prompt_focus": "Hussar monkey",
         "allow_escalation": true
       },
       {
         "step_id": 2,
         "expert": "structural",
-        "goal": "check alignment",
+        "goal": "Assess whole-subject structural coherence and class-specific morphology.",
         "model_profile": "local_fast",
-        "prompt_focus": "specific checks",
+        "planned_model": "animal_pose",
+        "selection_reason": "Default low-cost structural first pass with pose evidence.",
+        "prompt_focus": "Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for Hussar monkey.",
         "allow_escalation": true
       },
       {
         "step_id": 3,
+        "expert": "vqa",
+        "goal": "Verify the identification of the primate species",
+        "model_profile": "local_stronger",
+        "planned_model": "vqa",
+        "selection_reason": "High accuracy for visual question answering",
+        "prompt_focus": "Is this a Hussar monkey?",
+        "allow_escalation": true
+      },
+      {
+        "step_id": 4,
         "expert": "artifact",
-        "goal": "Estimate visible artifact severity and perceptual degradation.",
-        "model_profile": "local_default",
-        "prompt_focus": "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
+        "goal": "Assess image quality",
+        "model_profile": "local_fast",
+        "planned_model": "iqa_fast",
+        "selection_reason": "Quick assessment of image quality",
+        "prompt_focus": "What is the image quality?",
         "allow_escalation": true
       }
     ]

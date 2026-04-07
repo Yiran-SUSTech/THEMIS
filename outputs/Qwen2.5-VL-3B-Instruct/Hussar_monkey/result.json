@@ -1,149 +1,198 @@
 {
   "plan": {
-    "rationale": "The plan aims to evaluate the image by focusing on semantic matching, structural alignment, and artifact detection. Semantic matching is crucial for identifying the correct class label, while structural alignment ensures that the model's output matches the expected structure. Artifact detection is important for identifying any anomalies or inconsistencies in the image.",
+    "rationale": "The plan needs to address the potential misclassification issue between the Hussar monkey and the baboon, as well as provide a detailed explanation of how the IQA metrics relate to the image quality and the primate's species identification.",
     "steps": [
       {
         "step_id": 1,
         "expert": "semantic",
-        "goal": "check alignment",
-        "model_profile": "local_fast",
-        "prompt_focus": "specific checks",
+        "goal": "Identify the primate species",
+        "model_profile": "local_stronger",
+        "planned_model": "imagenet_strong",
+        "selection_reason": "High accuracy for species identification",
+        "prompt_focus": "Hussar monkey",
         "allow_escalation": true
       },
       {
         "step_id": 2,
         "expert": "structural",
-        "goal": "check alignment",
+        "goal": "Assess whole-subject structural coherence and class-specific morphology.",
         "model_profile": "local_fast",
-        "prompt_focus": "specific checks",
+        "planned_model": "animal_pose",
+        "selection_reason": "Default low-cost structural first pass with pose evidence.",
+        "prompt_focus": "Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for Hussar monkey.",
         "allow_escalation": true
       },
       {
         "step_id": 3,
+        "expert": "vqa",
+        "goal": "Verify the identification of the primate species",
+        "model_profile": "local_stronger",
+        "planned_model": "vqa",
+        "selection_reason": "High accuracy for visual question answering",
+        "prompt_focus": "Is this a Hussar monkey?",
+        "allow_escalation": true
+      },
+      {
+        "step_id": 4,
         "expert": "artifact",
-        "goal": "artifact detection",
+        "goal": "Assess image quality",
         "model_profile": "local_fast",
-        "prompt_focus": "specific checks",
+        "planned_model": "iqa_fast",
+        "selection_reason": "Quick assessment of image quality",
+        "prompt_focus": "What is the image quality?",
         "allow_escalation": true
       }
     ]
   },
   "plan_review": {
-    "approved": false,
-    "feedback": "The evaluation plan does not cover all aspects required for a comprehensive assessment. It focuses solely on semantic matching, structural alignment, and artifact detection without addressing other potential issues such as color accuracy, lighting, or composition. Additionally, the plan does not include a detailed explanation of how these steps contribute to the overall evaluation.",
+    "approved": true,
+    "feedback": "The evaluation plan is adequate and covers all necessary aspects for aligning the image with the Hussar monkey class label. The plan includes steps to identify the primate species, assess structural coherence, verify the identification through VQA, and evaluate image quality. Each step is justified based on the available models and their respective accuracies and reliabilities. The plan also allows for escalation if needed, ensuring comprehensive coverage.",
     "missing_checks": []
   },
   "expert_results": [
     {
-      "expert": "clip_semantic",
-      "summary": "[VLM Corrected] The expert's assessment suggests a high probability of the image being a photo of a Hussar monkey, but the image shows a primate that does not match the Hussar monkey description. The expert's findings indicate a higher probability for a baboon, which aligns more closely with the visual evidence.",
+      "expert": "imagenet_strong",
+      "summary": "[VLM Corrected] The expert's top prediction is not aligned with the visual content of the image, which shows a monkey. The class labels provided do not match the visual content.",
       "findings": [
-        "Text 'a photo of Hussar monkey': 0.4427 [TARGET]",
-        "Text 'a photo of a chimpanzee': 0.0047",
-        "Text 'a photo of a gorilla': 0.0000",
-        "Text 'a photo of a baboon': 0.1572",
-        "Text 'a photo of a lemur': 0.0073",
-        "Text 'a photo of a ape': 0.0042",
-        "Text 'a photo of a primate': 0.3837",
-        "Text 'a photo of a dog': 0.0000",
-        "Text 'a photo of a cat': 0.0000",
-        "Text 'a photo of a bird': 0.0000",
-        "Text 'a photo of a person': 0.0000",
-        "Text 'a photo of a horse': 0.0000",
-        "Text 'a photo of a cow': 0.0000",
-        "Text 'a low quality image': 0.0000",
-        "Text 'an unrealistic image': 0.0000",
-        "Text 'a distorted image': 0.0000",
-        "Text 'a cartoon image': 0.0000",
-        "Text 'a painting': 0.0000",
-        "The image depicts a primate that resembles a baboon rather than a Hussar monkey."
+        "Top-1: class 3568 (prob: 0.2202)",
+        "Top-2: class 3632 (prob: 0.2194)",
+        "Top-3: class 3615 (prob: 0.0480)",
+        "Top-4: class 7256 (prob: 0.0385)",
+        "Top-5: class 3567 (prob: 0.0375)",
+        "The image clearly depicts a monkey, but the expert's top prediction does not correspond to any known monkey species."
       ],
-      "severity": 0.5573379993438721,
-      "confidence": 0.44266200065612793,
+      "severity": 0.7797882109880447,
+      "confidence": 0.22021178901195526,
       "source": "vlm_overseen",
-      "model": "/mnt/afs/zhengmingkai/zyr/THEMIS/models/clip-vit-base-patch32",
+      "model": "tf_efficientnetv2_l.in21k + VLM(/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-7B-Instruct)",
       "reliability": "medium",
       "confidence_weight": 0.7
     },
     {
-      "expert": "structural",
-      "summary": "[VLM Corrected] The expert identified two potential issues that are not clearly visible in the image. The left arm and right hand appear to be correctly positioned.",
+      "expert": "animal_pose",
+      "summary": "Detected 1 subjects with 9/17 valid keypoints",
       "findings": [
-        "The monkey's left arm appears to be missing or incorrectly positioned.",
-        "The monkey's right hand seems to be duplicated or misaligned."
+        "Person 1: 9/17 keypoints detected",
+        "Detected 1 person(s)"
       ],
-      "severity": 0.8,
-      "confidence": 0.95,
-      "source": "vlm_overseen",
-      "model": "AI",
+      "severity": 0.47058823529411764,
+      "confidence": 0.5294117647058824,
+      "source": "local",
+      "model": "yolo11n-pose",
       "reliability": "medium",
       "confidence_weight": 0.7
     },
     {
-      "expert": "iqa",
+      "expert": "vqa",
+      "summary": "system\nYou are a helpful assistant.\nuser\nIs this a Hussar monkey?\nassistant\nYes, the animal in the picture is likely a Hussar monkey (Cebus apella). The distinctive features of this species include it...",
+      "findings": [
+        "system\nYou are a helpful assistant.\nuser\nIs this a Hussar monkey?\nassistant\nYes, the animal in the picture is likely a Hussar monkey (Cebus apella). The distinctive features of this species include its light-colored fur, dark face, and long tail with black bands. The posture and positioning on the branch also match typical behavior for this species."
+      ],
+      "severity": 0.0,
+      "confidence": 0.8,
+      "source": "local",
+      "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "reliability": "medium",
+      "confidence_weight": 0.7
+    },
+    {
+      "expert": "iqa_fast",
       "summary": "IQA metrics indicate acceptable image quality.",
       "findings": [
-        "maniqa: 0.6116",
-        "musiq: 71.7665",
-        "niqe: 4.9401"
+        "maniqa: 0.6116"
       ],
-      "severity": 0.3922333653952679,
-      "confidence": 0.7390015980051239,
+      "severity": 0.3883697986602783,
+      "confidence": 0.6,
       "source": "local_iqa",
-      "model": "maniqa+musiq+niqe",
+      "model": "maniqa",
       "reliability": "medium",
       "confidence_weight": 0.7
     }
   ],
   "report": {
-    "alignment_reasoning": "The expert outputs suggest that the image is more likely to depict a baboon rather than a Hussar monkey, as indicated by the text classification results. The structural expert notes potential issues with the left arm and right hand, which could be indicative of a generation failure or misalignment.",
-    "artifact_reasoning": "The IQA metrics indicate acceptable image quality, but the structural expert highlights potential issues with the limbs, suggesting possible generation failures or misalignments.",
-    "alignment_score": 0.4,
-    "artifact_score": 0.6,
-    "hard_failure": true,
-    "confidence": 0.5,
+    "alignment_reasoning": "The image shows a monkey with light-colored fur, dark face, and long tail with black bands, which aligns with the characteristics of a Hussar monkey (Cebus apella). However, the expert 'imagenet_strong' did not correctly identify the species, suggesting a mismatch.",
+    "artifact_reasoning": "There are no severe visible artifacts in the image. The anatomy, boundaries, and texture appear consistent with a monkey.",
+    "alignment_score": 0.5,
+    "artifact_score": 1.0,
+    "hard_failure": false,
+    "confidence": 0.8,
     "key_issues": [
-      "Potential limb misalignment and duplication",
-      "The image is more likely to depict a baboon rather than a Hussar monkey"
+      "The expert 'imagenet_strong' did not correctly identify the species."
     ],
     "role_timings": {
-      "planner": 8.2766,
-      "judge": 2.7679,
-      "report": 5.0627,
-      "reflector": 4.2629,
+      "planner": 11.3677,
+      "judge": 3.5871,
+      "report": 5.1008,
+      "reflector": 3.5717,
       "experts": {
-        "semantic": 14.5785,
-        "structural": 11.5601,
-        "artifact": 0.3252
+        "semantic": 14.9942,
+        "structural": 0.0326,
+        "vqa": 39.0748,
+        "artifact": 0.2637
       }
     },
     "expert_reliability_summary": {
-      "high_reliability_count": 0,
-      "medium_reliability_count": 1,
+      "high_reliability_count": 3,
+      "medium_reliability_count": 0,
       "low_reliability_count": 0,
-      "unknown_reliability_count": 2,
+      "unknown_reliability_count": 1,
       "conflicts": [
         {
           "experts": [
-            "structural",
-            "iqa"
+            "imagenet_strong",
+            "animal_pose"
           ],
-          "severity_difference": 0.40776663460473217,
-          "recommended_trust": "structural",
-          "reason": "Severity conflict: structural=0.80 vs iqa=0.39"
+          "severity_difference": 0.3091999756939271,
+          "recommended_trust": "imagenet_strong",
+          "reason": "Severity conflict: imagenet_strong=0.78 vs animal_pose=0.47"
+        },
+        {
+          "experts": [
+            "imagenet_strong",
+            "vqa"
+          ],
+          "severity_difference": 0.7797882109880447,
+          "recommended_trust": "vqa",
+          "reason": "Severity conflict: imagenet_strong=0.78 vs vqa=0.00"
+        },
+        {
+          "experts": [
+            "imagenet_strong",
+            "iqa_fast"
+          ],
+          "severity_difference": 0.3914184123277664,
+          "recommended_trust": "iqa_fast",
+          "reason": "Severity conflict: imagenet_strong=0.78 vs iqa_fast=0.39"
+        },
+        {
+          "experts": [
+            "animal_pose",
+            "vqa"
+          ],
+          "severity_difference": 0.47058823529411764,
+          "recommended_trust": "vqa",
+          "reason": "Severity conflict: animal_pose=0.47 vs vqa=0.00"
+        },
+        {
+          "experts": [
+            "vqa",
+            "iqa_fast"
+          ],
+          "severity_difference": 0.3883697986602783,
+          "recommended_trust": "iqa_fast",
+          "reason": "Severity conflict: vqa=0.00 vs iqa_fast=0.39"
         }
       ],
-      "weighted_severity": 0.6086974602173941,
+      "weighted_severity": 0.40098632208439483,
       "overall_confidence": 0.7
     },
     "reliability_adjusted_scores": true
   },
   "reflection": {
     "approved": false,
-    "feedback": "The image depicts a primate that resembles a baboon rather than a Hussar monkey, as indicated by the text classification results. Additionally, there are potential issues with the left arm and right hand, which could be indicative of a generation failure or misalignment. The IQA metrics indicate acceptable image quality, but the structural expert highlights potential issues with the limbs, suggesting possible generation failures or misalignments.",
+    "feedback": "The expert 'imagenet_strong' has a high reliability score but incorrectly identified the species, which is a significant failure. The other experts provide conflicting information, but the 'imagenet_strong' expert's high reliability makes it a critical issue.",
     "suggested_fixes": [
-      "Correct the species identification to ensure it matches a baboon.",
-      "Adjust the positioning of the left arm and right hand to ensure they are correctly aligned."
+      "The image should be re-evaluated by experts with high reliability to confirm the species identification. The current classification should be reconsidered based on more reliable sources."
     ]
   },
   "role_models": {
@@ -152,10 +201,11 @@
     "report": "/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-7B-Instruct",
     "reflector": "/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-7B-Instruct",
     "experts": {
-      "clip_semantic": "/mnt/afs/zhengmingkai/zyr/THEMIS/models/clip-vit-base-patch32",
-      "structural": "AI",
-      "iqa": "maniqa+musiq+niqe"
+      "imagenet_strong": "tf_efficientnetv2_l.in21k + VLM(/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-7B-Instruct)",
+      "animal_pose": "yolo11n-pose",
+      "vqa": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "iqa_fast": "maniqa"
     }
   },
-  "final_score": 0.24
+  "final_score": 0.5
 }
