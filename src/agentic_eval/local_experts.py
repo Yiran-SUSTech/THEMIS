@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
 from typing import Any, Optional
+
+import yaml
 
 
 VALID_MODEL_PROFILES = {
@@ -186,9 +189,21 @@ def _build_vlm_load_kwargs(torch: Any, quantization: Optional[str], device: str)
     return load_kwargs
 
 
+def _resolve_local_vlm_model_id(model_id: str) -> str:
+    candidate = Path(model_id)
+    if candidate.exists():
+        return str(candidate)
+    model_dir = os.getenv("MODEL_DIR", "./models").strip() or "./models"
+    local_candidate = Path(model_dir) / Path(model_id).name
+    if local_candidate.exists():
+        return str(local_candidate)
+    return model_id
+
+
 def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, error_prefix: str) -> dict[str, Any]:
+    resolved_model_id = _resolve_local_vlm_model_id(model_id)
     quantization_key = quantization.lower() if quantization else "none"
-    cache_key = (model_id, quantization_key, device)
+    cache_key = (resolved_model_id, quantization_key, device)
     cached = _LOCAL_VLM_CACHE.get(cache_key)
     if cached is not None:
         return cached
@@ -210,11 +225,11 @@ def _load_vlm_bundle(model_id: str, quantization: Optional[str], device: str, er
         if cached is not None:
             return cached
         try:
-            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, local_files_only=True)
-            model = model_cls.from_pretrained(model_id, local_files_only=True, **load_kwargs)
+            processor = AutoProcessor.from_pretrained(resolved_model_id, trust_remote_code=True, local_files_only=True)
+            model = model_cls.from_pretrained(resolved_model_id, local_files_only=True, **load_kwargs)
             model.eval()
         except Exception as exc:  # noqa: BLE001
-            raise LocalExpertError(f"{error_prefix} '{model_id}'. Download it manually or check your Hugging Face access.") from exc
+            raise LocalExpertError(f"{error_prefix} '{resolved_model_id}'. Download it manually or check your Hugging Face access.") from exc
         bundle = {"processor": processor, "model": model, "torch": torch, "image_module": Image}
         _LOCAL_VLM_CACHE[cache_key] = bundle
         return bundle
@@ -480,10 +495,21 @@ def extract_json(text: str) -> dict[str, Any]:
         lines = candidate.splitlines()
         if len(lines) >= 3:
             candidate = "\n".join(lines[1:-1]).strip()
+    if candidate.lower().startswith("json\n"):
+        candidate = candidate[5:].strip()
 
     try:
-        return json.loads(candidate)
+        payload = json.loads(candidate)
+        if isinstance(payload, dict):
+            return payload
     except json.JSONDecodeError:
+        pass
+
+    try:
+        payload = yaml.safe_load(candidate)
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
         pass
 
     start = candidate.find("{")
@@ -516,10 +542,22 @@ def extract_json(text: str) -> dict[str, Any]:
     if end == -1:
         raise LocalExpertError("Local model did not return a complete JSON object")
 
+    extracted = candidate[start:end + 1]
     try:
-        return json.loads(candidate[start:end + 1])
-    except json.JSONDecodeError as exc:
+        payload = json.loads(extracted)
+        if isinstance(payload, dict):
+            return payload
+    except json.JSONDecodeError:
+        pass
+
+    try:
+        payload = yaml.safe_load(extracted)
+        if isinstance(payload, dict):
+            return payload
+    except Exception as exc:
         raise LocalExpertError("Local model did not return valid JSON") from exc
+
+    raise LocalExpertError("Local model did not return valid JSON")
 
 
 class LocalSemanticExpert:
