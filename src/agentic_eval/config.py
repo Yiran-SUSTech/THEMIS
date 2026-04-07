@@ -37,6 +37,13 @@ class ExpertModelConfig:
     input_size: tuple = (224, 224)
     description: str = ""
     metrics: Optional[List[str]] = None
+    benchmark: Optional[str] = None
+    accuracy: Optional[float] = None
+    suitable_for: List[str] = field(default_factory=list)
+    unsuitable_for: List[str] = field(default_factory=list)
+    evidence_role: str = ""
+    label_space: str = ""
+    output_interpretability: str = ""
 
 
 def _expand_config_value(value: Optional[str], model_dir: str) -> Optional[str]:
@@ -350,6 +357,13 @@ class Settings:
                         input_size=tuple(expert_config.get("input_size", [224, 224])),
                         description=expert_config.get("description", ""),
                         metrics=expert_config.get("metrics"),
+                        benchmark=expert_config.get("benchmark"),
+                        accuracy=expert_config.get("accuracy"),
+                        suitable_for=list(expert_config.get("suitable_for", [])),
+                        unsuitable_for=list(expert_config.get("unsuitable_for", [])),
+                        evidence_role=expert_config.get("evidence_role", ""),
+                        label_space=expert_config.get("label_space", ""),
+                        output_interpretability=expert_config.get("output_interpretability", ""),
                     )
         
         if "evaluation_profiles" in config:

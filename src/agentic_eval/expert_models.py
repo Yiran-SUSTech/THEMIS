@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
@@ -143,6 +144,100 @@ class BaseExpert:
         raise NotImplementedError
 
 
+def _workspace_root_from_file() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_imagenet_1k_labels() -> list[str]:
+    labels_key = "imagenet_1k_labels"
+    registry = ExpertModelRegistry()
+    cached = registry.get_processor(labels_key)
+    if cached is not None:
+        return cached
+
+    labels_path = _workspace_root_from_file() / "scripts" / "imagenet1k_class_index.json"
+    if not labels_path.exists():
+        registry.set_processor(labels_key, [])
+        return []
+
+    with labels_path.open("r", encoding="utf-8") as handle:
+        labels = json.load(handle)
+    if not isinstance(labels, list):
+        labels = []
+    labels = [str(item).strip() for item in labels]
+    registry.set_processor(labels_key, labels)
+    return labels
+
+
+def _normalize_text_label(text: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+    return re.sub(r"\s+", " ", normalized)
+
+
+def _split_label_variants(label: str) -> list[str]:
+    if not label:
+        return []
+    variants: list[str] = []
+    for part in label.split(","):
+        candidate = part.strip()
+        if candidate:
+            variants.append(candidate)
+    if label not in variants:
+        variants.insert(0, label.strip())
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in variants:
+        key = _normalize_text_label(item)
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(item)
+    return deduped
+
+
+def _resolve_imagenet_label(class_index: int) -> str:
+    labels = _load_imagenet_1k_labels()
+    if 0 <= class_index < len(labels):
+        return labels[class_index]
+    return f"class {class_index}"
+
+
+def _label_match_score(target_label: str, candidate_label: str) -> float:
+    target_variants = _split_label_variants(target_label)
+    candidate_variants = _split_label_variants(candidate_label)
+    target_norms = {_normalize_text_label(item) for item in target_variants}
+    candidate_norms = {_normalize_text_label(item) for item in candidate_variants}
+    target_norms.discard("")
+    candidate_norms.discard("")
+    if not target_norms or not candidate_norms:
+        return 0.0
+    if target_norms & candidate_norms:
+        return 1.0
+    partial = 0.0
+    for target in target_norms:
+        for candidate in candidate_norms:
+            if target in candidate or candidate in target:
+                partial = max(partial, 0.7)
+            elif any(token and token in candidate.split(" ") for token in target.split(" ")):
+                partial = max(partial, 0.45)
+    return partial
+
+
+def _build_candidate_labels(class_label: Optional[str], extra_candidates: Optional[List[str]] = None) -> list[str]:
+    candidates: list[str] = []
+    if class_label:
+        candidates.extend(_split_label_variants(class_label))
+    for candidate in extra_candidates or []:
+        candidates.extend(_split_label_variants(candidate))
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in candidates:
+        key = _normalize_text_label(item)
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(item)
+    return deduped
+
+
 class ImageNetExpert(BaseExpert):
     def _resolve_weights_path(self) -> Optional[str]:
         if self.config.weights and os.path.exists(self.config.weights):
@@ -198,7 +293,9 @@ class ImageNetExpert(BaseExpert):
 
         transform = get_image_transform(self.config.input_size)
         image = self._load_image(image_path)
-        img_tensor = transform(image).unsqueeze(0).to(self.config.device)
+        first_param = next(model.parameters(), None)
+        model_dtype = first_param.dtype if first_param is not None else torch.float32
+        img_tensor = transform(image).unsqueeze(0).to(self.config.device, dtype=model_dtype)
 
         with torch.no_grad():
             output = model(img_tensor)
@@ -208,17 +305,23 @@ class ImageNetExpert(BaseExpert):
         top5_probs = top5_probs[0].cpu().numpy()
         top5_indices = top5_indices[0].cpu().numpy()
         
-        findings = [f"Top-{i+1}: class {idx} (prob: {prob:.4f})" 
-                   for i, (idx, prob) in enumerate(zip(top5_indices, top5_probs))]
-        
+        findings = [
+            f"Top-{i+1}: class {int(idx)} = {_resolve_imagenet_label(int(idx))} (prob: {prob:.4f})"
+            for i, (idx, prob) in enumerate(zip(top5_indices, top5_probs))
+        ]
+
         top1_prob = float(top5_probs[0])
         top1_class = int(top5_indices[0])
-        
+        top1_label = _resolve_imagenet_label(top1_class)
+        label_match = _label_match_score(class_label or "", top1_label) if class_label else 0.0
+
         severity = 1.0 - top1_prob
-        
+        if class_label:
+            severity = min(1.0, max(severity, 1.0 - label_match if label_match > 0 else severity))
+
         return ExpertResult(
             expert=self.config.name,
-            summary=f"Top prediction: class {top1_class} with probability {top1_prob:.4f}",
+            summary=f"Top prediction: class {top1_class} = {top1_label} with probability {top1_prob:.4f}",
             findings=findings,
             severity=severity,
             confidence=top1_prob,
@@ -226,8 +329,187 @@ class ImageNetExpert(BaseExpert):
             model=self.config.model,
             extra_info={
                 "top5_classes": top5_indices.tolist(),
+                "top5_labels": [_resolve_imagenet_label(int(idx)) for idx in top5_indices.tolist()],
                 "top5_probs": top5_probs.tolist(),
+                "target_label": class_label,
+                "top1_label_match": label_match,
             }
+        )
+
+
+class EVAImageNetExpert(ImageNetExpert):
+    def _resolve_checkpoint_dir(self) -> Optional[str]:
+        model_dir = Path(self.settings.model_dir)
+        candidates: list[Path] = []
+        if self.config.local_path:
+            candidates.append(Path(self.config.local_path))
+        model_name = (self.config.model or "").lower()
+        if "eva_giant" in model_name:
+            candidates.append(model_dir / "eva_giant_224_ckpt")
+        if "eva02" in model_name or "eva_02" in model_name or "eva-02" in model_name:
+            candidates.append(model_dir / "eva02_l_ckpt")
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+        return None
+
+    def _resolve_architecture_name(self) -> str:
+        model_name = (self.config.model or "").lower()
+        if "eva_giant" in model_name:
+            return "eva_giant_patch14_224.clip_ft_in1k"
+        if "eva02" in model_name or "eva_02" in model_name or "eva-02" in model_name:
+            return "eva02_large_patch14_448.mim_in22k_ft_in1k"
+        return self.config.model
+
+    def _resolve_checkpoint_file(self, checkpoint_dir: str) -> Optional[str]:
+        directory = Path(checkpoint_dir)
+        if directory.is_file():
+            return str(directory)
+        for pattern in ("*.pth", "*.pt", "*.bin", "*.safetensors"):
+            matches = sorted(directory.glob(pattern))
+            if matches:
+                return str(matches[0])
+        return None
+
+    def load_model(self) -> Any:
+        model_key = f"eva_imagenet_{self.config.model}"
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key)
+
+        try:
+            import timm
+
+            architecture_name = self._resolve_architecture_name()
+            checkpoint_dir = self._resolve_checkpoint_dir()
+            model = timm.create_model(
+                architecture_name,
+                pretrained=checkpoint_dir is None,
+                num_classes=self.config.num_classes or 1000,
+            )
+            checkpoint_file = self._resolve_checkpoint_file(checkpoint_dir) if checkpoint_dir else None
+            if checkpoint_file:
+                state_dict = torch.load(checkpoint_file, map_location=self.config.device)
+                if isinstance(state_dict, dict) and "state_dict" in state_dict:
+                    state_dict = state_dict["state_dict"]
+                model.load_state_dict(state_dict, strict=False)
+            model = model.to(self.config.device)
+            model.eval()
+            self.registry.set_model(model_key, model)
+            self._model = model
+            return model
+        except ImportError as e:
+            raise ExpertModelError(f"timm not installed: {e}")
+
+    def evaluate(self, image_path: str, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
+        result = super().evaluate(image_path, class_label=class_label, **kwargs)
+        image = self._load_image(image_path)
+        width, height = image.size
+        result.extra_info = result.extra_info or {}
+        result.extra_info["image_size"] = [width, height]
+        result.extra_info["recommended_eva_variant"] = "imagenet_eva_giant_224" if max(width, height) <= 288 else "imagenet_eva02_large"
+        return result
+
+
+class TextEmbeddingCandidateExpert(BaseExpert):
+    def _resolve_model_path(self) -> str:
+        model_dir = Path(self.settings.model_dir)
+        if self.config.local_path and Path(self.config.local_path).exists():
+            return self.config.local_path
+        model_name = (self.config.model or "").lower()
+        if "bge" in model_name:
+            candidate = model_dir / "bge_large_ckpt"
+            if candidate.exists():
+                return str(candidate)
+        if "e5" in model_name:
+            candidate = model_dir / "e5_large_ckpt"
+            if candidate.exists():
+                return str(candidate)
+        return self.config.model
+
+    def load_model(self) -> Any:
+        model_key = f"text_embedding_{self.config.model}"
+        processor_key = f"text_embedding_tokenizer_{self.config.model}"
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
+
+        try:
+            from transformers import AutoModel, AutoTokenizer
+
+            model_path = self._resolve_model_path()
+            local_only = Path(model_path).exists()
+            tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=local_only, trust_remote_code=True)
+            model = AutoModel.from_pretrained(model_path, local_files_only=local_only, trust_remote_code=True)
+            model = model.to(self.config.device)
+            model.eval()
+            self.registry.set_model(model_key, model)
+            self.registry.set_processor(processor_key, tokenizer)
+            self._model = model
+            self._processor = tokenizer
+            return model, tokenizer
+        except ImportError as e:
+            raise ExpertModelError(f"transformers not installed: {e}")
+
+    def _encode_texts(self, texts: list[str]) -> torch.Tensor:
+        model, tokenizer = self.load_model()
+        inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(self.config.device) for k, v in inputs.items()}
+        with torch.no_grad():
+            outputs = model(**inputs)
+        if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
+            embeddings = outputs.pooler_output
+        else:
+            last_hidden_state = outputs.last_hidden_state
+            attention_mask = inputs["attention_mask"].unsqueeze(-1)
+            masked = last_hidden_state * attention_mask
+            embeddings = masked.sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1)
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+        return embeddings
+
+    def evaluate(
+        self,
+        image_path: str,
+        class_label: Optional[str] = None,
+        candidate_pool: Optional[List[str]] = None,
+        top_k: int = 8,
+        **kwargs,
+    ) -> ExpertResult:
+        if not class_label:
+            raise ExpertModelError("Candidate generation requires class_label")
+
+        labels = _load_imagenet_1k_labels()
+        if not labels:
+            raise ExpertModelError("ImageNet-1K label map is unavailable")
+
+        target_candidates = _build_candidate_labels(class_label, candidate_pool)
+        corpus = [_resolve_imagenet_label(index) for index in range(len(labels))]
+        query_embeddings = self._encode_texts(target_candidates)
+        corpus_embeddings = self._encode_texts(corpus)
+        score_matrix = torch.matmul(query_embeddings, corpus_embeddings.T)
+        aggregated_scores = score_matrix.max(dim=0).values
+        top_k = max(2, min(int(top_k), len(corpus)))
+        values, indices = torch.topk(aggregated_scores, k=top_k)
+
+        candidate_labels: list[str] = []
+        findings: list[str] = []
+        for rank, (index, score) in enumerate(zip(indices.tolist(), values.tolist()), start=1):
+            label = corpus[index]
+            candidate_labels.append(label)
+            findings.append(f"Candidate {rank}: {label} (score: {score:.4f})")
+
+        top_score = float(values[0].item()) if len(values) > 0 else 0.0
+        return ExpertResult(
+            expert=self.config.name,
+            summary=f"Generated {len(candidate_labels)} confusable label candidates for '{class_label}'.",
+            findings=findings,
+            severity=0.0,
+            confidence=min(1.0, max(0.0, (top_score + 1.0) / 2.0)),
+            source="local",
+            model=self.config.model,
+            extra_info={
+                "query_labels": target_candidates,
+                "candidate_labels": candidate_labels,
+                "candidate_scores": [float(item) for item in values.tolist()],
+            },
         )
 
 
@@ -258,91 +540,127 @@ class CLIPExpert(BaseExpert):
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
 
-    def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
+    def evaluate(
+        self,
+        image_path: str,
+        prompt: Optional[str] = None,
+        class_label: Optional[str] = None,
+        candidate_labels: Optional[List[str]] = None,
+        task_type: Optional[str] = None,
+        **kwargs,
+    ) -> ExpertResult:
         model, processor = self.load_model()
-        
+
         image = self._load_image(image_path)
-        
-        texts = []
+
+        texts: list[str] = []
         target_text = None
-        
-        if prompt:
+        extra_candidates = _build_candidate_labels(class_label, candidate_labels)
+
+        if prompt and task_type != "confusable_disambiguation":
             texts.append(prompt)
             target_text = prompt
+
         if class_label:
             target_text = f"a photo of {class_label}"
             texts.append(target_text)
-            
-            class_lower = class_label.lower()
-            
-            similar_species = self._get_similar_species(class_lower)
-            for species in similar_species:
-                texts.append(f"a photo of a {species}")
-            
-            contrast_animals = ["a photo of a dog", "a photo of a cat", "a photo of a bird", 
-                               "a photo of a person", "a photo of a horse", "a photo of a cow"]
-            for contrast in contrast_animals:
-                if contrast not in texts:
-                    texts.append(contrast)
-        
-        contrast_texts = [
-            "a low quality image",
-            "an unrealistic image",
-            "a distorted image",
-            "a cartoon image",
-            "a painting",
-        ]
-        texts.extend(contrast_texts)
-        
+
+        for label in extra_candidates:
+            candidate_text = f"a photo of {label}"
+            if candidate_text not in texts:
+                texts.append(candidate_text)
+
+        if task_type != "confusable_disambiguation":
+            contrast_texts = [
+                "a low quality image",
+                "an unrealistic image",
+                "a distorted image",
+                "a cartoon image",
+                "a painting",
+            ]
+            for text in contrast_texts:
+                if text not in texts:
+                    texts.append(text)
+
         if not texts:
             texts = ["a good quality image", "a bad quality image"]
-        
+
         inputs = processor(text=texts, images=image, return_tensors="pt", padding=True)
         inputs = {k: v.to(self.config.device) for k, v in inputs.items()}
-        
+
         with torch.no_grad():
             outputs = model(**inputs)
             logits_per_image = outputs.logits_per_image
             probs = logits_per_image.softmax(dim=1)
-        
+
         probs_list = probs[0].cpu().numpy().tolist()
-        
+
         target_idx = None
         if target_text:
             for i, t in enumerate(texts):
                 if t == target_text:
                     target_idx = i
                     break
-        
+
+        if task_type == "confusable_disambiguation" and class_label:
+            candidate_payload = []
+            for idx, (text, prob) in enumerate(zip(texts, probs_list)):
+                label = text.replace("a photo of ", "", 1)
+                candidate_payload.append({
+                    "label": label,
+                    "probability": prob,
+                    "is_target": idx == target_idx,
+                })
+            ranked = sorted(candidate_payload, key=lambda item: item["probability"], reverse=True)
+            best = ranked[0]
+            target_prob = next((item["probability"] for item in candidate_payload if item["is_target"]), 0.0)
+            label_score = _label_match_score(class_label, best["label"])
+            if best["label"] != class_label and label_score < 1.0:
+                severity = min(1.0, max(0.0, 0.6 + (best["probability"] - target_prob)))
+                confidence = min(1.0, max(0.0, best["probability"]))
+                summary = f"Best visual match is '{best['label']}' instead of target '{class_label}'."
+            else:
+                severity = max(0.0, 1.0 - target_prob)
+                confidence = min(1.0, max(0.0, target_prob))
+                summary = f"Target '{class_label}' remains the best CLIP match."
+            findings = [
+                f"Candidate '{item['label']}': {item['probability']:.4f}{' [TARGET]' if item['is_target'] else ''}"
+                for item in ranked
+            ]
+            return ExpertResult(
+                expert=self.config.name,
+                summary=summary,
+                findings=findings,
+                severity=severity,
+                confidence=confidence,
+                source="local",
+                model=self.config.model,
+                extra_info={
+                    "texts": texts,
+                    "probabilities": probs_list,
+                    "target_index": target_idx,
+                    "ranked_candidates": ranked,
+                    "task_type": "confusable_disambiguation",
+                }
+            )
+
         if target_idx is not None:
             target_prob = probs_list[target_idx]
-            
-            similar_probs = []
-            for i, (text, prob) in enumerate(zip(texts, probs_list)):
-                if i != target_idx and "photo of" in text.lower() and class_label and class_label.lower() not in text.lower():
-                    if any(sp in text.lower() for sp in self._get_similar_species(class_label.lower())):
-                        similar_probs.append(prob)
-            
-            if similar_probs and max(similar_probs) > target_prob:
-                severity = 0.7
-                confidence = 0.3
-                summary = f"Target '{target_text}' ({target_prob:.4f}) is LOWER than similar species ({max(similar_probs):.4f}) - likely species mismatch"
-            else:
-                severity = 1.0 - target_prob
-                confidence = target_prob
-                summary = f"Target '{target_text}': probability {target_prob:.4f}"
+            severity = 1.0 - target_prob
+            confidence = target_prob
+            summary = f"Target '{target_text}': probability {target_prob:.4f}"
         else:
             max_prob = max(probs_list)
             max_idx = probs_list.index(max_prob)
             severity = 1.0 - max_prob
             confidence = max_prob
             summary = f"Best match: '{texts[max_idx]}' with probability {max_prob:.4f}"
-        
+
         findings = []
         for i, (text, prob) in enumerate(zip(texts, probs_list)):
             marker = " [TARGET]" if i == target_idx else ""
             findings.append(f"Text '{text}': {prob:.4f}{marker}")
-        
+
         return ExpertResult(
             expert=self.config.name,
             summary=summary,
@@ -355,24 +673,9 @@ class CLIPExpert(BaseExpert):
                 "texts": texts,
                 "probabilities": probs_list,
                 "target_index": target_idx,
+                "task_type": task_type or "semantic_alignment",
             }
         )
-    
-    def _get_similar_species(self, class_label: str) -> list[str]:
-        similar_species_map = {
-            "monkey": ["chimpanzee", "gorilla", "baboon", "lemur", "ape", "primate"],
-            "hussar monkey": ["patas monkey", "guinea baboon", "chimpanzee", "baboon", "monkey"],
-            "dog": ["wolf", "fox", "coyote", "puppy"],
-            "cat": ["tiger", "lion", "leopard", "kitten"],
-            "bird": ["eagle", "hawk", "sparrow", "parrot"],
-            "horse": ["zebra", "donkey", "mule", "pony"],
-        }
-        
-        for key, similar in similar_species_map.items():
-            if key in class_label:
-                return similar
-        
-        return []
 
 
 class YOLODetectExpert(BaseExpert):
@@ -816,10 +1119,10 @@ class QwenVLExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"qwen_vl_{self.config.model}"
         processor_key = f"qwen_vl_processor_{self.config.model}"
-        
+
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-        
+
         try:
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
@@ -849,50 +1152,101 @@ class QwenVLExpert(BaseExpert):
                 )
 
             model.eval()
-            
+
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
             self._model = model
             self._processor = processor
-            
+
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
 
+    def _normalize_structured_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        payload.setdefault("expert", "vqa")
+        payload.setdefault("answer", "")
+        payload.setdefault("summary", str(payload.get("answer", "")).strip())
+        payload["findings"] = [str(item).strip() for item in payload.get("findings", []) if str(item).strip()]
+        payload["evidence_items"] = [str(item).strip() for item in payload.get("evidence_items", []) if str(item).strip()]
+        payload["visible_support"] = [str(item).strip() for item in payload.get("visible_support", []) if str(item).strip()]
+        payload["visible_uncertainties"] = [str(item).strip() for item in payload.get("visible_uncertainties", []) if str(item).strip()]
+        payload["follow_up_questions"] = [str(item).strip() for item in payload.get("follow_up_questions", []) if str(item).strip()]
+        raw_severity = payload.get("severity", 0.0)
+        raw_confidence = payload.get("confidence", 0.0)
+        try:
+            payload["severity"] = round(max(0.0, min(1.0, float(raw_severity))), 4)
+        except (TypeError, ValueError):
+            payload["severity"] = 0.0
+        try:
+            payload["confidence"] = round(max(0.0, min(1.0, float(raw_confidence))), 4)
+        except (TypeError, ValueError):
+            payload["confidence"] = 0.0
+        payload.setdefault("source", "local")
+        payload.setdefault("model", self.config.model)
+        payload["summary"] = str(payload.get("summary", "")).strip() or str(payload.get("answer", "")).strip()
+        if not payload["findings"]:
+            payload["findings"] = list(payload["evidence_items"])
+        return payload
+
     def evaluate(self, image_path: str, question: str = "Describe this image.", **kwargs) -> ExpertResult:
         model, processor = self.load_model()
-        
         image = self._load_image(image_path)
-        
+
+        task_lines = [
+            "You are the VQA expert in an image generation evaluator.",
+            "Follow a strict structured evidence extraction protocol.",
+            "Answer only the unresolved visual question needed for evaluation.",
+            "Use only directly visible evidence from the image; do not guess hidden attributes or unseen taxonomy.",
+            "If evidence is ambiguous, state uncertainty explicitly instead of over-claiming.",
+            "Return valid JSON only.",
+            "Use severity where 0 means no issue was found and 1 means the answer reveals a severe issue.",
+            "Use confidence where 0 means very uncertain and 1 means highly confident.",
+            'JSON schema: {"expert":"vqa","answer":"string","summary":"string","findings":["string"],"evidence_items":["string"],"visible_support":["string"],"visible_uncertainties":["string"],"follow_up_questions":["string"],"severity":0.0,"confidence":0.0,"source":"local","model":"string"}',
+            f"Question: {question}",
+        ]
+        user_text = "\n".join(task_lines)
         messages = [
             {
                 "role": "user",
                 "content": [
                     {"type": "image"},
-                    {"type": "text", "text": question}
+                    {"type": "text", "text": user_text}
                 ]
             }
         ]
-        
+
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
-        
+
         with torch.no_grad():
-            generated_ids = model.generate(**inputs, max_new_tokens=256)
-        
-        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        
+            generated_ids = model.generate(**inputs, max_new_tokens=256, do_sample=False)
+
+        prompt_length = inputs["input_ids"].shape[1]
+        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+        generated_text = processor.batch_decode(
+            trimmed_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0]
+
+        payload = self._normalize_structured_payload(json.loads(generated_text)) if generated_text.strip().startswith("{") else self._normalize_structured_payload({"answer": generated_text, "summary": generated_text, "findings": [generated_text], "evidence_items": [generated_text]})
+
         return ExpertResult(
             expert=self.config.name,
-            summary=generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
-            findings=[generated_text],
-            severity=0.0,
-            confidence=0.8,
-            source="local",
-            model=self.config.model,
+            summary=payload["summary"],
+            findings=payload["findings"],
+            severity=payload["severity"],
+            confidence=payload["confidence"],
+            source=payload["source"],
+            model=payload["model"],
             extra_info={
                 "question": question,
+                "answer": payload["answer"],
+                "evidence_items": payload["evidence_items"],
+                "visible_support": payload["visible_support"],
+                "visible_uncertainties": payload["visible_uncertainties"],
+                "follow_up_questions": payload["follow_up_questions"],
                 "full_response": generated_text,
             }
         )
@@ -900,6 +1254,8 @@ class QwenVLExpert(BaseExpert):
 
 EXPERT_CLASS_MAP = {
     "classification": ImageNetExpert,
+    "eva_classification": EVAImageNetExpert,
+    "text_embedding": TextEmbeddingCandidateExpert,
     "clip": CLIPExpert,
     "clip_score": CLIPExpert,
     "yolo_pose": YOLOPoseExpert,
@@ -919,6 +1275,9 @@ def create_expert(config: ExpertModelConfig, settings: Settings) -> BaseExpert:
         or (config.num_classes == 365 and config.model in {"resnet18", "resnet50"})
     ):
         return Places365Expert(config, settings)
+
+    if config.model_type == "classification" and "eva" in (config.model or "").lower():
+        return EVAImageNetExpert(config, settings)
 
     expert_class = EXPERT_CLASS_MAP.get(config.model_type)
 

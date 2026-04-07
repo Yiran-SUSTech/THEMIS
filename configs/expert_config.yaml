@@ -82,8 +82,15 @@ expert_models:
       device: "cuda:3"
       num_classes: 21843
       input_size: [224, 224]
+      benchmark: "ImageNet-21K"
+      accuracy: 0.8382
+      suitable_for: ["broad_category_match", "coarse_semantic_prior", "fast_c2i_screening"]
+      unsuitable_for: ["fine_grained_species_confirmation", "class_name_grounded_decision_when_label_space_unknown"]
+      evidence_role: "coarse_classification_prior"
+      label_space: "imagenet_21k"
+      output_interpretability: "class_index_only_without_external_label_map"
       description: "Fast ImageNet-21K classification using local EfficientNetV2-S weights"
-      
+
     imagenet_strong:
       name: "ImageNetExpert-Strong"
       model_type: "classification"
@@ -92,20 +99,102 @@ expert_models:
       device: "cuda:3"
       num_classes: 21843
       input_size: [224, 224]
+      benchmark: "ImageNet-21K"
+      accuracy: 0.8543
+      suitable_for: ["broad_category_match", "coarse_semantic_prior", "harder_c2i_screening"]
+      unsuitable_for: ["fine_grained_species_confirmation", "class_name_grounded_decision_when_label_space_unknown"]
+      evidence_role: "stronger_classification_prior"
+      label_space: "imagenet_21k"
+      output_interpretability: "class_index_only_without_external_label_map"
       description: "High-accuracy ImageNet-21K classification using local EfficientNetV2-L weights"
-      
+
+    imagenet_eva02_large:
+      name: "ImageNetExpert-EVA02-Large"
+      model_type: "eva_classification"
+      model: "timm/eva02_large_patch14_448.mim_in22k_ft_in1k"
+      local_path: "${MODEL_DIR}/eva02_l_ckpt"
+      device: "cuda:3"
+      num_classes: 1000
+      input_size: [448, 448]
+      benchmark: "ImageNet-1K"
+      accuracy: 0.9000
+      suitable_for: ["label_space_aligned_classification", "fine_grained_c2i", "class_name_grounded_decision"]
+      unsuitable_for: ["artifact_assessment"]
+      evidence_role: "closed_set_classification_evidence"
+      label_space: "imagenet_1k"
+      output_interpretability: "class_name_with_local_label_map"
+      description: "EVA-02-L ImageNet-1K classifier for stronger c2i evidence"
+
+    imagenet_eva_giant_224:
+      name: "ImageNetExpert-EVA-Giant-224"
+      model_type: "eva_classification"
+      model: "timm/eva_giant_patch14_224.clip_ft_in1k"
+      local_path: "${MODEL_DIR}/eva_giant_224_ckpt"
+      device: "cuda:3"
+      num_classes: 1000
+      input_size: [224, 224]
+      benchmark: "ImageNet-1K"
+      accuracy: 0.8960
+      suitable_for: ["label_space_aligned_classification", "fast_stronger_c2i", "class_name_grounded_decision"]
+      unsuitable_for: ["artifact_assessment"]
+      evidence_role: "closed_set_classification_evidence"
+      label_space: "imagenet_1k"
+      output_interpretability: "class_name_with_local_label_map"
+      description: "EVA giant 224 ImageNet-1K classifier for smaller-image routing"
+
+    bge_candidate_generator:
+      name: "BgeCandidateGenerator"
+      model_type: "text_embedding"
+      model: "BAAI/bge-large-en-v1.5"
+      local_path: "${MODEL_DIR}/bge_large_ckpt"
+      device: "cuda:3"
+      benchmark: "text embedding retrieval"
+      suitable_for: ["candidate_generation", "confusable_label_retrieval", "fine_grained_label_shortlisting"]
+      unsuitable_for: ["direct_image_classification", "artifact_assessment"]
+      evidence_role: "candidate_generation_prior"
+      label_space: "open_text_to_imagenet_1k"
+      output_interpretability: "ranked_candidate_list"
+      description: "Deterministic confusable-class candidate generator using BGE embeddings"
+
+    e5_candidate_generator:
+      name: "E5CandidateGenerator"
+      model_type: "text_embedding"
+      model: "intfloat/e5-large-v2"
+      local_path: "${MODEL_DIR}/e5_large_ckpt"
+      device: "cuda:3"
+      benchmark: "text embedding retrieval"
+      suitable_for: ["candidate_generation", "confusable_label_retrieval", "fine_grained_label_shortlisting"]
+      unsuitable_for: ["direct_image_classification", "artifact_assessment"]
+      evidence_role: "candidate_generation_prior"
+      label_space: "open_text_to_imagenet_1k"
+      output_interpretability: "ranked_candidate_list"
+      description: "Deterministic confusable-class candidate generator using E5 embeddings"
+
     clip:
       name: "SemanticExpert"
       model_type: "clip"
       model: "${MODEL_DIR}/clip-vit-base-patch32"
+      local_path: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:3"
-      description: "CLIP-based semantic alignment detection"
-      
+      benchmark: "ImageNet zero-shot"
+      accuracy: 0.70
+      suitable_for: ["t2i_alignment", "lookalike_disambiguation", "candidate_reranking", "confusable_disambiguation"]
+      unsuitable_for: ["closed_set_classification_confidence_as_primary_evidence"]
+      evidence_role: "cross_modal_similarity_evidence"
+      label_space: "open_text"
+      output_interpretability: "relative_similarity_score"
+      description: "CLIP-based semantic alignment and confusable-label disambiguation"
+
     clip_score:
       name: "PromptExpert"
       model_type: "clip_score"
       model: "${MODEL_DIR}/clip-vit-base-patch32"
       device: "cuda:3"
+      suitable_for: ["prompt_alignment_support", "text_image_similarity"]
+      unsuitable_for: ["fine_grained_species_confirmation"]
+      evidence_role: "prompt_alignment_score"
+      label_space: "open_text"
+      output_interpretability: "scalar_similarity_score"
       description: "CLIP-based prompt alignment scoring"
 
   # Animal/Biology Group
@@ -117,6 +206,11 @@ expert_models:
       local_path: "${MODEL_DIR}/yolo/yolo11n-pose.pt"
       weights: "coco-pose"
       device: "cuda:4"
+      suitable_for: ["whole_subject_coherence", "rough_pose_plausibility", "animal_body_structure_screening"]
+      unsuitable_for: ["species_identification", "fine_grained_pose_landmark_evidence_for_non_coco_animals"]
+      evidence_role: "coarse_structural_evidence"
+      label_space: "coco_pose"
+      output_interpretability: "keypoints_or_detection_proxy"
       description: "Animal pose detection"
       
     dog_breed:
@@ -209,20 +303,37 @@ expert_models:
       model_type: "iqa"
       metrics: ["maniqa"]
       device: "cuda:3"
+      benchmark: "KonIQ-10k"
+      accuracy: 0.875
+      suitable_for: ["artifact_screening", "perceptual_quality_prior"]
+      unsuitable_for: ["semantic_alignment", "species_identification"]
+      evidence_role: "artifact_severity_prior"
+      label_space: "none"
+      output_interpretability: "quality_score"
       description: "Fast image quality assessment"
-      
+
     iqa_default:
       name: "IQAExpert-Default"
       model_type: "iqa"
       metrics: ["maniqa", "musiq"]
       device: "cuda:3"
+      suitable_for: ["artifact_assessment", "perceptual_quality_check"]
+      unsuitable_for: ["semantic_alignment", "class_decision"]
+      evidence_role: "artifact_quality_evidence"
+      label_space: "none"
+      output_interpretability: "quality_score"
       description: "Standard image quality assessment"
-      
+
     iqa_richer:
       name: "IQAExpert-Richer"
       model_type: "iqa"
       metrics: ["maniqa", "musiq", "clipiqa"]
       device: "cuda:3"
+      suitable_for: ["richer_artifact_assessment", "perceptual_quality_check"]
+      unsuitable_for: ["semantic_alignment", "class_decision"]
+      evidence_role: "artifact_quality_evidence"
+      label_space: "none"
+      output_interpretability: "multi_metric_quality_score"
       description: "Rich image quality assessment"
       
     aigen_detection:
@@ -267,6 +378,13 @@ expert_models:
       model: "Qwen/Qwen2.5-VL-3B-Instruct"
       local_path: "${MODEL_DIR}/Qwen2.5-VL-3B-Instruct"
       device: "cuda:5"
+      benchmark: "DocVQA"
+      accuracy: 0.964
+      suitable_for: ["targeted_visual_evidence_extraction", "resolving_specific_ambiguities", "attribute_confirmation"]
+      unsuitable_for: ["free_form_taxonomy_guessing", "sole_authority_for_fine_grained_species_decision"]
+      evidence_role: "structured_visual_evidence"
+      label_space: "open_text"
+      output_interpretability: "structured_text_evidence"
       description: "Visual Question Answering for unresolved questions"
       
     ocr:

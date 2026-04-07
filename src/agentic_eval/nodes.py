@@ -35,11 +35,53 @@ from .schemas import (
     ExpertConflictInfo,
     FinalResult,
     GraphState,
+    PlannerFeedbackPayload,
     PlanReview,
     ReflectionReview,
     RoleModels,
 )
 
+
+ROLE_EXPERT_ENUM = ["semantic", "structural", "artifact", "vqa"]
+PLANNED_MODEL_ENUM = [
+    "clip",
+    "clip_score",
+    "imagenet_fast",
+    "imagenet_strong",
+    "imagenet_eva02_large",
+    "imagenet_eva_giant_224",
+    "bge_candidate_generator",
+    "e5_candidate_generator",
+    "animal_pose",
+    "body_pose",
+    "body_pose_strong",
+    "hand_detection",
+    "face_detection",
+    "places365",
+    "places365_strong",
+    "building_expert",
+    "background_removal",
+    "complexity",
+    "iqa_fast",
+    "iqa_default",
+    "iqa_richer",
+    "boundary_artifact",
+    "aigen_detection",
+    "ocr",
+    "dog_breed",
+    "bird_expert",
+    "vqa",
+]
+SUGGESTED_EXPERT_ENUM = ROLE_EXPERT_ENUM + PLANNED_MODEL_ENUM
+STEP_TYPE_ENUM = [
+    "semantic_check",
+    "structural_check",
+    "artifact_check",
+    "vqa_evidence",
+    "candidate_generation",
+    "label_space_check",
+    "confusable_disambiguation",
+]
 
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -51,7 +93,7 @@ PLAN_SCHEMA: dict[str, Any] = {
                 "type": "object",
                 "properties": {
                     "step_id": {"type": "integer"},
-                    "expert": {"type": "string", "enum": ["semantic", "structural", "artifact", "vqa"]},
+                    "expert": {"type": "string", "enum": ROLE_EXPERT_ENUM},
                     "goal": {"type": "string"},
                     "model_profile": {
                         "type": "string",
@@ -62,12 +104,16 @@ PLAN_SCHEMA: dict[str, Any] = {
                             "local_stronger",
                         ],
                     },
-                    "planned_model": {"type": "string"},
+                    "step_type": {"type": "string", "enum": STEP_TYPE_ENUM},
+                    "planned_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
                     "selection_reason": {"type": "string"},
                     "prompt_focus": {"type": "string"},
+                    "depends_on": {"type": "array", "items": {"type": "integer"}},
+                    "expected_signal": {"type": "string"},
+                    "use_previous_outputs": {"type": "boolean"},
                     "allow_escalation": {"type": "boolean"},
                 },
-                "required": ["step_id", "expert", "goal", "model_profile", "planned_model", "selection_reason", "prompt_focus", "allow_escalation"],
+                "required": ["step_id", "expert", "step_type", "goal", "model_profile", "planned_model", "selection_reason", "prompt_focus", "depends_on", "expected_signal", "use_previous_outputs", "allow_escalation"],
                 "additionalProperties": False,
             },
         },
@@ -82,8 +128,28 @@ PLAN_REVIEW_SCHEMA: dict[str, Any] = {
         "approved": {"type": "boolean"},
         "feedback": {"type": "string"},
         "missing_checks": {"type": "array", "items": {"type": "string"}},
+        "task_fit_issues": {"type": "array", "items": {"type": "string"}},
+        "replan_actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "priority": {"type": "string"},
+                    "target_step_id": {"type": ["integer", "null"]},
+                    "step_type": {"anyOf": [{"type": "string", "enum": STEP_TYPE_ENUM}, {"type": "null"}]},
+                    "suggested_expert": {"anyOf": [{"type": "string", "enum": SUGGESTED_EXPERT_ENUM}, {"type": "null"}]},
+                    "suggested_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
+                    "prompt_focus": {"type": "string"},
+                    "expected_signal": {"type": "string"}
+                },
+                "required": ["action", "reason", "priority", "suggested_model", "prompt_focus", "expected_signal"],
+                "additionalProperties": False
+            }
+        },
     },
-    "required": ["approved", "feedback", "missing_checks"],
+    "required": ["approved", "feedback", "missing_checks", "task_fit_issues", "replan_actions"],
     "additionalProperties": False,
 }
 
@@ -128,8 +194,28 @@ REFLECTION_SCHEMA: dict[str, Any] = {
         "approved": {"type": "boolean"},
         "feedback": {"type": "string"},
         "suggested_fixes": {"type": "array", "items": {"type": "string"}},
+        "task_fit_issues": {"type": "array", "items": {"type": "string"}},
+        "replan_actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "priority": {"type": "string"},
+                    "target_step_id": {"type": ["integer", "null"]},
+                    "step_type": {"anyOf": [{"type": "string", "enum": STEP_TYPE_ENUM}, {"type": "null"}]},
+                    "suggested_expert": {"anyOf": [{"type": "string", "enum": SUGGESTED_EXPERT_ENUM}, {"type": "null"}]},
+                    "suggested_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
+                    "prompt_focus": {"type": "string"},
+                    "expected_signal": {"type": "string"}
+                },
+                "required": ["action", "reason", "priority", "suggested_model", "prompt_focus", "expected_signal"],
+                "additionalProperties": False
+            }
+        },
     },
-    "required": ["approved", "feedback", "suggested_fixes"],
+    "required": ["approved", "feedback", "suggested_fixes", "task_fit_issues", "replan_actions"],
     "additionalProperties": False,
 }
 
@@ -224,6 +310,73 @@ def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_prof
     raise RuntimeError(f"No local model configured for expert '{expert_name}'")
 
 
+def _is_fine_grained_label(class_label: str | None) -> bool:
+    label = (class_label or "").strip()
+    if not label:
+        return False
+    return any(token in label for token in ["_", "-", " "])
+
+
+def _assess_task_fit(settings, expert_name: str, image_input, step_type: str = "") -> tuple[float, str]:
+    config = settings.get_expert_config(expert_name)
+    if config is None:
+        return 0.6, "No expert metadata; treated as medium task fit."
+
+    fine_grained = _is_fine_grained_label(image_input.class_label)
+    score = 1.0
+    reasons: list[str] = []
+
+    if step_type == "artifact_check":
+        if config.evidence_role and "artifact" in config.evidence_role:
+            score = min(score, 1.0)
+            reasons.append("Expert role matches artifact assessment.")
+        else:
+            score = min(score, 0.55)
+            reasons.append("Expert is not specialized for artifact assessment.")
+
+    if step_type in {"semantic_check", "label_space_check", "confusable_disambiguation"}:
+        if config.label_space == "imagenet_21k" and config.output_interpretability == "class_index_only_without_external_label_map":
+            score = min(score, 0.45 if fine_grained else 0.6)
+            reasons.append("Classifier output is not directly grounded to human-readable label space.")
+        if config.model_type == "yolo_pose":
+            score = min(score, 0.3)
+            reasons.append("Pose expert is weak primary evidence for semantic class decisions.")
+        if config.model_type in {"clip", "clip_score"}:
+            score = min(score, 0.75 if fine_grained else 0.9)
+            reasons.append("CLIP is better as comparative evidence than sole closed-set classifier evidence.")
+
+    if step_type == "structural_check":
+        if config.model_type == "yolo_pose":
+            score = min(score, 0.75)
+            reasons.append("Pose signal is useful for structure but only coarse for non-keypoint-covered animals.")
+        elif config.model_type == "vqa":
+            score = min(score, 0.7)
+            reasons.append("VQA can inspect structure but should be corroborative.")
+
+    if fine_grained and "fine_grained_species_confirmation" in set(config.unsuitable_for or []):
+        score = min(score, 0.3)
+        reasons.append("Expert metadata marks it unsuitable for fine-grained confirmation.")
+
+    if not reasons:
+        reasons.append("Expert metadata indicates good task fit for this step.")
+    return max(0.0, min(1.0, round(score, 4))), " ".join(reasons)
+
+
+def _task_fit_weighted_severity(expert_payload: list[dict[str, Any]]) -> float:
+    weighted_sum = 0.0
+    weight_sum = 0.0
+    for result in expert_payload:
+        severity = float(result.get("severity", 0.0))
+        reliability_weight = float(result.get("confidence_weight", 0.5))
+        task_fit = float(result.get("task_fit", 1.0))
+        combined_weight = reliability_weight * max(task_fit, 0.05)
+        weighted_sum += severity * combined_weight
+        weight_sum += combined_weight
+    if weight_sum == 0:
+        return 0.0
+    return weighted_sum / weight_sum
+
+
 def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
     image_input = state["input"]
     original_model = settings.local_semantic_model
@@ -254,6 +407,12 @@ def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
                 goal=step.goal,
                 prompt_focus=step.prompt_focus,
             )
+        task_fit, task_fit_reason = _assess_task_fit(settings, step.planned_model or step.expert, image_input, getattr(step, "step_type", ""))
+        payload["task_fit"] = task_fit
+        payload["task_fit_reason"] = task_fit_reason
+        payload.setdefault("evidence", {})
+        payload["evidence"]["step_type"] = getattr(step, "step_type", "")
+        payload["evidence"]["expected_signal"] = getattr(step, "expected_signal", "")
         return ExpertResult.model_validate(payload)
     finally:
         settings.local_semantic_model = original_model
@@ -267,7 +426,11 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     prior_feedback = ""
     feedback_text = state.get("planner_feedback")
     feedback_source = state.get("planner_feedback_source") or "reviewer"
-    if feedback_text:
+    feedback_payload = state.get("planner_feedback_payload")
+    if feedback_payload is not None:
+        payload_dict = feedback_payload.model_dump(mode="json") if hasattr(feedback_payload, "model_dump") else feedback_payload
+        prior_feedback = f"\nStructured {feedback_source} feedback:\n{json.dumps(payload_dict, ensure_ascii=False, indent=2)}"
+    elif feedback_text:
         prior_feedback = f"\nPrevious {feedback_source} feedback: {feedback_text}"
     elif state.get("plan_review") and not state["plan_review"].approved:
         prior_feedback = f"\nPrevious judge feedback: {state['plan_review'].feedback}"
@@ -316,6 +479,7 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             "expert_results": [],
             "planner_feedback": None,
             "planner_feedback_source": None,
+            "planner_feedback_payload": None,
             "planner_model_used": client.settings.planner_local_model,
             "planner_elapsed_seconds": elapsed,
             "planner_run_count": planner_run_number,
@@ -371,17 +535,29 @@ def judge_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     if review.approved:
         result["planner_feedback"] = None
         result["planner_feedback_source"] = None
+        result["planner_feedback_payload"] = None
     else:
         _print_stage(f"judge_rejected feedback={review.feedback}")
+        feedback_payload = PlannerFeedbackPayload(
+            source="judge",
+            summary=review.feedback,
+            blocking_issues=[review.feedback] if review.feedback else [],
+            missing_checks=review.missing_checks,
+            task_fit_issues=review.task_fit_issues,
+            replan_actions=review.replan_actions,
+        )
         _append_log(state, "judge_rejections.jsonl", {
             "revision": state.get("plan_revision_count", 0) + 1,
             "approved": review.approved,
             "feedback": review.feedback,
             "missing_checks": review.missing_checks,
+            "task_fit_issues": review.task_fit_issues,
+            "replan_actions": review.model_dump(mode="json").get("replan_actions", []),
             "plan": plan.model_dump(mode="json"),
         })
         result["planner_feedback"] = review.feedback
         result["planner_feedback_source"] = "judge"
+        result["planner_feedback_payload"] = feedback_payload
     return result
 
 
@@ -390,22 +566,41 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
     image_input = state["input"]
     settings = client.settings
     planned_model = (step.planned_model or "").strip()
+    previous_results = {result.expert: result for result in state.get("expert_results", [])}
 
     if settings.use_specialized_experts and planned_model:
         config = settings.get_expert_config(planned_model)
         if config is not None:
             kwargs: dict[str, Any] = {}
+            step_type = getattr(step, "step_type", "")
+            candidate_labels: list[str] = []
+            for previous in previous_results.values():
+                extra_info = getattr(previous, "extra_info", None) or {}
+                previous_candidates = extra_info.get("candidate_labels")
+                if isinstance(previous_candidates, list):
+                    candidate_labels.extend(str(item) for item in previous_candidates if str(item).strip())
+
             if planned_model in {"clip", "clip_score"}:
                 kwargs["prompt"] = image_input.prompt
                 kwargs["class_label"] = image_input.class_label
-            elif planned_model in {"imagenet_fast", "imagenet_strong"}:
+                if step_type == "confusable_disambiguation":
+                    kwargs["candidate_labels"] = candidate_labels
+                    kwargs["task_type"] = "confusable_disambiguation"
+            elif planned_model in {"imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224"}:
                 kwargs["class_label"] = image_input.class_label
+            elif planned_model in {"bge_candidate_generator", "e5_candidate_generator"}:
+                kwargs["class_label"] = image_input.class_label
+                kwargs["candidate_pool"] = candidate_labels or None
+                kwargs["top_k"] = 8
             elif planned_model in {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal"}:
                 pass
             elif planned_model in {"iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"}:
                 pass
             elif planned_model == "vqa":
                 question = step.prompt_focus or step.goal or "Describe this image."
+                if getattr(step, "use_previous_outputs", False) and previous_results:
+                    previous_summary = [f"{name}: {result.summary}" for name, result in previous_results.items()]
+                    question = f"{question}\nPrevious expert evidence:\n" + "\n".join(previous_summary)
                 kwargs["question"] = question
             else:
                 raise RuntimeError(f"Unsupported planned model '{planned_model}'")
@@ -418,6 +613,16 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
             )
             result_payload = result.to_dict()
             result_payload["expert"] = planned_model
+            task_fit, task_fit_reason = _assess_task_fit(settings, planned_model, image_input, getattr(step, "step_type", ""))
+            result_payload["task_fit"] = task_fit
+            result_payload["task_fit_reason"] = task_fit_reason
+            result_payload["evidence"] = {
+                "step_id": step.step_id,
+                "step_type": getattr(step, "step_type", ""),
+                "expected_signal": getattr(step, "expected_signal", ""),
+                "depends_on": list(getattr(step, "depends_on", [])),
+                "used_previous_candidate_labels": candidate_labels,
+            }
             return ExpertResult.model_validate(result_payload)
 
     if step.expert in {"semantic", "structural", "vqa"}:
@@ -429,6 +634,15 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
         if not settings.local_artifact_enabled:
             raise RuntimeError("Local artifact expert is disabled")
         payload = LocalArtifactExpert(settings).evaluate(image_path=image_input.image_path)
+        task_fit, task_fit_reason = _assess_task_fit(settings, planned_model or step.expert, image_input, getattr(step, "step_type", ""))
+        payload["task_fit"] = task_fit
+        payload["task_fit_reason"] = task_fit_reason
+        payload["evidence"] = {
+            "step_id": step.step_id,
+            "step_type": getattr(step, "step_type", ""),
+            "expected_signal": getattr(step, "expected_signal", ""),
+            "depends_on": list(getattr(step, "depends_on", [])),
+        }
         return ExpertResult.model_validate(payload)
 
     raise RuntimeError(f"Unsupported expert '{step.expert}'")
@@ -503,16 +717,23 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
     _print_stage(f"plan_steps={len(steps)}")
     results: list[ExpertResult] = []
     expert_elapsed_seconds: dict[str, float] = {}
+    completed_step_ids: set[int] = set()
     for step in steps:
-        action = f"expert_{step.expert}_{step.planned_model}_step_{step.step_id}"
+        step_dependencies = set(getattr(step, "depends_on", []))
+        if step_dependencies and not step_dependencies.issubset(completed_step_ids):
+            missing = sorted(step_dependencies - completed_step_ids)
+            raise RuntimeError(f"Step {step.step_id} depends on unfinished steps: {missing}")
+        action = f"expert_{step.expert}_{step.planned_model}_{getattr(step, 'step_type', 'step')}_step_{step.step_id}"
         model_name = _planned_step_model(client, step.expert, step.model_profile, step.planned_model)
+        current_state = dict(state)
+        current_state["expert_results"] = results
         started_at, stop_event, heartbeat = _start_stage(step.expert, action, model_name)
         try:
-            result = run_expert(state, client, step)
+            result = run_expert(current_state, client, step)
 
-            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"] and step.planned_model in {"clip", "imagenet_fast", "imagenet_strong"}:
+            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"] and step.planned_model in {"clip", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224"}:
                 overseer_started = perf_counter()
-                result = vlm_overseer_verify(state, client, result, step.expert)
+                result = vlm_overseer_verify(current_state, client, result, step.expert)
                 overseer_elapsed = perf_counter() - overseer_started
                 elapsed = _finish_stage(step.expert, action, model_name, started_at, stop_event, heartbeat)
                 elapsed += overseer_elapsed
@@ -522,6 +743,7 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
             _fail_stage(step.expert, action, model_name, started_at, stop_event, heartbeat, exc)
             raise
         results.append(result)
+        completed_step_ids.add(step.step_id)
         expert_elapsed_seconds[step.expert] = round(expert_elapsed_seconds.get(step.expert, 0.0) + elapsed, 4)
     return {"expert_results": results, "expert_elapsed_seconds": expert_elapsed_seconds}
 
@@ -548,13 +770,18 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     
     conflicts = detect_expert_conflicts(expert_payload)
     weighted_severity = calculate_weighted_severity(expert_payload)
-    
+    task_fit_weighted_severity = _task_fit_weighted_severity(expert_payload)
+    low_task_fit_experts = [r.get("expert", "unknown") for r in expert_payload if float(r.get("task_fit", 1.0)) < 0.5]
+
     reliability_summary = {
         "high_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "high"),
         "medium_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "medium"),
         "low_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "low"),
         "unknown_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "unknown"),
         "weighted_severity": weighted_severity,
+        "task_fit_weighted_severity": task_fit_weighted_severity,
+        "low_task_fit_experts": low_task_fit_experts,
+        "task_fit_applied": True,
         "conflicts": conflicts,
     }
 
@@ -563,6 +790,8 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         f"Expert outputs:\n{json.dumps(expert_payload, indent=2)}\n"
         f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
         f"Weighted severity: {weighted_severity:.3f}\n"
+        f"Task-fit weighted severity: {task_fit_weighted_severity:.3f}\n"
+        f"Low task-fit experts: {', '.join(low_task_fit_experts) if low_task_fit_experts else 'None'}\n"
         "Synthesize a report with separate alignment and artifact scores. "
         "Directly reinspect the image and do not defer blindly to the experts if they appear too optimistic. "
         "Use only visible evidence from the image and distinguish broad category match from fine-grained class or species match. "
@@ -593,7 +822,7 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
 
         report = EvaluationReport.model_validate(payload)
         structural_experts = {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal", "structural"}
-        semantic_experts = {"clip", "clip_score", "imagenet_fast", "imagenet_strong", "clip_semantic", "semantic"}
+        semantic_experts = {"clip", "clip_score", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "clip_semantic", "semantic"}
         structural_severity = max(
             (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in structural_experts),
             default=0.0,
@@ -602,12 +831,12 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in semantic_experts),
             default=0.0,
         )
-        if structural_severity >= 0.75:
+        if structural_severity >= 0.75 or task_fit_weighted_severity >= 0.72:
             report.artifact_score = min(report.artifact_score, 0.2)
             report.hard_failure = True
-        elif structural_severity >= 0.55:
+        elif structural_severity >= 0.55 or task_fit_weighted_severity >= 0.5:
             report.artifact_score = min(report.artifact_score, 0.4)
-        if semantic_severity >= 0.5:
+        if semantic_severity >= 0.5 or task_fit_weighted_severity >= 0.45:
             report.alignment_score = min(report.alignment_score, 0.5)
         report.expert_reliability_summary = ExpertReliabilitySummary(
             high_reliability_count=reliability_summary["high_reliability_count"],
@@ -615,9 +844,12 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             low_reliability_count=reliability_summary["low_reliability_count"],
             unknown_reliability_count=reliability_summary["unknown_reliability_count"],
             weighted_severity=weighted_severity,
+            task_fit_weighted_severity=task_fit_weighted_severity,
+            low_task_fit_experts=low_task_fit_experts,
+            task_fit_applied=True,
             conflicts=[ExpertConflictInfo(**c) for c in conflicts],
         )
-        report.reliability_adjusted_scores = len(conflicts) > 0 or weighted_severity > 0.3
+        report.reliability_adjusted_scores = len(conflicts) > 0 or weighted_severity > 0.3 or task_fit_weighted_severity > 0.3
         
         return {
             "report": report,
@@ -654,14 +886,19 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     
     conflicts = detect_expert_conflicts(expert_payload)
     weighted_severity = calculate_weighted_severity(expert_payload)
-    
+    task_fit_weighted_severity = _task_fit_weighted_severity(expert_payload)
+    low_task_fit_experts = [r.get("expert", "unknown") for r in expert_payload if float(r.get("task_fit", 1.0)) < 0.5]
+
     reliability_summary = {
         "high_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "high"),
         "medium_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "medium"),
         "low_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "low"),
         "unknown_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "unknown"),
         "weighted_severity": weighted_severity,
-        "overall_confidence": sum(r.get("confidence_weight", 0.5) for r in expert_payload) / len(expert_payload) if expert_payload else 0.5,
+        "task_fit_weighted_severity": task_fit_weighted_severity,
+        "low_task_fit_experts": low_task_fit_experts,
+        "task_fit_applied": True,
+        "overall_confidence": sum(r.get("confidence_weight", 0.5) * max(float(r.get("task_fit", 1.0)), 0.05) for r in expert_payload) / len(expert_payload) if expert_payload else 0.5,
     }
     
     report_payload = state["report"].model_dump()
@@ -707,13 +944,24 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     if review.approved:
         result["planner_feedback"] = None
         result["planner_feedback_source"] = None
+        result["planner_feedback_payload"] = None
     else:
         _print_stage(f"reflector_rejected feedback={review.feedback}")
+        feedback_payload = PlannerFeedbackPayload(
+            source="reflector",
+            summary=review.feedback,
+            blocking_issues=[review.feedback] if review.feedback else [],
+            suggested_fixes=review.suggested_fixes,
+            task_fit_issues=review.task_fit_issues,
+            replan_actions=review.replan_actions,
+        )
         _append_log(state, "reflector_rejections.jsonl", {
             "revision": state.get('reflection_revision_count', 0) + 1,
             "approved": review.approved,
             "feedback": review.feedback,
             "suggested_fixes": review.suggested_fixes,
+            "task_fit_issues": review.task_fit_issues,
+            "replan_actions": review.model_dump(mode="json").get("replan_actions", []),
             "report": state["report"].model_dump(mode="json"),
             "expert_results": expert_payload,
             "conflicts": conflicts,
@@ -721,6 +969,7 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         })
         result["planner_feedback"] = review.feedback
         result["planner_feedback_source"] = "reflector"
+        result["planner_feedback_payload"] = feedback_payload
     return result
 
 

@@ -73,6 +73,42 @@ EXPERT_PERFORMANCE_TABLE: Dict[str, ExpertPerformanceMetrics] = {
         notes="Very high accuracy, larger model",
         source="MMClassification Docs",
     ),
+    "imagenet_eva02_large": ExpertPerformanceMetrics(
+        expert_name="ImageNetExpert-EVA02-Large",
+        model_name="EVA-02-L/14-448",
+        task_type="classification",
+        accuracy=0.9000,
+        benchmark="ImageNet-1k",
+        reliability=ReliabilityLevel.HIGH,
+        notes="Label-space aligned ImageNet-1K classifier for stronger fine-grained c2i decisions",
+        source="timm checkpoint metadata",
+    ),
+    "imagenet_eva_giant_224": ExpertPerformanceMetrics(
+        expert_name="ImageNetExpert-EVA-Giant-224",
+        model_name="EVA-Giant/14-224",
+        task_type="classification",
+        accuracy=0.8960,
+        benchmark="ImageNet-1k",
+        reliability=ReliabilityLevel.HIGH,
+        notes="High-accuracy ImageNet-1K classifier for smaller-image routing",
+        source="timm checkpoint metadata",
+    ),
+    "bge_candidate_generator": ExpertPerformanceMetrics(
+        expert_name="BgeCandidateGenerator",
+        model_name="bge-large-en-v1.5",
+        task_type="candidate_generation",
+        reliability=ReliabilityLevel.MEDIUM,
+        notes="Deterministic text-embedding shortlist generator for confusable labels",
+        source="BAAI model card",
+    ),
+    "e5_candidate_generator": ExpertPerformanceMetrics(
+        expert_name="E5CandidateGenerator",
+        model_name="e5-large-v2",
+        task_type="candidate_generation",
+        reliability=ReliabilityLevel.MEDIUM,
+        notes="Deterministic text-embedding shortlist generator for confusable labels",
+        source="intfloat model card",
+    ),
     "clip": ExpertPerformanceMetrics(
         expert_name="SemanticExpert",
         model_name="CLIP-ViT-B/32",
@@ -238,6 +274,10 @@ def get_expert_performance(expert_name: str) -> Optional[ExpertPerformanceMetric
         "local_iqa": "artifact",
         "yolo_detect": "structural",
         "yolo_pose": "body_pose",
+        "imagenet_eva02_l": "imagenet_eva02_large",
+        "imagenet_eva_giant": "imagenet_eva_giant_224",
+        "bge_candidate": "bge_candidate_generator",
+        "e5_candidate": "e5_candidate_generator",
     }
     normalized = alias_map.get(normalized, normalized)
     for key, metrics in EXPERT_PERFORMANCE_TABLE.items():

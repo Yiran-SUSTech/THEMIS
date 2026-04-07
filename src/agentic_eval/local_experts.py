@@ -23,7 +23,17 @@ EXPERT_ALLOWED_MODEL_PROFILES = {
 }
 
 EXPERT_ROLE_MODEL_KEYS = {
-    "semantic": ["clip", "imagenet_fast", "imagenet_strong", "clip_score", "vqa"],
+    "semantic": [
+        "clip",
+        "imagenet_fast",
+        "imagenet_strong",
+        "imagenet_eva02_large",
+        "imagenet_eva_giant_224",
+        "bge_candidate_generator",
+        "e5_candidate_generator",
+        "clip_score",
+        "vqa",
+    ],
     "structural": [
         "animal_pose",
         "body_pose",
@@ -46,7 +56,7 @@ from .expert_performance import get_expert_performance
 
 def _default_planned_model(expert: str, model_profile: str) -> str:
     if expert == "semantic":
-        return "clip" if model_profile != "local_stronger" else "vqa"
+        return "clip" if model_profile != "local_stronger" else "imagenet_eva02_large"
     if expert == "structural":
         return "animal_pose" if model_profile != "local_stronger" else "vqa"
     if expert == "artifact":
@@ -71,8 +81,8 @@ def _normalize_planned_model(settings: Settings, expert: str, model_profile: str
 def _describe_available_experts(settings: Settings) -> str:
     profile_map = {
         "semantic": {
-            "local_fast": ["clip", "imagenet_fast"],
-            "local_stronger": ["imagenet_strong", "vqa"],
+            "local_fast": ["clip", "imagenet_fast", "bge_candidate_generator", "e5_candidate_generator"],
+            "local_stronger": ["imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "vqa"],
         },
         "structural": {
             "local_fast": ["animal_pose", "body_pose", "places365", "background_removal"],
@@ -112,6 +122,20 @@ def _describe_available_experts(settings: Settings) -> str:
                         stats.append(f"SRCC={perf.srcc:.3f}")
                     stats.append(f"reliability={perf.reliability.value}")
                     parts.append("; ".join(stats))
+                if config.benchmark:
+                    parts.append(f"benchmark={config.benchmark}")
+                if config.accuracy is not None:
+                    parts.append(f"accuracy={config.accuracy:.4f}")
+                if config.evidence_role:
+                    parts.append(f"evidence_role={config.evidence_role}")
+                if config.label_space:
+                    parts.append(f"label_space={config.label_space}")
+                if config.output_interpretability:
+                    parts.append(f"output={config.output_interpretability}")
+                if config.suitable_for:
+                    parts.append(f"suitable_for={','.join(config.suitable_for)}")
+                if config.unsuitable_for:
+                    parts.append(f"unsuitable_for={','.join(config.unsuitable_for)}")
                 if config.description:
                     parts.append(config.description)
                 descriptions.append(" | ".join(parts))
@@ -255,6 +279,12 @@ class LocalPlanner:
         label_text = (class_label or "the labeled subject").strip() or "the labeled subject"
         normalized_steps: list[dict[str, Any]] = []
         seen_step_signatures: set[tuple[str, str]] = set()
+        default_step_types = {
+            "semantic": "semantic_check",
+            "structural": "structural_check",
+            "artifact": "artifact_check",
+            "vqa": "vqa_evidence",
+        }
         for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 continue
@@ -285,11 +315,15 @@ class LocalPlanner:
                 {
                     "step_id": len(normalized_steps) + 1,
                     "expert": expert,
+                    "step_type": str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip() or default_step_types.get(expert, "semantic_check"),
                     "goal": goal,
                     "model_profile": model_profile,
                     "planned_model": normalized_planned_model,
                     "selection_reason": str(step.get("selection_reason", "")).strip() or f"Default concrete model choice for {expert} via {normalized_planned_model}.",
                     "prompt_focus": prompt_focus,
+                    "depends_on": [int(item) for item in step.get("depends_on", []) if isinstance(item, int) or (isinstance(item, str) and item.isdigit())],
+                    "expected_signal": str(step.get("expected_signal", "")).strip(),
+                    "use_previous_outputs": bool(step.get("use_previous_outputs", False)),
                     "allow_escalation": bool(step.get("allow_escalation", True)),
                 }
             )
@@ -303,11 +337,15 @@ class LocalPlanner:
                 {
                     "step_id": 1,
                     "expert": "semantic",
+                    "step_type": "semantic_check",
                     "goal": "Assess whether the image content matches the prompt/class label semantically.",
                     "model_profile": "local_fast",
                     "planned_model": "clip",
                     "selection_reason": "Default low-cost semantic first pass with CLIP.",
                     "prompt_focus": f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image.",
+                    "depends_on": [],
+                    "expected_signal": "Broad-category and label-match evidence.",
+                    "use_previous_outputs": False,
                     "allow_escalation": True,
                 },
             )
@@ -318,11 +356,15 @@ class LocalPlanner:
                 {
                     "step_id": insert_index + 1,
                     "expert": "structural",
+                    "step_type": "structural_check",
                     "goal": "Assess whole-subject structural coherence and class-specific morphology.",
                     "model_profile": "local_fast",
                     "planned_model": "animal_pose",
                     "selection_reason": "Default low-cost structural first pass with pose evidence.",
                     "prompt_focus": f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for {label_text}.",
+                    "depends_on": [1] if normalized_steps and normalized_steps[0]["expert"] == "semantic" else [],
+                    "expected_signal": "Whole-subject coherence and morphology evidence.",
+                    "use_previous_outputs": True,
                     "allow_escalation": True,
                 },
             )
@@ -331,11 +373,15 @@ class LocalPlanner:
                 {
                     "step_id": len(normalized_steps) + 1,
                     "expert": "artifact",
+                    "step_type": "artifact_check",
                     "goal": "Estimate visible artifact severity and perceptual degradation.",
                     "model_profile": "local_default",
                     "planned_model": "iqa_default",
                     "selection_reason": "Default artifact pass using standard IQA metrics.",
                     "prompt_focus": "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
+                    "depends_on": [step["step_id"] for step in normalized_steps if step["expert"] in {"semantic", "structural"}],
+                    "expected_signal": "Visible artifact severity evidence.",
+                    "use_previous_outputs": True,
                     "allow_escalation": True,
                 }
             )
@@ -364,12 +410,15 @@ class LocalPlanner:
             "Return a short JSON plan with semantic, structural, artifact, and optional vqa steps.",
             "Reason jointly from the image and the prompt/class label.",
             "Use semantic for category/class match, structural for whole-subject coherence and anatomy, artifact for local visible corruption, vqa only for unresolved questions.",
+            "For hard c2i cases, you may add candidate_generation or confusable_disambiguation semantic steps when useful.",
             "Prefer the cheapest adequate route first; use stronger routes only for ambiguous hard cases.",
             "Use only visible evidence; do not do external research.",
             "Each step must include the concrete planned_model expert key and a brief selection_reason.",
+            "Use step_type to declare what the step is actually doing: semantic_check, structural_check, artifact_check, vqa_evidence, candidate_generation, label_space_check, or confusable_disambiguation.",
+            "Use depends_on when a later step should consume earlier outputs. Use expected_signal to say what evidence the step should produce.",
             "Keep rationale and goals brief.",
             "Return valid JSON only.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","allow_escalation":true}]}',
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
@@ -784,8 +833,9 @@ class LocalJudge:
             "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
             "Do not reject solely because the plan omits color, lighting, or composition checks unless the class label or prompt specifically requires them.",
             "Check that each step's planned_model and selection_reason are consistent with the available model catalog and the stated task.",
+            "When rejecting, provide structured replan actions so the planner can revise deterministically.",
             "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"]}',
+            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|artifact|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             _describe_available_experts(self.settings),
@@ -829,6 +879,8 @@ class LocalJudge:
             "approved": bool(payload.get("approved", False)),
             "feedback": str(payload.get("feedback", "")).strip(),
             "missing_checks": list(payload.get("missing_checks", [])),
+            "task_fit_issues": list(payload.get("task_fit_issues", [])),
+            "replan_actions": list(payload.get("replan_actions", [])),
         }
 
 
@@ -889,8 +941,9 @@ class LocalReflector:
             "- If weighted severity significantly differs from report severity, note the discrepancy",
             "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption.",
             "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean.",
+            "When rejecting, provide structured replan actions so the planner can revise deterministically.",
             "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"]}',
+            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|artifact|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",
@@ -937,6 +990,8 @@ class LocalReflector:
             "approved": bool(payload.get("approved", False)),
             "feedback": str(payload.get("feedback", "")).strip(),
             "suggested_fixes": list(payload.get("suggested_fixes", [])),
+            "task_fit_issues": list(payload.get("task_fit_issues", [])),
+            "replan_actions": list(payload.get("replan_actions", [])),
         }
 
 
@@ -1071,6 +1126,31 @@ class LocalVQAExpert:
         image.thumbnail((max_side, max_side))
         return image
 
+    def _normalize_structured_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        payload.setdefault("expert", "vqa")
+        payload.setdefault("answer", "")
+        payload.setdefault("summary", str(payload.get("answer", "")).strip())
+        payload["findings"] = list(payload.get("findings", []))
+        payload["evidence_items"] = [str(item).strip() for item in payload.get("evidence_items", []) if str(item).strip()]
+        payload["visible_support"] = [str(item).strip() for item in payload.get("visible_support", []) if str(item).strip()]
+        payload["visible_uncertainties"] = [str(item).strip() for item in payload.get("visible_uncertainties", []) if str(item).strip()]
+        payload["follow_up_questions"] = [str(item).strip() for item in payload.get("follow_up_questions", []) if str(item).strip()]
+        raw_severity = payload.get("severity", 0.0)
+        raw_confidence = payload.get("confidence", 0.0)
+        try:
+            payload["severity"] = round(max(0.0, min(1.0, float(raw_severity))), 4)
+        except (TypeError, ValueError):
+            payload["severity"] = 0.0
+        try:
+            payload["confidence"] = round(max(0.0, min(1.0, float(raw_confidence))), 4)
+        except (TypeError, ValueError):
+            payload["confidence"] = 0.0
+        payload.setdefault("source", "local")
+        payload.setdefault("model", self.settings.local_semantic_model)
+        payload["summary"] = str(payload.get("summary", "")).strip() or str(payload.get("answer", "")).strip()
+        payload["findings"] = payload["findings"] or payload["evidence_items"]
+        return payload
+
     def evaluate(self, *, image_path: str, prompt: str | None, class_label: str | None, goal: str | None = None, prompt_focus: str | None = None) -> dict[str, Any]:
         self._load()
         if self._processor is None or self._model is None or self._torch is None:
@@ -1078,12 +1158,14 @@ class LocalVQAExpert:
 
         task_lines = [
             "You are the VQA expert in an image generation evaluator.",
+            "Follow a strict structured evidence extraction protocol.",
             "Answer only the unresolved visual question needed for evaluation.",
-            "Use the image as evidence and summarize only what is directly visible.",
+            "Use only directly visible evidence from the image; do not guess hidden attributes or unseen taxonomy.",
+            "If evidence is ambiguous, state uncertainty explicitly instead of over-claiming.",
             "Return valid JSON only.",
             "Use severity where 0 means no issue was found and 1 means the answer reveals a severe issue.",
             "Use confidence where 0 means very uncertain and 1 means highly confident.",
-            'JSON schema: {"expert":"vqa","summary":"string","findings":["string"],"severity":0.0,"confidence":0.0,"source":"local","model":"string"}',
+            'JSON schema: {"expert":"vqa","answer":"string","summary":"string","findings":["string"],"evidence_items":["string"],"visible_support":["string"],"visible_uncertainties":["string"],"follow_up_questions":["string"],"severity":0.0,"confidence":0.0,"source":"local","model":"string"}',
         ]
         if prompt:
             task_lines.append(f"Prompt: {prompt}")
@@ -1127,16 +1209,7 @@ class LocalVQAExpert:
             raise LocalExpertError("Local VQA inference failed") from exc
 
         payload = extract_json(output_text)
-        payload.setdefault("expert", "vqa")
-        raw_severity = payload.get("severity", 0.0)
-        try:
-            payload["severity"] = round(max(0.0, min(1.0, float(raw_severity))), 4)
-        except (TypeError, ValueError):
-            payload["severity"] = 0.0
-        payload.setdefault("confidence", 0.0)
-        payload.setdefault("source", "local")
-        payload.setdefault("model", self.settings.local_semantic_model)
-        return payload
+        return self._normalize_structured_payload(payload)
 
 
 class LocalReport:
