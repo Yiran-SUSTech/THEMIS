@@ -1,0 +1,60 @@
+{
+  "round": 2,
+  "revision": 1,
+  "planner_model": "/mnt/afs/zhengmingkai/zyr/THEMIS/models/Qwen2.5-VL-3B-Instruct",
+  "planner_route": "local",
+  "planner_feedback_source": "reflector",
+  "planner_feedback": "The image is identified as a photo of a Hussar monkey with high confidence by the CLIP model, but the animal_pose expert suggests that only 9 out of 17 keypoints were detected, indicating potential misclassification. The IQA metrics indicate acceptable image quality, but the animal_pose expert's findings suggest a structural check is needed to confirm the subject identification.",
+  "plan": {
+    "rationale": "The image is identified as a photo of a Hussar monkey with high confidence by the CLIP model, but the animal_pose expert suggests that only 9 out of 17 keypoints were detected, indicating potential misclassification. The IQA metrics indicate acceptable image quality, but the animal_pose expert's findings suggest a structural check is needed to confirm the subject identification.",
+    "steps": [
+      {
+        "step_id": 1,
+        "expert": "semantic",
+        "step_type": "semantic_check",
+        "goal": "Assess whether the image content matches the prompt/class label semantically.",
+        "model_profile": "local_fast",
+        "planned_model": "clip",
+        "selection_reason": "Default low-cost semantic first pass with CLIP.",
+        "prompt_focus": "Inspect whether the visible subject matches Hussar monkey using the strongest confirming and contradicting species markers in the image.",
+        "depends_on": [],
+        "expected_signal": "Broad-category and label-match evidence.",
+        "use_previous_outputs": false,
+        "allow_escalation": true
+      },
+      {
+        "step_id": 2,
+        "expert": "structural",
+        "step_type": "structural_check",
+        "goal": "Confirm the subject identification using more comprehensive keypoints detection models.",
+        "model_profile": "local_fast",
+        "planned_model": "animal_pose",
+        "selection_reason": "The animal_pose expert suggests a need for a structural check due to potential misclassification.",
+        "prompt_focus": "Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, and likely lookalike confusions for Hussar monkey.",
+        "depends_on": [
+          1
+        ],
+        "expected_signal": "Coherent and comprehensive keypoints detection",
+        "use_previous_outputs": true,
+        "allow_escalation": true
+      },
+      {
+        "step_id": 3,
+        "expert": "artifact",
+        "step_type": "artifact_check",
+        "goal": "Estimate visible artifact severity and perceptual degradation.",
+        "model_profile": "local_default",
+        "planned_model": "iqa_default",
+        "selection_reason": "Default artifact pass using standard IQA metrics.",
+        "prompt_focus": "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
+        "depends_on": [
+          1,
+          1
+        ],
+        "expected_signal": "Visible artifact severity evidence.",
+        "use_previous_outputs": true,
+        "allow_escalation": true
+      }
+    ]
+  }
+}
