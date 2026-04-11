@@ -346,15 +346,23 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                     sys.path.insert(0, candidate_str)
 
         target_device = device if is_accelerator_device_available(torch_module, device) else "cpu"
+        device_index = int(target_device.split(":", 1)[1]) if target_device.startswith("cuda:") else 0
         metax_backend = is_metax_device(torch_module, target_device)
-        torch_dtype = resolve_torch_dtype(torch_module, dtype_name)
-        if dtype_name == "auto" and target_device.startswith("cuda") and metax_backend:
-            torch_dtype = torch_module.float16
+        if dtype_name == "auto":
+            if target_device == "cpu":
+                torch_dtype = torch_module.float32
+            elif metax_backend:
+                torch_dtype = torch_module.float16
+            else:
+                torch_dtype = torch_module.bfloat16
+        else:
+            torch_dtype = resolve_torch_dtype(torch_module, dtype_name)
         result.details["device_used"] = target_device
         result.details["is_metax_device"] = metax_backend
         result.details["attempted_inference"] = True
         result.details["inference_diagnostics"] = {
             "torch_dtype": str(torch_dtype),
+            "device_map": {"": device_index} if target_device.startswith("cuda") else "cpu",
         }
 
         if resolved_config_path is None or not resolved_config_path.exists():
@@ -413,7 +421,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                         torch_dtype=torch_dtype,
                         config=lora_cfg_pretrained,
                         tokenizer=tokenizer,
-                        device_map={"": target_device} if target_device.startswith("cuda") else "cpu",
+                        device_map={"": device_index} if target_device.startswith("cuda") else "cpu",
                         pose_vqvae_codebook_size=config.pose_vqvae_config.params.quantizer.params.nb_code,
                         evaluate_task=None,
                     )
