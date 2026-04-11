@@ -432,38 +432,19 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
 
         dtype = resolve_torch_dtype(torch_module, dtype_name)
         processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True)
-        load_kwargs: dict[str, Any] = {
+        base_load_kwargs: dict[str, Any] = {
             "local_files_only": True,
             "trust_remote_code": True,
             "torch_dtype": dtype,
         }
 
-        load_attempt_errors: list[str] = []
-        model = None
         target_device = device if device != "cpu" and torch_module.cuda.is_available() else "cpu"
-
-        load_attempts: list[tuple[str, dict[str, Any], bool]] = []
-        if target_device != "cpu":
-            load_attempts.append(("single_device_map", {"device_map": {"": target_device}}, False))
-        load_attempts.append(("cpu_then_move", {}, True))
-
-        for attempt_name, extra_kwargs, move_after_load in load_attempts:
-            try:
-                current_kwargs = dict(load_kwargs)
-                current_kwargs.update(extra_kwargs)
-                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **current_kwargs)
-                if move_after_load:
-                    model = model.to(target_device)
-                result.details["load_strategy"] = attempt_name
-                break
-            except Exception as exc:  # noqa: BLE001
-                load_attempt_errors.append(f"{attempt_name}: {exc}")
-
-        result.details["load_attempt_errors"] = load_attempt_errors
-        if model is None:
-            raise RuntimeError(" | ".join(load_attempt_errors))
-
-        result.load_ok = True
+        load_attempt_errors: list[str] = []
+        generation_attempt_errors: list[str] = []
+        output_text = ""
+        final_device_used = ""
+        selected_load_strategy = ""
+        selected_generation_strategy = ""
 
         image = Image.open(image_path).convert("RGB")
         messages = [
@@ -476,20 +457,61 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
             }
         ]
         prompt_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
 
-        model_device = next(model.parameters()).device
-        inputs = {key: value.to(model_device) if hasattr(value, "to") else value for key, value in inputs.items()}
-        with torch_module.no_grad():
-            generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=max_new_tokens)
-        prompt_length = inputs["input_ids"].shape[1]
-        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
-        output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        load_attempts: list[tuple[str, dict[str, Any], bool, str]] = []
+        if target_device != "cpu":
+            load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
+            load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
+        load_attempts.append(("cpu_eager", {"attn_implementation": "eager", "torch_dtype": torch_module.float32}, False, "cpu"))
+
+        for attempt_name, extra_kwargs, move_after_load, generation_device in load_attempts:
+            model = None
+            try:
+                current_kwargs = dict(base_load_kwargs)
+                current_kwargs.update(extra_kwargs)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **current_kwargs)
+                if move_after_load:
+                    model = model.to(generation_device)
+                result.load_ok = True
+                selected_load_strategy = attempt_name
+                model_device = next(model.parameters()).device
+                final_device_used = str(model_device)
+
+                current_inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+                current_inputs = {key: value.to(model_device) if hasattr(value, "to") else value for key, value in current_inputs.items()}
+
+                with torch_module.no_grad():
+                    generated_ids = model.generate(**current_inputs, do_sample=False, max_new_tokens=max_new_tokens)
+                prompt_length = current_inputs["input_ids"].shape[1]
+                trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+                output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+                selected_generation_strategy = attempt_name
+                break
+            except Exception as exc:  # noqa: BLE001
+                if not result.load_ok:
+                    load_attempt_errors.append(f"{attempt_name}: {exc}")
+                else:
+                    generation_attempt_errors.append(f"{attempt_name}: {exc}")
+                    result.load_ok = True
+                if model is not None:
+                    del model
+                    if torch_module.cuda.is_available():
+                        torch_module.cuda.empty_cache()
+
+        result.details["load_attempt_errors"] = load_attempt_errors
+        result.details["generation_attempt_errors"] = generation_attempt_errors
+        result.details["load_strategy"] = selected_load_strategy
+        result.details["generation_strategy"] = selected_generation_strategy
+
+        if not output_text:
+            if generation_attempt_errors:
+                raise RuntimeError(" | ".join(generation_attempt_errors))
+            raise RuntimeError(" | ".join(load_attempt_errors))
 
         result.run_ok = True
         result.status = "passed"
         result.details["generation_preview"] = output_text[:300]
-        result.details["device_used"] = str(model_device)
+        result.details["device_used"] = final_device_used
         return result
     except Exception as exc:  # noqa: BLE001
         result.status = "failed"
