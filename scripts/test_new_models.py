@@ -23,6 +23,22 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 
+QINSIGHT_SYSTEM_PROMPT = (
+    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
+    "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
+    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
+    "<think> reasoning process here </think><answer> answer here </answer>"
+)
+QINSIGHT_DISTORTION_PROMPT = (
+    'Analyze the given image and determine if it contains any of the following distortions: "noise", '
+    '"compression", "blur", or "darken". If a distortion is present, classify its severity as '
+    '"slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON '
+    'format with the following keys: "distortion_class": The detected distortion (or "null" if none). '
+    'and "severity": The severity level (or "null" if none).'
+)
+QINSIGHT_TEXT_ONLY_PROMPT = "Reply with exactly <answer>OK</answer>."
+
+
 @dataclass
 class TestResult:
     name: str
@@ -148,6 +164,41 @@ def describe_tensor_value(value: Any) -> Any:
         except Exception:  # noqa: BLE001
             return str(value)
     return str(value)
+
+
+def build_qinsight_message(image_path: str | None, user_prompt: str) -> list[dict[str, Any]]:
+    message = [
+        {"role": "system", "content": [{"type": "text", "text": QINSIGHT_SYSTEM_PROMPT}]},
+        {"role": "user", "content": [{"type": "text", "text": user_prompt}]},
+    ]
+    if image_path:
+        message[1]["content"].append({"type": "image", "image": f"file://{image_path}"})
+    return message
+
+
+def message_contains_image(message: list[dict[str, Any]]) -> bool:
+    for turn in message:
+        for item in turn.get("content", []):
+            if isinstance(item, dict) and item.get("type") == "image":
+                return True
+    return False
+
+
+def prepare_qinsight_inputs(processor: Any, message: list[dict[str, Any]], image_path: str, process_vision_info_fn: Any | None) -> Any:
+    text = [processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True)]
+    processor_kwargs: dict[str, Any] = {
+        "text": text,
+        "padding": True,
+        "return_tensors": "pt",
+    }
+    if message_contains_image(message):
+        if process_vision_info_fn is not None:
+            image_inputs, video_inputs = process_vision_info_fn([message])
+            processor_kwargs["images"] = image_inputs
+            processor_kwargs["videos"] = video_inputs
+        else:
+            processor_kwargs["images"] = [Image.open(image_path).convert("RGB")]
+    return processor(**processor_kwargs)
 
 
 def torch_load_file(file_path: Path) -> tuple[bool, str]:
@@ -490,7 +541,15 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
             result.error = f"transformers not importable: {transformers_error}"
             return result
 
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # type: ignore
+        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, GenerationConfig  # type: ignore
+
+        qwen_vl_utils_fn = None
+        qwen_vl_utils_module, qwen_vl_utils_error = maybe_import("qwen_vl_utils")
+        result.details["qwen_vl_utils_importable"] = qwen_vl_utils_module is not None
+        if qwen_vl_utils_module is not None:
+            qwen_vl_utils_fn = getattr(qwen_vl_utils_module, "process_vision_info", None)
+        else:
+            result.details["qwen_vl_utils_error"] = qwen_vl_utils_error
 
         processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True)
         load_attempt_errors: list[str] = []
@@ -501,26 +560,8 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
         selected_generation_strategy = ""
         attempted_backend = "metax" if is_metax_device(torch_module, device) else "generic"
 
-        image = Image.open(image_path).convert("RGB")
-        text_only_messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Reply with exactly OK."},
-                ],
-            }
-        ]
-        vision_messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": "Briefly describe visible quality problems in this image."},
-                ],
-            }
-        ]
-        text_only_prompt = processor.apply_chat_template(text_only_messages, tokenize=False, add_generation_prompt=True)
-        prompt_text = processor.apply_chat_template(vision_messages, tokenize=False, add_generation_prompt=True)
+        text_only_message = build_qinsight_message(None, QINSIGHT_TEXT_ONLY_PROMPT)
+        vision_message = build_qinsight_message(image_path, QINSIGHT_DISTORTION_PROMPT)
         load_attempts = build_qwen_vl_load_attempts(torch_module, device, dtype_name)
         result.details["attempted_backend"] = attempted_backend
         result.details["is_metax_device"] = is_metax_device(torch_module, device)
@@ -550,7 +591,7 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 attempt_diagnostics["model_device"] = final_device_used
                 result.details["model_class"] = model.__class__.__name__
 
-                text_only_inputs = processor(text=[text_only_prompt], padding=True, return_tensors="pt")
+                text_only_inputs = prepare_qinsight_inputs(processor, text_only_message, image_path, qwen_vl_utils_fn)
                 text_only_inputs = {
                     key: value.to(model_device) if hasattr(value, "to") else value
                     for key, value in text_only_inputs.items()
@@ -558,15 +599,26 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 attempt_diagnostics["text_only"] = {
                     "input_ids_shape": describe_tensor_shape(text_only_inputs.get("input_ids")),
                     "attention_mask_shape": describe_tensor_shape(text_only_inputs.get("attention_mask")),
+                    "pixel_values_shape": describe_tensor_shape(text_only_inputs.get("pixel_values")),
+                    "image_grid_thw_shape": describe_tensor_shape(text_only_inputs.get("image_grid_thw")),
+                    "image_grid_thw": describe_tensor_value(text_only_inputs.get("image_grid_thw")),
                 }
                 with torch_module.no_grad():
                     text_only_generated_ids = model.generate(
                         **text_only_inputs,
-                        do_sample=False,
-                        max_new_tokens=min(max_new_tokens, 8),
+                        generation_config=GenerationConfig(
+                            do_sample=True,
+                            temperature=1.0,
+                            top_k=50,
+                            top_p=0.95,
+                            max_new_tokens=min(max_new_tokens, 32),
+                        ),
+                        use_cache=True,
                     )
-                text_prompt_length = text_only_inputs["input_ids"].shape[1]
-                text_trimmed_ids = [output_ids[text_prompt_length:] for output_ids in text_only_generated_ids]
+                text_trimmed_ids = [
+                    out_ids[len(in_ids):]
+                    for in_ids, out_ids in zip(text_only_inputs["input_ids"], text_only_generated_ids)
+                ]
                 text_only_output = processor.batch_decode(
                     text_trimmed_ids,
                     skip_special_tokens=True,
@@ -575,7 +627,7 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 attempt_diagnostics["text_only"]["status"] = "passed"
                 attempt_diagnostics["text_only"]["preview"] = text_only_output[:120]
 
-                current_inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+                current_inputs = prepare_qinsight_inputs(processor, vision_message, image_path, qwen_vl_utils_fn)
                 current_inputs = {
                     key: value.to(model_device) if hasattr(value, "to") else value
                     for key, value in current_inputs.items()
@@ -591,11 +643,19 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 with torch_module.no_grad():
                     generated_ids = model.generate(
                         **current_inputs,
-                        do_sample=False,
-                        max_new_tokens=max_new_tokens,
+                        generation_config=GenerationConfig(
+                            do_sample=True,
+                            temperature=1.0,
+                            top_k=50,
+                            top_p=0.95,
+                            max_new_tokens=max_new_tokens,
+                        ),
+                        use_cache=True,
                     )
-                prompt_length = current_inputs["input_ids"].shape[1]
-                trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+                trimmed_ids = [
+                    out_ids[len(in_ids):]
+                    for in_ids, out_ids in zip(current_inputs["input_ids"], generated_ids)
+                ]
                 output_text = processor.batch_decode(
                     trimmed_ids,
                     skip_special_tokens=True,
