@@ -14,6 +14,9 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
+os.environ["HF_HOME"] = "/mnt/afs/zhengmingkai/zyr/THEMIS/models"
+os.environ["HUGGINGFACE_HUB_CACHE"] = "/mnt/afs/zhengmingkai/zyr/THEMIS/models"
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
@@ -461,10 +464,14 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
 
         load_attempts: list[tuple[str, dict[str, Any], bool, str]] = []
         if target_device != "cpu":
-            # load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
-            # load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
-            load_attempts.append(("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}))
-            load_attempts.append(("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}))
+            # # load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
+            # # load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
+            # load_attempts.append(("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}))
+            # load_attempts.append(("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}))
+            load_attempts = [
+                                ("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}, False, target_device),
+                                ("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device),
+                            ]
         load_attempts.append(("cpu_eager", {"attn_implementation": "eager", "torch_dtype": torch_module.float32}, False, "cpu"))
 
         for attempt_name, extra_kwargs, move_after_load, generation_device in load_attempts:
