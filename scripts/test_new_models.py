@@ -91,6 +91,47 @@ def resolve_torch_dtype(torch_module: Any, dtype_name: str):
     return torch_module.float32
 
 
+def is_accelerator_device_available(torch_module: Any, device: str) -> bool:
+    normalized = (device or "").strip().lower()
+    return normalized != "cpu" and normalized.startswith("cuda") and torch_module.cuda.is_available()
+
+
+def is_metax_device(torch_module: Any, device: str) -> bool:
+    if not is_accelerator_device_available(torch_module, device):
+        return False
+    try:
+        device_index = int(str(device).split(":", 1)[1]) if ":" in str(device) else 0
+        device_name = str(torch_module.cuda.get_device_name(device_index)).lower()
+    except Exception:  # noqa: BLE001
+        return False
+    return "metax" in device_name or "c500" in device_name or "maca" in device_name
+
+
+def build_qwen_vl_load_attempts(torch_module: Any, device: str, dtype_name: str) -> list[tuple[str, dict[str, Any]]]:
+    target_device = device if is_accelerator_device_available(torch_module, device) else "cpu"
+    metax_backend = is_metax_device(torch_module, target_device)
+    attempts: list[tuple[str, dict[str, Any]]] = []
+
+    if target_device != "cpu":
+        preferred_dtype = torch_module.float16 if metax_backend and dtype_name == "auto" else resolve_torch_dtype(torch_module, dtype_name)
+        eager_kwargs = {
+            "device_map": {"": target_device},
+            "attn_implementation": "eager",
+            "torch_dtype": preferred_dtype,
+        }
+        attempts.append(("cuda_eager", eager_kwargs))
+        if not metax_backend:
+            sdpa_kwargs = {
+                "device_map": {"": target_device},
+                "attn_implementation": "sdpa",
+                "torch_dtype": preferred_dtype,
+            }
+            attempts.append(("cuda_sdpa", sdpa_kwargs))
+
+    attempts.append(("cpu_eager", {"device_map": "cpu", "attn_implementation": "eager", "torch_dtype": torch_module.float32}))
+    return attempts
+
+
 def torch_load_file(file_path: Path) -> tuple[bool, str]:
     torch_module, import_error = maybe_import("torch")
     if torch_module is None:
@@ -433,24 +474,16 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
 
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # type: ignore
 
-        dtype = resolve_torch_dtype(torch_module, dtype_name)
-        processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True, min_pixels=224 * 224, max_pixels=448 * 448)
-        base_load_kwargs: dict[str, Any] = {
-            "local_files_only": True,
-            "trust_remote_code": True,
-            "torch_dtype": dtype,
-        }
-
-        target_device = device if device != "cpu" and torch_module.cuda.is_available() else "cpu"
+        processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True)
         load_attempt_errors: list[str] = []
         generation_attempt_errors: list[str] = []
         output_text = ""
         final_device_used = ""
         selected_load_strategy = ""
         selected_generation_strategy = ""
+        attempted_backend = "metax" if is_metax_device(torch_module, device) else "generic"
 
         image = Image.open(image_path).convert("RGB")
-        image = image.resize((448, 448)) # Qwen2.5-VL 推荐的对齐尺寸
         messages = [
             {
                 "role": "user",
@@ -461,47 +494,52 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
             }
         ]
         prompt_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        load_attempts = build_qwen_vl_load_attempts(torch_module, device, dtype_name)
+        result.details["attempted_backend"] = attempted_backend
+        result.details["is_metax_device"] = is_metax_device(torch_module, device)
+        result.details["requested_device"] = device
 
-        load_attempts: list[tuple[str, dict[str, Any], bool, str]] = []
-        if target_device != "cpu":
-            # # load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
-            # # load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
-            # load_attempts.append(("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}))
-            # load_attempts.append(("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}))
-            load_attempts = [
-                                ("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}, False, target_device),
-                                ("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device),
-                            ]
-        load_attempts.append(("cpu_eager", {"attn_implementation": "eager", "torch_dtype": torch_module.float32}, False, "cpu"))
-
-        for attempt_name, extra_kwargs, move_after_load, generation_device in load_attempts:
+        for attempt_name, current_kwargs in load_attempts:
             model = None
             try:
-                current_kwargs = dict(base_load_kwargs)
-                current_kwargs.update(extra_kwargs)
-                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **current_kwargs)
-                if move_after_load:
-                    model = model.to(generation_device)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    str(root),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                    **current_kwargs,
+                )
                 result.load_ok = True
                 selected_load_strategy = attempt_name
                 model_device = next(model.parameters()).device
                 final_device_used = str(model_device)
 
                 current_inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
-                current_inputs = {key: value.to(model_device) if hasattr(value, "to") else value for key, value in current_inputs.items()}
+                current_inputs = {
+                    key: value.to(model_device) if hasattr(value, "to") else value
+                    for key, value in current_inputs.items()
+                }
 
                 with torch_module.no_grad():
-                    generated_ids = model.generate(**current_inputs, do_sample=False, max_new_tokens=max_new_tokens)
+                    generated_ids = model.generate(
+                        **current_inputs,
+                        do_sample=False,
+                        max_new_tokens=max_new_tokens,
+                    )
                 prompt_length = current_inputs["input_ids"].shape[1]
                 trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
-                output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+                output_text = processor.batch_decode(
+                    trimmed_ids,
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=False,
+                )[0]
                 selected_generation_strategy = attempt_name
                 break
             except Exception as exc:  # noqa: BLE001
+                error_text = f"{attempt_name}: {exc}"
                 if not result.load_ok:
-                    load_attempt_errors.append(f"{attempt_name}: {exc}")
+                    load_attempt_errors.append(error_text)
                 else:
-                    generation_attempt_errors.append(f"{attempt_name}: {exc}")
+                    generation_attempt_errors.append(error_text)
                     result.load_ok = True
                 if model is not None:
                     del model

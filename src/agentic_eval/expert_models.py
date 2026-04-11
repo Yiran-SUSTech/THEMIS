@@ -26,7 +26,42 @@ except ImportError:
 from .config import Settings, ExpertModelConfig
 
 
-def get_image_transform(size: Tuple[int, int], 
+def _is_metax_device(device: str) -> bool:
+    normalized_device = (device or "").strip().lower()
+    if not normalized_device.startswith("cuda") or not torch.cuda.is_available():
+        return False
+    try:
+        device_index = int(normalized_device.split(":", 1)[1]) if ":" in normalized_device else 0
+        device_name = str(torch.cuda.get_device_name(device_index)).lower()
+    except Exception:  # noqa: BLE001
+        return False
+    return "metax" in device_name or "c500" in device_name or "maca" in device_name
+
+
+def _build_qwen_vl_load_kwargs(device: str) -> dict[str, Any]:
+    normalized_device = (device or "").strip().lower()
+    if torch.cuda.is_available() and normalized_device.startswith("cuda"):
+        if _is_metax_device(device):
+            return {
+                "trust_remote_code": True,
+                "torch_dtype": torch.float16,
+                "device_map": {"": device},
+                "attn_implementation": "eager",
+            }
+        return {
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16,
+            "device_map": {"": device},
+        }
+    return {
+        "trust_remote_code": True,
+        "torch_dtype": torch.float32,
+        "device_map": "cpu",
+        "attn_implementation": "eager",
+    }
+
+
+def get_image_transform(size: Tuple[int, int],
                         mean: List[float] = [0.485, 0.456, 0.406],
                         std: List[float] = [0.229, 0.224, 0.225]):
     if HAS_TORCHVISION:
@@ -1127,15 +1162,7 @@ class QwenVLExpert(BaseExpert):
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
             model_path = self.config.local_path or self.config.model
-            load_kwargs = {
-                "trust_remote_code": True,
-            }
-            if torch.cuda.is_available() and self.config.device.startswith("cuda"):
-                load_kwargs["torch_dtype"] = torch.bfloat16
-                load_kwargs["device_map"] = {"": self.config.device}
-            else:
-                load_kwargs["torch_dtype"] = torch.float32
-                load_kwargs["device_map"] = "cpu"
+            load_kwargs = _build_qwen_vl_load_kwargs(self.config.device)
 
             if Path(model_path).exists():
                 processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
