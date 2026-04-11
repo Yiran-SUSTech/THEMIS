@@ -132,6 +132,24 @@ def build_qwen_vl_load_attempts(torch_module: Any, device: str, dtype_name: str)
     return attempts
 
 
+def describe_tensor_shape(value: Any) -> list[int] | None:
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return None
+    return [int(item) for item in shape]
+
+
+def describe_tensor_value(value: Any) -> Any:
+    if value is None:
+        return None
+    if hasattr(value, "tolist"):
+        try:
+            return value.tolist()
+        except Exception:  # noqa: BLE001
+            return str(value)
+    return str(value)
+
+
 def torch_load_file(file_path: Path) -> tuple[bool, str]:
     torch_module, import_error = maybe_import("torch")
     if torch_module is None:
@@ -484,7 +502,15 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
         attempted_backend = "metax" if is_metax_device(torch_module, device) else "generic"
 
         image = Image.open(image_path).convert("RGB")
-        messages = [
+        text_only_messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Reply with exactly OK."},
+                ],
+            }
+        ]
+        vision_messages = [
             {
                 "role": "user",
                 "content": [
@@ -493,14 +519,22 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 ],
             }
         ]
-        prompt_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text_only_prompt = processor.apply_chat_template(text_only_messages, tokenize=False, add_generation_prompt=True)
+        prompt_text = processor.apply_chat_template(vision_messages, tokenize=False, add_generation_prompt=True)
         load_attempts = build_qwen_vl_load_attempts(torch_module, device, dtype_name)
         result.details["attempted_backend"] = attempted_backend
         result.details["is_metax_device"] = is_metax_device(torch_module, device)
         result.details["requested_device"] = device
+        result.details["processor_class"] = processor.__class__.__name__
+        result.details["attempt_diagnostics"] = {}
 
         for attempt_name, current_kwargs in load_attempts:
             model = None
+            attempt_diagnostics: dict[str, Any] = {
+                "load_kwargs": {key: str(value) for key, value in current_kwargs.items()},
+                "text_only": {},
+                "vision": {},
+            }
             try:
                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     str(root),
@@ -512,11 +546,46 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                 selected_load_strategy = attempt_name
                 model_device = next(model.parameters()).device
                 final_device_used = str(model_device)
+                attempt_diagnostics["model_class"] = model.__class__.__name__
+                attempt_diagnostics["model_device"] = final_device_used
+                result.details["model_class"] = model.__class__.__name__
+
+                text_only_inputs = processor(text=[text_only_prompt], padding=True, return_tensors="pt")
+                text_only_inputs = {
+                    key: value.to(model_device) if hasattr(value, "to") else value
+                    for key, value in text_only_inputs.items()
+                }
+                attempt_diagnostics["text_only"] = {
+                    "input_ids_shape": describe_tensor_shape(text_only_inputs.get("input_ids")),
+                    "attention_mask_shape": describe_tensor_shape(text_only_inputs.get("attention_mask")),
+                }
+                with torch_module.no_grad():
+                    text_only_generated_ids = model.generate(
+                        **text_only_inputs,
+                        do_sample=False,
+                        max_new_tokens=min(max_new_tokens, 8),
+                    )
+                text_prompt_length = text_only_inputs["input_ids"].shape[1]
+                text_trimmed_ids = [output_ids[text_prompt_length:] for output_ids in text_only_generated_ids]
+                text_only_output = processor.batch_decode(
+                    text_trimmed_ids,
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=False,
+                )[0]
+                attempt_diagnostics["text_only"]["status"] = "passed"
+                attempt_diagnostics["text_only"]["preview"] = text_only_output[:120]
 
                 current_inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
                 current_inputs = {
                     key: value.to(model_device) if hasattr(value, "to") else value
                     for key, value in current_inputs.items()
+                }
+                attempt_diagnostics["vision"] = {
+                    "input_ids_shape": describe_tensor_shape(current_inputs.get("input_ids")),
+                    "attention_mask_shape": describe_tensor_shape(current_inputs.get("attention_mask")),
+                    "pixel_values_shape": describe_tensor_shape(current_inputs.get("pixel_values")),
+                    "image_grid_thw_shape": describe_tensor_shape(current_inputs.get("image_grid_thw")),
+                    "image_grid_thw": describe_tensor_value(current_inputs.get("image_grid_thw")),
                 }
 
                 with torch_module.no_grad():
@@ -532,9 +601,19 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=False,
                 )[0]
+                attempt_diagnostics["vision"]["status"] = "passed"
+                attempt_diagnostics["vision"]["preview"] = output_text[:300]
                 selected_generation_strategy = attempt_name
+                result.details["attempt_diagnostics"][attempt_name] = attempt_diagnostics
                 break
             except Exception as exc:  # noqa: BLE001
+                if "status" not in attempt_diagnostics.get("text_only", {}):
+                    attempt_diagnostics.setdefault("text_only", {})["status"] = "failed"
+                    attempt_diagnostics["text_only"]["error"] = str(exc)
+                else:
+                    attempt_diagnostics.setdefault("vision", {})["status"] = "failed"
+                    attempt_diagnostics["vision"]["error"] = str(exc)
+                result.details["attempt_diagnostics"][attempt_name] = attempt_diagnostics
                 error_text = f"{attempt_name}: {exc}"
                 if not result.load_ok:
                     load_attempt_errors.append(error_text)
