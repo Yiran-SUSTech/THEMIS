@@ -37,6 +37,7 @@ QINSIGHT_DISTORTION_PROMPT = (
     'and "severity": The severity level (or "null" if none).'
 )
 QINSIGHT_TEXT_ONLY_PROMPT = "Reply with exactly <answer>OK</answer>."
+UNIPOSE_PROMPT = "Describe the visible pose or body structure of the main animal or subject in one short sentence."
 
 
 @dataclass
@@ -311,9 +312,72 @@ def test_unipose(model_dir: Path) -> TestResult:
             result.details["note"] = "This folder cannot run standalone inference until the base multimodal model is also available."
             return result
 
-        result.status = "partial"
-        result.details["note"] = "Adapter metadata is valid and the base path exists, but full UniPose inference is not attempted here because it depends on the exact upstream model class / runner integration."
-        return result
+        transformers_module, transformers_error = maybe_import("transformers")
+        result.details["transformers_importable"] = transformers_module is not None
+        if transformers_module is None:
+            result.status = "blocked"
+            result.error = f"transformers not importable: {transformers_error}"
+            return result
+
+        torch_module, torch_error = maybe_import("torch")
+        result.details["torch_importable"] = torch_module is not None
+        if torch_module is None:
+            result.status = "blocked"
+            result.error = f"torch not importable: {torch_error}"
+            return result
+
+        target_device = "cuda:0" if torch_module.cuda.is_available() else "cpu"
+        result.details["device_used"] = target_device
+        result.details["attempted_inference"] = True
+        result.details["inference_diagnostics"] = {}
+
+        try:
+            from transformers import AutoProcessor, AutoModelForCausalLM  # type: ignore
+            from peft import PeftModel  # type: ignore
+
+            processor = AutoProcessor.from_pretrained(str(base_path), local_files_only=True, trust_remote_code=True)
+            model = AutoModelForCausalLM.from_pretrained(
+                str(base_path),
+                local_files_only=True,
+                trust_remote_code=True,
+                torch_dtype=torch_module.float16 if target_device.startswith("cuda") else torch_module.float32,
+                device_map={"": target_device} if target_device.startswith("cuda") else "cpu",
+            )
+            model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
+            model.eval()
+
+            result.load_ok = True
+            result.details["inference_diagnostics"]["processor_class"] = processor.__class__.__name__
+            result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
+
+            image = Image.open(build_test_image()).convert("RGB")
+            prompt = f"USER: <image>\n{UNIPOSE_PROMPT}\nASSISTANT:"
+            inputs = processor(text=prompt, images=image, return_tensors="pt")
+            input_shapes = {key: describe_tensor_shape(value) for key, value in inputs.items()}
+            result.details["inference_diagnostics"]["input_shapes"] = input_shapes
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(target_device)
+            else:
+                inputs = {
+                    key: value.to(target_device) if hasattr(value, "to") else value
+                    for key, value in inputs.items()
+                }
+
+            with torch_module.no_grad():
+                generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=24)
+            prompt_length = inputs["input_ids"].shape[1]
+            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+            output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+            result.run_ok = True
+            result.status = "passed"
+            result.details["generation_preview"] = output_text[:200]
+            return result
+        except Exception as inference_exc:  # noqa: BLE001
+            result.status = "partial"
+            result.error = ""
+            result.details["inference_diagnostics"]["error"] = str(inference_exc)
+            result.details["note"] = "Adapter metadata and base model path are valid, but the generic LLaVA-style smoke inference path did not complete. UniPose may require its own upstream runner/inference wrapper."
+            return result
     except Exception as exc:  # noqa: BLE001
         result.status = "failed"
         result.error = str(exc)
