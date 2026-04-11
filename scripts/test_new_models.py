@@ -437,11 +437,31 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
             "trust_remote_code": True,
             "torch_dtype": dtype,
         }
-        if device != "cpu" and torch_module.cuda.is_available():
-            load_kwargs["device_map"] = "auto"
-        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **load_kwargs)
-        if device == "cpu" or not torch_module.cuda.is_available():
-            model = model.to("cpu")
+
+        load_attempt_errors: list[str] = []
+        model = None
+        target_device = device if device != "cpu" and torch_module.cuda.is_available() else "cpu"
+
+        load_attempts: list[tuple[str, dict[str, Any], bool]] = []
+        if target_device != "cpu":
+            load_attempts.append(("single_device_map", {"device_map": {"": target_device}}, False))
+        load_attempts.append(("cpu_then_move", {}, True))
+
+        for attempt_name, extra_kwargs, move_after_load in load_attempts:
+            try:
+                current_kwargs = dict(load_kwargs)
+                current_kwargs.update(extra_kwargs)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **current_kwargs)
+                if move_after_load:
+                    model = model.to(target_device)
+                result.details["load_strategy"] = attempt_name
+                break
+            except Exception as exc:  # noqa: BLE001
+                load_attempt_errors.append(f"{attempt_name}: {exc}")
+
+        result.details["load_attempt_errors"] = load_attempt_errors
+        if model is None:
+            raise RuntimeError(" | ".join(load_attempt_errors))
 
         result.load_ok = True
 
