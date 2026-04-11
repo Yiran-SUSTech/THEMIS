@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--groundingdino-swint-config", default="", help="Optional path to GroundingDINO_SwinT_OGC.py")
     parser.add_argument("--groundingdino-swinb-config", default="", help="Optional path to GroundingDINO_SwinB_cfg.py")
     parser.add_argument("--sam2-config-dir", default="", help="Optional repo/config root containing configs/sam2.1/*.yaml")
+    parser.add_argument("--unipose-repo-root", default=os.getenv("UNIPOSE_REPO_ROOT", ""), help="Optional UniPose repo root containing llava/ posegpt/ configs")
+    parser.add_argument("--unipose-config", default=os.getenv("UNIPOSE_CONFIG", ""), help="Optional UniPose config path, e.g. configs/inference.py")
     parser.add_argument("--output", default=str(ROOT / "outputs" / "new_model_smoke_test.json"), help="JSON report path")
     return parser.parse_args()
 
@@ -269,7 +272,7 @@ def test_deeplabcut(model_dir: Path) -> TestResult:
         result.elapsed_seconds = round(time.time() - started, 3)
 
 
-def test_unipose(model_dir: Path) -> TestResult:
+def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str, unipose_repo_root: str, unipose_config: str) -> TestResult:
     root = model_dir / "unipose"
     result = make_result("UniPose adapter bundle", root)
     started = time.time()
@@ -326,57 +329,172 @@ def test_unipose(model_dir: Path) -> TestResult:
             result.error = f"torch not importable: {torch_error}"
             return result
 
-        target_device = "cuda:0" if torch_module.cuda.is_available() else "cpu"
+        resolved_repo_root = Path(unipose_repo_root).expanduser() if unipose_repo_root.strip() else None
+        resolved_config_path = Path(unipose_config).expanduser() if unipose_config.strip() else None
+        if resolved_config_path is None and resolved_repo_root is not None:
+            candidate_config = resolved_repo_root / "configs" / "inference.py"
+            if candidate_config.exists():
+                resolved_config_path = candidate_config
+
+        result.details["unipose_repo_root"] = str(resolved_repo_root) if resolved_repo_root else ""
+        result.details["unipose_config"] = str(resolved_config_path) if resolved_config_path else ""
+
+        if resolved_repo_root is not None:
+            for candidate in (resolved_repo_root, resolved_repo_root / "src"):
+                candidate_str = str(candidate)
+                if candidate.exists() and candidate_str not in sys.path:
+                    sys.path.insert(0, candidate_str)
+
+        target_device = device if is_accelerator_device_available(torch_module, device) else "cpu"
+        metax_backend = is_metax_device(torch_module, target_device)
+        torch_dtype = resolve_torch_dtype(torch_module, dtype_name)
+        if dtype_name == "auto" and target_device.startswith("cuda") and metax_backend:
+            torch_dtype = torch_module.float16
         result.details["device_used"] = target_device
+        result.details["is_metax_device"] = metax_backend
         result.details["attempted_inference"] = True
-        result.details["inference_diagnostics"] = {}
+        result.details["inference_diagnostics"] = {
+            "torch_dtype": str(torch_dtype),
+        }
+
+        if resolved_config_path is None or not resolved_config_path.exists():
+            result.status = "partial"
+            result.details["note"] = "Adapter metadata and base model path are valid, but UniPose official inference also needs its config file. Pass --unipose-repo-root or --unipose-config."
+            result.details["inference_diagnostics"]["error"] = "UniPose config file not found"
+            return result
+
+        llava_module, llava_error = maybe_import("llava")
+        posegpt_module, posegpt_error = maybe_import("posegpt")
+        result.details["llava_importable"] = llava_module is not None
+        result.details["posegpt_importable"] = posegpt_module is not None
+        if llava_module is None or posegpt_module is None:
+            result.status = "partial"
+            result.details["note"] = "Adapter metadata and base model path are valid, but UniPose official inference modules are not importable in this environment."
+            result.details["inference_diagnostics"]["error"] = f"llava: {llava_error or 'ok'} | posegpt: {posegpt_error or 'ok'}"
+            return result
 
         try:
-            from transformers import AutoProcessor, AutoModelForCausalLM  # type: ignore
+            import numpy as np  # type: ignore
+            from llava import conversation as conversation_lib  # type: ignore
+            from llava.model.language_model.llava_mistral import LlavaMistralConfig  # type: ignore
+            from posegpt.utils import Config  # type: ignore
+            from posegpt.models.posegpt_full_mask import PoseGPTFullMask  # type: ignore
+            from posegpt.constants import IMAGE_TOKEN  # type: ignore
+            from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize  # type: ignore
+            try:
+                from torchvision.transforms import InterpolationMode  # type: ignore
+                bicubic = InterpolationMode.BICUBIC
+            except Exception:  # noqa: BLE001
+                bicubic = Image.BICUBIC
+            from transformers import AutoTokenizer  # type: ignore
             from peft import PeftModel  # type: ignore
 
-            processor = AutoProcessor.from_pretrained(str(base_path), local_files_only=True, trust_remote_code=True)
-            model = AutoModelForCausalLM.from_pretrained(
-                str(base_path),
-                local_files_only=True,
-                trust_remote_code=True,
-                torch_dtype=torch_module.float16 if target_device.startswith("cuda") else torch_module.float32,
-                device_map={"": target_device} if target_device.startswith("cuda") else "cpu",
-            )
-            model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
-            model.eval()
+            def hmr_transform(n_px: int = 256):
+                def _convert_image_to_rgb(image: Image.Image) -> Image.Image:
+                    return image.convert("RGB")
 
-            result.load_ok = True
-            result.details["inference_diagnostics"]["processor_class"] = processor.__class__.__name__
-            result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
+                return Compose([
+                    Resize(n_px, interpolation=bicubic),
+                    CenterCrop(n_px),
+                    _convert_image_to_rgb,
+                    ToTensor(),
+                    Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                ])
 
-            image = Image.open(build_test_image()).convert("RGB")
-            prompt = f"USER: <image>\n{UNIPOSE_PROMPT}\nASSISTANT:"
-            inputs = processor(text=prompt, images=image, return_tensors="pt")
-            input_shapes = {key: describe_tensor_shape(value) for key, value in inputs.items()}
-            result.details["inference_diagnostics"]["input_shapes"] = input_shapes
-            if hasattr(inputs, "to"):
-                inputs = inputs.to(target_device)
-            else:
-                inputs = {
-                    key: value.to(target_device) if hasattr(value, "to") else value
-                    for key, value in inputs.items()
+            def load_unipose_model(config: Any):
+                tokenizer = AutoTokenizer.from_pretrained(str(root), use_fast=False, local_files_only=True)
+                lora_cfg_pretrained = LlavaMistralConfig.from_pretrained(str(root), local_files_only=True)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    model = PoseGPTFullMask.from_pretrained(
+                        str(base_path),
+                        low_cpu_mem_usage=True,
+                        attn_implementation=None,
+                        torch_dtype=torch_dtype,
+                        config=lora_cfg_pretrained,
+                        tokenizer=tokenizer,
+                        device_map={"": target_device} if target_device.startswith("cuda") else "cpu",
+                        pose_vqvae_codebook_size=config.pose_vqvae_config.params.quantizer.params.nb_code,
+                        evaluate_task=None,
+                    )
+                model.config.eos_token_id = tokenizer.eos_token_id
+                model.config.bos_token_id = tokenizer.bos_token_id
+                model.config.pad_token_id = tokenizer.pad_token_id
+                model.generation_config.pad_token_id = tokenizer.pad_token_id
+                model.generation_config.eos_token_id = tokenizer.eos_token_id
+                token_num, token_dim = model.lm_head.out_features, model.lm_head.in_features
+                if model.lm_head.weight.shape[0] != token_num:
+                    model.lm_head.weight = torch_module.nn.Parameter(torch_module.empty(token_num, token_dim, device=model.device, dtype=model.dtype))
+                    model.model.embed_tokens.weight = torch_module.nn.Parameter(torch_module.empty(token_num, token_dim, device=model.device, dtype=model.dtype))
+                model.model.mm_projector[0].weight = torch_module.nn.Parameter(torch_module.empty(4096, 2304, device=model.device, dtype=model.dtype))
+                model.get_model().load_hmr_vit_backbone(**config)
+                non_lora_trainables = torch_module.load(root / "non_lora_trainables.bin", map_location="cpu")
+                non_lora_trainables = {
+                    (key[len("base_model.model."):] if key.startswith("base_model.model.") else key): value
+                    for key, value in non_lora_trainables.items()
                 }
+                model.resize_token_embeddings(len(tokenizer))
+                model.load_state_dict(non_lora_trainables, strict=False)
+                model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
+                model = model.merge_and_unload()
+                model.get_model().load_pose_vqvae(**config)
+                vision_tower = model.get_vision_tower()
+                if not vision_tower.is_loaded:
+                    raise RuntimeError("UniPose vision tower is not loaded")
+                image_processor = vision_tower.image_processor
+                model.get_pose_vqvae().to(model.device).to(torch_dtype)
+                model.get_hmr_vit_backbone().to(model.device).to(torch_dtype)
+                return model, image_processor
+
+            config = Config.fromfile(str(resolved_config_path))
+            conversation_lib.default_conversation = conversation_lib.conv_templates["mistral_instruct"]
+            model, image_processor = load_unipose_model(config)
+            model.eval()
+            hmr_image_processor = hmr_transform(256)
+            result.load_ok = True
+            result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
+            result.details["inference_diagnostics"]["image_processor_class"] = image_processor.__class__.__name__
+
+            image = Image.open(image_path).convert("RGB")
+            image_array = np.array(image)
+            processed_image = image_processor.preprocess(image_array, return_tensors="pt")["pixel_values"][0]
+            processed_hmr_image = hmr_image_processor(image)
+            zero_pose = torch_module.zeros((22, 3, 3), dtype=torch_dtype, device=target_device).unsqueeze(0)
+            batch = {
+                "body_poseA_rotmat": zero_pose,
+                "body_poseB_rotmat": zero_pose.clone(),
+                "images": torch_module.stack([processed_image, torch_module.zeros_like(processed_image)], dim=0).to(torch_dtype).to(target_device),
+                "hmr_images": torch_module.stack([processed_hmr_image, torch_module.zeros_like(processed_hmr_image)], dim=0).to(torch_dtype).to(target_device),
+                "tasks": [{"input": f"Generate pose of the image {IMAGE_TOKEN}."}],
+                "caption": [""],
+            }
+            result.details["inference_diagnostics"]["input_shapes"] = {
+                "body_poseA_rotmat": describe_tensor_shape(batch["body_poseA_rotmat"]),
+                "body_poseB_rotmat": describe_tensor_shape(batch["body_poseB_rotmat"]),
+                "images": describe_tensor_shape(batch["images"]),
+                "hmr_images": describe_tensor_shape(batch["hmr_images"]),
+            }
 
             with torch_module.no_grad():
-                generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=24)
-            prompt_length = inputs["input_ids"].shape[1]
-            trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
-            output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+                output = model.evaluate(**batch)
             result.run_ok = True
             result.status = "passed"
-            result.details["generation_preview"] = output_text[:200]
+            result.details["inference_diagnostics"]["output_keys"] = list(output.keys()) if isinstance(output, dict) else []
+            body_pose = output.get("body_pose") if isinstance(output, dict) else None
+            text = output.get("text") if isinstance(output, dict) else None
+            result.details["inference_diagnostics"]["has_body_pose"] = body_pose is not None
+            result.details["inference_diagnostics"]["has_text"] = text is not None
+            if body_pose is not None:
+                result.details["inference_diagnostics"]["body_pose_shape"] = describe_tensor_shape(body_pose)
+            if text is not None and len(text) > 0:
+                result.details["generation_preview"] = str(text[0])[:200]
+            result.details["note"] = "Official UniPose inference path completed successfully."
             return result
         except Exception as inference_exc:  # noqa: BLE001
             result.status = "partial"
             result.error = ""
             result.details["inference_diagnostics"]["error"] = str(inference_exc)
-            result.details["note"] = "Adapter metadata and base model path are valid, but the generic LLaVA-style smoke inference path did not complete. UniPose may require its own upstream runner/inference wrapper."
+            result.details["note"] = "Adapter metadata and base model path are valid, but the UniPose official inference path did not complete in this environment."
             return result
     except Exception as exc:  # noqa: BLE001
         result.status = "failed"
@@ -787,7 +905,7 @@ def main() -> int:
 
     results = [
         test_deeplabcut(model_dir),
-        test_unipose(model_dir),
+        test_unipose(model_dir, image_path, args.device, args.dtype, args.unipose_repo_root, args.unipose_config),
         test_groundingdino(model_dir, image_path, args.groundingdino_swint_config, args.groundingdino_swinb_config),
         test_sam2(model_dir, args.sam2_config_dir),
         test_qinsight(model_dir, image_path, args.device, args.dtype, args.max_new_tokens),
