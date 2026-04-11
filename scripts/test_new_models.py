@@ -455,6 +455,25 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 return model, image_processor
 
             config = Config.fromfile(str(resolved_config_path))
+            config_dir = resolved_config_path.parent
+            repo_root_for_assets = resolved_repo_root or config_dir.parent
+            for asset_key in ("pose_vqvae_ckp_path", "hmr_vit_ckp_path"):
+                asset_value = getattr(config, asset_key, None)
+                if isinstance(asset_value, str) and asset_value and not Path(asset_value).is_absolute():
+                    setattr(config, asset_key, str((repo_root_for_assets / asset_value).resolve()))
+            result.details["inference_diagnostics"]["resolved_pose_vqvae_ckp_path"] = getattr(config, "pose_vqvae_ckp_path", "")
+            result.details["inference_diagnostics"]["resolved_hmr_vit_ckp_path"] = getattr(config, "hmr_vit_ckp_path", "")
+            missing_unipose_assets = []
+            for asset_key in ("pose_vqvae_ckp_path", "hmr_vit_ckp_path"):
+                asset_value = getattr(config, asset_key, None)
+                if isinstance(asset_value, str) and asset_value and not Path(asset_value).exists():
+                    missing_unipose_assets.append({"key": asset_key, "path": asset_value})
+            if missing_unipose_assets:
+                result.status = "partial"
+                result.details["note"] = "UniPose official code is importable, but required auxiliary checkpoints are missing or not located where the official config expects."
+                result.details["inference_diagnostics"]["missing_assets"] = missing_unipose_assets
+                result.details["inference_diagnostics"]["error"] = "UniPose auxiliary checkpoints not found"
+                return result
             conversation_lib.default_conversation = conversation_lib.conv_templates["mistral_instruct"]
             model, image_processor = load_unipose_model(config)
             model.eval()
