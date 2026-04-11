@@ -431,7 +431,7 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # type: ignore
 
         dtype = resolve_torch_dtype(torch_module, dtype_name)
-        processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True, min_pixels=224 * 224, max_pixels=448 * 448)
         base_load_kwargs: dict[str, Any] = {
             "local_files_only": True,
             "trust_remote_code": True,
@@ -447,6 +447,7 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
         selected_generation_strategy = ""
 
         image = Image.open(image_path).convert("RGB")
+        image = image.resize((448, 448)) # Qwen2.5-VL 推荐的对齐尺寸
         messages = [
             {
                 "role": "user",
@@ -460,8 +461,10 @@ def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str
 
         load_attempts: list[tuple[str, dict[str, Any], bool, str]] = []
         if target_device != "cpu":
-            load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
-            load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
+            # load_attempts.append(("single_device_map_flash_default", {"device_map": {"": target_device}}, False, target_device))
+            # load_attempts.append(("single_device_map_eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}, False, target_device))
+            load_attempts.append(("sdpa", {"device_map": {"": target_device}, "attn_implementation": "sdpa"}))
+            load_attempts.append(("eager", {"device_map": {"": target_device}, "attn_implementation": "eager"}))
         load_attempts.append(("cpu_eager", {"attn_implementation": "eager", "torch_dtype": torch_module.float32}, False, "cpu"))
 
         for attempt_name, extra_kwargs, move_after_load, generation_device in load_attempts:
