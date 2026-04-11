@@ -5,7 +5,7 @@ from typing import Any, Literal, TypedDict, Optional
 from pydantic import BaseModel, Field
 
 
-ExpertName = Literal["semantic", "structural", "artifact", "vqa", "clip_semantic", "yolo_pose", "places365", "iqa", "background", "imagenet", "vqa_expert", "clip", "clip_score", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "bge_candidate_generator", "e5_candidate_generator", "animal_pose", "body_pose", "body_pose_strong", "hand_detection", "face_detection", "places365_strong", "building_expert", "background_removal", "complexity", "iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact", "aigen_detection", "ocr", "dog_breed", "bird_expert"]
+ExpertName = Literal["semantic", "structural", "quality", "vqa", "clip_semantic", "yolo_pose", "places365", "iqa", "background", "imagenet", "vqa_expert", "clip", "clip_score", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "bge_candidate_generator", "e5_candidate_generator", "animal_pose", "body_pose", "body_pose_strong", "hand_detection", "face_detection", "places365_strong", "building_expert", "background_removal", "complexity", "iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact", "aigen_detection", "ocr", "dog_breed", "bird_expert"]
 ModelProfile = Literal[
     "local_fast",
     "local_default",
@@ -15,7 +15,7 @@ ModelProfile = Literal[
 StepType = Literal[
     "semantic_check",
     "structural_check",
-    "artifact_check",
+    "quality_check",
     "vqa_evidence",
     "candidate_generation",
     "label_space_check",

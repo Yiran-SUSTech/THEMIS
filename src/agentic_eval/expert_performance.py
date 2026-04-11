@@ -253,14 +253,14 @@ EXPERT_PERFORMANCE_TABLE: Dict[str, ExpertPerformanceMetrics] = {
         notes="Local VLM-based structural inspection",
         source="Qwen Team",
     ),
-    "artifact": ExpertPerformanceMetrics(
-        expert_name="ArtifactExpert",
+    "quality": ExpertPerformanceMetrics(
+        expert_name="QualityExpert",
         model_name="MANIQA+MUSIQ+CLIPIQA",
-        task_type="artifact_detection",
+        task_type="image_quality",
         srcc=0.875,
         benchmark="KonIQ-10k",
         reliability=ReliabilityLevel.HIGH,
-        notes="Comprehensive artifact detection",
+        notes="Comprehensive perceptual quality assessment",
         source="pyiqa",
     ),
 }
@@ -270,8 +270,8 @@ def get_expert_performance(expert_name: str) -> Optional[ExpertPerformanceMetric
     normalized = expert_name.lower().replace("-", "_").replace(" ", "_")
     alias_map = {
         "clip_semantic": "clip",
-        "iqa": "artifact",
-        "local_iqa": "artifact",
+        "iqa": "quality",
+        "local_iqa": "quality",
         "yolo_detect": "structural",
         "yolo_pose": "body_pose",
         "imagenet_eva02_l": "imagenet_eva02_large",

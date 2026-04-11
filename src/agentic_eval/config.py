@@ -44,6 +44,8 @@ class ExpertModelConfig:
     evidence_role: str = ""
     label_space: str = ""
     output_interpretability: str = ""
+    downloaded: bool = False
+    group_name: str = ""
 
 
 def _expand_config_value(value: Optional[str], model_dir: str) -> Optional[str]:
@@ -364,6 +366,8 @@ class Settings:
                         evidence_role=expert_config.get("evidence_role", ""),
                         label_space=expert_config.get("label_space", ""),
                         output_interpretability=expert_config.get("output_interpretability", ""),
+                        downloaded=bool(expert_config.get("downloaded", False)),
+                        group_name=group_name,
                     )
         
         if "evaluation_profiles" in config:

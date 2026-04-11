@@ -6,9 +6,12 @@ import os
 from pathlib import Path
 from statistics import pstdev
 from threading import Lock
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import yaml
+
+if TYPE_CHECKING:
+    from .config import ExpertModelConfig
 
 
 VALID_MODEL_PROFILES = {
@@ -20,7 +23,7 @@ VALID_MODEL_PROFILES = {
 
 EXPERT_ALLOWED_MODEL_PROFILES = {
     "semantic": {"local_fast", "local_stronger"},
-    "artifact": {"local_fast", "local_default", "local_richer"},
+    "quality": {"local_fast", "local_default", "local_richer"},
     "structural": {"local_fast", "local_stronger"},
     "vqa": {"local_fast", "local_stronger"},
 }
@@ -46,8 +49,22 @@ EXPERT_ROLE_MODEL_KEYS = {
         "background_removal",
         "vqa",
     ],
-    "artifact": ["iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"],
+    "quality": ["iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"],
     "vqa": ["vqa"],
+}
+
+ROLE_MODEL_TYPE_HINTS = {
+    "semantic": {"classification", "eva_classification", "text_embedding", "clip", "clip_score", "vqa"},
+    "structural": {"yolo_pose", "detection", "places365", "classification", "segmentation", "vqa"},
+    "quality": {"iqa", "clip"},
+    "vqa": {"vqa"},
+}
+
+ROLE_SUITABLE_FOR_HINTS = {
+    "semantic": {"broad_category_match", "coarse_semantic_prior", "harder_c2i_screening", "label_space_aligned_classification", "fine_grained_c2i", "class_name_grounded_decision", "candidate_generation", "confusable_label_retrieval", "fine_grained_label_shortlisting", "t2i_alignment", "lookalike_disambiguation", "candidate_reranking", "confusable_disambiguation", "prompt_alignment_support", "text_image_similarity"},
+    "structural": {"whole_subject_coherence", "rough_pose_plausibility", "animal_body_structure_screening"},
+    "quality": {"artifact_screening", "perceptual_quality_prior", "artifact_assessment", "perceptual_quality_check", "richer_artifact_assessment"},
+    "vqa": {"targeted_visual_evidence_extraction", "resolving_specific_ambiguities", "attribute_confirmation"},
 }
 
 _LOCAL_VLM_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -62,7 +79,7 @@ def _default_planned_model(expert: str, model_profile: str) -> str:
         return "clip" if model_profile != "local_stronger" else "imagenet_eva02_large"
     if expert == "structural":
         return "animal_pose" if model_profile != "local_stronger" else "vqa"
-    if expert == "artifact":
+    if expert == "quality":
         if model_profile == "local_fast":
             return "iqa_fast"
         if model_profile == "local_richer":
@@ -73,46 +90,189 @@ def _default_planned_model(expert: str, model_profile: str) -> str:
     return ""
 
 
-def _normalize_planned_model(settings: Settings, expert: str, model_profile: str, planned_model: str) -> str:
+def _all_downloaded_expert_items(settings: Settings) -> list[tuple[str, ExpertModelConfig]]:
+    return [
+        (key, config)
+        for key, config in settings.expert_configs.items()
+        if config is not None and getattr(config, "downloaded", False)
+    ]
+
+
+def _matches_role_metadata(expert: str, config: ExpertModelConfig) -> bool:
+    if expert == "vqa":
+        return config.model_type == "vqa"
+    if config.model_type in ROLE_MODEL_TYPE_HINTS.get(expert, set()):
+        return True
+    suitable_for = set(config.suitable_for or [])
+    if suitable_for & ROLE_SUITABLE_FOR_HINTS.get(expert, set()):
+        return True
+    evidence_role = (config.evidence_role or "").lower()
+    if expert == "semantic" and any(token in evidence_role for token in {"semantic", "classification", "candidate", "similarity", "alignment"}):
+        return True
+    if expert == "structural" and any(token in evidence_role for token in {"structural", "pose", "segmentation", "scene"}):
+        return True
+    if expert == "quality" and any(token in evidence_role for token in {"quality", "quality"}):
+        return True
+    return False
+
+
+def _profile_compatibility_score(model_profile: str, config_key: str, config: ExpertModelConfig) -> float:
+    score = 0.0
+    if model_profile == "local_fast":
+        if config_key.endswith("_fast") or "fast" in config.name.lower():
+            score += 3.0
+        if config.model_type in {"clip", "clip_score", "text_embedding", "iqa", "yolo_pose"}:
+            score += 1.0
+    elif model_profile == "local_stronger":
+        if any(token in config_key for token in {"strong", "eva"}) or "strong" in config.name.lower():
+            score += 3.0
+        if config.model_type in {"eva_classification", "vqa"}:
+            score += 1.0
+    elif model_profile == "local_richer":
+        if any(token in config_key for token in {"richer", "boundary"}):
+            score += 3.0
+        if config.model_type == "iqa":
+            score += 1.0
+    elif model_profile == "local_default":
+        if any(token in config_key for token in {"default"}):
+            score += 3.0
+    return score
+
+
+def _step_type_score(step_type: str, config: ExpertModelConfig) -> float:
+    score = 0.0
+    normalized_step = (step_type or "").strip().lower()
+    if normalized_step in {"candidate_generation"} and config.model_type == "text_embedding":
+        score += 8.0
+    if normalized_step in {"confusable_disambiguation"} and config.model_type in {"clip", "clip_score"}:
+        score += 8.0
+    if normalized_step in {"label_space_check"} and config.label_space in {"imagenet_1k", "imagenet_21k", "open_text_to_imagenet_1k"}:
+        score += 6.0
+    if normalized_step == "semantic_check":
+        if config.model_type in {"classification", "eva_classification"}:
+            score += 5.0
+        if config.model_type == "text_embedding":
+            score += 2.0
+        if config.model_type in {"clip", "clip_score"}:
+            score += 3.0
+    if normalized_step == "structural_check":
+        if config.model_type in {"yolo_pose", "segmentation", "vqa"}:
+            score += 5.0
+    if normalized_step == "quality_check":
+        if config.model_type == "iqa":
+            score += 6.0
+        elif config.model_type == "clip":
+            score += 1.0
+    if normalized_step == "vqa_evidence" and config.model_type == "vqa":
+        score += 8.0
+    return score
+
+
+def _metadata_quality_score(config: ExpertModelConfig) -> float:
+    score = 0.0
+    if config.description:
+        score += 0.5
+    if config.evidence_role:
+        score += 0.5
+    if config.label_space:
+        score += 0.5
+    if config.output_interpretability:
+        score += 0.5
+    if config.suitable_for:
+        score += 1.0
+    if config.unsuitable_for:
+        score += 0.5
+    if config.accuracy is not None:
+        score += 0.5
+    if config.benchmark:
+        score += 0.5
+    return score
+
+
+def _dynamic_candidate_keys(settings: Settings, expert: str) -> list[str]:
+    matched: list[str] = []
+    for key, config in _all_downloaded_expert_items(settings):
+        if _matches_role_metadata(expert, config):
+            matched.append(key)
+    return matched
+
+
+def _choose_best_planned_model(
+    settings: Settings,
+    expert: str,
+    model_profile: str,
+    step_type: str = "",
+    planned_model: str = "",
+) -> str:
     candidate = (planned_model or "").strip()
-    allowed = set(EXPERT_ROLE_MODEL_KEYS.get(expert, []))
-    if candidate in allowed and settings.get_expert_config(candidate) is not None:
+    dynamic_candidates = _dynamic_candidate_keys(settings, expert)
+    if candidate and candidate in dynamic_candidates:
         return candidate
-    return _default_planned_model(expert, model_profile)
+
+    scored: list[tuple[float, str]] = []
+    for key in dynamic_candidates:
+        config = settings.get_expert_config(key)
+        if config is None:
+            continue
+        score = 0.0
+        score += _profile_compatibility_score(model_profile, key, config)
+        score += _step_type_score(step_type, config)
+        score += _metadata_quality_score(config)
+        if candidate and key == candidate:
+            score += 12.0
+        if config.model_type == "vqa" and expert != "vqa" and step_type not in {"vqa_evidence", "structural_check"}:
+            score -= 2.0
+        scored.append((score, key))
+
+    if scored:
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return scored[0][1]
+
+    fallback_candidate = candidate if candidate and settings.get_expert_config(candidate) is not None else ""
+    return fallback_candidate or _default_planned_model(expert, model_profile)
+
+
+def _normalize_planned_model(
+    settings: Settings,
+    expert: str,
+    model_profile: str,
+    planned_model: str,
+    step_type: str = "",
+) -> str:
+    return _choose_best_planned_model(
+        settings,
+        expert,
+        model_profile,
+        step_type=step_type,
+        planned_model=planned_model,
+    )
+
+
+def _roles_for_expert_key(expert_key: str) -> list[str]:
+    roles: list[str] = []
+    for role, keys in EXPERT_ROLE_MODEL_KEYS.items():
+        if expert_key in keys:
+            roles.append(role)
+    return roles
 
 
 def _describe_available_experts(settings: Settings) -> str:
-    profile_map = {
-        "semantic": {
-            "local_fast": ["clip", "imagenet_fast", "bge_candidate_generator", "e5_candidate_generator"],
-            "local_stronger": ["imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "vqa"],
-        },
-        "structural": {
-            "local_fast": ["animal_pose", "body_pose", "places365", "background_removal"],
-            "local_stronger": ["body_pose_strong", "places365_strong", "vqa"],
-        },
-        "artifact": {
-            "local_default": ["iqa_default"],
-            "local_richer": ["iqa_richer", "boundary_artifact"],
-            "local_fast": ["iqa_fast"],
-        },
-        "vqa": {
-            "local_fast": ["vqa"],
-            "local_stronger": ["vqa"],
-        },
-    }
-    lines = ["Available model options by expert/profile:"]
-    for expert, profiles in profile_map.items():
+    lines = ["Available downloaded model options by expert role/profile:"]
+    included_keys: set[str] = set()
+    for expert, allowed_keys in EXPERT_ROLE_MODEL_KEYS.items():
         lines.append(f"- {expert}:")
-        for profile, config_keys in profiles.items():
-            descriptions = []
-            for key in config_keys:
+        role_lines: list[str] = []
+        for profile in sorted(EXPERT_ALLOWED_MODEL_PROFILES.get(expert, {"local_fast"})):
+            descriptions: list[str] = []
+            for key in allowed_keys:
                 config = settings.get_expert_config(key)
                 perf = get_expert_performance(key)
-                if config is None:
+                if config is None or not getattr(config, "downloaded", False):
                     continue
-                model_name = config.local_path or config.model
-                parts = [f"key={key}", config.name, config.model_type, model_name]
+                included_keys.add(key)
+                model_name = config.local_path or config.weights or config.model
+                parts = [f"key={key}", config.name, f"group={config.group_name}", config.model_type, model_name]
+                parts.append(f"downloaded={str(config.downloaded).lower()}")
                 if config.metrics:
                     parts.append(f"metrics={','.join(config.metrics)}")
                 if perf is not None:
@@ -123,7 +283,11 @@ def _describe_available_experts(settings: Settings) -> str:
                         stats.append(f"mAP={perf.mAP:.1%}")
                     if perf.srcc is not None:
                         stats.append(f"SRCC={perf.srcc:.3f}")
+                    if perf.plcc is not None:
+                        stats.append(f"PLCC={perf.plcc:.3f}")
                     stats.append(f"reliability={perf.reliability.value}")
+                    if perf.task_type:
+                        stats.append(f"task={perf.task_type}")
                     parts.append("; ".join(stats))
                 if config.benchmark:
                     parts.append(f"benchmark={config.benchmark}")
@@ -143,7 +307,65 @@ def _describe_available_experts(settings: Settings) -> str:
                     parts.append(config.description)
                 descriptions.append(" | ".join(parts))
             if descriptions:
-                lines.append(f"  - {profile}: {' ; '.join(descriptions)}")
+                role_lines.append(f"  - {profile}: {' ; '.join(descriptions)}")
+        if role_lines:
+            lines.extend(role_lines)
+        else:
+            lines.append("  - no downloaded experts exposed for this role")
+
+    remaining_downloaded = [
+        (key, config)
+        for key, config in sorted(settings.expert_configs.items())
+        if getattr(config, "downloaded", False) and key not in included_keys
+    ]
+    if remaining_downloaded:
+        lines.append("- additional_downloaded_experts:")
+        for key, config in remaining_downloaded:
+            perf = get_expert_performance(key)
+            model_name = config.local_path or config.weights or config.model
+            roles = _roles_for_expert_key(key)
+            parts = [
+                f"key={key}",
+                config.name,
+                f"group={config.group_name}",
+                config.model_type,
+                model_name,
+                f"downloaded={str(config.downloaded).lower()}",
+                f"roles={','.join(roles) if roles else 'none'}",
+            ]
+            if config.metrics:
+                parts.append(f"metrics={','.join(config.metrics)}")
+            if perf is not None:
+                stats = []
+                if perf.accuracy is not None:
+                    stats.append(f"acc={perf.accuracy:.1%}")
+                if perf.mAP is not None:
+                    stats.append(f"mAP={perf.mAP:.1%}")
+                if perf.srcc is not None:
+                    stats.append(f"SRCC={perf.srcc:.3f}")
+                if perf.plcc is not None:
+                    stats.append(f"PLCC={perf.plcc:.3f}")
+                stats.append(f"reliability={perf.reliability.value}")
+                if perf.task_type:
+                    stats.append(f"task={perf.task_type}")
+                parts.append("; ".join(stats))
+            if config.benchmark:
+                parts.append(f"benchmark={config.benchmark}")
+            if config.accuracy is not None:
+                parts.append(f"accuracy={config.accuracy:.4f}")
+            if config.evidence_role:
+                parts.append(f"evidence_role={config.evidence_role}")
+            if config.label_space:
+                parts.append(f"label_space={config.label_space}")
+            if config.output_interpretability:
+                parts.append(f"output={config.output_interpretability}")
+            if config.suitable_for:
+                parts.append(f"suitable_for={','.join(config.suitable_for)}")
+            if config.unsuitable_for:
+                parts.append(f"unsuitable_for={','.join(config.unsuitable_for)}")
+            if config.description:
+                parts.append(config.description)
+            lines.append(f"  - {' | '.join(parts)}")
     return "\n".join(lines)
 
 
@@ -278,7 +500,7 @@ class LocalPlanner:
             return candidate
         if expert == "semantic":
             return "local_fast"
-        if expert == "artifact":
+        if expert == "quality":
             return "local_default"
         if expert == "structural":
             return "local_fast"
@@ -297,14 +519,14 @@ class LocalPlanner:
         default_step_types = {
             "semantic": "semantic_check",
             "structural": "structural_check",
-            "artifact": "artifact_check",
+            "quality": "quality_check",
             "vqa": "vqa_evidence",
         }
         for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 continue
             expert = str(step.get("expert", "semantic")).strip().lower() or "semantic"
-            if expert not in {"semantic", "structural", "artifact", "vqa"}:
+            if expert not in {"semantic", "structural", "quality", "vqa"}:
                 continue
             prompt_focus = str(step.get("prompt_focus", "")).strip()
             goal = str(step.get("goal", "")).strip() or f"Inspect {expert} evidence."
@@ -317,7 +539,7 @@ class LocalPlanner:
                     prompt_focus = f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image."
                 elif expert == "structural":
                     prompt_focus = f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, and likely lookalike confusions for {label_text}."
-                elif expert == "artifact":
+                elif expert == "quality":
                     prompt_focus = "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant."
             model_profile = self._normalize_model_profile(expert, str(step.get("model_profile", "")))
             normalized_planned_model = _normalize_planned_model(
@@ -325,6 +547,7 @@ class LocalPlanner:
                 expert,
                 model_profile,
                 str(step.get("planned_model", "")).strip(),
+                str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip(),
             )
             normalized_steps.append(
                 {
@@ -345,7 +568,7 @@ class LocalPlanner:
 
         has_semantic = any(step["expert"] == "semantic" for step in normalized_steps)
         has_structural = any(step["expert"] == "structural" for step in normalized_steps)
-        has_artifact = any(step["expert"] == "artifact" for step in normalized_steps)
+        has_quality = any(step["expert"] == "quality" for step in normalized_steps)
         if not has_semantic:
             normalized_steps.insert(
                 0,
@@ -383,19 +606,19 @@ class LocalPlanner:
                     "allow_escalation": True,
                 },
             )
-        if not has_artifact:
+        if not has_quality:
             normalized_steps.append(
                 {
                     "step_id": len(normalized_steps) + 1,
-                    "expert": "artifact",
-                    "step_type": "artifact_check",
-                    "goal": "Estimate visible artifact severity and perceptual degradation.",
+                    "expert": "quality",
+                    "step_type": "quality_check",
+                    "goal": "Estimate visible quality degradation and perceptual failure evidence.",
                     "model_profile": "local_default",
                     "planned_model": "iqa_default",
-                    "selection_reason": "Default artifact pass using standard IQA metrics.",
-                    "prompt_focus": "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
+                    "selection_reason": "Default quality pass using standard IQA metrics.",
+                    "prompt_focus": "Inspect localized quality degradation evidence, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
                     "depends_on": [step["step_id"] for step in normalized_steps if step["expert"] in {"semantic", "structural"}],
-                    "expected_signal": "Visible artifact severity evidence.",
+                    "expected_signal": "Visible quality degradation evidence.",
                     "use_previous_outputs": True,
                     "allow_escalation": True,
                 }
@@ -422,18 +645,20 @@ class LocalPlanner:
 
         task_lines = [
             "You are the planning expert in an image generation evaluator.",
-            "Return a short JSON plan with semantic, structural, artifact, and optional vqa steps.",
+            "Return a short JSON plan with semantic, structural, quality, and optional vqa steps.",
             "Reason jointly from the image and the prompt/class label.",
-            "Use semantic for category/class match, structural for whole-subject coherence and anatomy, artifact for local visible corruption, vqa only for unresolved questions.",
-            "For hard c2i cases, you may add candidate_generation or confusable_disambiguation semantic steps when useful.",
+            "Use semantic for category/class match, structural for whole-subject coherence and anatomy, quality for local visible degradation evidence, vqa only for unresolved questions.",
+            # "For hard c2i cases, you may add candidate_generation or confusable_disambiguation semantic steps when useful.",
             "Prefer the cheapest adequate route first; use stronger routes only for ambiguous hard cases.",
             "Use only visible evidence; do not do external research.",
             "Each step must include the concrete planned_model expert key and a brief selection_reason.",
-            "Use step_type to declare what the step is actually doing: semantic_check, structural_check, artifact_check, vqa_evidence, candidate_generation, label_space_check, or confusable_disambiguation.",
+            "Use step_type to declare what the step is actually doing: semantic_check, structural_check, quality_check, vqa_evidence, candidate_generation, label_space_check, or confusable_disambiguation.",
             "Use depends_on when a later step should consume earlier outputs. Use expected_signal to say what evidence the step should produce.",
             "Keep rationale and goals brief.",
+            "Different steps can have the same step_type but vary in expert, model, or prompt_focus for cross-validation. In this case, total steps can be greater than 3 but step_type options are limited.",
+            "For c2i task (Class label provided), semantic checks can be conducted by classification models and/or confusable candidate_generation models plus CLIP-style matching models. For t2i task (Text prompt provided), semantic checks can only be conducted by matching models.",
             "Return valid JSON only.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|artifact|vqa","step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|quality|vqa","step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
@@ -717,7 +942,7 @@ class LocalSemanticExpert:
         return payload
 
 
-class LocalArtifactExpert:
+class LocalQualityExpert:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._pyiqa: Any | None = None
@@ -737,7 +962,7 @@ class LocalArtifactExpert:
             import torch
         except ImportError as exc:
             raise LocalExpertError(
-                "Local artifact dependencies are missing. Install pyiqa and torch."
+                "Local quality dependencies are missing. Install pyiqa and torch."
             ) from exc
 
         if (self.settings.local_artifact_device or "").strip().lower().startswith("cuda") and not torch.cuda.is_available():
@@ -748,7 +973,7 @@ class LocalArtifactExpert:
             try:
                 self._metrics[metric_name] = pyiqa.create_metric(metric_name, device=self._device)
             except Exception as exc:  # noqa: BLE001
-                raise LocalExpertError(f"Failed to load local artifact metric '{metric_name}'") from exc
+                raise LocalExpertError(f"Failed to load local quality metric '{metric_name}'") from exc
 
     def _normalize_quality(self, metric_name: str, raw_score: float) -> float:
         score = max(0.0, raw_score)
@@ -774,15 +999,15 @@ class LocalArtifactExpert:
             return "Local IQA metrics indicate severe perceptual degradation and likely visible generation artifacts."
         if severity >= 0.45:
             return "Local IQA metrics indicate noticeable image quality problems that may reflect generation artifacts."
-        return "Local IQA metrics indicate limited perceptual degradation and no strong artifact signal."
+        return "Local IQA metrics indicate limited perceptual degradation and no strong quality-failure signal."
 
     def evaluate(self, *, image_path: str) -> dict[str, Any]:
         if not self.settings.local_artifact_enabled:
-            raise LocalExpertError("Local artifact expert is disabled")
+            raise LocalExpertError("Local quality expert is disabled")
 
         self._load()
         if self._pyiqa is None or not self._metrics:
-            raise LocalExpertError("Local artifact expert failed to initialize")
+            raise LocalExpertError("Local quality expert failed to initialize")
 
         normalized_scores: list[float] = []
         findings: list[str] = []
@@ -790,14 +1015,14 @@ class LocalArtifactExpert:
             try:
                 value = float(metric(str(Path(image_path))).item())
             except Exception as exc:  # noqa: BLE001
-                raise LocalExpertError(f"Artifact metric '{metric_name}' inference failed") from exc
+                raise LocalExpertError(f"Quality metric '{metric_name}' inference failed") from exc
 
             quality = self._normalize_quality(metric_name, value)
             normalized_scores.append(quality)
             findings.append(f"{metric_name} raw score: {value:.4f}; normalized quality estimate: {quality:.2f}.")
 
         if not normalized_scores:
-            raise LocalExpertError("No local artifact scores were produced")
+            raise LocalExpertError("No local quality scores were produced")
 
         average_quality = sum(normalized_scores) / len(normalized_scores)
         severity = 1.0 - average_quality
@@ -811,10 +1036,10 @@ class LocalArtifactExpert:
         elif severity >= 0.45:
             findings.append("The local quality metrics are consistent with moderate visible degradation.")
         else:
-            findings.append("The local quality metrics do not show a strong artifact signal.")
+            findings.append("The local quality metrics do not show a strong quality-failure signal.")
 
         return {
-            "expert": "artifact",
+            "expert": "quality",
             "summary": self._build_summary(severity),
             "findings": findings,
             "severity": round(max(0.0, min(1.0, severity)), 4),
@@ -866,14 +1091,14 @@ class LocalJudge:
         task_lines = [
             "You are the judge expert in an image generation evaluator.",
             "Review the evaluation plan and decide if it is adequate.",
-            "Approve only if the plan covers alignment, global structure, local artifacts, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label.",
+            "Approve only if the plan covers alignment, global structure, local quality evidence, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label.",
             "For semantic inspection, prefer an explicit broad-category versus fine-grained class distinction when the label is fine-grained.",
             "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
             "Do not reject solely because the plan omits color, lighting, or composition checks unless the class label or prompt specifically requires them.",
             "Check that each step's planned_model and selection_reason are consistent with the available model catalog and the stated task.",
             "When rejecting, provide structured replan actions so the planner can revise deterministically.",
             "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|artifact|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
+            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             _describe_available_experts(self.settings),
@@ -981,7 +1206,7 @@ class LocalReflector:
             "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean.",
             "When rejecting, provide structured replan actions so the planner can revise deterministically.",
             "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|artifact_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|artifact|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
+            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",

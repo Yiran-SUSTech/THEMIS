@@ -7,7 +7,7 @@ def build_task_context(prompt: str | None, class_label: str | None) -> str:
     return (
         f"Prompt: {prompt or 'N/A'}\n"
         f"Class label: {class_label or 'N/A'}\n"
-        "Evaluate image quality for generative model benchmarking. Treat the prompt, class label, and visible image evidence as one joint multimodal grounding problem. Focus on alignment and artifact severity."
+        "Evaluate image quality for generative model benchmarking. Treat the prompt, class label, and visible image evidence as one joint multimodal grounding problem. Focus on alignment and visible quality degradation evidence."
     )
 
 
@@ -15,7 +15,7 @@ PLANNER_SYSTEM = """You are a rigorous multimodal evaluation planner for image g
 
 JUDGE_SYSTEM = """You review evaluation plans for coverage, order, sufficiency, and whether they reason jointly from the image and the prompt/class label. Check that any structural inspection is adapted to the specific subject and likely failure modes instead of using a rote fixed checklist. Output only valid JSON matching the requested schema."""
 
-EXPERT_SYSTEM = """You are a careful but conservative image evaluation expert. Return grounded evidence only. For structural analysis, focus on subject-specific anatomical and part-attachment integrity, and when evidence is ambiguous, prefer treating the ambiguity as a possible failure risk rather than assuming the image is correct. For artifact analysis, treat extra appendages, impossible limbs, malformed extremities, duplicated parts, broken joints, and impossible attachments as severe failures rather than minor issues whenever visible evidence supports them. Output only valid JSON matching the requested schema."""
+EXPERT_SYSTEM = """You are a careful but conservative image evaluation expert. Return grounded evidence only. For structural analysis, focus on subject-specific anatomical and part-attachment integrity, and when evidence is ambiguous, prefer treating the ambiguity as a possible failure risk rather than assuming the image is correct. For quality analysis, treat extra appendages, impossible limbs, malformed extremities, duplicated parts, broken joints, and impossible attachments as severe visible failures whenever evidence supports them. Output only valid JSON matching the requested schema."""
 
 
 def build_expert_reliability_context(

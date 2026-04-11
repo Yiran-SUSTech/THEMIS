@@ -15,7 +15,7 @@ from .expert_performance import (
     detect_expert_conflicts,
     calculate_weighted_severity,
 )
-from .local_experts import LocalArtifactExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
+from .local_experts import LocalQualityExpert, LocalExpertError, LocalPlanner, LocalSemanticExpert, LocalJudge, LocalReflector, LocalStructuralExpert, LocalVQAExpert, LocalReport
 from .expert_models import run_expert_evaluation
 from .prompts import (
     EXPERT_SYSTEM,
@@ -42,7 +42,7 @@ from .schemas import (
 )
 
 
-ROLE_EXPERT_ENUM = ["semantic", "structural", "artifact", "vqa"]
+ROLE_EXPERT_ENUM = ["semantic", "structural", "quality", "vqa"]
 PLANNED_MODEL_ENUM = [
     "clip",
     "clip_score",
@@ -76,7 +76,7 @@ SUGGESTED_EXPERT_ENUM = ROLE_EXPERT_ENUM + PLANNED_MODEL_ENUM
 STEP_TYPE_ENUM = [
     "semantic_check",
     "structural_check",
-    "artifact_check",
+    "quality_check",
     "vqa_evidence",
     "candidate_generation",
     "label_space_check",
@@ -156,7 +156,7 @@ PLAN_REVIEW_SCHEMA: dict[str, Any] = {
 EXPERT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "expert": {"type": "string", "enum": ["semantic", "structural", "artifact", "vqa"]},
+        "expert": {"type": "string", "enum": ["semantic", "structural", "quality", "vqa"]},
         "summary": {"type": "string"},
         "findings": {"type": "array", "items": {"type": "string"}},
         "severity": {"type": "number"},
@@ -305,7 +305,7 @@ def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_prof
         if model_profile == "local_stronger":
             return client.settings.semantic_local_stronger_model
         return client.settings.semantic_local_fast_model
-    if expert_name == "artifact" and client.settings.local_artifact_enabled:
+    if expert_name == "quality" and client.settings.local_artifact_enabled:
         return _artifact_local_model_name(model_profile)
     raise RuntimeError(f"No local model configured for expert '{expert_name}'")
 
@@ -326,13 +326,13 @@ def _assess_task_fit(settings, expert_name: str, image_input, step_type: str = "
     score = 1.0
     reasons: list[str] = []
 
-    if step_type == "artifact_check":
-        if config.evidence_role and "artifact" in config.evidence_role:
+    if step_type == "quality_check":
+        if config.evidence_role and "quality" in config.evidence_role:
             score = min(score, 1.0)
-            reasons.append("Expert role matches artifact assessment.")
+            reasons.append("Expert role matches quality assessment.")
         else:
             score = min(score, 0.55)
-            reasons.append("Expert is not specialized for artifact assessment.")
+            reasons.append("Expert is not specialized for quality assessment.")
 
     if step_type in {"semantic_check", "label_space_check", "confusable_disambiguation"}:
         if config.label_space == "imagenet_21k" and config.output_interpretability == "class_index_only_without_external_label_map":
@@ -375,6 +375,71 @@ def _task_fit_weighted_severity(expert_payload: list[dict[str, Any]]) -> float:
     if weight_sum == 0:
         return 0.0
     return weighted_sum / weight_sum
+
+
+def _collect_previous_candidate_labels(previous_results: dict[str, ExpertResult]) -> list[str]:
+    candidate_labels: list[str] = []
+    seen: set[str] = set()
+    for previous in previous_results.values():
+        extra_info = getattr(previous, "extra_info", None) or {}
+        for key in ("candidate_labels",):
+            previous_candidates = extra_info.get(key)
+            if not isinstance(previous_candidates, list):
+                continue
+            for item in previous_candidates:
+                candidate = str(item).strip()
+                normalized = candidate.lower()
+                if candidate and normalized not in seen:
+                    seen.add(normalized)
+                    candidate_labels.append(candidate)
+    return candidate_labels
+
+
+def _build_vqa_question(step, previous_results: dict[str, ExpertResult]) -> str:
+    question = step.prompt_focus or step.goal or "Describe this image."
+    if getattr(step, "use_previous_outputs", False) and previous_results:
+        previous_summary = [f"{name}: {result.summary}" for name, result in previous_results.items()]
+        question = f"{question}\nPrevious expert evidence:\n" + "\n".join(previous_summary)
+    return question
+
+
+def _build_specialized_expert_kwargs(config, image_input, step, previous_results: dict[str, ExpertResult]) -> tuple[dict[str, Any], list[str]]:
+    kwargs: dict[str, Any] = {}
+    step_type = getattr(step, "step_type", "")
+    candidate_labels = _collect_previous_candidate_labels(previous_results)
+    model_type = (getattr(config, "model_type", "") or "").strip().lower()
+
+    if model_type in {"clip", "clip_score"}:
+        kwargs["prompt"] = image_input.prompt
+        kwargs["class_label"] = image_input.class_label
+        if step_type == "confusable_disambiguation":
+            kwargs["candidate_labels"] = candidate_labels
+            kwargs["task_type"] = "confusable_disambiguation"
+    elif model_type in {"classification", "eva_classification"}:
+        kwargs["class_label"] = image_input.class_label
+    elif model_type == "text_embedding":
+        kwargs["class_label"] = image_input.class_label
+        kwargs["candidate_pool"] = candidate_labels or None
+        kwargs["top_k"] = 8
+    elif model_type == "detection":
+        kwargs["class_label"] = image_input.class_label
+    elif model_type in {"places365", "segmentation", "yolo_pose", "iqa"}:
+        pass
+    elif model_type == "vqa":
+        kwargs["question"] = _build_vqa_question(step, previous_results)
+
+    return kwargs, candidate_labels
+
+
+def _should_run_vlm_overseer(step, config) -> bool:
+    if step.expert not in ["semantic", "structural"]:
+        return False
+    model_type = (getattr(config, "model_type", "") or "").strip().lower()
+    if model_type in {"vqa", "iqa", "text_embedding"}:
+        return False
+    if step.expert == "semantic":
+        return model_type in {"clip", "clip_score", "classification", "eva_classification", "detection"}
+    return model_type in {"clip", "clip_score", "classification", "eva_classification", "yolo_pose", "detection", "segmentation"}
 
 
 def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
@@ -439,15 +504,15 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
 
     user_text = (
         f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        "Create a concise evaluation plan using the available experts: semantic, structural, artifact, vqa. "
+        "Create a concise evaluation plan using the available experts: semantic, structural, quality, vqa. "
         "Plan jointly from the image itself and the prompt/class label together as one multimodal grounding task. "
-        "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass. "
-        "Unless the image is trivially simple, include at least one semantic step, one structural step, and one artifact step; include vqa only if earlier evidence leaves a material unresolved question. "
-        "Step order should usually be: semantic alignment first, structural coherence second, local artifact severity third, then optional vqa. "
-        "For each step, choose a model_profile. Strongly prefer the cheapest adequate local route first: semantic should start with local_fast, structural should start with local_fast, artifact should start with local_default or local_richer, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
+        "The plan must cover semantic alignment, whole-subject global structure, and a separate local quality-evidence pass. "
+        "Unless the image is trivially simple, include at least one semantic step, one structural step, and one quality step; include vqa only if earlier evidence leaves a material unresolved question. "
+        "Step order should usually be: semantic alignment first, structural coherence second, local quality evidence third, then optional vqa. "
+        "For each step, choose a model_profile. Strongly prefer the cheapest adequate local route first: semantic should start with local_fast, structural should start with local_fast, quality should start with local_default or local_richer, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
         "For semantic steps, check whether the visible subject is plausibly the labeled class from image evidence alone, then note the strongest confirming or contradicting traits. "
         "For structural steps, first test whether the whole animal forms a coherent instance of the labeled subject, then target the most likely subject-specific confusion risks and part-integrity failures visible in this image. Use the class label to name distinguishing morphology, body proportions, pose plausibility, and scene compatibility that separate this subject from nearby lookalikes. "
-        "For artifact steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
+        "For quality steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
         "Do not frame any step as comparing against external reference photos or doing open-ended species research; inspect this image directly. "
         "Escalate to local_stronger only when the task is fine-grained, evidence is ambiguous, or prior judge/reflector feedback indicates the earlier route was insufficient. "
         "Set prompt_focus to the exact visual evidence the expert should inspect, using subject-specific failure modes instead of a generic checklist. Set allow_escalation to false for steps that should stay on the chosen route."
@@ -571,40 +636,7 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
     if settings.use_specialized_experts and planned_model:
         config = settings.get_expert_config(planned_model)
         if config is not None:
-            kwargs: dict[str, Any] = {}
-            step_type = getattr(step, "step_type", "")
-            candidate_labels: list[str] = []
-            for previous in previous_results.values():
-                extra_info = getattr(previous, "extra_info", None) or {}
-                previous_candidates = extra_info.get("candidate_labels")
-                if isinstance(previous_candidates, list):
-                    candidate_labels.extend(str(item) for item in previous_candidates if str(item).strip())
-
-            if planned_model in {"clip", "clip_score"}:
-                kwargs["prompt"] = image_input.prompt
-                kwargs["class_label"] = image_input.class_label
-                if step_type == "confusable_disambiguation":
-                    kwargs["candidate_labels"] = candidate_labels
-                    kwargs["task_type"] = "confusable_disambiguation"
-            elif planned_model in {"imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224"}:
-                kwargs["class_label"] = image_input.class_label
-            elif planned_model in {"bge_candidate_generator", "e5_candidate_generator"}:
-                kwargs["class_label"] = image_input.class_label
-                kwargs["candidate_pool"] = candidate_labels or None
-                kwargs["top_k"] = 8
-            elif planned_model in {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal"}:
-                pass
-            elif planned_model in {"iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"}:
-                pass
-            elif planned_model == "vqa":
-                question = step.prompt_focus or step.goal or "Describe this image."
-                if getattr(step, "use_previous_outputs", False) and previous_results:
-                    previous_summary = [f"{name}: {result.summary}" for name, result in previous_results.items()]
-                    question = f"{question}\nPrevious expert evidence:\n" + "\n".join(previous_summary)
-                kwargs["question"] = question
-            else:
-                raise RuntimeError(f"Unsupported planned model '{planned_model}'")
-
+            kwargs, candidate_labels = _build_specialized_expert_kwargs(config, image_input, step, previous_results)
             result = run_expert_evaluation(
                 planned_model,
                 image_input.image_path,
@@ -630,10 +662,10 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
             raise RuntimeError(f"Local semantic model is disabled for expert '{step.expert}'")
         return _run_vlm_role_step(state, settings, step)
 
-    if step.expert == "artifact":
+    if step.expert == "quality":
         if not settings.local_artifact_enabled:
-            raise RuntimeError("Local artifact expert is disabled")
-        payload = LocalArtifactExpert(settings).evaluate(image_path=image_input.image_path)
+            raise RuntimeError("Local quality expert is disabled")
+        payload = LocalQualityExpert(settings).evaluate(image_path=image_input.image_path)
         task_fit, task_fit_reason = _assess_task_fit(settings, planned_model or step.expert, image_input, getattr(step, "step_type", ""))
         payload["task_fit"] = task_fit
         payload["task_fit_reason"] = task_fit_reason
@@ -731,7 +763,8 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
         try:
             result = run_expert(current_state, client, step)
 
-            if client.settings.use_vlm_overseer and step.expert in ["semantic", "structural"] and step.planned_model in {"clip", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224"}:
+            config = client.settings.get_expert_config(step.planned_model)
+            if client.settings.use_vlm_overseer and config is not None and _should_run_vlm_overseer(step, config):
                 overseer_started = perf_counter()
                 result = vlm_overseer_verify(current_state, client, result, step.expert)
                 overseer_elapsed = perf_counter() - overseer_started

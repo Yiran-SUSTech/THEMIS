@@ -1,0 +1,528 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import tempfile
+import time
+import traceback
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from PIL import Image, ImageDraw
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+
+@dataclass
+class TestResult:
+    name: str
+    status: str
+    load_ok: bool = False
+    run_ok: bool = False
+    path: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+    error: str = ""
+    traceback: str = ""
+    elapsed_seconds: float = 0.0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Smoke test newly added local models")
+    parser.add_argument("--model-dir", default=os.getenv("MODEL_DIR", str(ROOT / "models")), help="Model root directory")
+    parser.add_argument("--image", default=None, help="Optional image for inference")
+    parser.add_argument("--device", default="cuda:0", help="Device for runnable tests, e.g. cuda:0 or cpu")
+    parser.add_argument("--dtype", default="auto", choices=["auto", "float32", "float16", "bfloat16"], help="Torch dtype for transformer models")
+    parser.add_argument("--max-new-tokens", type=int, default=24, help="Generation length for Q-Insight smoke test")
+    parser.add_argument("--groundingdino-swint-config", default="", help="Optional path to GroundingDINO_SwinT_OGC.py")
+    parser.add_argument("--groundingdino-swinb-config", default="", help="Optional path to GroundingDINO_SwinB_cfg.py")
+    parser.add_argument("--sam2-config-dir", default="", help="Optional repo/config root containing configs/sam2.1/*.yaml")
+    parser.add_argument("--output", default=str(ROOT / "outputs" / "new_model_smoke_test.json"), help="JSON report path")
+    return parser.parse_args()
+
+
+def build_test_image() -> str:
+    tmp_dir = Path(tempfile.gettempdir()) / "themis_new_model_smoke"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    image_path = tmp_dir / "new_model_test_input.png"
+    if image_path.exists():
+        return str(image_path)
+
+    image = Image.new("RGB", (512, 512), color=(236, 239, 244))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((130, 90, 380, 340), fill=(138, 104, 77), outline=(30, 30, 30), width=4)
+    draw.ellipse((185, 145, 225, 185), fill=(20, 20, 20))
+    draw.ellipse((285, 145, 325, 185), fill=(20, 20, 20))
+    draw.polygon([(255, 195), (235, 238), (275, 238)], fill=(215, 184, 132), outline=(45, 45, 45))
+    draw.rectangle((195, 340, 220, 455), fill=(93, 74, 60))
+    draw.rectangle((290, 340, 315, 455), fill=(93, 74, 60))
+    draw.line((365, 250, 445, 305), fill=(80, 65, 50), width=8)
+    draw.text((20, 20), "THEMIS new-model smoke test", fill=(10, 10, 10))
+    image.save(image_path)
+    return str(image_path)
+
+
+def maybe_import(module_name: str):
+    try:
+        module = __import__(module_name, fromlist=["*"])
+        return module, ""
+    except Exception as exc:  # noqa: BLE001
+        return None, str(exc)
+
+
+def resolve_torch_dtype(torch_module: Any, dtype_name: str):
+    if dtype_name == "float16":
+        return torch_module.float16
+    if dtype_name == "float32":
+        return torch_module.float32
+    if dtype_name == "bfloat16":
+        return torch_module.bfloat16
+    if torch_module.cuda.is_available():
+        return torch_module.bfloat16
+    return torch_module.float32
+
+
+def torch_load_file(file_path: Path) -> tuple[bool, str]:
+    torch_module, import_error = maybe_import("torch")
+    if torch_module is None:
+        return False, f"torch import failed: {import_error}"
+    try:
+        torch_module.load(str(file_path), map_location="cpu")
+        return True, "checkpoint readable via torch.load"
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)
+
+
+def make_result(name: str, path: Path) -> TestResult:
+    return TestResult(name=name, status="failed", path=str(path))
+
+
+def test_deeplabcut(model_dir: Path) -> TestResult:
+    root = model_dir / "DeepLabCut"
+    result = make_result("DeepLabCut SuperAnimal Quadruped RTMPose", root)
+    started = time.time()
+    try:
+        checkpoints = {
+            "s": root / "superanimal_quadruped_rtmpose_s.pt",
+            "m": root / "superanimal_quadruped_rtmpose_m.pt",
+            "x": root / "superanimal_quadruped_rtmpose_x.pt",
+        }
+        missing = [name for name, path in checkpoints.items() if not path.exists()]
+        result.details["files"] = {name: str(path) for name, path in checkpoints.items()}
+        if missing:
+            result.status = "failed"
+            result.error = f"missing checkpoints: {missing}"
+            return result
+
+        result.load_ok = True
+        result.details["checkpoint_readability"] = {}
+        for name, path in checkpoints.items():
+            ok, message = torch_load_file(path)
+            result.details["checkpoint_readability"][name] = {"ok": ok, "message": message}
+            result.load_ok = result.load_ok and ok
+
+        deeplabcut_module, deeplabcut_error = maybe_import("deeplabcut")
+        result.details["deeplabcut_importable"] = deeplabcut_module is not None
+        if deeplabcut_module is None:
+            result.status = "blocked"
+            result.error = f"deeplabcut not importable: {deeplabcut_error}"
+            result.details["note"] = "These RTMPose files are not enough for end-to-end SuperAnimal inference by themselves; DLC package and matching detector/zoo assets are also needed."
+            return result
+
+        detector_candidates = list(root.glob("*detector*.pt")) + list(root.glob("*superanimal_quadruped*.yaml"))
+        result.details["companion_assets_found"] = [str(path) for path in detector_candidates]
+        if not detector_candidates:
+            result.status = "blocked"
+            result.error = "DLC package is installed, but matching detector/config assets for SuperAnimal inference were not found in the model directory"
+            result.details["note"] = "The downloaded RTMPose checkpoints look intact, but full DeepLabCut SuperAnimal inference typically also needs detector/config assets."
+            return result
+
+        result.status = "partial"
+        result.details["note"] = "Checkpoint files are readable and DeepLabCut imports, but this script does not force a full DLC project/inference pipeline because the local zoo layout may differ."
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback = traceback.format_exc()
+        return result
+    finally:
+        result.elapsed_seconds = round(time.time() - started, 3)
+
+
+def test_unipose(model_dir: Path) -> TestResult:
+    root = model_dir / "unipose"
+    result = make_result("UniPose adapter bundle", root)
+    started = time.time()
+    try:
+        adapter_config_path = root / "adapter_config.json"
+        adapter_weights = root / "adapter_model.safetensors"
+        non_lora = root / "non_lora_trainables.bin"
+        required = [adapter_config_path, adapter_weights]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            result.status = "failed"
+            result.error = f"missing required files: {missing}"
+            return result
+
+        adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
+        base_hint = str(adapter_config.get("base_model_name_or_path", "")).strip()
+        base_path = (root / base_hint).resolve() if base_hint.startswith(".") else Path(base_hint)
+        result.load_ok = True
+        result.details["peft_type"] = adapter_config.get("peft_type")
+        result.details["base_model_name_or_path"] = base_hint
+        result.details["resolved_base_path"] = str(base_path)
+        result.details["base_exists"] = base_path.exists()
+        result.details["has_non_lora_trainables"] = non_lora.exists()
+
+        peft_module, peft_error = maybe_import("peft")
+        result.details["peft_importable"] = peft_module is not None
+        if peft_module is None:
+            result.status = "blocked"
+            result.error = f"peft not importable: {peft_error}"
+            return result
+
+        from peft import PeftConfig  # type: ignore
+
+        peft_config = PeftConfig.from_pretrained(str(root), local_files_only=True)
+        result.details["peft_base_model_from_library"] = getattr(peft_config, "base_model_name_or_path", "")
+
+        if not base_path.exists():
+            result.status = "blocked"
+            result.error = "UniPose directory is an adapter/LoRA bundle, but the referenced base model is not present locally"
+            result.details["note"] = "This folder cannot run standalone inference until the base multimodal model is also available."
+            return result
+
+        result.status = "partial"
+        result.details["note"] = "Adapter metadata is valid and the base path exists, but full UniPose inference is not attempted here because it depends on the exact upstream model class / runner integration."
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback = traceback.format_exc()
+        return result
+    finally:
+        result.elapsed_seconds = round(time.time() - started, 3)
+
+
+def test_groundingdino(model_dir: Path, image_path: str, swint_config: str, swinb_config: str) -> TestResult:
+    root = model_dir / "grounded-dino"
+    result = make_result("GroundingDINO", root)
+    started = time.time()
+    try:
+        checkpoints = {
+            "swint_ogc": {
+                "path": root / "groundingdino_swint_ogc.pth",
+                "config": swint_config.strip(),
+            },
+            "swinb_cogcoor": {
+                "path": root / "groundingdino_swinb_cogcoor.pth",
+                "config": swinb_config.strip(),
+            },
+        }
+        result.details["variants"] = {}
+        overall_load_ok = True
+        overall_run_ok = True
+
+        for key, item in checkpoints.items():
+            ckpt_path = item["path"]
+            variant_info: dict[str, Any] = {"path": str(ckpt_path), "config": item["config"]}
+            if not ckpt_path.exists():
+                variant_info["ok"] = False
+                variant_info["error"] = "checkpoint missing"
+                result.details["variants"][key] = variant_info
+                overall_load_ok = False
+                overall_run_ok = False
+                continue
+
+            ok, message = torch_load_file(ckpt_path)
+            variant_info["checkpoint_readable"] = ok
+            variant_info["checkpoint_message"] = message
+            overall_load_ok = overall_load_ok and ok
+
+            if not item["config"]:
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = "config path not provided"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            groundingdino_module, groundingdino_error = maybe_import("groundingdino.util.inference")
+            if groundingdino_module is None:
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = f"groundingdino package not importable: {groundingdino_error}"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            config_path = Path(item["config"])
+            if not config_path.exists():
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = f"config not found: {config_path}"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            try:
+                from groundingdino.util.inference import load_image, load_model, predict  # type: ignore
+
+                model = load_model(str(config_path), str(ckpt_path))
+                image_source, image = load_image(image_path)
+                boxes, logits, phrases = predict(
+                    model=model,
+                    image=image,
+                    caption="animal . object .",
+                    box_threshold=0.25,
+                    text_threshold=0.2,
+                )
+                variant_info["run_status"] = "passed"
+                variant_info["detections"] = len(boxes) if boxes is not None else 0
+                variant_info["phrases"] = [str(item) for item in (phrases or [])[:5]]
+            except Exception as exc:  # noqa: BLE001
+                variant_info["run_status"] = "failed"
+                variant_info["run_error"] = str(exc)
+                overall_run_ok = False
+
+            result.details["variants"][key] = variant_info
+
+        result.load_ok = overall_load_ok
+        result.run_ok = overall_run_ok
+        if overall_load_ok and overall_run_ok:
+            result.status = "passed"
+        elif overall_load_ok:
+            result.status = "partial"
+        else:
+            result.status = "failed"
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback = traceback.format_exc()
+        return result
+    finally:
+        result.elapsed_seconds = round(time.time() - started, 3)
+
+
+def test_sam2(model_dir: Path, sam2_config_dir: str) -> TestResult:
+    root = model_dir / "sam2"
+    result = make_result("SAM2.1", root)
+    started = time.time()
+    try:
+        config_dir = Path(sam2_config_dir) if sam2_config_dir.strip() else None
+        variants = {
+            "tiny": (root / "sam2.1_hiera_tiny.pt", "configs/sam2.1/sam2.1_hiera_t.yaml"),
+            "small": (root / "sam2.1_hiera_small.pt", "configs/sam2.1/sam2.1_hiera_s.yaml"),
+            "base_plus": (root / "sam2.1_hiera_base_plus.pt", "configs/sam2.1/sam2.1_hiera_b+.yaml"),
+            "large": (root / "sam2.1_hiera_large.pt", "configs/sam2.1/sam2.1_hiera_l.yaml"),
+        }
+        result.details["variants"] = {}
+        overall_load_ok = True
+        overall_run_ok = True
+
+        for key, (ckpt_path, relative_cfg) in variants.items():
+            variant_info: dict[str, Any] = {"path": str(ckpt_path), "config_relative": relative_cfg}
+            if not ckpt_path.exists():
+                variant_info["ok"] = False
+                variant_info["error"] = "checkpoint missing"
+                result.details["variants"][key] = variant_info
+                overall_load_ok = False
+                overall_run_ok = False
+                continue
+
+            ok, message = torch_load_file(ckpt_path)
+            variant_info["checkpoint_readable"] = ok
+            variant_info["checkpoint_message"] = message
+            overall_load_ok = overall_load_ok and ok
+
+            sam2_module, sam2_error = maybe_import("sam2.build_sam")
+            if sam2_module is None:
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = f"sam2 package not importable: {sam2_error}"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            if config_dir is None:
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = "--sam2-config-dir not provided"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            config_path = config_dir / relative_cfg
+            variant_info["resolved_config"] = str(config_path)
+            if not config_path.exists():
+                variant_info["run_status"] = "blocked"
+                variant_info["run_error"] = f"config not found: {config_path}"
+                overall_run_ok = False
+                result.details["variants"][key] = variant_info
+                continue
+
+            try:
+                from sam2.build_sam import build_sam2  # type: ignore
+                model = build_sam2(str(config_path), str(ckpt_path), device="cpu")
+                variant_info["run_status"] = "passed"
+                variant_info["model_class"] = model.__class__.__name__
+            except Exception as exc:  # noqa: BLE001
+                variant_info["run_status"] = "failed"
+                variant_info["run_error"] = str(exc)
+                overall_run_ok = False
+
+            result.details["variants"][key] = variant_info
+
+        result.load_ok = overall_load_ok
+        result.run_ok = overall_run_ok
+        if overall_load_ok and overall_run_ok:
+            result.status = "passed"
+        elif overall_load_ok:
+            result.status = "partial"
+        else:
+            result.status = "failed"
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback = traceback.format_exc()
+        return result
+    finally:
+        result.elapsed_seconds = round(time.time() - started, 3)
+
+
+def test_qinsight(model_dir: Path, image_path: str, device: str, dtype_name: str, max_new_tokens: int) -> TestResult:
+    root = model_dir / "Q-Insight" / "score_degradation"
+    result = make_result("Q-Insight score_degradation", root)
+    started = time.time()
+    try:
+        required = [
+            root / "config.json",
+            root / "preprocessor_config.json",
+            root / "tokenizer_config.json",
+            root / "model.safetensors.index.json",
+        ]
+        missing = [str(path) for path in required if not path.exists()]
+        shards = sorted(root.glob("model-*.safetensors"))
+        result.details["shard_count"] = len(shards)
+        if missing:
+            result.status = "failed"
+            result.error = f"missing required files: {missing}"
+            return result
+        if not shards:
+            result.status = "failed"
+            result.error = "no safetensor shards found"
+            return result
+
+        torch_module, torch_error = maybe_import("torch")
+        if torch_module is None:
+            result.status = "blocked"
+            result.error = f"torch not importable: {torch_error}"
+            return result
+
+        transformers_module, transformers_error = maybe_import("transformers")
+        if transformers_module is None:
+            result.status = "blocked"
+            result.error = f"transformers not importable: {transformers_error}"
+            return result
+
+        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # type: ignore
+
+        dtype = resolve_torch_dtype(torch_module, dtype_name)
+        processor = AutoProcessor.from_pretrained(str(root), local_files_only=True, trust_remote_code=True)
+        load_kwargs: dict[str, Any] = {
+            "local_files_only": True,
+            "trust_remote_code": True,
+            "torch_dtype": dtype,
+        }
+        if device != "cpu" and torch_module.cuda.is_available():
+            load_kwargs["device_map"] = "auto"
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(str(root), **load_kwargs)
+        if device == "cpu" or not torch_module.cuda.is_available():
+            model = model.to("cpu")
+
+        result.load_ok = True
+
+        image = Image.open(image_path).convert("RGB")
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": "Briefly describe visible quality problems in this image."},
+                ],
+            }
+        ]
+        prompt_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = processor(text=[prompt_text], images=[image], padding=True, return_tensors="pt")
+
+        model_device = next(model.parameters()).device
+        inputs = {key: value.to(model_device) if hasattr(value, "to") else value for key, value in inputs.items()}
+        with torch_module.no_grad():
+            generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=max_new_tokens)
+        prompt_length = inputs["input_ids"].shape[1]
+        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+        output_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+
+        result.run_ok = True
+        result.status = "passed"
+        result.details["generation_preview"] = output_text[:300]
+        result.details["device_used"] = str(model_device)
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback = traceback.format_exc()
+        return result
+    finally:
+        result.elapsed_seconds = round(time.time() - started, 3)
+
+
+def summarize(results: list[TestResult]) -> dict[str, Any]:
+    counts = {"passed": 0, "partial": 0, "blocked": 0, "failed": 0}
+    for item in results:
+        counts[item.status] = counts.get(item.status, 0) + 1
+    return counts
+
+
+def main() -> int:
+    args = parse_args()
+    model_dir = Path(args.model_dir)
+    image_path = args.image or build_test_image()
+
+    results = [
+        test_deeplabcut(model_dir),
+        test_unipose(model_dir),
+        test_groundingdino(model_dir, image_path, args.groundingdino_swint_config, args.groundingdino_swinb_config),
+        test_sam2(model_dir, args.sam2_config_dir),
+        test_qinsight(model_dir, image_path, args.device, args.dtype, args.max_new_tokens),
+    ]
+
+    report = {
+        "model_dir": str(model_dir),
+        "image": image_path,
+        "device": args.device,
+        "dtype": args.dtype,
+        "summary": summarize(results),
+        "results": [asdict(item) for item in results],
+        "notes": [
+            "DeepLabCut SuperAnimal RTMPose and some vision model checkpoints are not always runnable standalone from checkpoint files alone; companion code/config assets may also be required.",
+            "UniPose in the provided directory looks like a PEFT/LoRA adapter bundle, not a standalone full model.",
+            "Q-Insight score_degradation looks like the only fully self-contained new model among the provided downloads.",
+        ],
+    }
+
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
+    print(f"Report saved to: {output_path}")
+
+    return 0 if report["summary"]["failed"] == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

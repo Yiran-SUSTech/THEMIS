@@ -51,7 +51,7 @@ def get_image_transform(size: Tuple[int, int],
 class ExpertType(Enum):
     SEMANTIC = "semantic"
     STRUCTURAL = "structural"
-    ARTIFACT = "artifact"
+    QUALITY = "quality"
     VQA = "vqa"
     CLASSIFICATION = "classification"
     POSE = "pose"
