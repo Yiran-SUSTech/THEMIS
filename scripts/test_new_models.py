@@ -474,7 +474,9 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                     (key[len("base_model.model."):] if key.startswith("base_model.model.") else key): value
                     for key, value in non_lora_trainables.items()
                 }
-                model.resize_token_embeddings(len(tokenizer))
+                target_vocab_size = max(int(len(tokenizer)), 34132)
+                model.resize_token_embeddings(target_vocab_size)
+                result.details["inference_diagnostics"]["target_vocab_size"] = target_vocab_size
                 current_state = model.state_dict()
                 current_state_keys = list(current_state.keys())
                 adjusted_state: dict[str, Any] = {}
@@ -482,7 +484,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 skipped_mismatched_keys: list[dict[str, Any]] = []
                 remapped_checkpoint_keys: list[dict[str, str]] = []
                 ignored_checkpoint_keys: list[str] = []
-                result.details["inference_diagnostics"]["debug_script_version"] = "unipose_embedding_fix_v3"
+                result.details["inference_diagnostics"]["debug_script_version"] = "unipose_embedding_fix_v4"
                 result.details["inference_diagnostics"]["non_lora_key_sample"] = list(non_lora_trainables.keys())[:12]
 
                 def resolve_state_key(source_key: str) -> str | None:
@@ -544,7 +546,12 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 incompatible_keys = model.load_state_dict(adjusted_state, strict=False)
                 result.details["inference_diagnostics"]["load_state_dict_missing_keys"] = list(getattr(incompatible_keys, "missing_keys", []))[:20]
                 result.details["inference_diagnostics"]["load_state_dict_unexpected_keys"] = list(getattr(incompatible_keys, "unexpected_keys", []))[:20]
-                model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
+                model = PeftModel.from_pretrained(
+                    model,
+                    str(root),
+                    local_files_only=True,
+                    ignore_mismatched_sizes=True,
+                )
                 model = model.merge_and_unload()
                 model.get_model().load_pose_vqvae(**config)
                 vision_tower = model.get_vision_tower()
