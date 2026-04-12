@@ -10,6 +10,7 @@ import time
 import traceback
 import warnings
 from contextlib import contextmanager
+from types import MethodType
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -628,7 +629,47 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 model.generation_config.use_cache = False
             if hasattr(model, "config"):
                 model.config.use_cache = False
+
+            def evaluate_no_cache(self, body_poseA_rotmat, body_poseB_rotmat, images, caption, tasks, **kwargs):
+                poseA_tokens = self.model.pose_vqvae.encode(body_poseA_rotmat)
+                poseB_tokens = self.model.pose_vqvae.encode(body_poseB_rotmat)
+                input_ids, attention_mask = process_templates(
+                    caption,
+                    tasks,
+                    poseA_tokens,
+                    poseB_tokens,
+                    tokenizer=self.tokenizer,
+                    codebook_size=self.pose_vqvae_codebook_size,
+                )
+                self.config.tokenizer_padding_side = "left"
+                input_ids = input_ids.to(self.device, non_blocking=True)
+                attention_mask = attention_mask.to(self.device, non_blocking=True)
+                outputs = self.generate(
+                    input_ids,
+                    attention_mask=attention_mask,
+                    images=images,
+                    max_new_tokens=512,
+                    num_beams=1,
+                    use_cache=False,
+                    tasks=tasks,
+                    **kwargs,
+                )
+                pred_body_pose = None
+                pred_text = None
+                if torch_module.where(outputs == self.pose_begin_idx)[0].shape[0] > 0:
+                    pred_body_pose = self.decode_pose_from_outputs(
+                        outputs,
+                        self.device,
+                        input_ids.dtype,
+                        return_pose_type="axis_angle",
+                    )
+                else:
+                    pred_text = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                return {"body_pose": pred_body_pose, "text": pred_text}
+
+            model.evaluate = MethodType(evaluate_no_cache, model)
             result.details["inference_diagnostics"]["forced_use_cache"] = False
+            result.details["inference_diagnostics"]["patched_evaluate_no_cache"] = True
             result.load_ok = True
             result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
             result.details["inference_diagnostics"]["image_processor_class"] = image_processor.__class__.__name__
@@ -654,7 +695,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
             }
 
             with torch_module.no_grad():
-                output = model.evaluate(use_cache=False, **batch)
+                output = model.evaluate(**batch)
             result.details["inference_diagnostics"]["evaluate_return_type"] = type(output).__name__
             result.details["inference_diagnostics"]["evaluate_repr_preview"] = repr(output)[:1000]
             result.details["inference_diagnostics"]["output_keys"] = list(output.keys()) if isinstance(output, dict) else []
