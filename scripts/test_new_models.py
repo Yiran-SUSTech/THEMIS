@@ -476,32 +476,74 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 }
                 model.resize_token_embeddings(len(tokenizer))
                 current_state = model.state_dict()
+                current_state_keys = list(current_state.keys())
                 adjusted_state: dict[str, Any] = {}
                 embedding_adjustments: list[dict[str, Any]] = []
+                skipped_mismatched_keys: list[dict[str, Any]] = []
+                remapped_checkpoint_keys: list[dict[str, str]] = []
+                ignored_checkpoint_keys: list[str] = []
+                result.details["inference_diagnostics"]["debug_script_version"] = "unipose_embedding_fix_v3"
+                result.details["inference_diagnostics"]["non_lora_key_sample"] = list(non_lora_trainables.keys())[:12]
+
+                def resolve_state_key(source_key: str) -> str | None:
+                    if source_key in current_state:
+                        return source_key
+                    suffix_matches = [state_key for state_key in current_state_keys if state_key.endswith(source_key)]
+                    if len(suffix_matches) == 1:
+                        return suffix_matches[0]
+                    normalized_key = source_key.replace(".default", "")
+                    if normalized_key != source_key:
+                        if normalized_key in current_state:
+                            return normalized_key
+                        normalized_matches = [state_key for state_key in current_state_keys if state_key.endswith(normalized_key)]
+                        if len(normalized_matches) == 1:
+                            return normalized_matches[0]
+                    return None
+
+                def is_embedding_like(state_key: str) -> bool:
+                    return state_key.endswith("embed_tokens.weight") or state_key.endswith("lm_head.weight")
+
                 for key, value in non_lora_trainables.items():
-                    target_value = current_state.get(key)
-                    if target_value is None:
-                        adjusted_state[key] = value
+                    resolved_key = resolve_state_key(key)
+                    if resolved_key is None:
+                        ignored_checkpoint_keys.append(key)
                         continue
+                    if resolved_key != key:
+                        remapped_checkpoint_keys.append({"source": key, "target": resolved_key})
+                    target_value = current_state[resolved_key]
                     if tuple(value.shape) == tuple(target_value.shape):
-                        adjusted_state[key] = value
+                        adjusted_state[resolved_key] = value
                         continue
-                    if key in {"model.embed_tokens.weight", "lm_head.weight"} and value.ndim == 2 and target_value.ndim == 2 and value.shape[1] == target_value.shape[1]:
+                    if value.ndim == 2 and target_value.ndim == 2 and value.shape[1] == target_value.shape[1] and is_embedding_like(resolved_key):
                         patched_value = target_value.detach().cpu().clone()
                         copy_rows = min(int(value.shape[0]), int(target_value.shape[0]))
                         patched_value[:copy_rows] = value[:copy_rows]
-                        adjusted_state[key] = patched_value
+                        adjusted_state[resolved_key] = patched_value
                         embedding_adjustments.append({
-                            "key": key,
+                            "source_key": key,
+                            "target_key": resolved_key,
                             "checkpoint_shape": [int(item) for item in value.shape],
                             "model_shape": [int(item) for item in target_value.shape],
                             "copied_rows": copy_rows,
                         })
                         continue
-                    adjusted_state[key] = value
+                    skipped_mismatched_keys.append({
+                        "source_key": key,
+                        "target_key": resolved_key,
+                        "checkpoint_shape": [int(item) for item in value.shape],
+                        "model_shape": [int(item) for item in target_value.shape],
+                    })
+                if remapped_checkpoint_keys:
+                    result.details["inference_diagnostics"]["remapped_checkpoint_keys"] = remapped_checkpoint_keys[:20]
+                if ignored_checkpoint_keys:
+                    result.details["inference_diagnostics"]["ignored_checkpoint_keys"] = ignored_checkpoint_keys[:20]
                 if embedding_adjustments:
                     result.details["inference_diagnostics"]["embedding_adjustments"] = embedding_adjustments
-                model.load_state_dict(adjusted_state, strict=False)
+                if skipped_mismatched_keys:
+                    result.details["inference_diagnostics"]["skipped_mismatched_keys"] = skipped_mismatched_keys
+                incompatible_keys = model.load_state_dict(adjusted_state, strict=False)
+                result.details["inference_diagnostics"]["load_state_dict_missing_keys"] = list(getattr(incompatible_keys, "missing_keys", []))[:20]
+                result.details["inference_diagnostics"]["load_state_dict_unexpected_keys"] = list(getattr(incompatible_keys, "unexpected_keys", []))[:20]
                 model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
                 model = model.merge_and_unload()
                 model.get_model().load_pose_vqvae(**config)
