@@ -676,15 +676,31 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                             past_key_values = past_key_values.to_legacy_cache()
                         else:
                             past_key_values = None
+                    cache_length = None
+                    past_length = None
                     if past_key_values is not None:
-                        cache_length = past_length = past_key_values[0][0].shape[2]
+                        try:
+                            first_layer = past_key_values[0] if len(past_key_values) > 0 else None
+                            first_state = first_layer[0] if first_layer is not None and len(first_layer) > 0 else None
+                            state_shape = getattr(first_state, "shape", None)
+                            if state_shape is not None:
+                                if len(state_shape) >= 3:
+                                    cache_length = past_length = int(state_shape[2])
+                                elif len(state_shape) >= 2:
+                                    cache_length = past_length = int(state_shape[-2])
+                        except Exception:  # noqa: BLE001
+                            cache_length = None
+                            past_length = None
+                    if past_key_values is not None and past_length is not None:
                         max_cache_length = None
                         if attention_mask is not None and attention_mask.shape[1] > input_ids.shape[1]:
                             input_ids = input_ids[:, -(attention_mask.shape[1] - past_length):]
                         elif past_length < input_ids.shape[1]:
                             input_ids = input_ids[:, past_length:]
-                        if max_cache_length is not None and attention_mask is not None and cache_length + input_ids.shape[1] > max_cache_length:
+                        if max_cache_length is not None and attention_mask is not None and cache_length is not None and cache_length + input_ids.shape[1] > max_cache_length:
                             attention_mask = attention_mask[:, -max_cache_length:]
+                    elif past_key_values is not None:
+                        past_key_values = None
                 position_ids = kwargs.get("position_ids", None)
                 if attention_mask is not None and position_ids is None:
                     position_ids = attention_mask.bool().long().cumsum(-1) - 1
