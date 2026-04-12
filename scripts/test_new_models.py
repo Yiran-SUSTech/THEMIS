@@ -668,9 +668,46 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                     pred_text = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
                 return {"body_pose": pred_body_pose, "text": pred_text}
 
+            def prepare_inputs_for_generation_cache_compat(self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs):
+                if past_key_values is not None:
+                    cache_cls = getattr(transformers_module, "Cache", None)
+                    if cache_cls is not None and isinstance(past_key_values, cache_cls):
+                        if hasattr(past_key_values, "to_legacy_cache"):
+                            past_key_values = past_key_values.to_legacy_cache()
+                        else:
+                            past_key_values = None
+                    if past_key_values is not None:
+                        cache_length = past_length = past_key_values[0][0].shape[2]
+                        max_cache_length = None
+                        if attention_mask is not None and attention_mask.shape[1] > input_ids.shape[1]:
+                            input_ids = input_ids[:, -(attention_mask.shape[1] - past_length):]
+                        elif past_length < input_ids.shape[1]:
+                            input_ids = input_ids[:, past_length:]
+                        if max_cache_length is not None and attention_mask is not None and cache_length + input_ids.shape[1] > max_cache_length:
+                            attention_mask = attention_mask[:, -max_cache_length:]
+                position_ids = kwargs.get("position_ids", None)
+                if attention_mask is not None and position_ids is None:
+                    position_ids = attention_mask.bool().long().cumsum(-1) - 1
+                    position_ids.masked_fill_(attention_mask == 0, 1)
+                    if past_key_values is not None:
+                        position_ids = position_ids[:, -input_ids.shape[1]:]
+                if inputs_embeds is not None and past_key_values is None:
+                    model_inputs = {"inputs_embeds": inputs_embeds}
+                else:
+                    model_inputs = {"input_ids": input_ids}
+                model_inputs.update({
+                    "position_ids": position_ids,
+                    "past_key_values": past_key_values,
+                    "use_cache": False,
+                    "attention_mask": attention_mask,
+                })
+                return model_inputs
+
             model.evaluate = MethodType(evaluate_no_cache, model)
+            model.prepare_inputs_for_generation = MethodType(prepare_inputs_for_generation_cache_compat, model)
             result.details["inference_diagnostics"]["forced_use_cache"] = False
             result.details["inference_diagnostics"]["patched_evaluate_no_cache"] = True
+            result.details["inference_diagnostics"]["patched_prepare_inputs_for_generation"] = True
             result.load_ok = True
             result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
             result.details["inference_diagnostics"]["image_processor_class"] = image_processor.__class__.__name__
