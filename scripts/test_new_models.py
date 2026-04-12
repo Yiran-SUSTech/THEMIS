@@ -9,6 +9,7 @@ import tempfile
 import time
 import traceback
 import warnings
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -219,6 +220,17 @@ def torch_load_file(file_path: Path) -> tuple[bool, str]:
 
 def make_result(name: str, path: Path) -> TestResult:
     return TestResult(name=name, status="failed", path=str(path))
+
+
+@contextmanager
+def pushd(path: Path | None):
+    previous = Path.cwd()
+    try:
+        if path is not None:
+            os.chdir(path)
+        yield
+    finally:
+        os.chdir(previous)
 
 
 def test_deeplabcut(model_dir: Path) -> TestResult:
@@ -606,8 +618,11 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 result.details["inference_diagnostics"]["error"] = "UniPose auxiliary checkpoints not found"
                 return result
             conversation_lib.default_conversation = conversation_lib.conv_templates["mistral_instruct"]
-            model, image_processor = load_unipose_model(config)
-            model.eval()
+            result.details["inference_diagnostics"]["cwd_before_unipose"] = str(Path.cwd())
+            result.details["inference_diagnostics"]["cwd_for_unipose"] = str((resolved_repo_root or config_dir.parent).resolve())
+            with pushd((resolved_repo_root or config_dir.parent).resolve()):
+                model, image_processor = load_unipose_model(config)
+                model.eval()
             hmr_image_processor = hmr_transform(256)
             result.load_ok = True
             result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
