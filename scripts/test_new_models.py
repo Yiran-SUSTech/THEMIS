@@ -414,7 +414,33 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
 
             def load_unipose_model(config: Any):
                 tokenizer = AutoTokenizer.from_pretrained(str(root), use_fast=False, local_files_only=True)
+                tokenizer_length = int(len(tokenizer))
+                base_vocab_size = None
+                adapter_vocab_size = None
+                base_config_path = base_path / "config.json"
+                adapter_model_config_path = root / "config.json"
+                if base_config_path.exists():
+                    try:
+                        base_vocab_size = int(json.loads(base_config_path.read_text(encoding="utf-8")).get("vocab_size"))
+                    except Exception:  # noqa: BLE001
+                        base_vocab_size = None
+                if adapter_model_config_path.exists():
+                    try:
+                        adapter_vocab_size = int(json.loads(adapter_model_config_path.read_text(encoding="utf-8")).get("vocab_size"))
+                    except Exception:  # noqa: BLE001
+                        adapter_vocab_size = None
+                target_vocab_size = max(tokenizer_length, adapter_vocab_size or 0, 34132)
+                result.details["inference_diagnostics"]["debug_script_version"] = "unipose_embedding_fix_v5"
+                result.details["inference_diagnostics"]["tokenizer_length"] = tokenizer_length
+                result.details["inference_diagnostics"]["base_vocab_size"] = base_vocab_size
+                result.details["inference_diagnostics"]["adapter_vocab_size"] = adapter_vocab_size
+                result.details["inference_diagnostics"]["target_vocab_size"] = target_vocab_size
                 lora_cfg_pretrained = LlavaMistralConfig.from_pretrained(str(root), local_files_only=True)
+                if base_vocab_size is not None:
+                    lora_cfg_pretrained.vocab_size = base_vocab_size
+                    text_config = getattr(lora_cfg_pretrained, "text_config", None)
+                    if text_config is not None and hasattr(text_config, "vocab_size"):
+                        text_config.vocab_size = base_vocab_size
                 vision_tower_value = getattr(lora_cfg_pretrained, "mm_vision_tower", getattr(lora_cfg_pretrained, "vision_tower", None))
                 if isinstance(vision_tower_value, str) and vision_tower_value:
                     vision_tower_candidates = []
@@ -474,9 +500,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                     (key[len("base_model.model."):] if key.startswith("base_model.model.") else key): value
                     for key, value in non_lora_trainables.items()
                 }
-                target_vocab_size = max(int(len(tokenizer)), 34132)
                 model.resize_token_embeddings(target_vocab_size)
-                result.details["inference_diagnostics"]["target_vocab_size"] = target_vocab_size
                 current_state = model.state_dict()
                 current_state_keys = list(current_state.keys())
                 adjusted_state: dict[str, Any] = {}
@@ -484,7 +508,6 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 skipped_mismatched_keys: list[dict[str, Any]] = []
                 remapped_checkpoint_keys: list[dict[str, str]] = []
                 ignored_checkpoint_keys: list[str] = []
-                result.details["inference_diagnostics"]["debug_script_version"] = "unipose_embedding_fix_v4"
                 result.details["inference_diagnostics"]["non_lora_key_sample"] = list(non_lora_trainables.keys())[:12]
 
                 def resolve_state_key(source_key: str) -> str | None:
