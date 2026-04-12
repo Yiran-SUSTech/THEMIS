@@ -475,7 +475,33 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                     for key, value in non_lora_trainables.items()
                 }
                 model.resize_token_embeddings(len(tokenizer))
-                model.load_state_dict(non_lora_trainables, strict=False)
+                current_state = model.state_dict()
+                adjusted_state: dict[str, Any] = {}
+                embedding_adjustments: list[dict[str, Any]] = []
+                for key, value in non_lora_trainables.items():
+                    target_value = current_state.get(key)
+                    if target_value is None:
+                        adjusted_state[key] = value
+                        continue
+                    if tuple(value.shape) == tuple(target_value.shape):
+                        adjusted_state[key] = value
+                        continue
+                    if key in {"model.embed_tokens.weight", "lm_head.weight"} and value.ndim == 2 and target_value.ndim == 2 and value.shape[1] == target_value.shape[1]:
+                        patched_value = target_value.detach().cpu().clone()
+                        copy_rows = min(int(value.shape[0]), int(target_value.shape[0]))
+                        patched_value[:copy_rows] = value[:copy_rows]
+                        adjusted_state[key] = patched_value
+                        embedding_adjustments.append({
+                            "key": key,
+                            "checkpoint_shape": [int(item) for item in value.shape],
+                            "model_shape": [int(item) for item in target_value.shape],
+                            "copied_rows": copy_rows,
+                        })
+                        continue
+                    adjusted_state[key] = value
+                if embedding_adjustments:
+                    result.details["inference_diagnostics"]["embedding_adjustments"] = embedding_adjustments
+                model.load_state_dict(adjusted_state, strict=False)
                 model = PeftModel.from_pretrained(model, str(root), local_files_only=True)
                 model = model.merge_and_unload()
                 model.get_model().load_pose_vqvae(**config)
