@@ -650,18 +650,34 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
 
             with torch_module.no_grad():
                 output = model.evaluate(**batch)
-            result.run_ok = True
-            result.status = "passed"
+            result.details["inference_diagnostics"]["evaluate_return_type"] = type(output).__name__
+            result.details["inference_diagnostics"]["evaluate_repr_preview"] = repr(output)[:1000]
             result.details["inference_diagnostics"]["output_keys"] = list(output.keys()) if isinstance(output, dict) else []
-            body_pose = output.get("body_pose") if isinstance(output, dict) else None
-            text = output.get("text") if isinstance(output, dict) else None
+            if isinstance(output, dict):
+                body_pose = output.get("body_pose")
+                text = output.get("text")
+            else:
+                body_pose = getattr(output, "body_pose", None)
+                text = getattr(output, "text", None)
+            result.details["inference_diagnostics"]["body_pose_type"] = type(body_pose).__name__ if body_pose is not None else "NoneType"
+            result.details["inference_diagnostics"]["text_type"] = type(text).__name__ if text is not None else "NoneType"
             result.details["inference_diagnostics"]["has_body_pose"] = body_pose is not None
             result.details["inference_diagnostics"]["has_text"] = text is not None
             if body_pose is not None:
                 result.details["inference_diagnostics"]["body_pose_shape"] = describe_tensor_shape(body_pose)
-            if text is not None and len(text) > 0:
-                result.details["generation_preview"] = str(text[0])[:200]
-            result.details["note"] = "Official UniPose inference path completed successfully."
+                result.details["inference_diagnostics"]["body_pose_repr_preview"] = repr(body_pose)[:400]
+            if text is not None:
+                if isinstance(text, (list, tuple)) and len(text) > 0:
+                    result.details["generation_preview"] = str(text[0])[:200]
+                else:
+                    result.details["generation_preview"] = str(text)[:200]
+            if isinstance(output, dict) or body_pose is not None or text is not None:
+                result.run_ok = True
+                result.status = "passed"
+                result.details["note"] = "Official UniPose inference path completed successfully."
+            else:
+                result.status = "partial"
+                result.details["note"] = "UniPose evaluate() returned without raising, but the output shape/type did not match the expected body_pose/text structure."
             return result
         except Exception as inference_exc:  # noqa: BLE001
             result.status = "partial"
