@@ -683,6 +683,8 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
             result.status = "partial"
             result.error = ""
             result.details["inference_diagnostics"]["error"] = str(inference_exc)
+            result.details["inference_diagnostics"]["exception_type"] = type(inference_exc).__name__
+            result.details["inference_diagnostics"]["traceback"] = traceback.format_exc()
             result.details["note"] = "Adapter metadata and base model path are valid, but the UniPose official inference path did not complete in this environment."
             return result
     except Exception as exc:  # noqa: BLE001
