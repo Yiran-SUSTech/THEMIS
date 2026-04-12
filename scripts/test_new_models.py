@@ -624,6 +624,11 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
                 model, image_processor = load_unipose_model(config)
                 model.eval()
             hmr_image_processor = hmr_transform(256)
+            if hasattr(model, "generation_config"):
+                model.generation_config.use_cache = False
+            if hasattr(model, "config"):
+                model.config.use_cache = False
+            result.details["inference_diagnostics"]["forced_use_cache"] = False
             result.load_ok = True
             result.details["inference_diagnostics"]["model_class"] = model.__class__.__name__
             result.details["inference_diagnostics"]["image_processor_class"] = image_processor.__class__.__name__
@@ -649,7 +654,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
             }
 
             with torch_module.no_grad():
-                output = model.evaluate(**batch)
+                output = model.evaluate(use_cache=False, **batch)
             result.details["inference_diagnostics"]["evaluate_return_type"] = type(output).__name__
             result.details["inference_diagnostics"]["evaluate_repr_preview"] = repr(output)[:1000]
             result.details["inference_diagnostics"]["output_keys"] = list(output.keys()) if isinstance(output, dict) else []
