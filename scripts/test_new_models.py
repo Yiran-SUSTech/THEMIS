@@ -66,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sam2-config-dir", default="", help="Optional repo/config root containing configs/sam2.1/*.yaml")
     parser.add_argument("--unipose-repo-root", default=os.getenv("UNIPOSE_REPO_ROOT", ""), help="Optional UniPose repo root containing llava/ posegpt/ configs")
     parser.add_argument("--unipose-config", default=os.getenv("UNIPOSE_CONFIG", ""), help="Optional UniPose config path, e.g. configs/inference.py")
+    parser.add_argument("--unipose-vision-tower", default=os.getenv("UNIPOSE_VISION_TOWER", ""), help="Optional absolute path to UniPose CLIP vision tower, e.g. .../clip-vit-large-patch14-336")
     parser.add_argument("--output", default=str(ROOT / "outputs" / "new_model_smoke_test.json"), help="JSON report path")
     return parser.parse_args()
 
@@ -272,7 +273,7 @@ def test_deeplabcut(model_dir: Path) -> TestResult:
         result.elapsed_seconds = round(time.time() - started, 3)
 
 
-def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str, unipose_repo_root: str, unipose_config: str) -> TestResult:
+def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str, unipose_repo_root: str, unipose_config: str, unipose_vision_tower: str) -> TestResult:
     root = model_dir / "unipose"
     result = make_result("UniPose adapter bundle", root)
     started = time.time()
@@ -331,6 +332,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
 
         resolved_repo_root = Path(unipose_repo_root).expanduser() if unipose_repo_root.strip() else None
         resolved_config_path = Path(unipose_config).expanduser() if unipose_config.strip() else None
+        resolved_unipose_vision_tower = Path(unipose_vision_tower).expanduser() if unipose_vision_tower.strip() else None
         if resolved_config_path is None and resolved_repo_root is not None:
             candidate_config = resolved_repo_root / "configs" / "inference.py"
             if candidate_config.exists():
@@ -338,6 +340,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
 
         result.details["unipose_repo_root"] = str(resolved_repo_root) if resolved_repo_root else ""
         result.details["unipose_config"] = str(resolved_config_path) if resolved_config_path else ""
+        result.details["unipose_vision_tower"] = str(resolved_unipose_vision_tower) if resolved_unipose_vision_tower else ""
 
         if resolved_repo_root is not None:
             for candidate in (resolved_repo_root, resolved_repo_root / "src"):
@@ -412,6 +415,36 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
             def load_unipose_model(config: Any):
                 tokenizer = AutoTokenizer.from_pretrained(str(root), use_fast=False, local_files_only=True)
                 lora_cfg_pretrained = LlavaMistralConfig.from_pretrained(str(root), local_files_only=True)
+                vision_tower_value = getattr(lora_cfg_pretrained, "mm_vision_tower", getattr(lora_cfg_pretrained, "vision_tower", None))
+                if isinstance(vision_tower_value, str) and vision_tower_value:
+                    vision_tower_candidates = []
+                    if resolved_unipose_vision_tower is not None:
+                        vision_tower_candidates.append(resolved_unipose_vision_tower)
+                    raw_vision_path = Path(vision_tower_value)
+                    if raw_vision_path.is_absolute():
+                        vision_tower_candidates.append(raw_vision_path)
+                    else:
+                        vision_tower_candidates.extend([
+                            (resolved_repo_root / vision_tower_value) if resolved_repo_root else None,
+                            (resolved_repo_root / "cache" / vision_tower_value) if resolved_repo_root else None,
+                            (resolved_repo_root / "cache" / raw_vision_path.name) if resolved_repo_root else None,
+                            root / vision_tower_value,
+                            root / raw_vision_path.name,
+                            base_path / vision_tower_value,
+                            base_path / raw_vision_path.name,
+                            base_path.parent / vision_tower_value,
+                            base_path.parent / raw_vision_path.name,
+                        ])
+                    for candidate in vision_tower_candidates:
+                        if candidate is not None and candidate.exists():
+                            resolved_vision_tower = str(candidate.resolve())
+                            if hasattr(lora_cfg_pretrained, "mm_vision_tower"):
+                                lora_cfg_pretrained.mm_vision_tower = resolved_vision_tower
+                            if hasattr(lora_cfg_pretrained, "vision_tower"):
+                                lora_cfg_pretrained.vision_tower = resolved_vision_tower
+                            result.details["inference_diagnostics"]["resolved_vision_tower"] = resolved_vision_tower
+                            break
+                    result.details["inference_diagnostics"]["requested_vision_tower"] = vision_tower_value
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
                     model = PoseGPTFullMask.from_pretrained(
@@ -932,7 +965,7 @@ def main() -> int:
 
     results = [
         test_deeplabcut(model_dir),
-        test_unipose(model_dir, image_path, args.device, args.dtype, args.unipose_repo_root, args.unipose_config),
+        test_unipose(model_dir, image_path, args.device, args.dtype, args.unipose_repo_root, args.unipose_config, args.unipose_vision_tower),
         test_groundingdino(model_dir, image_path, args.groundingdino_swint_config, args.groundingdino_swinb_config),
         test_sam2(model_dir, args.sam2_config_dir),
         test_qinsight(model_dir, image_path, args.device, args.dtype, args.max_new_tokens),
