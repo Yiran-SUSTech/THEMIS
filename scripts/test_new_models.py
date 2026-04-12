@@ -402,6 +402,7 @@ def test_unipose(model_dir: Path, image_path: str, device: str, dtype_name: str,
             from llava import conversation as conversation_lib  # type: ignore
             from llava.model.language_model.llava_mistral import LlavaMistralConfig  # type: ignore
             from posegpt.utils import Config  # type: ignore
+            from posegpt.models.posegpt import process_templates  # type: ignore
             from posegpt.models.posegpt_full_mask import PoseGPTFullMask  # type: ignore
             from posegpt.constants import IMAGE_TOKEN  # type: ignore
             from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize  # type: ignore
