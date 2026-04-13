@@ -880,6 +880,50 @@ def extract_structured_payload(text: str, required_keys: list[str], fallback_mes
     return fallback
 
 
+def extract_report_payload(text: str) -> dict[str, Any]:
+    required_keys = [
+        "alignment_reasoning",
+        "artifact_reasoning",
+        "alignment_score",
+        "artifact_score",
+        "hard_failure",
+        "confidence",
+        "key_issues",
+    ]
+
+    def _normalize(payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "alignment_reasoning": str(payload.get("alignment_reasoning", "")).strip() or "Report output was partially parsed; using fallback alignment reasoning.",
+            "artifact_reasoning": str(payload.get("artifact_reasoning", "")).strip() or "Report output was partially parsed; using fallback artifact reasoning.",
+            "alignment_score": payload.get("alignment_score", 0.5),
+            "artifact_score": payload.get("artifact_score", 0.5),
+            "hard_failure": bool(payload.get("hard_failure", False)),
+            "confidence": payload.get("confidence", 0.2),
+            "key_issues": list(payload.get("key_issues", [])) or ["Report output could not be fully parsed; using conservative fallback."],
+        }
+
+    try:
+        payload = extract_json(text)
+        if isinstance(payload, dict) and any(key in payload for key in required_keys):
+            return _normalize(payload)
+    except LocalExpertError:
+        pass
+
+    for payload in reversed(extract_top_level_json_objects(text)):
+        if isinstance(payload, dict) and any(key in payload for key in required_keys):
+            return _normalize(payload)
+
+    return {
+        "alignment_reasoning": "Report output could not be parsed; using conservative fallback alignment reasoning.",
+        "artifact_reasoning": "Report output could not be parsed; using conservative fallback artifact reasoning.",
+        "alignment_score": 0.5,
+        "artifact_score": 0.5,
+        "hard_failure": False,
+        "confidence": 0.2,
+        "key_issues": ["Report output could not be parsed; using conservative fallback."],
+    }
+
+
 def _write_role_raw_output(settings: Settings, filename: str, output_text: str) -> None:
     if not settings.log_dir:
         return
@@ -1656,6 +1700,7 @@ class LocalReport:
             "Alignment score is only about semantic match. Artifact score is only about visible artifact or structural failure severity, where 1 means clean and 0 means severe failure.",
             "If broad category matches but fine-grained class evidence is weak, keep alignment partial.",
             "Set hard_failure true only for severe structural or artifact failure, or a severe semantic mismatch clearly visible in the image.",
+            "Keep both reasoning strings short.",
             'JSON schema: {"alignment_reasoning":"string","artifact_reasoning":"string","alignment_score":0.0,"artifact_score":0.0,"hard_failure":false,"confidence":0.0,"key_issues":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
@@ -1698,7 +1743,7 @@ class LocalReport:
             raise LocalExpertError("Local report inference failed") from exc
 
         _write_role_raw_output(self.settings, "report_raw_output.txt", output_text)
-        payload = extract_json(output_text)
+        payload = extract_report_payload(output_text)
         for key in ("alignment_score", "artifact_score", "confidence"):
             try:
                 payload[key] = round(max(0.0, min(1.0, float(payload.get(key, 0.0)))), 4)
