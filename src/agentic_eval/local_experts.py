@@ -705,13 +705,7 @@ class LocalPlanner:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local planner inference failed") from exc
 
-        if self.settings.log_dir:
-            try:
-                log_path = Path(self.settings.log_dir)
-                log_path.mkdir(parents=True, exist_ok=True)
-                (log_path / "planner_raw_output.txt").write_text(output_text, encoding="utf-8")
-            except Exception:
-                pass
+        _write_role_raw_output(self.settings, "planner_raw_output.txt", output_text)
 
         return self._normalize_plan(extract_plan_payload(output_text), class_label=class_label)
 
@@ -780,6 +774,44 @@ def extract_top_level_json_objects(text: str) -> list[dict[str, Any]]:
                 start = None
 
     return objects
+
+
+def extract_structured_payload(text: str, required_keys: list[str], fallback_message: str) -> dict[str, Any]:
+    def _matches(payload: dict[str, Any]) -> bool:
+        return all(key in payload for key in required_keys)
+
+    try:
+        payload = extract_json(text)
+        if _matches(payload):
+            return payload
+    except LocalExpertError:
+        pass
+
+    for payload in reversed(extract_top_level_json_objects(text)):
+        if _matches(payload):
+            return payload
+
+    fallback: dict[str, Any] = {key: [] for key in required_keys if key.endswith("_checks") or key.endswith("_issues") or key.endswith("_actions") or key.endswith("_fixes")}
+    for key in required_keys:
+        if key not in fallback:
+            if key == "approved":
+                fallback[key] = False
+            else:
+                fallback[key] = fallback_message if key == "feedback" else [] if key.endswith("s") else ""
+    fallback.setdefault("feedback", fallback_message)
+    fallback.setdefault("approved", False)
+    return fallback
+
+
+def _write_role_raw_output(settings: Settings, filename: str, output_text: str) -> None:
+    if not settings.log_dir:
+        return
+    try:
+        log_path = Path(settings.log_dir)
+        log_path.mkdir(parents=True, exist_ok=True)
+        (log_path / filename).write_text(output_text, encoding="utf-8")
+    except Exception:
+        pass
 
 
 def extract_json(text: str) -> dict[str, Any]:
@@ -956,6 +988,7 @@ class LocalSemanticExpert:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local semantic inference failed") from exc
 
+        _write_role_raw_output(self.settings, "semantic_raw_output.txt", output_text)
         payload = extract_json(output_text)
         payload.setdefault("expert", "semantic")
         payload["severity"] = round(self._normalize_severity(payload), 4)
@@ -1160,7 +1193,12 @@ class LocalJudge:
         except Exception as exc:
             raise LocalExpertError("Local judge inference failed") from exc
 
-        payload = extract_json(output_text)
+        _write_role_raw_output(self.settings, "judge_raw_output.txt", output_text)
+        payload = extract_structured_payload(
+            output_text,
+            ["approved", "feedback", "missing_checks", "task_fit_issues", "replan_actions"],
+            "Judge output could not be parsed; request replanning with a shorter, cleaner JSON response.",
+        )
         return {
             "approved": bool(payload.get("approved", False)),
             "feedback": str(payload.get("feedback", "")).strip(),
@@ -1272,7 +1310,12 @@ class LocalReflector:
         except Exception as exc:
             raise LocalExpertError("Local reflector inference failed") from exc
 
-        payload = extract_json(output_text)
+        _write_role_raw_output(self.settings, "reflector_raw_output.txt", output_text)
+        payload = extract_structured_payload(
+            output_text,
+            ["approved", "feedback", "suggested_fixes", "task_fit_issues", "replan_actions"],
+            "Reflector output could not be parsed; request replanning with a shorter, cleaner JSON response.",
+        )
         return {
             "approved": bool(payload.get("approved", False)),
             "feedback": str(payload.get("feedback", "")).strip(),
@@ -1368,6 +1411,7 @@ class LocalStructuralExpert:
         except Exception as exc:
             raise LocalExpertError("Local structural inference failed") from exc
 
+        _write_role_raw_output(self.settings, "structural_raw_output.txt", output_text)
         payload = extract_json(output_text)
         payload.setdefault("expert", "structural")
         raw_severity = payload.get("severity", 0.0)
@@ -1495,6 +1539,7 @@ class LocalVQAExpert:
         except Exception as exc:
             raise LocalExpertError("Local VQA inference failed") from exc
 
+        _write_role_raw_output(self.settings, "vqa_raw_output.txt", output_text)
         payload = extract_json(output_text)
         return self._normalize_structured_payload(payload)
 
@@ -1592,6 +1637,7 @@ class LocalReport:
         except Exception as exc:
             raise LocalExpertError("Local report inference failed") from exc
 
+        _write_role_raw_output(self.settings, "report_raw_output.txt", output_text)
         payload = extract_json(output_text)
         for key in ("alignment_score", "artifact_score", "confidence"):
             try:
