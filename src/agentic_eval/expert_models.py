@@ -26,6 +26,21 @@ except ImportError:
 from .config import Settings, ExpertModelConfig
 
 
+QINSIGHT_SYSTEM_PROMPT_FALLBACK = (
+    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
+    "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
+    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
+    "<think> reasoning process here </think><answer> answer here </answer>"
+)
+QINSIGHT_DISTORTION_PROMPT_FALLBACK = (
+    'Analyze the given image and determine if it contains any of the following distortions: "noise", '
+    '"compression", "blur", or "darken". If a distortion is present, classify its severity as '
+    '"slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON '
+    'format with the following keys: "distortion_class": The detected distortion (or "null" if none). '
+    'and "severity": The severity level (or "null" if none).'
+)
+
+
 def _is_metax_device(device: str) -> bool:
     normalized_device = (device or "").strip().lower()
     if not normalized_device.startswith("cuda") or not torch.cuda.is_available():
@@ -1150,6 +1165,136 @@ class BackgroundExpert(BaseExpert):
         )
 
 
+class QInsightDistortionExpert(BaseExpert):
+    def load_model(self) -> Tuple[Any, Any, Any | None]:
+        model_key = f"qinsight_{self.config.model}"
+        processor_key = f"qinsight_processor_{self.config.model}"
+        vision_key = f"qinsight_vision_utils_{self.config.model}"
+
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key), self.registry.get_processor(processor_key), self.registry.get_processor(vision_key)
+
+        try:
+            from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+            try:
+                from qwen_vl_utils import process_vision_info  # type: ignore
+            except Exception:
+                process_vision_info = None
+
+            model_path = self.config.local_path or self.config.model
+            load_kwargs = _build_qwen_vl_load_kwargs(self.config.device)
+
+            if Path(model_path).exists():
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path,
+                    local_files_only=True,
+                    **load_kwargs,
+                )
+            else:
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path,
+                    **load_kwargs,
+                )
+
+            model.eval()
+            self.registry.set_model(model_key, model)
+            self.registry.set_processor(processor_key, processor)
+            self.registry.set_processor(vision_key, process_vision_info)
+            self._model = model
+            self._processor = processor
+            return model, processor, process_vision_info
+        except ImportError as e:
+            raise ExpertModelError(f"transformers not installed: {e}")
+
+    def _build_message(self, image_path: str, distortion_prompt: str, system_prompt: str) -> list[dict[str, Any]]:
+        return [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": [{"type": "text", "text": distortion_prompt}, {"type": "image", "image": f"file://{image_path}"}]},
+        ]
+
+    def _prepare_inputs(self, processor: Any, message: list[dict[str, Any]], image_path: str, process_vision_info_fn: Any | None) -> dict[str, Any]:
+        prompt_text = processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True)
+        processor_kwargs: dict[str, Any] = {
+            "text": [prompt_text],
+            "padding": True,
+            "return_tensors": "pt",
+        }
+        if process_vision_info_fn is not None:
+            image_inputs, video_inputs = process_vision_info_fn([message])
+            processor_kwargs["images"] = image_inputs
+            processor_kwargs["videos"] = video_inputs
+        else:
+            processor_kwargs["images"] = [Image.open(image_path).convert("RGB")]
+        return processor(**processor_kwargs)
+
+    def evaluate(self, image_path: str, **kwargs) -> ExpertResult:
+        model, processor, process_vision_info_fn = self.load_model()
+        prompts = self.config.prompts or {}
+        system_prompt = prompts.get("system") or QINSIGHT_SYSTEM_PROMPT_FALLBACK
+        distortion_prompt = prompts.get("distortion") or QINSIGHT_DISTORTION_PROMPT_FALLBACK
+        message = self._build_message(image_path, distortion_prompt, system_prompt)
+        inputs = self._prepare_inputs(processor, message, image_path, process_vision_info_fn)
+        inputs = {k: v.to(model.device) if hasattr(v, "to") else v for k, v in inputs.items()}
+
+        with torch.no_grad():
+            generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=128, use_cache=True)
+
+        prompt_length = inputs["input_ids"].shape[1]
+        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+        generated_text = processor.batch_decode(
+            trimmed_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0]
+
+        match = re.search(r"\{[\s\S]*\}", generated_text)
+        if match:
+            try:
+                payload = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                payload = {}
+        else:
+            payload = {}
+
+        distortion_class = str(payload.get("distortion_class", "null")).strip().strip('"').lower() or "null"
+        severity_label = str(payload.get("severity", "null")).strip().strip('"').lower() or "null"
+        severity_map = {
+            "null": 0.0,
+            "slight": 0.2,
+            "moderate": 0.4,
+            "obvious": 0.6,
+            "serious": 0.8,
+            "catastrophic": 1.0,
+        }
+        severity = severity_map.get(severity_label, 0.5)
+        if distortion_class == "null":
+            severity = 0.0
+        findings = [
+            f"distortion_class: {distortion_class}",
+            f"severity_label: {severity_label}",
+        ]
+        summary = "Q-Insight detected no targeted distortion." if distortion_class == "null" else f"Q-Insight detected {distortion_class} distortion with {severity_label} severity."
+        confidence = 0.9 if distortion_class != "null" else 0.75
+        return ExpertResult(
+            expert=self.config.name,
+            summary=summary,
+            findings=findings,
+            severity=round(max(0.0, min(1.0, severity)), 4),
+            confidence=confidence,
+            source="local_qinsight",
+            model=self.config.model,
+            extra_info={
+                "distortion_class": distortion_class,
+                "severity_label": severity_label,
+                "system_prompt": system_prompt,
+                "distortion_prompt": distortion_prompt,
+                "raw_response": generated_text,
+            },
+        )
+
+
 class QwenVLExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"qwen_vl_{self.config.model}"
@@ -1292,6 +1437,7 @@ EXPERT_CLASS_MAP = {
     "iqa": IQAExpert,
     "segmentation": BackgroundExpert,
     "vqa": QwenVLExpert,
+    "mllm_scoring": QInsightDistortionExpert,
 }
 
 

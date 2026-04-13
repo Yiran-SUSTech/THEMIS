@@ -44,6 +44,8 @@ class ExpertModelConfig:
     evidence_role: str = ""
     label_space: str = ""
     output_interpretability: str = ""
+    output_meaning: str = ""
+    prompts: Dict[str, str] = field(default_factory=dict)
     downloaded: bool = False
     group_name: str = ""
 
@@ -366,6 +368,8 @@ class Settings:
                         evidence_role=expert_config.get("evidence_role", ""),
                         label_space=expert_config.get("label_space", ""),
                         output_interpretability=expert_config.get("output_interpretability", ""),
+                        output_meaning=expert_config.get("output_meaning", ""),
+                        prompts=dict(expert_config.get("prompts", {}) or {}),
                         downloaded=bool(expert_config.get("downloaded", False)),
                         group_name=group_name,
                     )

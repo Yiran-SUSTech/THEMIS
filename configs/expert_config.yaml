@@ -135,6 +135,7 @@ expert_models:
       evidence_role: "closed_set_classification_evidence"
       label_space: "imagenet_1k"
       output_interpretability: "class_name_with_local_label_map"
+      output_meaning: "Outputs top predicted ImageNet labels and probabilities. Severity is computed as 1 - confidence for the most relevant target match, so lower severity supports semantic alignment while higher severity suggests class mismatch or weak class support."
       description: "EVA-02-L ImageNet-1K classifier for stronger c2i evidence"
 
     imagenet_eva_giant_224:
@@ -199,6 +200,7 @@ expert_models:
       evidence_role: "cross_modal_similarity_evidence"
       label_space: "open_text"
       output_interpretability: "relative_similarity_score"
+      output_meaning: "Outputs summary/findings plus severity in [0,1]. Lower severity means the target text or class label is visually compatible with the image; higher severity means poorer text-image agreement or stronger evidence that another candidate label matches better."
       description: "CLIP-based semantic alignment and confusable-label disambiguation"
 
     clip_score:
@@ -338,6 +340,7 @@ expert_models:
       evidence_role: "artifact_severity_prior"
       label_space: "none"
       output_interpretability: "quality_score"
+      output_meaning: "Outputs summary/findings plus severity in [0,1], where 0 means little visible quality concern and 1 means severe perceptual degradation. Confidence reflects agreement and trust in the metric signal, not semantic correctness."
       description: "Fast image quality assessment"
 
     iqa_default:
@@ -351,6 +354,7 @@ expert_models:
       evidence_role: "artifact_quality_evidence"
       label_space: "none"
       output_interpretability: "quality_score"
+      output_meaning: "Outputs summary/findings plus severity in [0,1], where higher severity means stronger visible quality degradation across the enabled IQA metrics. Confidence reflects cross-metric consistency."
       description: "Standard image quality assessment"
 
     iqa_richer:
@@ -364,20 +368,28 @@ expert_models:
       evidence_role: "artifact_quality_evidence"
       label_space: "none"
       output_interpretability: "multi_metric_quality_score"
+      output_meaning: "Outputs multiple IQA-derived findings and a combined severity in [0,1]. Higher severity means stronger evidence of visible artifact or perceptual degradation. Confidence reflects how consistently the enabled metrics agree."
       description: "Rich image quality assessment"
 
     q_insight:
       name: "Q-Insight-Expert"
       model_type: "mllm_scoring"
       model: "ByteDance/Q-Insight"
-      local_path: "${MODEL_DIR}/Q-Insight"
+      local_path: "${MODEL_DIR}/Q-Insight/score_degradation"
       downloaded: true
       device: "cuda:5"
-      suitable_for: ["aesthetic_scoring", "comprehensive_artifact_assessment", "fine_grained_quality_vqa"]
-      evidence_role: "high_level_perceptual_judgment"
-      description: "Evaluates image quality from a human-centric perspective, including aesthetics and subtle generative artifacts."
+      benchmark: "instruction-following image quality VQA"
+      suitable_for: ["artifact_assessment", "artifact_screening", "distortion_detection", "fine_grained_quality_vqa"]
+      unsuitable_for: ["semantic_alignment", "species_identification", "pose_estimation"]
+      evidence_role: "distortion_and_artifact_evidence"
+      label_space: "closed_distortion_taxonomy"
+      output_interpretability: "structured_distortion_json"
+      output_meaning: "Returns a structured distortion judgment for artifact analysis. distortion_class is one of noise/compression/blur/darken/null. severity is one of slight/moderate/obvious/serious/catastrophic/null. In system aggregation, null/null means no targeted distortion detected; non-null distortion_class means the model found a likely visible distortion relevant to artifact scoring."
+      prompts:
+        system: "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>"
+        distortion: "Analyze the given image and determine if it contains any of the following distortions: \"noise\", \"compression\", \"blur\", or \"darken\". If a distortion is present, classify its severity as \"slight\", \"moderate\", \"obvious\", \"serious\", or \"catastrophic\". Return the result in JSON format with the following keys: \"distortion_class\": The detected distortion (or \"null\" if none). and \"severity\": The severity level (or \"null\" if none)."
+      description: "Q-Insight distortion expert for artifact decisions. It inspects visible image degradation and outputs a structured distortion class plus severity, intended to help planner route artifact checks and help reflector interpret whether artifact evidence is meaningful."
 
-      
     # aigen_detection:
     #   name: "AIGenExpert"
     #   model_type: "clip"
@@ -393,6 +405,10 @@ expert_models:
       metrics: ["niqe", "brisque"]
       downloaded: true
       device: "cuda:3"
+      evidence_role: "boundary_artifact_evidence"
+      label_space: "none"
+      output_interpretability: "quality_score"
+      output_meaning: "Outputs summary/findings plus severity in [0,1] derived from NIQE/BRISQUE-style no-reference quality metrics. Higher severity means the image likely contains stronger local corruption, often useful for edges, boundaries, and low-level artifact suspicion."
       description: "Boundary artifact detection"
 
   # Background Group
@@ -446,6 +462,8 @@ expert_models:
       suitable_for: ["fine_grained_animal_distortion_check", "quadruped_skeletal_integrity", "limb_melting_detection"]
       unsuitable_for: ["human_pose", "non_living_objects"]
       evidence_role: "high_fidelity_biological_structure_evidence"
+      output_interpretability: "pose_keypoint_structure_signal"
+      output_meaning: "When runnable, this expert should provide structural pose/keypoint evidence. Low severity means the detected quadruped structure is coherent; high severity means missing joints, implausible limb geometry, or likely animal anatomy distortion."
       description: "Expert in quadruped anatomy; detects limb melting, missing joints, and structural distortions in animals."
 
     universal_pose:
@@ -457,6 +475,8 @@ expert_models:
       device: "cuda:5"
       suitable_for: ["zero_shot_animal_pose", "rare_species_structure", "multi_category_pose_alignment"]
       evidence_role: "open_world_structural_prior"
+      output_interpretability: "pose_or_text_structure_output"
+      output_meaning: "When runnable, this expert returns either a decoded body pose or text describing visible pose/structure. body_pose indicates structural pose evidence; text indicates descriptive structural evidence. High severity should correspond to implausible or mismatched visible structure, not mere low confidence."
       description: "Zero-shot animal pose estimation for species not covered by standard COCO or DLC labels."
 
   # --- New Detection & Segmentation Group (Infrastructure) ---

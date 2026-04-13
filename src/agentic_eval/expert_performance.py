@@ -263,6 +263,14 @@ EXPERT_PERFORMANCE_TABLE: Dict[str, ExpertPerformanceMetrics] = {
         notes="Comprehensive perceptual quality assessment",
         source="pyiqa",
     ),
+    "q_insight": ExpertPerformanceMetrics(
+        expert_name="Q-Insight-Expert",
+        model_name="Qwen2.5-VL score_degradation",
+        task_type="distortion_detection",
+        reliability=ReliabilityLevel.HIGH,
+        notes="Structured distortion detector for noise/compression/blur/darken evidence; useful for artifact decisions rather than semantic grounding.",
+        source="local smoke-tested integration",
+    ),
 }
 
 

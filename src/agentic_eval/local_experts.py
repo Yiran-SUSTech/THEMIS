@@ -49,21 +49,21 @@ EXPERT_ROLE_MODEL_KEYS = {
         "background_removal",
         "vqa",
     ],
-    "quality": ["iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"],
+    "quality": ["iqa_fast", "iqa_default", "iqa_richer", "q_insight", "boundary_artifact"],
     "vqa": ["vqa"],
 }
 
 ROLE_MODEL_TYPE_HINTS = {
     "semantic": {"classification", "eva_classification", "text_embedding", "clip", "clip_score", "vqa"},
     "structural": {"yolo_pose", "detection", "places365", "classification", "segmentation", "vqa"},
-    "quality": {"iqa", "clip"},
+    "quality": {"iqa", "clip", "mllm_scoring"},
     "vqa": {"vqa"},
 }
 
 ROLE_SUITABLE_FOR_HINTS = {
     "semantic": {"broad_category_match", "coarse_semantic_prior", "harder_c2i_screening", "label_space_aligned_classification", "fine_grained_c2i", "class_name_grounded_decision", "candidate_generation", "confusable_label_retrieval", "fine_grained_label_shortlisting", "t2i_alignment", "lookalike_disambiguation", "candidate_reranking", "confusable_disambiguation", "prompt_alignment_support", "text_image_similarity"},
     "structural": {"whole_subject_coherence", "rough_pose_plausibility", "animal_body_structure_screening"},
-    "quality": {"artifact_screening", "perceptual_quality_prior", "artifact_assessment", "perceptual_quality_check", "richer_artifact_assessment"},
+    "quality": {"artifact_screening", "perceptual_quality_prior", "artifact_assessment", "perceptual_quality_check", "richer_artifact_assessment", "distortion_detection", "fine_grained_quality_vqa"},
     "vqa": {"targeted_visual_evidence_extraction", "resolving_specific_ambiguities", "attribute_confirmation"},
 }
 
@@ -111,7 +111,7 @@ def _matches_role_metadata(expert: str, config: ExpertModelConfig) -> bool:
         return True
     if expert == "structural" and any(token in evidence_role for token in {"structural", "pose", "segmentation", "scene"}):
         return True
-    if expert == "quality" and any(token in evidence_role for token in {"quality", "quality"}):
+    if expert == "quality" and any(token in evidence_role for token in {"quality", "artifact", "distortion"}):
         return True
     return False
 
@@ -121,7 +121,7 @@ def _profile_compatibility_score(model_profile: str, config_key: str, config: Ex
     if model_profile == "local_fast":
         if config_key.endswith("_fast") or "fast" in config.name.lower():
             score += 3.0
-        if config.model_type in {"clip", "clip_score", "text_embedding", "iqa", "yolo_pose"}:
+        if config.model_type in {"clip", "clip_score", "text_embedding", "iqa", "yolo_pose", "mllm_scoring"}:
             score += 1.0
     elif model_profile == "local_stronger":
         if any(token in config_key for token in {"strong", "eva"}) or "strong" in config.name.lower():
@@ -161,6 +161,8 @@ def _step_type_score(step_type: str, config: ExpertModelConfig) -> float:
     if normalized_step == "quality_check":
         if config.model_type == "iqa":
             score += 6.0
+        elif config.model_type == "mllm_scoring":
+            score += 5.0
         elif config.model_type == "clip":
             score += 1.0
     if normalized_step == "vqa_evidence" and config.model_type == "vqa":
@@ -299,6 +301,8 @@ def _describe_available_experts(settings: Settings) -> str:
                     parts.append(f"label_space={config.label_space}")
                 if config.output_interpretability:
                     parts.append(f"output={config.output_interpretability}")
+                if config.output_meaning:
+                    parts.append(f"output_meaning={config.output_meaning}")
                 if config.suitable_for:
                     parts.append(f"suitable_for={','.join(config.suitable_for)}")
                 if config.unsuitable_for:
@@ -359,6 +363,8 @@ def _describe_available_experts(settings: Settings) -> str:
                 parts.append(f"label_space={config.label_space}")
             if config.output_interpretability:
                 parts.append(f"output={config.output_interpretability}")
+            if config.output_meaning:
+                parts.append(f"output_meaning={config.output_meaning}")
             if config.suitable_for:
                 parts.append(f"suitable_for={','.join(config.suitable_for)}")
             if config.unsuitable_for:
@@ -1210,6 +1216,7 @@ class LocalReflector:
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",
+            "Each expert output may include output_meaning and output_interpretability metadata. Use those fields to interpret what the expert's severity, findings, and extra_info actually mean before deciding whether the report handled the expert evidence correctly.",
             f"Detected conflicts:\n{conflicts_json}",
             f"Weighted severity: {weighted_severity:.3f}",
             f"Reliability summary:\n{reliability_json}",
@@ -1531,6 +1538,7 @@ class LocalReport:
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",
+            "Each expert output may include output_meaning and output_interpretability metadata. Use those fields to interpret what the expert's severity, findings, and extra_info actually mean before deciding whether the result supports artifact or alignment concerns.",
             f"Detected conflicts:\n{conflicts_json}",
             f"Weighted severity: {weighted_severity:.3f}",
         ]

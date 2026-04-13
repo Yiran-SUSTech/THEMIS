@@ -65,6 +65,7 @@ PLANNED_MODEL_ENUM = [
     "iqa_fast",
     "iqa_default",
     "iqa_richer",
+    "q_insight",
     "boundary_artifact",
     "aigen_detection",
     "ocr",
@@ -425,6 +426,9 @@ def _build_specialized_expert_kwargs(config, image_input, step, previous_results
         kwargs["class_label"] = image_input.class_label
     elif model_type in {"places365", "segmentation", "yolo_pose", "iqa"}:
         pass
+    elif model_type == "mllm_scoring":
+        kwargs["prompt"] = image_input.prompt
+        kwargs["class_label"] = image_input.class_label
     elif model_type == "vqa":
         kwargs["question"] = _build_vqa_question(step, previous_results)
 
@@ -786,10 +790,16 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     started_at, stop_event, heartbeat = _start_stage("report", "synthesize_report", client.settings.report_model)
     image_input = state["input"]
     expert_results = state["expert_results"]
-    
+
     expert_payload = []
     for item in expert_results:
         result_dict = item.model_dump()
+        config = client.settings.get_expert_config(item.expert)
+        if config is not None:
+            result_dict["expert_description"] = config.description
+            result_dict["evidence_role"] = config.evidence_role
+            result_dict["output_interpretability"] = config.output_interpretability
+            result_dict["output_meaning"] = config.output_meaning
         performance = get_expert_performance(item.expert)
         if performance:
             result_dict["reliability"] = performance.reliability.value
@@ -800,7 +810,7 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             result_dict["reliability"] = "unknown"
             result_dict["confidence_weight"] = 0.5
         expert_payload.append(result_dict)
-    
+
     conflicts = detect_expert_conflicts(expert_payload)
     weighted_severity = calculate_weighted_severity(expert_payload)
     task_fit_weighted_severity = _task_fit_weighted_severity(expert_payload)
@@ -900,12 +910,18 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     started_at, stop_event, heartbeat = _start_stage("reflector", "review_report", client.settings.reflector_model, reflection_revision)
     image_input = state["input"]
     expert_results = state["expert_results"]
-    
+
     settings = client.settings
-    
+
     expert_payload = []
     for item in expert_results:
         result_dict = item.model_dump()
+        config = client.settings.get_expert_config(item.expert)
+        if config is not None:
+            result_dict["expert_description"] = config.description
+            result_dict["evidence_role"] = config.evidence_role
+            result_dict["output_interpretability"] = config.output_interpretability
+            result_dict["output_meaning"] = config.output_meaning
         performance = get_expert_performance(item.expert)
         if performance:
             result_dict["reliability"] = performance.reliability.value
@@ -916,7 +932,7 @@ def reflector_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             result_dict["reliability"] = "unknown"
             result_dict["confidence_weight"] = 0.5
         expert_payload.append(result_dict)
-    
+
     conflicts = detect_expert_conflicts(expert_payload)
     weighted_severity = calculate_weighted_severity(expert_payload)
     task_fit_weighted_severity = _task_fit_weighted_severity(expert_payload)
