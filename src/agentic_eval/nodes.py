@@ -328,12 +328,13 @@ def _assess_task_fit(settings, expert_name: str, image_input, step_type: str = "
     reasons: list[str] = []
 
     if step_type == "quality_check":
-        if config.evidence_role and "quality" in config.evidence_role:
+        evidence_role = (config.evidence_role or "").lower()
+        if any(token in evidence_role for token in {"quality", "artifact", "distortion"}):
             score = min(score, 1.0)
-            reasons.append("Expert role matches quality assessment.")
+            reasons.append("Expert role matches quality or artifact assessment.")
         else:
             score = min(score, 0.55)
-            reasons.append("Expert is not specialized for quality assessment.")
+            reasons.append("Expert is not specialized for quality or artifact assessment.")
 
     if step_type in {"semantic_check", "label_space_check", "confusable_disambiguation"}:
         if config.label_space == "imagenet_21k" and config.output_interpretability == "class_index_only_without_external_label_map":
@@ -378,10 +379,43 @@ def _task_fit_weighted_severity(expert_payload: list[dict[str, Any]]) -> float:
     return weighted_sum / weight_sum
 
 
-def _collect_previous_candidate_labels(previous_results: dict[str, ExpertResult]) -> list[str]:
+def _result_step_type(result: dict[str, Any]) -> str:
+    evidence = result.get("evidence") or {}
+    return str(evidence.get("step_type", "")).strip().lower()
+
+
+def _result_domain(result: dict[str, Any]) -> str:
+    expert = str(result.get("expert", "")).strip().lower()
+    step_type = _result_step_type(result)
+    if step_type in {"candidate_generation", "confusable_disambiguation", "label_space_check", "semantic_check"}:
+        return "semantic"
+    if step_type == "quality_check":
+        return "artifact"
+    if step_type == "structural_check":
+        return "structural"
+    if expert in {"clip", "clip_score", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "bge_candidate_generator", "e5_candidate_generator", "semantic", "clip_semantic"}:
+        return "semantic"
+    if expert in {"q_insight", "iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact", "quality"}:
+        return "artifact"
+    if expert in {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal", "structural"}:
+        return "structural"
+    return "other"
+
+
+def _domain_task_fit_weighted_severity(expert_payload: list[dict[str, Any]], domain: str) -> float:
+    domain_payload = [result for result in expert_payload if _result_domain(result) == domain]
+    return _task_fit_weighted_severity(domain_payload)
+
+
+def _domain_weighted_severity(expert_payload: list[dict[str, Any]], domain: str) -> float:
+    domain_payload = [result for result in expert_payload if _result_domain(result) == domain]
+    return calculate_weighted_severity(domain_payload) if domain_payload else 0.0
+
+
+def _collect_previous_candidate_labels(previous_results: list[ExpertResult]) -> list[str]:
     candidate_labels: list[str] = []
     seen: set[str] = set()
-    for previous in previous_results.values():
+    for previous in previous_results:
         extra_info = getattr(previous, "extra_info", None) or {}
         for key in ("candidate_labels",):
             previous_candidates = extra_info.get(key)
@@ -396,18 +430,22 @@ def _collect_previous_candidate_labels(previous_results: dict[str, ExpertResult]
     return candidate_labels
 
 
-def _build_vqa_question(step, previous_results: dict[str, ExpertResult]) -> str:
+def _build_vqa_question(step, previous_results: list[ExpertResult]) -> str:
     question = step.prompt_focus or step.goal or "Describe this image."
     if getattr(step, "use_previous_outputs", False) and previous_results:
-        previous_summary = [f"{name}: {result.summary}" for name, result in previous_results.items()]
+        previous_summary: list[str] = []
+        for index, result in enumerate(previous_results, start=1):
+            evidence = result.evidence or {}
+            step_id = evidence.get("step_id", index)
+            previous_summary.append(f"step_{step_id}_{result.expert}: {result.summary}")
         question = f"{question}\nPrevious expert evidence:\n" + "\n".join(previous_summary)
     return question
 
 
-def _build_specialized_expert_kwargs(config, image_input, step, previous_results: dict[str, ExpertResult]) -> tuple[dict[str, Any], list[str]]:
+def _build_specialized_expert_kwargs(config, image_input, step, previous_results: list[ExpertResult]) -> tuple[dict[str, Any], list[str]]:
     kwargs: dict[str, Any] = {}
     step_type = getattr(step, "step_type", "")
-    candidate_labels = _collect_previous_candidate_labels(previous_results)
+    candidate_labels = _collect_previous_candidate_labels(previous_results) if getattr(step, "use_previous_outputs", False) else []
     model_type = (getattr(config, "model_type", "") or "").strip().lower()
 
     if model_type in {"clip", "clip_score"}:
@@ -635,7 +673,7 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
     image_input = state["input"]
     settings = client.settings
     planned_model = (step.planned_model or "").strip()
-    previous_results = {result.expert: result for result in state.get("expert_results", [])}
+    previous_results = list(state.get("expert_results", []))
 
     if settings.use_specialized_experts and planned_model:
         config = settings.get_expert_config(planned_model)
@@ -814,6 +852,12 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     conflicts = detect_expert_conflicts(expert_payload)
     weighted_severity = calculate_weighted_severity(expert_payload)
     task_fit_weighted_severity = _task_fit_weighted_severity(expert_payload)
+    semantic_weighted_severity = _domain_weighted_severity(expert_payload, "semantic")
+    semantic_task_fit_weighted_severity = _domain_task_fit_weighted_severity(expert_payload, "semantic")
+    structural_weighted_severity = _domain_weighted_severity(expert_payload, "structural")
+    structural_task_fit_weighted_severity = _domain_task_fit_weighted_severity(expert_payload, "structural")
+    artifact_weighted_severity = _domain_weighted_severity(expert_payload, "artifact")
+    artifact_task_fit_weighted_severity = _domain_task_fit_weighted_severity(expert_payload, "artifact")
     low_task_fit_experts = [r.get("expert", "unknown") for r in expert_payload if float(r.get("task_fit", 1.0)) < 0.5]
 
     reliability_summary = {
@@ -823,6 +867,12 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         "unknown_reliability_count": sum(1 for r in expert_payload if r.get("reliability") == "unknown"),
         "weighted_severity": weighted_severity,
         "task_fit_weighted_severity": task_fit_weighted_severity,
+        "semantic_weighted_severity": semantic_weighted_severity,
+        "semantic_task_fit_weighted_severity": semantic_task_fit_weighted_severity,
+        "structural_weighted_severity": structural_weighted_severity,
+        "structural_task_fit_weighted_severity": structural_task_fit_weighted_severity,
+        "artifact_weighted_severity": artifact_weighted_severity,
+        "artifact_task_fit_weighted_severity": artifact_task_fit_weighted_severity,
         "low_task_fit_experts": low_task_fit_experts,
         "task_fit_applied": True,
         "conflicts": conflicts,
@@ -832,8 +882,11 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
         f"Expert outputs:\n{json.dumps(expert_payload, indent=2)}\n"
         f"Detected conflicts:\n{json.dumps(conflicts, indent=2) if conflicts else 'None'}\n"
-        f"Weighted severity: {weighted_severity:.3f}\n"
+        f"Weighted severity (diagnostic only): {weighted_severity:.3f}\n"
         f"Task-fit weighted severity: {task_fit_weighted_severity:.3f}\n"
+        f"Semantic task-fit weighted severity: {semantic_task_fit_weighted_severity:.3f}\n"
+        f"Structural task-fit weighted severity: {structural_task_fit_weighted_severity:.3f}\n"
+        f"Artifact task-fit weighted severity: {artifact_task_fit_weighted_severity:.3f}\n"
         f"Low task-fit experts: {', '.join(low_task_fit_experts) if low_task_fit_experts else 'None'}\n"
         "Synthesize a report with separate alignment and artifact scores. "
         "Directly reinspect the image and do not defer blindly to the experts if they appear too optimistic. "
@@ -864,22 +917,25 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
         elapsed = _finish_stage("report", "synthesize_report", model_used, started_at, stop_event, heartbeat)
 
         report = EvaluationReport.model_validate(payload)
-        structural_experts = {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal", "structural"}
-        semantic_experts = {"clip", "clip_score", "imagenet_fast", "imagenet_strong", "imagenet_eva02_large", "imagenet_eva_giant_224", "clip_semantic", "semantic"}
         structural_severity = max(
-            (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in structural_experts),
+            (float(r.get("severity", 0.0)) for r in expert_payload if _result_domain(r) == "structural"),
             default=0.0,
         )
         semantic_severity = max(
-            (float(r.get("severity", 0.0)) for r in expert_payload if r.get("expert") in semantic_experts),
+            (float(r.get("severity", 0.0)) for r in expert_payload if _result_domain(r) == "semantic"),
             default=0.0,
         )
-        if structural_severity >= 0.75 or task_fit_weighted_severity >= 0.72:
+        artifact_severity = max(
+            (float(r.get("severity", 0.0)) for r in expert_payload if _result_domain(r) == "artifact"),
+            default=0.0,
+        )
+        severe_failure_signal = max(structural_severity, artifact_severity, structural_task_fit_weighted_severity, artifact_task_fit_weighted_severity)
+        if severe_failure_signal >= 0.75:
             report.artifact_score = min(report.artifact_score, 0.2)
             report.hard_failure = True
-        elif structural_severity >= 0.55 or task_fit_weighted_severity >= 0.5:
+        elif max(structural_severity, artifact_severity, structural_task_fit_weighted_severity, artifact_task_fit_weighted_severity) >= 0.55:
             report.artifact_score = min(report.artifact_score, 0.4)
-        if semantic_severity >= 0.5 or task_fit_weighted_severity >= 0.45:
+        if max(semantic_severity, semantic_task_fit_weighted_severity) >= 0.5:
             report.alignment_score = min(report.alignment_score, 0.5)
         report.expert_reliability_summary = ExpertReliabilitySummary(
             high_reliability_count=reliability_summary["high_reliability_count"],
@@ -888,11 +944,17 @@ def report_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
             unknown_reliability_count=reliability_summary["unknown_reliability_count"],
             weighted_severity=weighted_severity,
             task_fit_weighted_severity=task_fit_weighted_severity,
+            semantic_weighted_severity=semantic_weighted_severity,
+            semantic_task_fit_weighted_severity=semantic_task_fit_weighted_severity,
+            structural_weighted_severity=structural_weighted_severity,
+            structural_task_fit_weighted_severity=structural_task_fit_weighted_severity,
+            artifact_weighted_severity=artifact_weighted_severity,
+            artifact_task_fit_weighted_severity=artifact_task_fit_weighted_severity,
             low_task_fit_experts=low_task_fit_experts,
             task_fit_applied=True,
             conflicts=[ExpertConflictInfo(**c) for c in conflicts],
         )
-        report.reliability_adjusted_scores = len(conflicts) > 0 or weighted_severity > 0.3 or task_fit_weighted_severity > 0.3
+        report.reliability_adjusted_scores = len(conflicts) > 0 or max(semantic_task_fit_weighted_severity, structural_task_fit_weighted_severity, artifact_task_fit_weighted_severity) > 0.3
         
         return {
             "report": report,

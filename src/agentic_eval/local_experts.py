@@ -81,14 +81,13 @@ def _default_planned_model(expert: str, model_profile: str) -> str:
         return "animal_pose" if model_profile != "local_stronger" else "vqa"
     if expert == "quality":
         if model_profile == "local_fast":
-            return "iqa_fast"
+            return "q_insight"
         if model_profile == "local_richer":
-            return "iqa_richer"
-        return "iqa_default"
+            return "q_insight"
+        return "q_insight"
     if expert == "vqa":
         return "vqa"
     return ""
-
 
 def _all_downloaded_expert_items(settings: Settings) -> list[tuple[str, ExpertModelConfig]]:
     return [
@@ -159,10 +158,12 @@ def _step_type_score(step_type: str, config: ExpertModelConfig) -> float:
         if config.model_type in {"yolo_pose", "segmentation", "vqa"}:
             score += 5.0
     if normalized_step == "quality_check":
-        if config.model_type == "iqa":
-            score += 6.0
-        elif config.model_type == "mllm_scoring":
-            score += 5.0
+        if config.model_type == "mllm_scoring":
+            score += 7.0
+            if "artifact" in (config.evidence_role or "").lower() or "distortion" in (config.evidence_role or "").lower():
+                score += 1.5
+        elif config.model_type == "iqa":
+            score += 5.5
         elif config.model_type == "clip":
             score += 1.0
     if normalized_step == "vqa_evidence" and config.model_type == "vqa":
@@ -520,28 +521,40 @@ class LocalPlanner:
             raise LocalExpertError("Local planner did not return a valid steps list")
 
         label_text = (class_label or "the labeled subject").strip() or "the labeled subject"
+        is_c2i = bool((class_label or "").strip())
         normalized_steps: list[dict[str, Any]] = []
-        seen_step_signatures: set[tuple[str, str]] = set()
+        seen_step_signatures: set[tuple[str, str, str]] = set()
         default_step_types = {
             "semantic": "semantic_check",
             "structural": "structural_check",
             "quality": "quality_check",
             "vqa": "vqa_evidence",
         }
-        for index, step in enumerate(steps, start=1):
+
+        def _append_step(step_payload: dict[str, Any]) -> None:
+            step_payload = dict(step_payload)
+            step_payload["step_id"] = len(normalized_steps) + 1
+            normalized_steps.append(step_payload)
+
+        for step in steps:
             if not isinstance(step, dict):
                 continue
             expert = str(step.get("expert", "semantic")).strip().lower() or "semantic"
             if expert not in {"semantic", "structural", "quality", "vqa"}:
                 continue
+            step_type = str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip() or default_step_types.get(expert, "semantic_check")
             prompt_focus = str(step.get("prompt_focus", "")).strip()
             goal = str(step.get("goal", "")).strip() or f"Inspect {expert} evidence."
-            step_signature = (expert, (prompt_focus or goal).lower())
+            step_signature = (expert, step_type, (prompt_focus or goal).lower())
             if step_signature in seen_step_signatures:
                 continue
             seen_step_signatures.add(step_signature)
             if not prompt_focus:
-                if expert == "semantic":
+                if expert == "semantic" and step_type == "candidate_generation":
+                    prompt_focus = f"Generate confusable candidate labels visually close to {label_text} so a later CLIP step can disambiguate them."
+                elif expert == "semantic" and step_type == "confusable_disambiguation":
+                    prompt_focus = f"Use candidate labels from earlier semantic steps to decide whether the visible subject is best matched by {label_text} or a nearby confusable label."
+                elif expert == "semantic":
                     prompt_focus = f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image."
                 elif expert == "structural":
                     prompt_focus = f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, and likely lookalike confusions for {label_text}."
@@ -553,13 +566,12 @@ class LocalPlanner:
                 expert,
                 model_profile,
                 str(step.get("planned_model", "")).strip(),
-                str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip(),
+                step_type,
             )
-            normalized_steps.append(
+            _append_step(
                 {
-                    "step_id": len(normalized_steps) + 1,
                     "expert": expert,
-                    "step_type": str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip() or default_step_types.get(expert, "semantic_check"),
+                    "step_type": step_type,
                     "goal": goal,
                     "model_profile": model_profile,
                     "planned_model": normalized_planned_model,
@@ -575,11 +587,10 @@ class LocalPlanner:
         has_semantic = any(step["expert"] == "semantic" for step in normalized_steps)
         has_structural = any(step["expert"] == "structural" for step in normalized_steps)
         has_quality = any(step["expert"] == "quality" for step in normalized_steps)
+
         if not has_semantic:
-            normalized_steps.insert(
-                0,
+            _append_step(
                 {
-                    "step_id": 1,
                     "expert": "semantic",
                     "step_type": "semantic_check",
                     "goal": "Assess whether the image content matches the prompt/class label semantically.",
@@ -591,14 +602,66 @@ class LocalPlanner:
                     "expected_signal": "Broad-category and label-match evidence.",
                     "use_previous_outputs": False,
                     "allow_escalation": True,
-                },
+                }
             )
+
+        if is_c2i:
+            semantic_steps = [step for step in normalized_steps if step["expert"] == "semantic"]
+            has_candidate_generation = any(step["step_type"] == "candidate_generation" for step in semantic_steps)
+            has_confusable_disambiguation = any(step["step_type"] == "confusable_disambiguation" for step in semantic_steps)
+            uses_clip_semantic = any(step["planned_model"] in {"clip", "clip_score"} for step in semantic_steps)
+            if uses_clip_semantic and not has_candidate_generation:
+                normalized_steps.insert(
+                    0,
+                    {
+                        "step_id": 0,
+                        "expert": "semantic",
+                        "step_type": "candidate_generation",
+                        "goal": "Generate confusable candidate labels for fine-grained semantic disambiguation.",
+                        "model_profile": "local_fast",
+                        "planned_model": "bge_candidate_generator" if self.settings.get_expert_config("bge_candidate_generator") is not None else "e5_candidate_generator",
+                        "selection_reason": "Generate visually confusable labels before CLIP disambiguation in c2i.",
+                        "prompt_focus": f"Generate confusable candidate labels visually close to {label_text} so a later CLIP step can disambiguate them.",
+                        "depends_on": [],
+                        "expected_signal": "Candidate labels for fine-grained semantic disambiguation.",
+                        "use_previous_outputs": False,
+                        "allow_escalation": True,
+                    },
+                )
+                has_candidate_generation = True
+            if uses_clip_semantic and not has_confusable_disambiguation:
+                candidate_step = next((step for step in normalized_steps if step["expert"] == "semantic" and step["step_type"] == "candidate_generation"), None)
+                candidate_step_id = int(candidate_step.get("step_id", 1)) if candidate_step else 1
+                insert_index = 1 if candidate_step is not None else 0
+                normalized_steps.insert(
+                    insert_index,
+                    {
+                        "step_id": 0,
+                        "expert": "semantic",
+                        "step_type": "confusable_disambiguation",
+                        "goal": "Disambiguate the labeled class against visually confusable candidate labels.",
+                        "model_profile": "local_fast",
+                        "planned_model": "clip",
+                        "selection_reason": "Use CLIP to compare the labeled class against confusable candidates generated upstream.",
+                        "prompt_focus": f"Use candidate labels from earlier semantic steps to decide whether the visible subject is best matched by {label_text} or a nearby confusable label.",
+                        "depends_on": [candidate_step_id],
+                        "expected_signal": "Relative evidence among confusable labels including the target label.",
+                        "use_previous_outputs": True,
+                        "allow_escalation": True,
+                    },
+                )
+            for step in normalized_steps:
+                if step["expert"] == "semantic" and step["planned_model"] in {"clip", "clip_score"} and step["step_type"] == "semantic_check" and has_candidate_generation:
+                    candidate_step = next((candidate for candidate in normalized_steps if candidate["expert"] == "semantic" and candidate["step_type"] == "candidate_generation"), None)
+                    if candidate_step is not None and candidate_step["step_id"] not in step["depends_on"]:
+                        step["depends_on"] = [candidate_step["step_id"], *step["depends_on"]]
+                        step["use_previous_outputs"] = True
+
         if not has_structural:
-            insert_index = 1 if normalized_steps and normalized_steps[0]["expert"] == "semantic" else len(normalized_steps)
-            normalized_steps.insert(
-                insert_index,
+            semantic_anchor = next((step for step in normalized_steps if step["expert"] == "semantic"), None)
+            normalized_steps.append(
                 {
-                    "step_id": insert_index + 1,
+                    "step_id": 0,
                     "expert": "structural",
                     "step_type": "structural_check",
                     "goal": "Assess whole-subject structural coherence and class-specific morphology.",
@@ -606,25 +669,25 @@ class LocalPlanner:
                     "planned_model": "animal_pose",
                     "selection_reason": "Default low-cost structural first pass with pose evidence.",
                     "prompt_focus": f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for {label_text}.",
-                    "depends_on": [1] if normalized_steps and normalized_steps[0]["expert"] == "semantic" else [],
+                    "depends_on": [semantic_anchor["step_id"]] if semantic_anchor is not None else [],
                     "expected_signal": "Whole-subject coherence and morphology evidence.",
-                    "use_previous_outputs": True,
+                    "use_previous_outputs": semantic_anchor is not None,
                     "allow_escalation": True,
-                },
+                }
             )
         if not has_quality:
             normalized_steps.append(
                 {
-                    "step_id": len(normalized_steps) + 1,
+                    "step_id": 0,
                     "expert": "quality",
                     "step_type": "quality_check",
                     "goal": "Estimate visible quality degradation and perceptual failure evidence.",
                     "model_profile": "local_default",
-                    "planned_model": "iqa_default",
-                    "selection_reason": "Default quality pass using standard IQA metrics.",
-                    "prompt_focus": "Inspect localized quality degradation evidence, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant.",
+                    "planned_model": "q_insight",
+                    "selection_reason": "Default artifact-focused quality pass using Q-Insight.",
+                    "prompt_focus": "Inspect localized quality degradation evidence, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, corrupted boundaries, and other visible artifact failures.",
                     "depends_on": [step["step_id"] for step in normalized_steps if step["expert"] in {"semantic", "structural"}],
-                    "expected_signal": "Visible quality degradation evidence.",
+                    "expected_signal": "Visible artifact and distortion evidence.",
                     "use_previous_outputs": True,
                     "allow_escalation": True,
                 }
@@ -635,6 +698,25 @@ class LocalPlanner:
 
         for index, step in enumerate(normalized_steps, start=1):
             step["step_id"] = index
+
+        candidate_generation_step_id = next(
+            (step["step_id"] for step in normalized_steps if step["expert"] == "semantic" and step["step_type"] == "candidate_generation"),
+            None,
+        )
+
+        for step in normalized_steps:
+            valid_deps = [dep for dep in step.get("depends_on", []) if isinstance(dep, int) and 0 < dep < step["step_id"]]
+            prior_semantic_ids = [candidate["step_id"] for candidate in normalized_steps if candidate["expert"] == "semantic" and candidate["step_id"] < step["step_id"]]
+            prior_structural_ids = [candidate["step_id"] for candidate in normalized_steps if candidate["expert"] == "structural" and candidate["step_id"] < step["step_id"]]
+            if step["expert"] == "semantic" and step["step_type"] == "confusable_disambiguation" and candidate_generation_step_id is not None:
+                valid_deps = [candidate_generation_step_id]
+            elif step["expert"] == "semantic" and step["planned_model"] in {"clip", "clip_score"} and step["step_type"] == "semantic_check" and candidate_generation_step_id is not None and is_c2i:
+                valid_deps = [candidate_generation_step_id, *valid_deps]
+            elif step["expert"] == "structural" and not valid_deps and prior_semantic_ids:
+                valid_deps = [prior_semantic_ids[-1]]
+            elif step["expert"] == "quality":
+                valid_deps = [*prior_semantic_ids, *prior_structural_ids]
+            step["depends_on"] = sorted(dict.fromkeys(valid_deps))
 
         return {
             "rationale": str(payload.get("rationale", "")).strip() or "Use a cost-aware multimodal evaluation plan.",
@@ -650,20 +732,15 @@ class LocalPlanner:
             raise LocalExpertError("Local planner failed to initialize")
 
         task_lines = [
-            "You are the planning expert in an image generation evaluator.",
-            "Return a short JSON plan with semantic, structural, quality, and optional vqa steps.",
-            "Reason jointly from the image and the prompt/class label.",
-            "Use semantic for category/class match, structural for whole-subject coherence and anatomy, quality for local visible degradation evidence, vqa only for unresolved questions.",
-            # "For hard c2i cases, you may add candidate_generation or confusable_disambiguation semantic steps when useful.",
-            "Prefer the cheapest adequate route first; use stronger routes only for ambiguous hard cases.",
-            "Use only visible evidence; do not do external research.",
-            "Each step must include the concrete planned_model expert key and a brief selection_reason.",
-            "Use step_type to declare what the step is actually doing: semantic_check, structural_check, quality_check, vqa_evidence, candidate_generation, label_space_check, or confusable_disambiguation.",
-            "Use depends_on when a later step should consume earlier outputs. Use expected_signal to say what evidence the step should produce.",
+            "Plan the image evaluation and return exactly one JSON object.",
+            "No markdown, no code fences, no explanation before or after JSON.",
+            "Use semantic, structural, quality, and optional vqa only if unresolved evidence remains.",
+            "Use only visible image evidence plus the given prompt/class label.",
+            "Prefer the cheapest adequate route first.",
+            "For c2i, if a semantic step uses CLIP, prefer candidate_generation with bge_candidate_generator or e5_candidate_generator before a confusable_disambiguation CLIP step.",
+            "Prefer q_insight for quality_check when artifact evidence is needed.",
+            "Every step must include planned_model, selection_reason, prompt_focus, depends_on, expected_signal, use_previous_outputs, allow_escalation.",
             "Keep rationale and goals brief.",
-            "Different steps can have the same step_type but vary in expert, model, or prompt_focus for cross-validation. In this case, total steps can be greater than 3 but step_type options are limited.",
-            "For c2i task (Class label provided), semantic checks can be conducted by classification models and/or confusable candidate_generation models plus CLIP-style matching models. For t2i task (Text prompt provided), semantic checks can only be conducted by matching models.",
-            "Return valid JSON only.",
             'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|quality|vqa","step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
@@ -1145,16 +1222,13 @@ class LocalJudge:
         plan_json = json.dumps(plan_dict, indent=2, ensure_ascii=False)
 
         task_lines = [
-            "You are the judge expert in an image generation evaluator.",
-            "Review the evaluation plan and decide if it is adequate.",
-            "Approve only if the plan covers alignment, global structure, local quality evidence, uses VQA only when necessary, and clearly reasons jointly from the image and the prompt/class label.",
-            "For semantic inspection, prefer an explicit broad-category versus fine-grained class distinction when the label is fine-grained.",
-            "For structural inspection, require the plan to target the likely subject-specific failure modes instead of using a rote generic checklist.",
-            "Do not reject solely because the plan omits color, lighting, or composition checks unless the class label or prompt specifically requires them.",
-            "Check that each step's planned_model and selection_reason are consistent with the available model catalog and the stated task.",
-            "When rejecting, provide structured replan actions so the planner can revise deterministically.",
-            "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
+            "Review the plan and return exactly one JSON object.",
+            "No markdown, no code fences, no explanation before or after JSON.",
+            "Approve if the plan covers semantic alignment, whole-subject structure, and artifact-focused quality evidence with reasonable model choices.",
+            "Do not reject for missing color, lighting, or composition checks unless the task explicitly requires them.",
+            "For fine-grained c2i, prefer candidate_generation plus CLIP confusable_disambiguation when CLIP is used.",
+            "When rejecting, keep feedback short and provide deterministic replan_actions.",
+            'JSON schema: {"approved":true|false,"feedback":"string","missing_checks":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|q_insight|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             _describe_available_experts(self.settings),
@@ -1252,28 +1326,18 @@ class LocalReflector:
         reliability_json = json.dumps(reliability_summary, indent=2, ensure_ascii=False)
 
         task_lines = [
-            "You are the reflector expert in an image generation evaluator.",
-            "Act as a second-pass critic. Reinspect the image directly and look specifically for severe failures the experts or report may have missed.",
-            "Use only visible evidence from the image. Distinguish broad category match from fine-grained class or species match.",
-            "Do not name a specific alternative species unless at least two visible diagnostic traits support it; otherwise describe a broad-category match or fine-grained mismatch/uncertainty.",
-            "Consider expert reliability when evaluating the report:",
-            "- HIGH reliability experts (weight 1.0): If they report issues, trust them strongly",
-            "- MEDIUM reliability experts (weight 0.7): Consider their findings but verify with visual evidence",
-            "- LOW reliability experts (weight 0.4): Use as hints only, require stronger confirmation",
-            "- When experts conflict, prioritize the one with higher reliability",
-            "- If report relies heavily on LOW reliability experts, flag for additional verification",
-            "- If weighted severity significantly differs from report severity, note the discrepancy",
-            "Reject the report if it is too optimistic about species match, anatomy, appendages, limbs, extremities, tail attachment, duplicated parts, impossible structure, or boundary corruption.",
-            "If visible evidence is ambiguous, treat the ambiguity as failure risk rather than assuming the image is clean.",
-            "When rejecting, provide structured replan actions so the planner can revise deterministically.",
-            "Return valid JSON only.",
-            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
+            "Review the report and return exactly one JSON object.",
+            "No markdown, no code fences, no explanation before or after JSON.",
+            "Reinspect the image directly and reject only if the report is materially too optimistic or ignores important expert evidence.",
+            "Use visible evidence only. Treat ambiguity as risk, not as proof of correctness.",
+            "When rejecting, keep feedback short and provide deterministic replan_actions.",
+            'JSON schema: {"approved":true|false,"feedback":"string","suggested_fixes":["string"],"task_fit_issues":["string"],"replan_actions":[{"action":"add_step|retarget_step|replace_model|reorder_steps|tighten_task_fit|reweight_evidence|rerun_with_stronger_model","reason":"string","priority":"low|medium|high","target_step_id":1,"step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","suggested_expert":"semantic|structural|quality|vqa|clip|clip_score|imagenet_fast|imagenet_strong|imagenet_eva02_large|imagenet_eva_giant_224|bge_candidate_generator|e5_candidate_generator|animal_pose|body_pose|body_pose_strong|hand_detection|face_detection|places365|places365_strong|building_expert|background_removal|complexity|iqa_fast|iqa_default|iqa_richer|q_insight|boundary_artifact|aigen_detection|ocr|dog_breed|bird_expert","suggested_model":"string","prompt_focus":"string","expected_signal":"string"}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",
             "Each expert output may include output_meaning and output_interpretability metadata. Use those fields to interpret what the expert's severity, findings, and extra_info actually mean before deciding whether the report handled the expert evidence correctly.",
             f"Detected conflicts:\n{conflicts_json}",
-            f"Weighted severity: {weighted_severity:.3f}",
+            f"Weighted severity (diagnostic only): {weighted_severity:.3f}",
             f"Reliability summary:\n{reliability_json}",
             f"Report:\n{report_json}",
         ]
@@ -1586,23 +1650,19 @@ class LocalReport:
         expert_json = json.dumps(expert_results, indent=2, ensure_ascii=False)
         conflicts_json = json.dumps(conflicts, indent=2, ensure_ascii=False) if conflicts else "None"
         task_lines = [
-            "You synthesize expert evidence into an evaluation report, but you are not bound by the experts if the image itself suggests they missed a serious failure.",
-            "Directly inspect the image again while reading the expert outputs.",
-            "Use only visible evidence from the image. Distinguish broad category match from fine-grained class or species match.",
-            "Do not name a specific alternative species unless at least two visible diagnostic traits support it; otherwise describe a broad-category match or fine-grained mismatch/uncertainty.",
-            "Use a conservative standard: when visible evidence suggests species mismatch, impossible anatomy, extra appendages, malformed extremities, duplicated limbs, broken joints, wrong tail attachment, or severe boundary corruption, lower the scores accordingly.",
-            "Artifact score is a quality score where 1 means minimal visible artifacts and 0 means severe visible artifacts.",
-            "For artifact assessment, prioritize visible anatomy, boundaries, texture consistency, duplicated or melted parts, implausible structure, and other visible generation failures over generic perceptual pleasantness.",
-            "If broad category matches but fine-grained class evidence is weak, keep alignment in the partial-match range rather than treating it as a clean match.",
-            "Set hard_failure true when the image shows severe species mismatch or severe anatomical or structural generation failure.",
-            "Return valid JSON only.",
+            "Return exactly one JSON report object.",
+            "No markdown, no code fences, no explanation before or after JSON.",
+            "Reinspect the image directly while considering expert outputs.",
+            "Alignment score is only about semantic match. Artifact score is only about visible artifact or structural failure severity, where 1 means clean and 0 means severe failure.",
+            "If broad category matches but fine-grained class evidence is weak, keep alignment partial.",
+            "Set hard_failure true only for severe structural or artifact failure, or a severe semantic mismatch clearly visible in the image.",
             'JSON schema: {"alignment_reasoning":"string","artifact_reasoning":"string","alignment_score":0.0,"artifact_score":0.0,"hard_failure":false,"confidence":0.0,"key_issues":["string"]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
             f"Expert outputs:\n{expert_json}",
             "Each expert output may include output_meaning and output_interpretability metadata. Use those fields to interpret what the expert's severity, findings, and extra_info actually mean before deciding whether the result supports artifact or alignment concerns.",
             f"Detected conflicts:\n{conflicts_json}",
-            f"Weighted severity: {weighted_severity:.3f}",
+            f"Weighted severity (diagnostic only): {weighted_severity:.3f}",
         ]
 
         user_text = "\n".join(task_lines)

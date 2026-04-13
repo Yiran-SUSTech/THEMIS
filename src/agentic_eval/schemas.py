@@ -130,6 +130,12 @@ class ExpertReliabilitySummary(BaseModel):
     conflicts: list[ExpertConflictInfo] = Field(default_factory=list)
     weighted_severity: float = 0.0
     task_fit_weighted_severity: float = 0.0
+    semantic_weighted_severity: float = 0.0
+    semantic_task_fit_weighted_severity: float = 0.0
+    structural_weighted_severity: float = 0.0
+    structural_task_fit_weighted_severity: float = 0.0
+    artifact_weighted_severity: float = 0.0
+    artifact_task_fit_weighted_severity: float = 0.0
     low_task_fit_experts: list[str] = Field(default_factory=list)
     overall_confidence: float = 0.7
     task_fit_applied: bool = False
