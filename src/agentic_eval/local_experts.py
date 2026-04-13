@@ -705,19 +705,81 @@ class LocalPlanner:
         except Exception as exc:  # noqa: BLE001
             raise LocalExpertError("Local planner inference failed") from exc
 
+        if self.settings.log_dir:
+            try:
+                log_path = Path(self.settings.log_dir)
+                log_path.mkdir(parents=True, exist_ok=True)
+                (log_path / "planner_raw_output.txt").write_text(output_text, encoding="utf-8")
+            except Exception:
+                pass
+
         return self._normalize_plan(extract_plan_payload(output_text), class_label=class_label)
 
 
 def extract_plan_payload(text: str) -> dict[str, Any]:
+    def _looks_like_plan_payload(payload: dict[str, Any]) -> bool:
+        return isinstance(payload.get("steps"), list) or "rationale" in payload
+
     try:
-        return extract_json(text)
-    except LocalExpertError as exc:
-        if "complete JSON object" not in str(exc):
-            raise
-        return {
-            "rationale": "Planner output was truncated; use the fallback normalized plan.",
-            "steps": [],
-        }
+        payload = extract_json(text)
+        if _looks_like_plan_payload(payload):
+            return payload
+    except LocalExpertError:
+        pass
+
+    for payload in extract_top_level_json_objects(text):
+        if _looks_like_plan_payload(payload):
+            return payload
+
+    return {
+        "rationale": "Planner output could not be parsed; use the fallback normalized plan.",
+        "steps": [],
+    }
+
+
+def extract_top_level_json_objects(text: str) -> list[dict[str, Any]]:
+    candidate = text.strip()
+    objects: list[dict[str, Any]] = []
+    depth = 0
+    in_string = False
+    escaped = False
+    start: int | None = None
+
+    for index, char in enumerate(candidate):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+            continue
+
+        if char == "{":
+            if depth == 0:
+                start = index
+            depth += 1
+            continue
+
+        if char == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                extracted = candidate[start:index + 1]
+                for loader in (json.loads, yaml.safe_load):
+                    try:
+                        payload = loader(extracted)
+                    except Exception:
+                        continue
+                    if isinstance(payload, dict):
+                        objects.append(payload)
+                        break
+                start = None
+
+    return objects
 
 
 def extract_json(text: str) -> dict[str, Any]:
@@ -729,65 +791,20 @@ def extract_json(text: str) -> dict[str, Any]:
     if candidate.lower().startswith("json\n"):
         candidate = candidate[5:].strip()
 
-    try:
-        payload = json.loads(candidate)
-        if isinstance(payload, dict):
-            return payload
-    except json.JSONDecodeError:
-        pass
-
-    try:
-        payload = yaml.safe_load(candidate)
-        if isinstance(payload, dict):
-            return payload
-    except Exception:
-        pass
-
-    start = candidate.find("{")
-    if start == -1:
-        raise LocalExpertError("Local model did not return valid JSON")
-
-    depth = 0
-    in_string = False
-    escaped = False
-    end = -1
-    for index, char in enumerate(candidate[start:], start=start):
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
+    for loader in (json.loads, yaml.safe_load):
+        try:
+            payload = loader(candidate)
+        except Exception:
             continue
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                end = index
-                break
+        if isinstance(payload, dict):
+            return payload
 
-    if end == -1:
+    extracted_objects = extract_top_level_json_objects(candidate)
+    if extracted_objects:
+        return extracted_objects[-1]
+
+    if "{" in candidate:
         raise LocalExpertError("Local model did not return a complete JSON object")
-
-    extracted = candidate[start:end + 1]
-    try:
-        payload = json.loads(extracted)
-        if isinstance(payload, dict):
-            return payload
-    except json.JSONDecodeError:
-        pass
-
-    try:
-        payload = yaml.safe_load(extracted)
-        if isinstance(payload, dict):
-            return payload
-    except Exception as exc:
-        raise LocalExpertError("Local model did not return valid JSON") from exc
-
     raise LocalExpertError("Local model did not return valid JSON")
 
 
