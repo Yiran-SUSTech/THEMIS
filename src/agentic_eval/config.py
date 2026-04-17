@@ -349,6 +349,8 @@ class Settings:
         
         if "expert_models" in config:
             for group_name, group in config["expert_models"].items():
+                if not isinstance(group, dict):
+                    continue
                 for expert_name, expert_config in group.items():
                     settings.expert_configs[expert_name] = ExpertModelConfig(
                         name=expert_config.get("name", expert_name),
