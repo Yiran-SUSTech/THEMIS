@@ -920,14 +920,169 @@ class BackgroundExpert(BaseExpert):
         )
 
 
+class QInsightExpert(BaseExpert):
+    DEFAULT_SYSTEM_PROMPT = (
+        "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. "
+        "The assistant first thinks about the reasoning process in the mind and then provides the user with "
+        "the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> "
+        "</answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>"
+    )
+    DEFAULT_DISTORTION_PROMPT = (
+        'Analyze the given image and determine if it contains any of the following distortions: "noise", '
+        '"compression", "blur", or "darken". If a distortion is present, classify its severity as '
+        '"slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON '
+        'format with the following keys: "distortion_class": The detected distortion (or "null" if none). '
+        'and "severity": The severity level (or "null" if none).'
+    )
+    SEVERITY_MAP = {
+        "null": 0.0,
+        "slight": 0.2,
+        "moderate": 0.45,
+        "obvious": 0.65,
+        "serious": 0.82,
+        "catastrophic": 0.95,
+    }
+
+    def load_model(self) -> Tuple[Any, Any]:
+        model_key = f"qinsight_{self.config.model}"
+        processor_key = f"qinsight_processor_{self.config.model}"
+
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
+
+        try:
+            from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+
+            model_path = self.config.local_path or self.config.model
+            load_kwargs = {
+                "trust_remote_code": True,
+            }
+            if torch.cuda.is_available() and self.config.device.startswith("cuda"):
+                load_kwargs["torch_dtype"] = torch.bfloat16
+                load_kwargs["device_map"] = {"": self.config.device}
+            else:
+                load_kwargs["torch_dtype"] = torch.float32
+                load_kwargs["device_map"] = "cpu"
+
+            if Path(model_path).exists():
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path,
+                    local_files_only=True,
+                    **load_kwargs,
+                )
+            else:
+                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path,
+                    **load_kwargs,
+                )
+
+            model.eval()
+
+            self.registry.set_model(model_key, model)
+            self.registry.set_processor(processor_key, processor)
+            self._model = model
+            self._processor = processor
+
+            return model, processor
+        except ImportError as e:
+            raise ExpertModelError(f"transformers not installed: {e}")
+
+    def _extract_payload(self, output_text: str) -> dict[str, Any] | None:
+        text = output_text.strip()
+        answer_start = text.find("<answer>")
+        answer_end = text.find("</answer>")
+        if answer_start != -1 and answer_end != -1 and answer_end > answer_start:
+            text = text[answer_start + len("<answer>"):answer_end].strip()
+
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+
+        try:
+            payload = json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
+        model, processor = self.load_model()
+        image = self._load_image(image_path)
+
+        system_prompt = self.config.prompts.get("system") or self.DEFAULT_SYSTEM_PROMPT
+        user_prompt = self.config.prompts.get("distortion") or self.DEFAULT_DISTORTION_PROMPT
+        messages = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_prompt},
+                ],
+            },
+        ]
+
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
+        inputs = {key: value.to(model.device) for key, value in inputs.items()}
+
+        with torch.no_grad():
+            generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=64)
+
+        prompt_length = inputs["input_ids"].shape[1]
+        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+        output_text = processor.batch_decode(
+            trimmed_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0]
+
+        payload = self._extract_payload(output_text) or {}
+        distortion_class = str(payload.get("distortion_class", "null")).strip().lower()
+        severity_label = str(payload.get("severity", "null")).strip().lower()
+        severity = self.SEVERITY_MAP.get(severity_label, 0.5 if distortion_class not in {"", "null", "none"} else 0.0)
+
+        if distortion_class in {"", "null", "none"}:
+            summary = "Q-Insight detected no targeted distortion signal."
+            confidence = 0.75 if payload else 0.35
+        else:
+            severity_phrase = severity_label if severity_label not in {"", "null", "none"} else "unspecified"
+            summary = f"Q-Insight detected {distortion_class} distortion at {severity_phrase} severity."
+            confidence = 0.85 if payload else 0.45
+
+        findings = [
+            f"distortion_class: {distortion_class}",
+            f"severity: {severity_label}",
+            f"raw_response: {output_text}",
+        ]
+
+        return ExpertResult(
+            expert=self.config.name,
+            summary=summary,
+            findings=findings,
+            severity=severity,
+            confidence=confidence,
+            source="local",
+            model=self.config.model,
+            extra_info={
+                "distortion_class": distortion_class,
+                "severity_label": severity_label,
+                "raw_response": output_text,
+                "parsed_payload": payload or None,
+            },
+        )
+
+
 class QwenVLExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"qwen_vl_{self.config.model}"
         processor_key = f"qwen_vl_processor_{self.config.model}"
-        
+
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-        
+
         try:
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
@@ -957,21 +1112,21 @@ class QwenVLExpert(BaseExpert):
                 )
 
             model.eval()
-            
+
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
             self._model = model
             self._processor = processor
-            
+
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
 
     def evaluate(self, image_path: str, question: str = "Describe this image.", **kwargs) -> ExpertResult:
         model, processor = self.load_model()
-        
+
         image = self._load_image(image_path)
-        
+
         messages = [
             {
                 "role": "user",
@@ -981,16 +1136,16 @@ class QwenVLExpert(BaseExpert):
                 ]
             }
         ]
-        
+
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
-        
+
         with torch.no_grad():
             generated_ids = model.generate(**inputs, max_new_tokens=256)
-        
+
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        
+
         return ExpertResult(
             expert=self.config.name,
             summary=generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
@@ -1011,6 +1166,7 @@ EXPERT_CLASS_MAP = {
     "clip": CLIPExpert,
     "clip_score": CLIPExpert,
     "text_embedding": TextEmbeddingExpert,
+    "mllm_scoring": QInsightExpert,
     "yolo_pose": YOLOPoseExpert,
     "yolo_detect": YOLODetectExpert,
     "detection": YOLODetectExpert,
