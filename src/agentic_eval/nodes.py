@@ -544,22 +544,6 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
     elif state.get("reflection") and not state["reflection"].approved:
         prior_feedback = f"\nPrevious reflector feedback: {state['reflection'].feedback}"
 
-    user_text = (
-        f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        "Create a concise evaluation plan using the available experts: semantic, structural, quality, vqa. "
-        "Plan jointly from the image itself and the prompt/class label together as one multimodal grounding task. "
-        "The plan must cover semantic alignment, whole-subject global structure, and a separate local quality-evidence pass. "
-        "Unless the image is trivially simple, include at least one semantic step, one structural step, and one quality step; include vqa only if earlier evidence leaves a material unresolved question. "
-        "Step order should usually be: semantic alignment first, structural coherence second, local quality evidence third, then optional vqa. "
-        "For each step, choose a model_profile. Strongly prefer the cheapest adequate local route first: semantic should start with local_fast, structural should start with local_fast, quality should start with local_default or local_richer, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
-        "For semantic steps, check whether the visible subject is plausibly the labeled class from image evidence alone, then note the strongest confirming or contradicting traits. "
-        "For structural steps, first test whether the whole animal forms a coherent instance of the labeled subject, then target the most likely subject-specific confusion risks and part-integrity failures visible in this image. Use the class label to name distinguishing morphology, body proportions, pose plausibility, and scene compatibility that separate this subject from nearby lookalikes. "
-        "For quality steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
-        "Do not frame any step as comparing against external reference photos or doing open-ended species research; inspect this image directly. "
-        "Escalate to local_stronger only when the task is fine-grained, evidence is ambiguous, or prior judge/reflector feedback indicates the earlier route was insufficient. "
-        "Set prompt_focus to the exact visual evidence the expert should inspect, using subject-specific failure modes instead of a generic checklist. Set allow_escalation to false for steps that should stay on the chosen route."
-        f"{prior_feedback}"
-    )
     try:
         if not client.settings.planner_local_enabled or not client.settings.planner_local_model:
             raise RuntimeError("Planner local model is not configured")

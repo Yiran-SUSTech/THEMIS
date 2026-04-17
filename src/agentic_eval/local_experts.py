@@ -1696,7 +1696,7 @@ class LocalReport:
         task_lines = [
             "Return exactly one JSON report object.",
             "No markdown, no code fences, no explanation before or after JSON.",
-            "Reinspect the image directly while considering expert outputs.",
+            # "Reinspect the image directly while considering expert outputs.",
             "Alignment score is only about semantic match. Artifact score is only about visible artifact or structural failure severity, where 1 means clean and 0 means severe failure.",
             "If broad category matches but fine-grained class evidence is weak, keep alignment partial.",
             "Set hard_failure true only for severe structural or artifact failure, or a severe semantic mismatch clearly visible in the image.",
