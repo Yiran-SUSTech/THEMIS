@@ -231,29 +231,137 @@ class ImageNetExpert(BaseExpert):
         )
 
 
+class TextEmbeddingExpert(BaseExpert):
+    def load_model(self) -> Tuple[Any, Any]:
+        model_key = f"text_embedding_{self.config.model}"
+        tokenizer_key = f"text_embedding_tokenizer_{self.config.model}"
+
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key), self.registry.get_processor(tokenizer_key)
+
+        try:
+            from transformers import AutoModel, AutoTokenizer
+
+            model_path = self.config.local_path or self.config.model
+            local_only = Path(model_path).exists()
+            tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=local_only)
+            model = AutoModel.from_pretrained(model_path, local_files_only=local_only)
+            model = model.to(self.config.device)
+            model.eval()
+
+            self.registry.set_model(model_key, model)
+            self.registry.set_processor(tokenizer_key, tokenizer)
+            self._model = model
+            self._processor = tokenizer
+
+            return model, tokenizer
+        except ImportError as e:
+            raise ExpertModelError(f"transformers not installed for text embedding: {e}")
+
+    def _encode_texts(self, model: Any, tokenizer: Any, texts: List[str]) -> torch.Tensor:
+        inputs = tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+            max_length=256,
+        )
+        inputs = {key: value.to(self.config.device) for key, value in inputs.items()}
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+
+        attention_mask = inputs["attention_mask"].unsqueeze(-1)
+        token_embeddings = outputs.last_hidden_state
+        masked_embeddings = token_embeddings * attention_mask
+        pooled = masked_embeddings.sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1)
+        return F.normalize(pooled, p=2, dim=1)
+
+    def evaluate(
+        self,
+        image_path: str,
+        class_label: Optional[str] = None,
+        candidate_pool: Optional[List[str]] = None,
+        top_k: int = 8,
+        **kwargs,
+    ) -> ExpertResult:
+        model, tokenizer = self.load_model()
+
+        label = (class_label or "").strip()
+        if not label:
+            raise ExpertModelError("text_embedding expert requires class_label")
+
+        pool = [item.strip() for item in (candidate_pool or []) if isinstance(item, str) and item.strip()]
+        if label not in pool:
+            pool.insert(0, label)
+
+        unique_pool: list[str] = []
+        seen: set[str] = set()
+        for item in pool:
+            normalized = item.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            unique_pool.append(item)
+
+        if len(unique_pool) == 1:
+            candidate_labels = unique_pool
+            findings = [f"Candidate: {unique_pool[0]} (seed label)"]
+            confidence = 1.0
+        else:
+            query_embedding = self._encode_texts(model, tokenizer, [label])
+            candidate_embeddings = self._encode_texts(model, tokenizer, unique_pool)
+            scores = (query_embedding @ candidate_embeddings.T).squeeze(0)
+            top_count = min(max(top_k, 1), len(unique_pool))
+            top_scores, top_indices = torch.topk(scores, k=top_count)
+            candidate_labels = [unique_pool[int(index)] for index in top_indices.tolist()]
+            findings = [
+                f"Candidate: {unique_pool[int(index)]} (score: {float(score):.4f})"
+                for index, score in zip(top_indices.tolist(), top_scores.tolist())
+            ]
+            confidence = float(torch.clamp(top_scores[0], min=0.0, max=1.0).item()) if len(top_scores) > 0 else 0.0
+
+        summary = f"Generated {len(candidate_labels)} confusable candidate labels for '{label}'."
+
+        return ExpertResult(
+            expert=self.config.name,
+            summary=summary,
+            findings=findings,
+            severity=0.0,
+            confidence=confidence,
+            source="local",
+            model=self.config.model,
+            extra_info={
+                "class_label": label,
+                "candidate_labels": candidate_labels,
+                "candidate_pool": unique_pool,
+            },
+        )
+
+
 class CLIPExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"clip_{self.config.model}"
         processor_key = f"clip_processor_{self.config.model}"
-        
+
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-        
+
         try:
             from transformers import CLIPModel, CLIPProcessor
-            
+
             model_path = self.config.local_path or self.config.model
             model = CLIPModel.from_pretrained(model_path, local_files_only=Path(model_path).exists())
             processor = CLIPProcessor.from_pretrained(model_path, local_files_only=Path(model_path).exists())
-            
+
             model = model.to(self.config.device)
             model.eval()
-            
+
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
             self._model = model
             self._processor = processor
-            
+
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
@@ -902,6 +1010,7 @@ EXPERT_CLASS_MAP = {
     "classification": ImageNetExpert,
     "clip": CLIPExpert,
     "clip_score": CLIPExpert,
+    "text_embedding": TextEmbeddingExpert,
     "yolo_pose": YOLOPoseExpert,
     "yolo_detect": YOLODetectExpert,
     "detection": YOLODetectExpert,
