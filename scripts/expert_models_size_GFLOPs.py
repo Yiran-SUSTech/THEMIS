@@ -59,12 +59,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force-cpu", action="store_true", help="Override expert devices to cpu before loading models.")
     parser.add_argument("--report-json", default=None, help="Optional path to save the profiling report as JSON.")
     parser.add_argument("--expert", action="append", default=None, help="Profile only specific expert key(s).")
-    parser.add_argument("--groundingdino-swint-config", default=os.getenv("GROUNDINGDINO_SWINT_CONFIG", ""), help="Optional path to GroundingDINO_SwinT_OGC.py")
-    parser.add_argument("--groundingdino-swinb-config", default=os.getenv("GROUNDINGDINO_SWINB_CONFIG", ""), help="Optional path to GroundingDINO_SwinB_cfg.py")
-    parser.add_argument("--sam2-config-dir", default=os.getenv("SAM2_CONFIG_DIR", ""), help="Optional repo/config root containing configs/sam2.1/*.yaml")
-    parser.add_argument("--unipose-repo-root", default=os.getenv("UNIPOSE_REPO_ROOT", ""), help="Optional UniPose repo root containing llava/ posegpt/ configs")
-    parser.add_argument("--unipose-config", default=os.getenv("UNIPOSE_CONFIG", ""), help="Optional UniPose config path, e.g. configs/inference.py")
-    parser.add_argument("--unipose-vision-tower", default=os.getenv("UNIPOSE_VISION_TOWER", ""), help="Optional absolute path to UniPose CLIP vision tower")
     return parser.parse_args()
 
 
@@ -99,14 +93,11 @@ SUPPORTED_MODEL_TYPES = {
     "vqa",
     "mllm_scoring",
     "rtmpose",
-    "mllm_pose",
-    "open_vocabulary_detection",
 }
 
 
 MODEL_TYPE_ALIASES = {
     "eva_classification": "classification",
-    "open_vocabulary_detection": "detection",
 }
 
 
@@ -441,61 +432,6 @@ def _load_eva_bundle(config: Any) -> Any:
     return model
 
 
-def _load_groundingdino_bundle(config: Any, args: argparse.Namespace) -> Any:
-    model_name = str(getattr(config, "model", "") or "").strip().lower()
-    config_path = ""
-    if "swint" in model_name:
-        config_path = args.groundingdino_swint_config
-    else:
-        config_path = args.groundingdino_swinb_config
-    if not config_path:
-        raise ExpertModelError("GroundingDINO config path not provided; use --groundingdino-swint-config or --groundingdino-swinb-config")
-    config_file = Path(config_path)
-    if not config_file.exists():
-        raise ExpertModelError(f"GroundingDINO config not found: {config_file}")
-    weights_path = _resolve_existing_path(getattr(config, "weights", None), getattr(config, "local_path", None), getattr(config, "model", None))
-    if weights_path is None:
-        raise ExpertModelError("GroundingDINO checkpoint not found")
-    try:
-        from groundingdino.util.inference import load_model  # type: ignore
-    except Exception as exc:
-        raise ExpertModelError(f"groundingdino import failed: {exc}")
-    model = load_model(str(config_file), str(weights_path))
-    if hasattr(model, "eval"):
-        model.eval()
-    return model
-
-
-def _load_sam2_bundle(config: Any, args: argparse.Namespace) -> Any:
-    config_dir = Path(args.sam2_config_dir) if args.sam2_config_dir.strip() else None
-    if config_dir is None:
-        raise ExpertModelError("SAM2 config dir not provided; use --sam2-config-dir")
-    model_name = str(getattr(config, "model", "") or "").strip().lower()
-    relative_cfg_map = {
-        "hiera_tiny": "configs/sam2.1/sam2.1_hiera_t.yaml",
-        "hiera_small": "configs/sam2.1/sam2.1_hiera_s.yaml",
-        "hiera_base_plus": "configs/sam2.1/sam2.1_hiera_b+.yaml",
-        "hiera_large": "configs/sam2.1/sam2.1_hiera_l.yaml",
-    }
-    relative_cfg = relative_cfg_map.get(model_name)
-    if not relative_cfg:
-        raise ExpertModelError(f"Unsupported SAM2 model name: {model_name}")
-    config_path = config_dir / relative_cfg
-    if not config_path.exists():
-        raise ExpertModelError(f"SAM2 config not found: {config_path}")
-    weights_path = _resolve_existing_path(getattr(config, "weights", None), getattr(config, "local_path", None))
-    if weights_path is None:
-        raise ExpertModelError("SAM2 checkpoint not found")
-    try:
-        from sam2.build_sam import build_sam2  # type: ignore
-    except Exception as exc:
-        raise ExpertModelError(f"sam2 import failed: {exc}")
-    model = build_sam2(str(config_path), str(weights_path), device="cpu")
-    if hasattr(model, "eval"):
-        model.eval()
-    return model
-
-
 def _load_rtmpose_bundle(config: Any) -> Any:
     import torch
 
@@ -504,28 +440,6 @@ def _load_rtmpose_bundle(config: Any) -> Any:
         raise ExpertModelError("RTMPose checkpoint not found")
     checkpoint = torch.load(str(weights_path), map_location="cpu")
     return checkpoint
-
-
-def _load_unipose_bundle(config: Any) -> tuple[Any, Any]:
-    model_path = str(getattr(config, "local_path", None) or getattr(config, "model", "") or "").strip()
-    if not model_path:
-        raise ExpertModelError("UniPose model path is empty")
-    root = Path(model_path)
-    if not root.exists():
-        raise ExpertModelError(f"UniPose path not found: {root}")
-    adapter_config_path = root / "adapter_config.json"
-    if not adapter_config_path.exists():
-        raise ExpertModelError(f"UniPose adapter config not found: {adapter_config_path}")
-    adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
-    base_hint = str(adapter_config.get("base_model_name_or_path", "") or "").strip()
-    base_path = (root / base_hint).resolve() if base_hint.startswith(".") else Path(base_hint)
-    if not base_path.exists():
-        raise ExpertModelError(f"UniPose base model not found: {base_path}")
-    return _load_generic_qwen_vl_bundle(type("Cfg", (), {
-        "local_path": str(base_path),
-        "model": str(base_path),
-        "device": str(getattr(config, "device", "cpu") or "cpu"),
-    })())
 
 
 def _prepare_profile_callable(expert: BaseExpert, model_obj: Any, dummy_image: Path, dummy_size: tuple[int, int]) -> Any:
@@ -655,34 +569,6 @@ def _profile_eva_classification(config: Any, dummy_size: tuple[int, int]) -> dic
     return {"gflops": gflops, "model_size_mb": model_size_mb}
 
 
-def _profile_groundingdino(config: Any, dummy_image: Path, args: argparse.Namespace) -> dict[str, float | None]:
-    import torch
-    from groundingdino.util.inference import load_image, predict  # type: ignore
-
-    model = _load_groundingdino_bundle(config, args)
-    model_size_mb = _estimate_loaded_model_size_mb(model)
-    _, image = load_image(str(dummy_image))
-    use_cuda = str(getattr(config, "device", "cpu") or "cpu").startswith("cuda")
-
-    def _run():
-        predict(
-            model=model,
-            image=image,
-            caption="animal . object .",
-            box_threshold=0.25,
-            text_threshold=0.2,
-        )
-
-    gflops = _profile_flops(_run, use_cuda=use_cuda)
-    return {"gflops": gflops, "model_size_mb": model_size_mb}
-
-
-def _profile_sam2(config: Any, args: argparse.Namespace) -> dict[str, float | None]:
-    model = _load_sam2_bundle(config, args)
-    model_size_mb = _estimate_loaded_model_size_mb(model)
-    return {"gflops": None, "model_size_mb": model_size_mb}
-
-
 def _profile_rtmpose(config: Any) -> dict[str, float | None]:
     checkpoint = _load_rtmpose_bundle(config)
     size_mb = None
@@ -699,27 +585,6 @@ def _profile_rtmpose(config: Any) -> dict[str, float | None]:
     return {"gflops": None, "model_size_mb": size_mb}
 
 
-def _profile_unipose(config: Any, dummy_image: Path) -> dict[str, float | None]:
-    model, processor = _load_unipose_bundle(config)
-    model_size_mb = _estimate_loaded_model_size_mb(model)
-    image = _safe_open_image(dummy_image)
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image"},
-                {"type": "text", "text": "Describe the visible pose or body structure in one short sentence."},
-            ],
-        }
-    ]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
-    model_device = _maybe_get_model_device(model)
-    inputs = _move_inputs_to_device(inputs, model_device)
-    gflops = _profile_flops(lambda: model.generate(**inputs, max_new_tokens=1, do_sample=False), use_cuda=str(model_device).startswith("cuda"))
-    return {"gflops": gflops, "model_size_mb": model_size_mb}
-
-
 def _profile_one_expert(expert_key: str, config: Any, settings: Settings, dump_dir: Path, args: argparse.Namespace) -> dict[str, float | None]:
     model_type = _normalized_model_type(config)
     dummy_size = _resolve_dummy_size(config)
@@ -732,14 +597,8 @@ def _profile_one_expert(expert_key: str, config: Any, settings: Settings, dump_d
         return _profile_text_embedding(config, settings)
     if model_type == "classification" and str(getattr(config, "model_type", "") or "").strip().lower() == "eva_classification":
         return _profile_eva_classification(config, dummy_size)
-    if model_type == "detection" and str(getattr(config, "model_type", "") or "").strip().lower() == "open_vocabulary_detection":
-        return _profile_groundingdino(config, dummy_path, args)
-    if model_type == "segmentation" and str(getattr(config, "model", "") or "").strip().lower().startswith("hiera_"):
-        return _profile_sam2(config, args)
     if str(getattr(config, "model_type", "") or "").strip().lower() == "rtmpose":
         return _profile_rtmpose(config)
-    if str(getattr(config, "model_type", "") or "").strip().lower() == "mllm_pose":
-        return _profile_unipose(config, dummy_path)
 
     expert = create_expert(config, settings)
     dummy_size = _resolve_dummy_size(config, expert)
