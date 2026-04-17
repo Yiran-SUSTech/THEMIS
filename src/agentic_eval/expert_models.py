@@ -943,6 +943,35 @@ class QInsightExpert(BaseExpert):
         "catastrophic": 0.95,
     }
 
+    def _build_load_attempts(self) -> list[tuple[str, dict[str, Any]]]:
+        attempts: list[tuple[str, dict[str, Any]]] = []
+        if torch.cuda.is_available() and self.config.device.startswith("cuda"):
+            attempts.append((
+                "cuda_eager",
+                {
+                    "device_map": {"": self.config.device},
+                    "attn_implementation": "eager",
+                    "torch_dtype": torch.float16,
+                },
+            ))
+            attempts.append((
+                "cuda_sdpa",
+                {
+                    "device_map": {"": self.config.device},
+                    "attn_implementation": "sdpa",
+                    "torch_dtype": torch.float16,
+                },
+            ))
+        attempts.append((
+            "cpu_eager",
+            {
+                "device_map": "cpu",
+                "attn_implementation": "eager",
+                "torch_dtype": torch.float32,
+            },
+        ))
+        return attempts
+
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"qinsight_{self.config.model}"
         processor_key = f"qinsight_processor_{self.config.model}"
@@ -954,31 +983,25 @@ class QInsightExpert(BaseExpert):
             from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
             model_path = self.config.local_path or self.config.model
-            load_kwargs = {
-                "trust_remote_code": True,
-            }
-            if torch.cuda.is_available() and self.config.device.startswith("cuda"):
-                load_kwargs["torch_dtype"] = torch.bfloat16
-                load_kwargs["device_map"] = {"": self.config.device}
-            else:
-                load_kwargs["torch_dtype"] = torch.float32
-                load_kwargs["device_map"] = "cpu"
-
-            if Path(model_path).exists():
-                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
-                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                    model_path,
-                    local_files_only=True,
-                    **load_kwargs,
-                )
-            else:
-                processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                    model_path,
-                    **load_kwargs,
-                )
-
-            model.eval()
+            local_only = Path(model_path).exists()
+            processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=local_only)
+            load_errors: list[str] = []
+            model = None
+            for attempt_name, load_kwargs in self._build_load_attempts():
+                try:
+                    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                        model_path,
+                        trust_remote_code=True,
+                        local_files_only=local_only,
+                        **load_kwargs,
+                    )
+                    model.eval()
+                    break
+                except Exception as exc:
+                    load_errors.append(f"{attempt_name}: {exc}")
+                    model = None
+            if model is None:
+                raise ExpertModelError(" | ".join(load_errors))
 
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
@@ -988,6 +1011,40 @@ class QInsightExpert(BaseExpert):
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
+
+    def _build_message(self, image_path: str, user_prompt: str) -> list[dict[str, Any]]:
+        return [
+            {"role": "system", "content": [{"type": "text", "text": self.config.prompts.get("system") or self.DEFAULT_SYSTEM_PROMPT}]},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {"type": "image", "image": f"file://{image_path}"},
+                ],
+            },
+        ]
+
+    def _prepare_inputs(self, processor: Any, image_path: str, message: list[dict[str, Any]]) -> Any:
+        process_vision_info_fn = None
+        try:
+            from qwen_vl_utils import process_vision_info as imported_process_vision_info
+            process_vision_info_fn = imported_process_vision_info
+        except Exception:
+            process_vision_info_fn = None
+
+        text = [processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True)]
+        processor_kwargs: dict[str, Any] = {
+            "text": text,
+            "padding": True,
+            "return_tensors": "pt",
+        }
+        if process_vision_info_fn is not None:
+            image_inputs, video_inputs = process_vision_info_fn([message])
+            processor_kwargs["images"] = image_inputs
+            processor_kwargs["videos"] = video_inputs
+        else:
+            processor_kwargs["images"] = [Image.open(image_path).convert("RGB")]
+        return processor(**processor_kwargs)
 
     def _extract_payload(self, output_text: str) -> dict[str, Any] | None:
         text = output_text.strip()
@@ -1009,30 +1066,29 @@ class QInsightExpert(BaseExpert):
 
     def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
         model, processor = self.load_model()
-        image = self._load_image(image_path)
-
-        system_prompt = self.config.prompts.get("system") or self.DEFAULT_SYSTEM_PROMPT
         user_prompt = self.config.prompts.get("distortion") or self.DEFAULT_DISTORTION_PROMPT
-        messages = [
-            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": user_prompt},
-                ],
-            },
-        ]
-
-        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
-        inputs = {key: value.to(model.device) for key, value in inputs.items()}
+        message = self._build_message(image_path, user_prompt)
+        inputs = self._prepare_inputs(processor, image_path, message)
+        inputs = {
+            key: value.to(model.device) if hasattr(value, "to") else value
+            for key, value in inputs.items()
+        }
 
         with torch.no_grad():
-            generated_ids = model.generate(**inputs, do_sample=False, max_new_tokens=64)
+            generated_ids = model.generate(
+                **inputs,
+                do_sample=True,
+                temperature=1.0,
+                top_k=50,
+                top_p=0.95,
+                max_new_tokens=64,
+                use_cache=True,
+            )
 
-        prompt_length = inputs["input_ids"].shape[1]
-        trimmed_ids = [output_ids[prompt_length:] for output_ids in generated_ids]
+        trimmed_ids = [
+            out_ids[len(in_ids):]
+            for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
+        ]
         output_text = processor.batch_decode(
             trimmed_ids,
             skip_special_tokens=True,
