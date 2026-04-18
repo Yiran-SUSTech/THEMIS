@@ -94,9 +94,40 @@ def _dynamic_candidate_keys(settings: Settings, expert: str) -> list[str]:
     return matched
 
 
+def _resolve_planned_model_key(settings: Settings, planned_model: str) -> str:
+    candidate = (planned_model or "").strip()
+    if not candidate:
+        return ""
+
+    direct = settings.get_expert_config(candidate)
+    if direct is not None and bool(getattr(direct, "downloaded", False)):
+        return candidate
+
+    candidate_lower = candidate.lower()
+    candidate_basename = Path(candidate).name.lower()
+
+    for key, config in settings.expert_configs.items():
+        if config is None or not bool(getattr(config, "downloaded", False)):
+            continue
+        aliases = {
+            key.lower(),
+            (config.name or "").strip().lower(),
+            (config.model or "").strip().lower(),
+            (config.local_path or "").strip().lower(),
+            (config.weights or "").strip().lower(),
+            Path((config.model or "").strip()).name.lower() if (config.model or "").strip() else "",
+            Path((config.local_path or "").strip()).name.lower() if (config.local_path or "").strip() else "",
+            Path((config.weights or "").strip()).name.lower() if (config.weights or "").strip() else "",
+        }
+        aliases.discard("")
+        if candidate_lower in aliases or candidate_basename in aliases:
+            return key
+
+    return ""
+
+
 def _is_downloaded_planned_model(settings: Settings, planned_model: str) -> bool:
-    config = settings.get_expert_config(planned_model)
-    return config is not None and bool(getattr(config, "downloaded", False))
+    return bool(_resolve_planned_model_key(settings, planned_model))
 
 
 def _roles_for_expert_key(expert_key: str) -> list[str]:
@@ -337,9 +368,28 @@ class LocalPlanner:
         for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 continue
-            expert = str(step.get("expert", "")).strip().lower()
+            raw_expert = str(step.get("expert", "")).strip()
+            expert = raw_expert.lower()
+            planned_model_candidate = str(step.get("planned_model", "")).strip()
             if expert not in {"semantic", "structural", "quality", "vqa"}:
-                continue
+                inferred_model_key = _resolve_planned_model_key(self.settings, raw_expert)
+                if inferred_model_key:
+                    config = self.settings.get_expert_config(inferred_model_key)
+                    if config is None:
+                        continue
+                    planned_model_candidate = planned_model_candidate or inferred_model_key
+                    if _matches_role_metadata("semantic", config):
+                        expert = "semantic"
+                    elif _matches_role_metadata("structural", config):
+                        expert = "structural"
+                    elif _matches_role_metadata("quality", config):
+                        expert = "quality"
+                    elif _matches_role_metadata("vqa", config):
+                        expert = "vqa"
+                    else:
+                        continue
+                else:
+                    continue
             step_id = step.get("step_id", index)
             if isinstance(step_id, str) and step_id.isdigit():
                 step_id = int(step_id)
@@ -347,8 +397,9 @@ class LocalPlanner:
                 step_id = index
             seen_step_ids.add(step_id)
             step_type = str(step.get("step_type", default_step_types[expert])).strip() or default_step_types[expert]
-            planned_model = str(step.get("planned_model", "")).strip()
-            if not planned_model or not _is_downloaded_planned_model(self.settings, planned_model):
+            planned_model = planned_model_candidate
+            resolved_planned_model = _resolve_planned_model_key(self.settings, planned_model)
+            if not resolved_planned_model:
                 continue
             prompt_focus = str(step.get("prompt_focus", "")).strip()
             if not prompt_focus:
@@ -371,8 +422,8 @@ class LocalPlanner:
                     "expert": expert,
                     "step_type": step_type,
                     "goal": str(step.get("goal", "")).strip() or f"Inspect {expert} evidence.",
-                    "planned_model": planned_model,
-                    "selection_reason": str(step.get("selection_reason", "")).strip() or f"Planner selected {planned_model} for this step.",
+                    "planned_model": resolved_planned_model,
+                    "selection_reason": str(step.get("selection_reason", "")).strip() or f"Planner selected {resolved_planned_model} for this step.",
                     "prompt_focus": prompt_focus,
                     "depends_on": sorted(dict.fromkeys(dep for dep in depends_on if dep > 0 and dep != step_id)),
                     "expected_signal": str(step.get("expected_signal", "")).strip(),
