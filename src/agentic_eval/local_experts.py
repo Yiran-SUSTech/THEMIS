@@ -350,6 +350,64 @@ class LocalPlanner:
         image.thumbnail((max_side, max_side))
         return image
 
+    def _build_fallback_plan(self, label_text: str) -> list[dict[str, Any]]:
+        semantic_model = _resolve_planned_model_key(self.settings, "clip") or _resolve_planned_model_key(self.settings, "imagenet_eva02_large") or _resolve_planned_model_key(self.settings, "imagenet_fast")
+        structural_model = _resolve_planned_model_key(self.settings, "animal_pose") or _resolve_planned_model_key(self.settings, "body_pose") or _resolve_planned_model_key(self.settings, "background_removal") or _resolve_planned_model_key(self.settings, "vqa")
+        quality_model = _resolve_planned_model_key(self.settings, "q_insight") or _resolve_planned_model_key(self.settings, "iqa_default") or _resolve_planned_model_key(self.settings, "iqa_fast") or _resolve_planned_model_key(self.settings, "boundary_artifact")
+
+        fallback_steps: list[dict[str, Any]] = []
+        if semantic_model:
+            fallback_steps.append(
+                {
+                    "step_id": 1,
+                    "expert": "semantic",
+                    "step_type": "semantic_check",
+                    "goal": "Check whether the visible subject matches the class label.",
+                    "planned_model": semantic_model,
+                    "selection_reason": f"Fallback semantic step using available downloaded model {semantic_model}.",
+                    "prompt_focus": f"Inspect whether the visible subject matches {label_text}.",
+                    "depends_on": [],
+                    "expected_signal": "Broad semantic match or mismatch evidence.",
+                    "use_previous_outputs": False,
+                    "allow_escalation": True,
+                }
+            )
+        if structural_model:
+            fallback_steps.append(
+                {
+                    "step_id": len(fallback_steps) + 1,
+                    "expert": "structural",
+                    "step_type": "structural_check",
+                    "goal": "Check whole-subject structural coherence.",
+                    "planned_model": structural_model,
+                    "selection_reason": f"Fallback structural step using available downloaded model {structural_model}.",
+                    "prompt_focus": f"Inspect morphology, part attachment, and pose plausibility for {label_text}.",
+                    "depends_on": [1] if fallback_steps else [],
+                    "expected_signal": "Structural coherence or failure evidence.",
+                    "use_previous_outputs": bool(fallback_steps),
+                    "allow_escalation": True,
+                }
+            )
+        if quality_model:
+            fallback_steps.append(
+                {
+                    "step_id": len(fallback_steps) + 1,
+                    "expert": "quality",
+                    "step_type": "quality_check",
+                    "goal": "Check visible artifacts and distortions.",
+                    "planned_model": quality_model,
+                    "selection_reason": f"Fallback quality step using available downloaded model {quality_model}.",
+                    "prompt_focus": "Inspect visible artifacts, distortions, malformed parts, and corrupted boundaries.",
+                    "depends_on": [step["step_id"] for step in fallback_steps],
+                    "expected_signal": "Artifact or distortion evidence.",
+                    "use_previous_outputs": bool(fallback_steps),
+                    "allow_escalation": True,
+                }
+            )
+        if not fallback_steps:
+            raise LocalExpertError("No downloaded expert models are available to build a fallback plan")
+        return fallback_steps
+
     def _normalize_plan(self, payload: dict[str, Any], class_label: str | None = None) -> dict[str, Any]:
         steps = payload.get("steps")
         if not isinstance(steps, list):
@@ -433,14 +491,19 @@ class LocalPlanner:
             )
 
         if not normalized_steps:
-            raise LocalExpertError("Local planner returned no usable plan steps")
+            normalized_steps = self._build_fallback_plan(label_text)
 
         step_ids = {step["step_id"] for step in normalized_steps}
         for step in normalized_steps:
             step["depends_on"] = [dep for dep in step["depends_on"] if dep in step_ids and dep < step["step_id"]]
 
+        normalized_rationale = str(payload.get("rationale", "")).strip()
+        if not normalized_rationale:
+            normalized_rationale = "Use the planner-selected real expert models to evaluate the image."
+        if "string" in normalized_rationale.lower() or normalized_rationale == "steps":
+            normalized_rationale = "Planner output was malformed, so a fallback executable plan was built from downloaded expert models."
         return {
-            "rationale": str(payload.get("rationale", "")).strip() or "Use the planner-selected real expert models to evaluate the image.",
+            "rationale": normalized_rationale,
             "steps": normalized_steps,
         }
 
@@ -455,6 +518,8 @@ class LocalPlanner:
         task_lines = [
             "Plan the image evaluation and return exactly one JSON object.",
             "No markdown, no code fences, no explanation before or after JSON.",
+            "Do not repeat the schema, field names, or placeholder strings like 'string'.",
+            "Produce a concrete plan with 2 to 4 steps using real downloaded model keys from the catalog below.",
             "Use semantic, structural, quality, and optional vqa only if unresolved evidence remains.",
             "Use only visible image evidence plus the given prompt/class label.",
             "Choose directly from the real downloaded expert model keys shown below.",
@@ -462,9 +527,11 @@ class LocalPlanner:
             "Do not output abstract profiles or placeholder model families.",
             "Judge handles bad model choices later, so keep your plan faithful to your own model selection.",
             "For c2i, if a semantic step uses CLIP, prefer candidate_generation with bge_candidate_generator or e5_candidate_generator before a confusable_disambiguation CLIP step.",
-            "Every step must include planned_model, selection_reason, prompt_focus, depends_on, expected_signal, use_previous_outputs, allow_escalation.",
-            "Keep rationale and goals brief.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|quality|vqa","step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
+            "Every step must include: step_id, expert, step_type, goal, planned_model, selection_reason, prompt_focus, depends_on, expected_signal, use_previous_outputs, allow_escalation.",
+            "Valid expert values: semantic, structural, quality, vqa.",
+            "Valid step_type values: semantic_check, structural_check, quality_check, vqa_evidence, candidate_generation, label_space_check, confusable_disambiguation.",
+            "Return compact valid JSON only.",
+            "Example shape only: {\"rationale\":\"Use low-cost semantic evidence first, then structure and artifact checks.\",\"steps\":[{\"step_id\":1,\"expert\":\"semantic\",\"step_type\":\"semantic_check\",\"goal\":\"Check whether the visible subject matches the class label.\",\"planned_model\":\"clip\",\"selection_reason\":\"Low-cost open-vocabulary semantic evidence.\",\"prompt_focus\":\"Inspect whether the visible subject matches the class label.\",\"depends_on\":[],\"expected_signal\":\"Broad semantic match or mismatch evidence.\",\"use_previous_outputs\":false,\"allow_escalation\":true}]}",
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
