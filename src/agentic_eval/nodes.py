@@ -43,37 +43,7 @@ from .schemas import (
 
 
 ROLE_EXPERT_ENUM = ["semantic", "structural", "quality", "vqa"]
-PLANNED_MODEL_ENUM = [
-    "clip",
-    "clip_score",
-    "imagenet_fast",
-    "imagenet_strong",
-    "imagenet_eva02_large",
-    "imagenet_eva_giant_224",
-    "bge_candidate_generator",
-    "e5_candidate_generator",
-    "animal_pose",
-    "body_pose",
-    "body_pose_strong",
-    "hand_detection",
-    "face_detection",
-    "places365",
-    "places365_strong",
-    "building_expert",
-    "background_removal",
-    "complexity",
-    "iqa_fast",
-    "iqa_default",
-    "iqa_richer",
-    "q_insight",
-    "boundary_artifact",
-    "aigen_detection",
-    "ocr",
-    "dog_breed",
-    "bird_expert",
-    "vqa",
-]
-SUGGESTED_EXPERT_ENUM = ROLE_EXPERT_ENUM + PLANNED_MODEL_ENUM
+SUGGESTED_EXPERT_ENUM = ROLE_EXPERT_ENUM
 STEP_TYPE_ENUM = [
     "semantic_check",
     "structural_check",
@@ -96,17 +66,8 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "step_id": {"type": "integer"},
                     "expert": {"type": "string", "enum": ROLE_EXPERT_ENUM},
                     "goal": {"type": "string"},
-                    "model_profile": {
-                        "type": "string",
-                        "enum": [
-                            "local_fast",
-                            "local_default",
-                            "local_richer",
-                            "local_stronger",
-                        ],
-                    },
                     "step_type": {"type": "string", "enum": STEP_TYPE_ENUM},
-                    "planned_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
+                    "planned_model": {"type": "string"},
                     "selection_reason": {"type": "string"},
                     "prompt_focus": {"type": "string"},
                     "depends_on": {"type": "array", "items": {"type": "integer"}},
@@ -114,7 +75,7 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "use_previous_outputs": {"type": "boolean"},
                     "allow_escalation": {"type": "boolean"},
                 },
-                "required": ["step_id", "expert", "step_type", "goal", "model_profile", "planned_model", "selection_reason", "prompt_focus", "depends_on", "expected_signal", "use_previous_outputs", "allow_escalation"],
+                "required": ["step_id", "expert", "step_type", "goal", "planned_model", "selection_reason", "prompt_focus", "depends_on", "expected_signal", "use_previous_outputs", "allow_escalation"],
                 "additionalProperties": False,
             },
         },
@@ -141,7 +102,7 @@ PLAN_REVIEW_SCHEMA: dict[str, Any] = {
                     "target_step_id": {"type": ["integer", "null"]},
                     "step_type": {"anyOf": [{"type": "string", "enum": STEP_TYPE_ENUM}, {"type": "null"}]},
                     "suggested_expert": {"anyOf": [{"type": "string", "enum": SUGGESTED_EXPERT_ENUM}, {"type": "null"}]},
-                    "suggested_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
+                    "suggested_model": {"type": "string"},
                     "prompt_focus": {"type": "string"},
                     "expected_signal": {"type": "string"}
                 },
@@ -207,7 +168,7 @@ REFLECTION_SCHEMA: dict[str, Any] = {
                     "target_step_id": {"type": ["integer", "null"]},
                     "step_type": {"anyOf": [{"type": "string", "enum": STEP_TYPE_ENUM}, {"type": "null"}]},
                     "suggested_expert": {"anyOf": [{"type": "string", "enum": SUGGESTED_EXPERT_ENUM}, {"type": "null"}]},
-                    "suggested_model": {"type": "string", "enum": PLANNED_MODEL_ENUM},
+                    "suggested_model": {"type": "string"},
                     "prompt_focus": {"type": "string"},
                     "expected_signal": {"type": "string"}
                 },
@@ -288,27 +249,15 @@ def _fail_stage(role: str, action: str, model: str, started_at: float, stop_even
     _write_stage_line(_stage_message(role, action, model, elapsed, f"failed error={exc.__class__.__name__}", revision), final=True)
 
 
-def _artifact_local_model_name(model_profile: str) -> str:
-    if model_profile == "local_fast":
-        return "maniqa"
-    if model_profile == "local_richer":
-        return "maniqa+musiq+clipiqa"
-    return "maniqa+musiq"
-
-
-def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_profile: str, planned_model: str) -> str:
+def _planned_step_model(client: ClaudeVisionClient, expert_name: str, planned_model: str) -> str:
     config = client.settings.get_expert_config(planned_model)
     if config is not None:
         if config.metrics:
             return "+".join(config.metrics)
-        return config.local_path or config.model or planned_model
-    if expert_name in {"semantic", "structural", "vqa"} and client.settings.local_semantic_enabled:
-        if model_profile == "local_stronger":
-            return client.settings.semantic_local_stronger_model
-        return client.settings.semantic_local_fast_model
-    if expert_name == "quality" and client.settings.local_artifact_enabled:
-        return _artifact_local_model_name(model_profile)
-    raise RuntimeError(f"No local model configured for expert '{expert_name}'")
+        return config.local_path or config.weights or config.model or planned_model
+    if planned_model:
+        return planned_model
+    raise RuntimeError(f"No concrete model configured for expert '{expert_name}'")
 
 
 def _is_fine_grained_label(class_label: str | None) -> bool:
@@ -486,12 +435,15 @@ def _should_run_vlm_overseer(step, config) -> bool:
 
 def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
     image_input = state["input"]
+    config = settings.get_expert_config(step.planned_model)
+    if config is None:
+        raise RuntimeError(f"Missing config for planned model '{step.planned_model}'")
+
     original_model = settings.local_semantic_model
+    original_device = settings.local_semantic_device
     try:
-        if step.model_profile == "local_stronger":
-            settings.local_semantic_model = settings.semantic_local_stronger_model
-        else:
-            settings.local_semantic_model = settings.semantic_local_fast_model
+        settings.local_semantic_model = config.local_path or config.weights or config.model
+        settings.local_semantic_device = config.device or settings.local_semantic_device
 
         if step.expert == "semantic":
             payload = LocalSemanticExpert(settings).evaluate(
@@ -523,6 +475,7 @@ def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
         return ExpertResult.model_validate(payload)
     finally:
         settings.local_semantic_model = original_model
+        settings.local_semantic_device = original_device
 
 
 def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
@@ -782,7 +735,7 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
             missing = sorted(step_dependencies - completed_step_ids)
             raise RuntimeError(f"Step {step.step_id} depends on unfinished steps: {missing}")
         action = f"expert_{step.expert}_{step.planned_model}_{getattr(step, 'step_type', 'step')}_step_{step.step_id}"
-        model_name = _planned_step_model(client, step.expert, step.model_profile, step.planned_model)
+        model_name = _planned_step_model(client, step.expert, step.planned_model)
         current_state = dict(state)
         current_state["expert_results"] = results
         started_at, stop_event, heartbeat = _start_stage(step.expert, action, model_name)

@@ -39,6 +39,8 @@ class ExpertModelConfig:
     metrics: Optional[List[str]] = None
     benchmark: Optional[str] = None
     accuracy: Optional[float] = None
+    model_size_mb: Optional[float] = None
+    gflops: Optional[float] = None
     suitable_for: List[str] = field(default_factory=list)
     unsuitable_for: List[str] = field(default_factory=list)
     evidence_role: str = ""
@@ -365,6 +367,8 @@ class Settings:
                         metrics=expert_config.get("metrics"),
                         benchmark=expert_config.get("benchmark"),
                         accuracy=expert_config.get("accuracy"),
+                        model_size_mb=expert_config.get("model_size_mb"),
+                        gflops=expert_config.get("gflops"),
                         suitable_for=list(expert_config.get("suitable_for", [])),
                         unsuitable_for=list(expert_config.get("unsuitable_for", [])),
                         evidence_role=expert_config.get("evidence_role", ""),

@@ -14,20 +14,6 @@ if TYPE_CHECKING:
     from .config import ExpertModelConfig
 
 
-VALID_MODEL_PROFILES = {
-    "local_fast",
-    "local_default",
-    "local_richer",
-    "local_stronger",
-}
-
-EXPERT_ALLOWED_MODEL_PROFILES = {
-    "semantic": {"local_fast", "local_stronger"},
-    "quality": {"local_fast", "local_default", "local_richer"},
-    "structural": {"local_fast", "local_stronger"},
-    "vqa": {"local_fast", "local_stronger"},
-}
-
 EXPERT_ROLE_MODEL_KEYS = {
     "semantic": [
         "clip",
@@ -74,21 +60,6 @@ from .config import Settings
 from .expert_performance import get_expert_performance
 
 
-def _default_planned_model(expert: str, model_profile: str) -> str:
-    if expert == "semantic":
-        return "clip" if model_profile != "local_stronger" else "imagenet_eva02_large"
-    if expert == "structural":
-        return "animal_pose" if model_profile != "local_stronger" else "vqa"
-    if expert == "quality":
-        if model_profile == "local_fast":
-            return "q_insight"
-        if model_profile == "local_richer":
-            return "q_insight"
-        return "q_insight"
-    if expert == "vqa":
-        return "vqa"
-    return ""
-
 def _all_downloaded_expert_items(settings: Settings) -> list[tuple[str, ExpertModelConfig]]:
     return [
         (key, config)
@@ -115,83 +86,6 @@ def _matches_role_metadata(expert: str, config: ExpertModelConfig) -> bool:
     return False
 
 
-def _profile_compatibility_score(model_profile: str, config_key: str, config: ExpertModelConfig) -> float:
-    score = 0.0
-    if model_profile == "local_fast":
-        if config_key.endswith("_fast") or "fast" in config.name.lower():
-            score += 3.0
-        if config.model_type in {"clip", "clip_score", "text_embedding", "iqa", "yolo_pose", "mllm_scoring"}:
-            score += 1.0
-    elif model_profile == "local_stronger":
-        if any(token in config_key for token in {"strong", "eva"}) or "strong" in config.name.lower():
-            score += 3.0
-        if config.model_type in {"eva_classification", "vqa"}:
-            score += 1.0
-    elif model_profile == "local_richer":
-        if any(token in config_key for token in {"richer", "boundary"}):
-            score += 3.0
-        if config.model_type == "iqa":
-            score += 1.0
-    elif model_profile == "local_default":
-        if any(token in config_key for token in {"default"}):
-            score += 3.0
-    return score
-
-
-def _step_type_score(step_type: str, config: ExpertModelConfig) -> float:
-    score = 0.0
-    normalized_step = (step_type or "").strip().lower()
-    if normalized_step in {"candidate_generation"} and config.model_type == "text_embedding":
-        score += 8.0
-    if normalized_step in {"confusable_disambiguation"} and config.model_type in {"clip", "clip_score"}:
-        score += 8.0
-    if normalized_step in {"label_space_check"} and config.label_space in {"imagenet_1k", "imagenet_21k", "open_text_to_imagenet_1k"}:
-        score += 6.0
-    if normalized_step == "semantic_check":
-        if config.model_type in {"classification", "eva_classification"}:
-            score += 5.0
-        if config.model_type == "text_embedding":
-            score += 2.0
-        if config.model_type in {"clip", "clip_score"}:
-            score += 3.0
-    if normalized_step == "structural_check":
-        if config.model_type in {"yolo_pose", "segmentation", "vqa"}:
-            score += 5.0
-    if normalized_step == "quality_check":
-        if config.model_type == "mllm_scoring":
-            score += 7.0
-            if "artifact" in (config.evidence_role or "").lower() or "distortion" in (config.evidence_role or "").lower():
-                score += 1.5
-        elif config.model_type == "iqa":
-            score += 5.5
-        elif config.model_type == "clip":
-            score += 1.0
-    if normalized_step == "vqa_evidence" and config.model_type == "vqa":
-        score += 8.0
-    return score
-
-
-def _metadata_quality_score(config: ExpertModelConfig) -> float:
-    score = 0.0
-    if config.description:
-        score += 0.5
-    if config.evidence_role:
-        score += 0.5
-    if config.label_space:
-        score += 0.5
-    if config.output_interpretability:
-        score += 0.5
-    if config.suitable_for:
-        score += 1.0
-    if config.unsuitable_for:
-        score += 0.5
-    if config.accuracy is not None:
-        score += 0.5
-    if config.benchmark:
-        score += 0.5
-    return score
-
-
 def _dynamic_candidate_keys(settings: Settings, expert: str) -> list[str]:
     matched: list[str] = []
     for key, config in _all_downloaded_expert_items(settings):
@@ -200,55 +94,9 @@ def _dynamic_candidate_keys(settings: Settings, expert: str) -> list[str]:
     return matched
 
 
-def _choose_best_planned_model(
-    settings: Settings,
-    expert: str,
-    model_profile: str,
-    step_type: str = "",
-    planned_model: str = "",
-) -> str:
-    candidate = (planned_model or "").strip()
-    dynamic_candidates = _dynamic_candidate_keys(settings, expert)
-    if candidate and candidate in dynamic_candidates:
-        return candidate
-
-    scored: list[tuple[float, str]] = []
-    for key in dynamic_candidates:
-        config = settings.get_expert_config(key)
-        if config is None:
-            continue
-        score = 0.0
-        score += _profile_compatibility_score(model_profile, key, config)
-        score += _step_type_score(step_type, config)
-        score += _metadata_quality_score(config)
-        if candidate and key == candidate:
-            score += 12.0
-        if config.model_type == "vqa" and expert != "vqa" and step_type not in {"vqa_evidence", "structural_check"}:
-            score -= 2.0
-        scored.append((score, key))
-
-    if scored:
-        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        return scored[0][1]
-
-    fallback_candidate = candidate if candidate and settings.get_expert_config(candidate) is not None else ""
-    return fallback_candidate or _default_planned_model(expert, model_profile)
-
-
-def _normalize_planned_model(
-    settings: Settings,
-    expert: str,
-    model_profile: str,
-    planned_model: str,
-    step_type: str = "",
-) -> str:
-    return _choose_best_planned_model(
-        settings,
-        expert,
-        model_profile,
-        step_type=step_type,
-        planned_model=planned_model,
-    )
+def _is_downloaded_planned_model(settings: Settings, planned_model: str) -> bool:
+    config = settings.get_expert_config(planned_model)
+    return config is not None and bool(getattr(config, "downloaded", False))
 
 
 def _roles_for_expert_key(expert_key: str) -> list[str]:
@@ -260,90 +108,28 @@ def _roles_for_expert_key(expert_key: str) -> list[str]:
 
 
 def _describe_available_experts(settings: Settings) -> str:
-    lines = ["Available downloaded model options by expert role/profile:"]
+    lines = ["Available downloaded model options by expert role:"]
     included_keys: set[str] = set()
-    for expert, allowed_keys in EXPERT_ROLE_MODEL_KEYS.items():
-        lines.append(f"- {expert}:")
-        role_lines: list[str] = []
-        for profile in sorted(EXPERT_ALLOWED_MODEL_PROFILES.get(expert, {"local_fast"})):
-            descriptions: list[str] = []
-            for key in allowed_keys:
-                config = settings.get_expert_config(key)
-                perf = get_expert_performance(key)
-                if config is None or not getattr(config, "downloaded", False):
-                    continue
-                included_keys.add(key)
-                model_name = config.local_path or config.weights or config.model
-                parts = [f"key={key}", config.name, f"group={config.group_name}", config.model_type, model_name]
-                parts.append(f"downloaded={str(config.downloaded).lower()}")
-                if config.metrics:
-                    parts.append(f"metrics={','.join(config.metrics)}")
-                if perf is not None:
-                    stats = []
-                    if perf.accuracy is not None:
-                        stats.append(f"acc={perf.accuracy:.1%}")
-                    if perf.mAP is not None:
-                        stats.append(f"mAP={perf.mAP:.1%}")
-                    if perf.srcc is not None:
-                        stats.append(f"SRCC={perf.srcc:.3f}")
-                    if perf.plcc is not None:
-                        stats.append(f"PLCC={perf.plcc:.3f}")
-                    stats.append(f"reliability={perf.reliability.value}")
-                    if perf.task_type:
-                        stats.append(f"task={perf.task_type}")
-                    parts.append("; ".join(stats))
-                if config.benchmark:
-                    parts.append(f"benchmark={config.benchmark}")
-                if config.accuracy is not None:
-                    parts.append(f"accuracy={config.accuracy:.4f}")
-                if config.evidence_role:
-                    parts.append(f"evidence_role={config.evidence_role}")
-                if config.label_space:
-                    parts.append(f"label_space={config.label_space}")
-                if config.output_interpretability:
-                    parts.append(f"output={config.output_interpretability}")
-                if config.output_meaning:
-                    parts.append(f"output_meaning={config.output_meaning}")
-                if config.suitable_for:
-                    parts.append(f"suitable_for={','.join(config.suitable_for)}")
-                if config.unsuitable_for:
-                    parts.append(f"unsuitable_for={','.join(config.unsuitable_for)}")
-                if config.description:
-                    parts.append(config.description)
-                descriptions.append(" | ".join(parts))
-            if descriptions:
-                role_lines.append(f"  - {profile}: {' ; '.join(descriptions)}")
-        if role_lines:
-            lines.extend(role_lines)
-        else:
-            lines.append("  - no downloaded experts exposed for this role")
-
-    remaining_downloaded = [
-        (key, config)
-        for key, config in sorted(settings.expert_configs.items())
-        if getattr(config, "downloaded", False) and key not in included_keys
-    ]
-    if remaining_downloaded:
-        lines.append("- additional_downloaded_experts:")
-        for key, config in remaining_downloaded:
+    for expert in EXPERT_ROLE_MODEL_KEYS:
+        role_candidates = []
+        for key in _dynamic_candidate_keys(settings, expert):
+            config = settings.get_expert_config(key)
             perf = get_expert_performance(key)
+            if config is None or not getattr(config, "downloaded", False):
+                continue
+            included_keys.add(key)
             model_name = config.local_path or config.weights or config.model
-            roles = _roles_for_expert_key(key)
-            parts = [
-                f"key={key}",
-                config.name,
-                f"group={config.group_name}",
-                config.model_type,
-                model_name,
-                f"downloaded={str(config.downloaded).lower()}",
-                f"roles={','.join(roles) if roles else 'none'}",
-            ]
+            parts = [f"key={key}", config.name, f"group={config.group_name}", f"model_type={config.model_type}", f"model={model_name}"]
+            if config.model_size_mb is not None:
+                parts.append(f"model_size_mb={float(config.model_size_mb):.2f}")
+            if config.gflops is not None:
+                parts.append(f"gflops={float(config.gflops):.2f}")
             if config.metrics:
                 parts.append(f"metrics={','.join(config.metrics)}")
             if perf is not None:
                 stats = []
                 if perf.accuracy is not None:
-                    stats.append(f"acc={perf.accuracy:.1%}")
+                    stats.append(f"perf_acc={perf.accuracy:.1%}")
                 if perf.mAP is not None:
                     stats.append(f"mAP={perf.mAP:.1%}")
                 if perf.srcc is not None:
@@ -370,6 +156,39 @@ def _describe_available_experts(settings: Settings) -> str:
                 parts.append(f"suitable_for={','.join(config.suitable_for)}")
             if config.unsuitable_for:
                 parts.append(f"unsuitable_for={','.join(config.unsuitable_for)}")
+            if config.description:
+                parts.append(config.description)
+            role_candidates.append(" | ".join(parts))
+        lines.append(f"- {expert}:")
+        if role_candidates:
+            lines.extend([f"  - {item}" for item in role_candidates])
+        else:
+            lines.append("  - no downloaded experts exposed for this role")
+
+    remaining_downloaded = [
+        (key, config)
+        for key, config in sorted(settings.expert_configs.items())
+        if getattr(config, "downloaded", False) and key not in included_keys
+    ]
+    if remaining_downloaded:
+        lines.append("- additional_downloaded_experts:")
+        for key, config in remaining_downloaded:
+            model_name = config.local_path or config.weights or config.model
+            roles = _roles_for_expert_key(key)
+            parts = [
+                f"key={key}",
+                config.name,
+                f"group={config.group_name}",
+                f"model_type={config.model_type}",
+                f"model={model_name}",
+                f"roles={','.join(roles) if roles else 'none'}",
+            ]
+            if config.model_size_mb is not None:
+                parts.append(f"model_size_mb={float(config.model_size_mb):.2f}")
+            if config.gflops is not None:
+                parts.append(f"gflops={float(config.gflops):.2f}")
+            if config.accuracy is not None:
+                parts.append(f"accuracy={config.accuracy:.4f}")
             if config.description:
                 parts.append(config.description)
             lines.append(f"  - {' | '.join(parts)}")
@@ -500,30 +319,14 @@ class LocalPlanner:
         image.thumbnail((max_side, max_side))
         return image
 
-    def _normalize_model_profile(self, expert: str, model_profile: str) -> str:
-        candidate = (model_profile or "").strip().lower()
-        allowed_profiles = EXPERT_ALLOWED_MODEL_PROFILES.get(expert, {"local_fast"})
-        if candidate in VALID_MODEL_PROFILES and candidate in allowed_profiles:
-            return candidate
-        if expert == "semantic":
-            return "local_fast"
-        if expert == "quality":
-            return "local_default"
-        if expert == "structural":
-            return "local_fast"
-        if expert == "vqa":
-            return "local_fast"
-        return "local_fast"
-
     def _normalize_plan(self, payload: dict[str, Any], class_label: str | None = None) -> dict[str, Any]:
         steps = payload.get("steps")
         if not isinstance(steps, list):
             raise LocalExpertError("Local planner did not return a valid steps list")
 
         label_text = (class_label or "the labeled subject").strip() or "the labeled subject"
-        is_c2i = bool((class_label or "").strip())
         normalized_steps: list[dict[str, Any]] = []
-        seen_step_signatures: set[tuple[str, str, str]] = set()
+        seen_step_ids: set[int] = set()
         default_step_types = {
             "semantic": "semantic_check",
             "structural": "structural_check",
@@ -531,195 +334,62 @@ class LocalPlanner:
             "vqa": "vqa_evidence",
         }
 
-        def _append_step(step_payload: dict[str, Any]) -> None:
-            step_payload = dict(step_payload)
-            step_payload["step_id"] = len(normalized_steps) + 1
-            normalized_steps.append(step_payload)
-
-        for step in steps:
+        for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
                 continue
-            expert = str(step.get("expert", "semantic")).strip().lower() or "semantic"
+            expert = str(step.get("expert", "")).strip().lower()
             if expert not in {"semantic", "structural", "quality", "vqa"}:
                 continue
-            step_type = str(step.get("step_type", default_step_types.get(expert, "semantic_check"))).strip() or default_step_types.get(expert, "semantic_check")
-            prompt_focus = str(step.get("prompt_focus", "")).strip()
-            goal = str(step.get("goal", "")).strip() or f"Inspect {expert} evidence."
-            step_signature = (expert, step_type, (prompt_focus or goal).lower())
-            if step_signature in seen_step_signatures:
+            step_id = step.get("step_id", index)
+            if isinstance(step_id, str) and step_id.isdigit():
+                step_id = int(step_id)
+            if not isinstance(step_id, int) or step_id <= 0 or step_id in seen_step_ids:
+                step_id = index
+            seen_step_ids.add(step_id)
+            step_type = str(step.get("step_type", default_step_types[expert])).strip() or default_step_types[expert]
+            planned_model = str(step.get("planned_model", "")).strip()
+            if not planned_model or not _is_downloaded_planned_model(self.settings, planned_model):
                 continue
-            seen_step_signatures.add(step_signature)
+            prompt_focus = str(step.get("prompt_focus", "")).strip()
             if not prompt_focus:
                 if expert == "semantic" and step_type == "candidate_generation":
-                    prompt_focus = f"Generate confusable candidate labels visually close to {label_text} so a later CLIP step can disambiguate them."
+                    prompt_focus = f"Generate confusable candidate labels visually close to {label_text}."
                 elif expert == "semantic" and step_type == "confusable_disambiguation":
-                    prompt_focus = f"Use candidate labels from earlier semantic steps to decide whether the visible subject is best matched by {label_text} or a nearby confusable label."
+                    prompt_focus = f"Disambiguate {label_text} against confusable candidates using visible evidence."
                 elif expert == "semantic":
-                    prompt_focus = f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image."
+                    prompt_focus = f"Inspect whether the visible subject matches {label_text}."
                 elif expert == "structural":
-                    prompt_focus = f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, and likely lookalike confusions for {label_text}."
+                    prompt_focus = f"Inspect whole-subject coherence, morphology, and pose plausibility for {label_text}."
                 elif expert == "quality":
-                    prompt_focus = "Inspect localized generation artifacts, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, and corrupted boundaries when relevant."
-            model_profile = self._normalize_model_profile(expert, str(step.get("model_profile", "")))
-            normalized_planned_model = _normalize_planned_model(
-                self.settings,
-                expert,
-                model_profile,
-                str(step.get("planned_model", "")).strip(),
-                step_type,
-            )
-            _append_step(
+                    prompt_focus = "Inspect visible artifacts, distortions, and malformed local regions."
+                else:
+                    prompt_focus = "Extract only the unresolved visual evidence needed by the plan."
+            depends_on = [int(item) for item in step.get("depends_on", []) if isinstance(item, int) or (isinstance(item, str) and item.isdigit())]
+            normalized_steps.append(
                 {
+                    "step_id": step_id,
                     "expert": expert,
                     "step_type": step_type,
-                    "goal": goal,
-                    "model_profile": model_profile,
-                    "planned_model": normalized_planned_model,
-                    "selection_reason": str(step.get("selection_reason", "")).strip() or f"Default concrete model choice for {expert} via {normalized_planned_model}.",
+                    "goal": str(step.get("goal", "")).strip() or f"Inspect {expert} evidence.",
+                    "planned_model": planned_model,
+                    "selection_reason": str(step.get("selection_reason", "")).strip() or f"Planner selected {planned_model} for this step.",
                     "prompt_focus": prompt_focus,
-                    "depends_on": [int(item) for item in step.get("depends_on", []) if isinstance(item, int) or (isinstance(item, str) and item.isdigit())],
+                    "depends_on": sorted(dict.fromkeys(dep for dep in depends_on if dep > 0 and dep != step_id)),
                     "expected_signal": str(step.get("expected_signal", "")).strip(),
                     "use_previous_outputs": bool(step.get("use_previous_outputs", False)),
                     "allow_escalation": bool(step.get("allow_escalation", True)),
                 }
             )
 
-        has_semantic = any(step["expert"] == "semantic" for step in normalized_steps)
-        has_structural = any(step["expert"] == "structural" for step in normalized_steps)
-        has_quality = any(step["expert"] == "quality" for step in normalized_steps)
-
-        if not has_semantic:
-            _append_step(
-                {
-                    "expert": "semantic",
-                    "step_type": "semantic_check",
-                    "goal": "Assess whether the image content matches the prompt/class label semantically.",
-                    "model_profile": "local_fast",
-                    "planned_model": "clip",
-                    "selection_reason": "Default low-cost semantic first pass with CLIP.",
-                    "prompt_focus": f"Inspect whether the visible subject matches {label_text} using the strongest confirming and contradicting species markers in the image.",
-                    "depends_on": [],
-                    "expected_signal": "Broad-category and label-match evidence.",
-                    "use_previous_outputs": False,
-                    "allow_escalation": True,
-                }
-            )
-
-        if is_c2i:
-            semantic_steps = [step for step in normalized_steps if step["expert"] == "semantic"]
-            has_candidate_generation = any(step["step_type"] == "candidate_generation" for step in semantic_steps)
-            has_confusable_disambiguation = any(step["step_type"] == "confusable_disambiguation" for step in semantic_steps)
-            uses_clip_semantic = any(step["planned_model"] in {"clip", "clip_score"} for step in semantic_steps)
-            if uses_clip_semantic and not has_candidate_generation:
-                normalized_steps.insert(
-                    0,
-                    {
-                        "step_id": 0,
-                        "expert": "semantic",
-                        "step_type": "candidate_generation",
-                        "goal": "Generate confusable candidate labels for fine-grained semantic disambiguation.",
-                        "model_profile": "local_fast",
-                        "planned_model": "bge_candidate_generator" if self.settings.get_expert_config("bge_candidate_generator") is not None else "e5_candidate_generator",
-                        "selection_reason": "Generate visually confusable labels before CLIP disambiguation in c2i.",
-                        "prompt_focus": f"Generate confusable candidate labels visually close to {label_text} so a later CLIP step can disambiguate them.",
-                        "depends_on": [],
-                        "expected_signal": "Candidate labels for fine-grained semantic disambiguation.",
-                        "use_previous_outputs": False,
-                        "allow_escalation": True,
-                    },
-                )
-                has_candidate_generation = True
-            if uses_clip_semantic and not has_confusable_disambiguation:
-                candidate_step = next((step for step in normalized_steps if step["expert"] == "semantic" and step["step_type"] == "candidate_generation"), None)
-                candidate_step_id = int(candidate_step.get("step_id", 1)) if candidate_step else 1
-                insert_index = 1 if candidate_step is not None else 0
-                normalized_steps.insert(
-                    insert_index,
-                    {
-                        "step_id": 0,
-                        "expert": "semantic",
-                        "step_type": "confusable_disambiguation",
-                        "goal": "Disambiguate the labeled class against visually confusable candidate labels.",
-                        "model_profile": "local_fast",
-                        "planned_model": "clip",
-                        "selection_reason": "Use CLIP to compare the labeled class against confusable candidates generated upstream.",
-                        "prompt_focus": f"Use candidate labels from earlier semantic steps to decide whether the visible subject is best matched by {label_text} or a nearby confusable label.",
-                        "depends_on": [candidate_step_id],
-                        "expected_signal": "Relative evidence among confusable labels including the target label.",
-                        "use_previous_outputs": True,
-                        "allow_escalation": True,
-                    },
-                )
-            for step in normalized_steps:
-                if step["expert"] == "semantic" and step["planned_model"] in {"clip", "clip_score"} and step["step_type"] == "semantic_check" and has_candidate_generation:
-                    candidate_step = next((candidate for candidate in normalized_steps if candidate["expert"] == "semantic" and candidate["step_type"] == "candidate_generation"), None)
-                    if candidate_step is not None and candidate_step["step_id"] not in step["depends_on"]:
-                        step["depends_on"] = [candidate_step["step_id"], *step["depends_on"]]
-                        step["use_previous_outputs"] = True
-
-        if not has_structural:
-            semantic_anchor = next((step for step in normalized_steps if step["expert"] == "semantic"), None)
-            normalized_steps.append(
-                {
-                    "step_id": 0,
-                    "expert": "structural",
-                    "step_type": "structural_check",
-                    "goal": "Assess whole-subject structural coherence and class-specific morphology.",
-                    "model_profile": "local_fast",
-                    "planned_model": "animal_pose",
-                    "selection_reason": "Default low-cost structural first pass with pose evidence.",
-                    "prompt_focus": f"Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for {label_text}.",
-                    "depends_on": [semantic_anchor["step_id"]] if semantic_anchor is not None else [],
-                    "expected_signal": "Whole-subject coherence and morphology evidence.",
-                    "use_previous_outputs": semantic_anchor is not None,
-                    "allow_escalation": True,
-                }
-            )
-        if not has_quality:
-            normalized_steps.append(
-                {
-                    "step_id": 0,
-                    "expert": "quality",
-                    "step_type": "quality_check",
-                    "goal": "Estimate visible quality degradation and perceptual failure evidence.",
-                    "model_profile": "local_default",
-                    "planned_model": "q_insight",
-                    "selection_reason": "Default artifact-focused quality pass using Q-Insight.",
-                    "prompt_focus": "Inspect localized quality degradation evidence, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, corrupted boundaries, and other visible artifact failures.",
-                    "depends_on": [step["step_id"] for step in normalized_steps if step["expert"] in {"semantic", "structural"}],
-                    "expected_signal": "Visible artifact and distortion evidence.",
-                    "use_previous_outputs": True,
-                    "allow_escalation": True,
-                }
-            )
-
         if not normalized_steps:
             raise LocalExpertError("Local planner returned no usable plan steps")
 
-        for index, step in enumerate(normalized_steps, start=1):
-            step["step_id"] = index
-
-        candidate_generation_step_id = next(
-            (step["step_id"] for step in normalized_steps if step["expert"] == "semantic" and step["step_type"] == "candidate_generation"),
-            None,
-        )
-
+        step_ids = {step["step_id"] for step in normalized_steps}
         for step in normalized_steps:
-            valid_deps = [dep for dep in step.get("depends_on", []) if isinstance(dep, int) and 0 < dep < step["step_id"]]
-            prior_semantic_ids = [candidate["step_id"] for candidate in normalized_steps if candidate["expert"] == "semantic" and candidate["step_id"] < step["step_id"]]
-            prior_structural_ids = [candidate["step_id"] for candidate in normalized_steps if candidate["expert"] == "structural" and candidate["step_id"] < step["step_id"]]
-            if step["expert"] == "semantic" and step["step_type"] == "confusable_disambiguation" and candidate_generation_step_id is not None:
-                valid_deps = [candidate_generation_step_id]
-            elif step["expert"] == "semantic" and step["planned_model"] in {"clip", "clip_score"} and step["step_type"] == "semantic_check" and candidate_generation_step_id is not None and is_c2i:
-                valid_deps = [candidate_generation_step_id, *valid_deps]
-            elif step["expert"] == "structural" and not valid_deps and prior_semantic_ids:
-                valid_deps = [prior_semantic_ids[-1]]
-            elif step["expert"] == "quality":
-                valid_deps = [*prior_semantic_ids, *prior_structural_ids]
-            step["depends_on"] = sorted(dict.fromkeys(valid_deps))
+            step["depends_on"] = [dep for dep in step["depends_on"] if dep in step_ids and dep < step["step_id"]]
 
         return {
-            "rationale": str(payload.get("rationale", "")).strip() or "Use a cost-aware multimodal evaluation plan.",
+            "rationale": str(payload.get("rationale", "")).strip() or "Use the planner-selected real expert models to evaluate the image.",
             "steps": normalized_steps,
         }
 
@@ -736,12 +406,14 @@ class LocalPlanner:
             "No markdown, no code fences, no explanation before or after JSON.",
             "Use semantic, structural, quality, and optional vqa only if unresolved evidence remains.",
             "Use only visible image evidence plus the given prompt/class label.",
-            "Prefer the cheapest adequate route first.",
+            "Choose directly from the real downloaded expert model keys shown below.",
+            "Use the exposed model_size_mb, gflops, description, accuracy, benchmark, and suitability metadata to trade off cost and task fit.",
+            "Do not output abstract profiles or placeholder model families.",
+            "Judge handles bad model choices later, so keep your plan faithful to your own model selection.",
             "For c2i, if a semantic step uses CLIP, prefer candidate_generation with bge_candidate_generator or e5_candidate_generator before a confusable_disambiguation CLIP step.",
-            "Prefer q_insight for quality_check when artifact evidence is needed.",
             "Every step must include planned_model, selection_reason, prompt_focus, depends_on, expected_signal, use_previous_outputs, allow_escalation.",
             "Keep rationale and goals brief.",
-            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|quality|vqa","step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","model_profile":"local_fast|local_default|local_richer|local_stronger","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
+            'JSON schema: {"rationale":"string","steps":[{"step_id":1,"expert":"semantic|structural|quality|vqa","step_type":"semantic_check|structural_check|quality_check|vqa_evidence|candidate_generation|label_space_check|confusable_disambiguation","goal":"string","planned_model":"string","selection_reason":"string","prompt_focus":"string","depends_on":[1],"expected_signal":"string","use_previous_outputs":true,"allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
