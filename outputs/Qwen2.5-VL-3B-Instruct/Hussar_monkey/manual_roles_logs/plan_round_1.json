@@ -11,81 +11,44 @@
       {
         "step_id": 1,
         "expert": "semantic",
-        "step_type": "candidate_generation",
-        "goal": "Generate confusable candidate labels for fine-grained semantic disambiguation.",
-        "model_profile": "local_fast",
-        "planned_model": "bge_candidate_generator",
-        "selection_reason": "Generate visually confusable labels before CLIP disambiguation in c2i.",
-        "prompt_focus": "Generate confusable candidate labels visually close to Hussar monkey so a later CLIP step can disambiguate them.",
+        "step_type": "semantic_check",
+        "goal": "Check whether the visible subject matches the class label.",
+        "planned_model": "clip",
+        "selection_reason": "Fallback semantic step using available downloaded model clip.",
+        "prompt_focus": "Inspect whether the visible subject matches Hussar monkey.",
         "depends_on": [],
-        "expected_signal": "Candidate labels for fine-grained semantic disambiguation.",
+        "expected_signal": "Broad semantic match or mismatch evidence.",
         "use_previous_outputs": false,
         "allow_escalation": true
       },
       {
         "step_id": 2,
-        "expert": "semantic",
-        "step_type": "confusable_disambiguation",
-        "goal": "Disambiguate the labeled class against visually confusable candidate labels.",
-        "model_profile": "local_fast",
-        "planned_model": "clip",
-        "selection_reason": "Use CLIP to compare the labeled class against confusable candidates generated upstream.",
-        "prompt_focus": "Use candidate labels from earlier semantic steps to decide whether the visible subject is best matched by Hussar monkey or a nearby confusable label.",
+        "expert": "structural",
+        "step_type": "structural_check",
+        "goal": "Check whole-subject structural coherence.",
+        "planned_model": "body_pose",
+        "selection_reason": "Fallback structural step using available downloaded model body_pose.",
+        "prompt_focus": "Inspect morphology, part attachment, and pose plausibility for Hussar monkey.",
         "depends_on": [
           1
         ],
-        "expected_signal": "Relative evidence among confusable labels including the target label.",
+        "expected_signal": "Structural coherence or failure evidence.",
         "use_previous_outputs": true,
         "allow_escalation": true
       },
       {
         "step_id": 3,
-        "expert": "semantic",
-        "step_type": "semantic_check",
-        "goal": "Assess whether the image content matches the prompt/class label semantically.",
-        "model_profile": "local_fast",
-        "planned_model": "clip",
-        "selection_reason": "Default low-cost semantic first pass with CLIP.",
-        "prompt_focus": "Inspect whether the visible subject matches Hussar monkey using the strongest confirming and contradicting species markers in the image.",
-        "depends_on": [
-          1
-        ],
-        "expected_signal": "Broad-category and label-match evidence.",
-        "use_previous_outputs": true,
-        "allow_escalation": true
-      },
-      {
-        "step_id": 4,
-        "expert": "structural",
-        "step_type": "structural_check",
-        "goal": "Assess whole-subject structural coherence and class-specific morphology.",
-        "model_profile": "local_fast",
-        "planned_model": "animal_pose",
-        "selection_reason": "Default low-cost structural first pass with pose evidence.",
-        "prompt_focus": "Inspect whole-subject coherence and the class-specific morphology, body proportions, pose plausibility, scene compatibility, and likely lookalike confusions for Hussar monkey.",
-        "depends_on": [
-          3
-        ],
-        "expected_signal": "Whole-subject coherence and morphology evidence.",
-        "use_previous_outputs": true,
-        "allow_escalation": true
-      },
-      {
-        "step_id": 5,
         "expert": "quality",
         "step_type": "quality_check",
-        "goal": "Estimate visible quality degradation and perceptual failure evidence.",
-        "model_profile": "local_default",
+        "goal": "Check visible artifacts and distortions.",
         "planned_model": "q_insight",
-        "selection_reason": "Default artifact-focused quality pass using Q-Insight.",
-        "prompt_focus": "Inspect localized quality degradation evidence, including malformed facial regions, duplicated or fused limbs, broken joints, tail attachment, hands or feet, corrupted boundaries, and other visible artifact failures.",
+        "selection_reason": "Fallback quality step using available downloaded model q_insight.",
+        "prompt_focus": "Inspect visible artifacts, distortions, malformed parts, and corrupted boundaries.",
         "depends_on": [
           1,
-          2,
-          3,
-          4
+          2
         ],
-        "expected_signal": "Visible artifact and distortion evidence.",
+        "expected_signal": "Artifact or distortion evidence.",
         "use_previous_outputs": true,
         "allow_escalation": true
       }
