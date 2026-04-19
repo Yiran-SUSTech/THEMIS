@@ -258,7 +258,7 @@ class CLIPExpert(BaseExpert):
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
 
-    def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
+    def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, prompt_focus: Optional[str] = None, **kwargs) -> ExpertResult:
         model, processor = self.load_model()
         
         image = self._load_image(image_path)
@@ -266,24 +266,31 @@ class CLIPExpert(BaseExpert):
         texts = []
         target_text = None
         
-        if prompt:
-            texts.append(prompt)
-            target_text = prompt
-        if class_label:
-            target_text = f"a photo of {class_label}"
-            texts.append(target_text)
-            
-            class_lower = class_label.lower()
-            
-            similar_species = self._get_similar_species(class_lower)
-            for species in similar_species:
-                texts.append(f"a photo of a {species}")
-            
-            contrast_animals = ["a photo of a dog", "a photo of a cat", "a photo of a bird", 
-                               "a photo of a person", "a photo of a horse", "a photo of a cow"]
-            for contrast in contrast_animals:
-                if contrast not in texts:
-                    texts.append(contrast)
+        candidate_classes = self._parse_candidate_classes(prompt_focus)
+        
+        if candidate_classes:
+            for cls in candidate_classes:
+                texts.append(f"a photo of {cls}")
+            target_text = f"a photo of {class_label}" if class_label else None
+        else:
+            if prompt:
+                texts.append(prompt)
+                target_text = prompt
+            if class_label:
+                target_text = f"a photo of {class_label}"
+                texts.append(target_text)
+                
+                class_lower = class_label.lower()
+                
+                similar_species = self._get_similar_species(class_lower)
+                for species in similar_species:
+                    texts.append(f"a photo of a {species}")
+                
+                contrast_animals = ["a photo of a dog", "a photo of a cat", "a photo of a bird", 
+                                   "a photo of a person", "a photo of a horse", "a photo of a cow"]
+                for contrast in contrast_animals:
+                    if contrast not in texts:
+                        texts.append(contrast)
         
         contrast_texts = [
             "a low quality image",
@@ -314,7 +321,21 @@ class CLIPExpert(BaseExpert):
                     target_idx = i
                     break
         
-        if target_idx is not None:
+        if candidate_classes:
+            ranked = sorted(zip(candidate_classes, probs_list[:len(candidate_classes)]), key=lambda x: x[1], reverse=True)
+            top_class, top_prob = ranked[0]
+            
+            if class_label and class_label.lower() == top_class.lower():
+                severity = 1.0 - top_prob
+                confidence = top_prob
+                summary = f"Target class '{class_label}' ranked #1 with CLIP similarity {top_prob:.4f}"
+            else:
+                severity = 0.8
+                confidence = 0.2
+                summary = f"Target class '{class_label}' ranked #{next(i+1 for i, (c, _) in enumerate(ranked) if c.lower() == class_label.lower()) if any(c.lower() == class_label.lower() for c, _ in ranked) else 'N/A'} - top match is '{top_class}' ({top_prob:.4f})"
+            
+            findings = [f"Rank {i+1}: '{cls}' - CLIP similarity {prob:.4f}" for i, (cls, prob) in enumerate(ranked)]
+        elif target_idx is not None:
             target_prob = probs_list[target_idx]
             
             similar_probs = []
@@ -331,17 +352,18 @@ class CLIPExpert(BaseExpert):
                 severity = 1.0 - target_prob
                 confidence = target_prob
                 summary = f"Target '{target_text}': probability {target_prob:.4f}"
+            
+            findings = []
+            for i, (text, prob) in enumerate(zip(texts, probs_list)):
+                marker = " [TARGET]" if i == target_idx else ""
+                findings.append(f"Text '{text}': {prob:.4f}{marker}")
         else:
             max_prob = max(probs_list)
             max_idx = probs_list.index(max_prob)
             severity = 1.0 - max_prob
             confidence = max_prob
             summary = f"Best match: '{texts[max_idx]}' with probability {max_prob:.4f}"
-        
-        findings = []
-        for i, (text, prob) in enumerate(zip(texts, probs_list)):
-            marker = " [TARGET]" if i == target_idx else ""
-            findings.append(f"Text '{text}': {prob:.4f}{marker}")
+            findings = [f"Text '{texts[max_idx]}': {max_prob:.4f}"]
         
         return ExpertResult(
             expert=self.config.name,
@@ -355,8 +377,21 @@ class CLIPExpert(BaseExpert):
                 "texts": texts,
                 "probabilities": probs_list,
                 "target_index": target_idx,
+                "candidate_classes": candidate_classes if candidate_classes else None,
             }
         )
+    
+    def _parse_candidate_classes(self, prompt_focus: Optional[str]) -> list[str]:
+        if not prompt_focus:
+            return []
+        
+        import re
+        match = re.search(r"(?:Rank these \d+ candidates?:?)\s*[:：]\s*(.+)", prompt_focus, re.IGNORECASE)
+        if match:
+            candidates_str = match.group(1)
+            return [c.strip() for c in re.split(r"[,，]", candidates_str) if c.strip()]
+        
+        return []
     
     def _get_similar_species(self, class_label: str) -> list[str]:
         similar_species_map = {

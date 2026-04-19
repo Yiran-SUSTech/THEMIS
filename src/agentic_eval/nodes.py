@@ -51,23 +51,18 @@ PLAN_SCHEMA: dict[str, Any] = {
                 "type": "object",
                 "properties": {
                     "step_id": {"type": "integer"},
-                    "expert": {"type": "string", "enum": ["semantic", "structural", "artifact", "vqa"]},
+                    "expert": {"type": "string", "enum": ["semantic", "structural", "quality", "vqa"]},
+                    "step_type": {"type": "string", "enum": ["semantic_check", "structural_check", "quality_check", "vqa_evidence", "candidate_generation", "label_space_check", "confusable_disambiguation"]},
                     "goal": {"type": "string"},
-                    "model_profile": {
-                        "type": "string",
-                        "enum": [
-                            "local_fast",
-                            "local_default",
-                            "local_richer",
-                            "local_stronger",
-                        ],
-                    },
                     "planned_model": {"type": "string"},
                     "selection_reason": {"type": "string"},
                     "prompt_focus": {"type": "string"},
+                    "depends_on": {"type": "array", "items": {"type": "integer"}},
+                    "expected_signal": {"type": "string"},
+                    "use_previous_outputs": {"type": "boolean"},
                     "allow_escalation": {"type": "boolean"},
                 },
-                "required": ["step_id", "expert", "goal", "model_profile", "planned_model", "selection_reason", "prompt_focus", "allow_escalation"],
+                "required": ["step_id", "expert", "step_type", "goal", "planned_model", "selection_reason", "prompt_focus", "depends_on", "expected_signal", "use_previous_outputs", "allow_escalation"],
                 "additionalProperties": False,
             },
         },
@@ -201,26 +196,16 @@ def _fail_stage(role: str, action: str, model: str, started_at: float, stop_even
     _write_stage_line(_stage_message(role, action, model, elapsed, f"failed error={exc.__class__.__name__}", revision), final=True)
 
 
-def _artifact_local_model_name(model_profile: str) -> str:
-    if model_profile == "local_fast":
-        return "maniqa"
-    if model_profile == "local_richer":
-        return "maniqa+musiq+clipiqa"
-    return "maniqa+musiq"
-
-
-def _planned_step_model(client: ClaudeVisionClient, expert_name: str, model_profile: str, planned_model: str) -> str:
+def _planned_step_model(client: ClaudeVisionClient, expert_name: str, planned_model: str) -> str:
     config = client.settings.get_expert_config(planned_model)
     if config is not None:
         if config.metrics:
             return "+".join(config.metrics)
         return config.local_path or config.model or planned_model
     if expert_name in {"semantic", "structural", "vqa"} and client.settings.local_semantic_enabled:
-        if model_profile == "local_stronger":
-            return client.settings.semantic_local_stronger_model
-        return client.settings.semantic_local_fast_model
-    if expert_name == "artifact" and client.settings.local_artifact_enabled:
-        return _artifact_local_model_name(model_profile)
+        return client.settings.local_semantic_model
+    if expert_name == "quality" and client.settings.local_artifact_enabled:
+        return "maniqa+musiq"
     raise RuntimeError(f"No local model configured for expert '{expert_name}'")
 
 
@@ -228,10 +213,7 @@ def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
     image_input = state["input"]
     original_model = settings.local_semantic_model
     try:
-        if step.model_profile == "local_stronger":
-            settings.local_semantic_model = settings.semantic_local_stronger_model
-        else:
-            settings.local_semantic_model = settings.semantic_local_fast_model
+        settings.local_semantic_model = settings.local_semantic_model
 
         if step.expert == "semantic":
             payload = LocalSemanticExpert(settings).evaluate(
@@ -244,6 +226,14 @@ def _run_vlm_role_step(state: GraphState, settings, step) -> ExpertResult:
                 image_path=image_input.image_path,
                 prompt=image_input.prompt,
                 class_label=image_input.class_label,
+                prompt_focus=step.prompt_focus,
+            )
+        elif step.expert == "quality":
+            payload = LocalQualityExpert(settings).evaluate(
+                image_path=image_input.image_path,
+                prompt=image_input.prompt,
+                class_label=image_input.class_label,
+                goal=step.goal,
                 prompt_focus=step.prompt_focus,
             )
         else:
@@ -276,17 +266,17 @@ def planner_node(state: GraphState, client: ClaudeVisionClient) -> GraphState:
 
     user_text = (
         f"{build_task_context(image_input.prompt, image_input.class_label)}\n"
-        "Create a concise evaluation plan using the available experts: semantic, structural, artifact, vqa. "
+        "Create a concise evaluation plan using the available experts: semantic, structural, quality, vqa. "
         "Plan jointly from the image itself and the prompt/class label together as one multimodal grounding task. "
-        "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact pass. "
-        "Unless the image is trivially simple, include at least one semantic step, one structural step, and one artifact step; include vqa only if earlier evidence leaves a material unresolved question. "
-        "Step order should usually be: semantic alignment first, structural coherence second, local artifact severity third, then optional vqa. "
-        "For each step, choose a model_profile. Strongly prefer the cheapest adequate local route first: semantic should start with local_fast, structural should start with local_fast, artifact should start with local_default or local_richer, and vqa should be omitted unless earlier evidence leaves a material unresolved question. "
+        "The plan must cover semantic alignment, whole-subject global structure, and a separate local artifact/quality pass. "
+        "Unless the image is trivially simple, include at least one semantic step, one structural step, and one quality step; include vqa only if earlier evidence leaves a material unresolved question. "
+        "Step order should usually be: semantic alignment first, structural coherence second, local artifact/quality severity third, then optional vqa. "
+        "You can use multiple steps for the same expert type with different models for cross-validation. Example: one semantic step with EfficientNet for classification, another semantic step with CLIP for open-vocabulary verification. "
+        "For CLIP semantic steps, generate 5 ImageNet-1K candidate class names in prompt_focus based on the image content and target label. CLIP will rank these candidates. Format: 'Rank these 5 candidates: class1, class2, class3, class4, class5'. "
         "For semantic steps, check whether the visible subject is plausibly the labeled class from image evidence alone, then note the strongest confirming or contradicting traits. "
         "For structural steps, first test whether the whole animal forms a coherent instance of the labeled subject, then target the most likely subject-specific confusion risks and part-integrity failures visible in this image. Use the class label to name distinguishing morphology, body proportions, pose plausibility, and scene compatibility that separate this subject from nearby lookalikes. "
-        "For artifact steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
+        "For quality steps, explicitly inspect localized generation failures such as malformed face or muzzle regions, duplicated or fused limbs, broken joints, wrong tail attachment, malformed hands or feet, asymmetric anatomy, fur or edge boundary corruption, and other visible synthesis artifacts when relevant. "
         "Do not frame any step as comparing against external reference photos or doing open-ended species research; inspect this image directly. "
-        "Escalate to local_stronger only when the task is fine-grained, evidence is ambiguous, or prior judge/reflector feedback indicates the earlier route was insufficient. "
         "Set prompt_focus to the exact visual evidence the expert should inspect, using subject-specific failure modes instead of a generic checklist. Set allow_escalation to false for steps that should stay on the chosen route."
         f"{prior_feedback}"
     )
@@ -505,7 +495,7 @@ def execute_plan_node(state: GraphState, client: ClaudeVisionClient) -> GraphSta
     expert_elapsed_seconds: dict[str, float] = {}
     for step in steps:
         action = f"expert_{step.expert}_{step.planned_model}_step_{step.step_id}"
-        model_name = _planned_step_model(client, step.expert, step.model_profile, step.planned_model)
+        model_name = _planned_step_model(client, step.expert, step.planned_model)
         started_at, stop_event, heartbeat = _start_stage(step.expert, action, model_name)
         try:
             result = run_expert(state, client, step)
