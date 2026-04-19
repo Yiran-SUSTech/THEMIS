@@ -49,7 +49,7 @@ class ReplanAction(BaseModel):
     priority: Literal["low", "medium", "high"] = "medium"
     target_step_id: int | None = None
     step_type: StepType | None = None
-    suggested_expert: ExpertName | None = None
+    suggested_expert: str | None = None
     suggested_model: str = ""
     prompt_focus: str = ""
     expected_signal: str = ""
