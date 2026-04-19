@@ -942,16 +942,21 @@ class QInsightExpert(BaseExpert):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
         
         try:
-            from transformers import AutoModelForCausalLM, AutoProcessor
+            from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
             model_path = self.config.local_path or self.config.model
-            model = AutoModelForCausalLM.from_pretrained(
+            processor = AutoProcessor.from_pretrained(
                 model_path,
+                local_files_only=True,
                 trust_remote_code=True,
-                device_map=self.config.device,
-                torch_dtype="auto",
             )
-            processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                model_path,
+                local_files_only=True,
+                trust_remote_code=True,
+                torch_dtype="auto",
+                device_map=self.config.device,
+            )
             
             model.eval()
             
@@ -967,23 +972,33 @@ class QInsightExpert(BaseExpert):
     def evaluate(self, image_path: str, prompt_focus: Optional[str] = None, **kwargs) -> ExpertResult:
         model, processor = self.load_model()
         
-        image = self._load_image(image_path)
+        import torch
         
-        question = self.config.prompts.get("distortion", "Analyze the given image and determine if it contains any distortions.") if hasattr(self.config, 'prompts') and self.config.prompts else "Analyze the given image and determine if it contains any distortions: noise, compression, blur, or darken. Return the result in JSON format with keys: distortion_class and severity."
+        try:
+            from qwen_vl_utils import process_vision_info
+        except ImportError:
+            process_vision_info = None
+        
+        system_prompt = "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>"
+        
+        distortion_prompt = self.config.prompts.get("distortion", 'Analyze the given image and determine if it contains any of the following distortions: "noise", "compression", "blur", or "darken". If a distortion is present, classify its severity as "slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON format with the following keys: "distortion_class": The detected distortion (or "null" if none). and "severity": The severity level (or "null" if none).') if hasattr(self.config, 'prompts') and self.config.prompts else 'Analyze the given image and determine if it contains any of the following distortions: "noise", "compression", "blur", or "darken". If a distortion is present, classify its severity as "slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON format with the following keys: "distortion_class": The detected distortion (or "null" if none). and "severity": The severity level (or "null" if none).'
         
         messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": question}
-                ]
-            }
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": [{"type": "image", "image": f"file://{image_path}"}, {"type": "text", "text": distortion_prompt}]},
         ]
         
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
-        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        
+        if process_vision_info is not None:
+            image_inputs, video_inputs = process_vision_info([messages])
+            inputs = processor(text=[text], images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt")
+        else:
+            from PIL import Image
+            image = Image.open(image_path).convert("RGB")
+            inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
+        
+        inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
         
         with torch.no_grad():
             generated_ids = model.generate(**inputs, max_new_tokens=256)
