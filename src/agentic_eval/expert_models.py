@@ -933,6 +933,108 @@ class QwenVLExpert(BaseExpert):
         )
 
 
+class QInsightExpert(BaseExpert):
+    def load_model(self) -> Tuple[Any, Any]:
+        model_key = f"q_insight_{self.config.model}"
+        processor_key = f"q_insight_processor_{self.config.model}"
+        
+        if self.registry.get_model(model_key):
+            return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
+        
+        try:
+            from transformers import AutoModelForCausalLM, AutoProcessor
+
+            model_path = self.config.local_path or self.config.model
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                trust_remote_code=True,
+                device_map=self.config.device,
+                torch_dtype="auto",
+            )
+            processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+            
+            model.eval()
+            
+            self.registry.set_model(model_key, model)
+            self.registry.set_processor(processor_key, processor)
+            self._model = model
+            self._processor = processor
+            
+            return model, processor
+        except ImportError as e:
+            raise ExpertModelError(f"transformers not installed: {e}")
+
+    def evaluate(self, image_path: str, prompt_focus: Optional[str] = None, **kwargs) -> ExpertResult:
+        model, processor = self.load_model()
+        
+        image = self._load_image(image_path)
+        
+        question = self.config.prompts.get("distortion", "Analyze the given image and determine if it contains any distortions.") if hasattr(self.config, 'prompts') and self.config.prompts else "Analyze the given image and determine if it contains any distortions: noise, compression, blur, or darken. Return the result in JSON format with keys: distortion_class and severity."
+        
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": question}
+                ]
+            }
+        ]
+        
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        
+        with torch.no_grad():
+            generated_ids = model.generate(**inputs, max_new_tokens=256)
+        
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        
+        import re
+        import json
+        
+        distortion_class = "null"
+        severity = "null"
+        
+        answer_match = re.search(r"<answer>\s*(.*?)\s*</answer>", generated_text, re.DOTALL)
+        if answer_match:
+            answer_text = answer_match.group(1).strip()
+            json_match = re.search(r"\{.*?\}", answer_text, re.DOTALL)
+            if json_match:
+                try:
+                    result_json = json.loads(json_match.group(0))
+                    distortion_class = result_json.get("distortion_class", "null")
+                    severity = result_json.get("severity", "null")
+                except json.JSONDecodeError:
+                    pass
+        
+        severity_score = {
+            "slight": 0.2,
+            "moderate": 0.4,
+            "obvious": 0.6,
+            "serious": 0.8,
+            "catastrophic": 1.0,
+            "null": 0.0,
+        }.get(severity, 0.0)
+        
+        summary = f"Distortion: {distortion_class}, Severity: {severity}"
+        
+        return ExpertResult(
+            expert=self.config.name,
+            summary=summary,
+            findings=[generated_text[:500]],
+            severity=severity_score,
+            confidence=0.8 if distortion_class != "null" else 0.9,
+            source="local",
+            model=self.config.model,
+            extra_info={
+                "distortion_class": distortion_class,
+                "severity": severity,
+                "full_response": generated_text,
+            }
+        )
+
+
 EXPERT_CLASS_MAP = {
     "classification": ImageNetExpert,
     "clip": CLIPExpert,
@@ -944,6 +1046,7 @@ EXPERT_CLASS_MAP = {
     "iqa": IQAExpert,
     "segmentation": BackgroundExpert,
     "vqa": QwenVLExpert,
+    "mllm_scoring": QInsightExpert,
 }
 
 
