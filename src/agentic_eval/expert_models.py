@@ -955,7 +955,8 @@ class QInsightExpert(BaseExpert):
                 local_files_only=True,
                 trust_remote_code=True,
                 torch_dtype="auto",
-                device_map=self.config.device,
+                device_map={"": self.config.device},
+                attn_implementation="eager",
             )
             
             model.eval()
@@ -998,12 +999,22 @@ class QInsightExpert(BaseExpert):
             image = Image.open(image_path).convert("RGB")
             inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
         
-        inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+        model_device = next(model.parameters()).device
+        inputs = {k: v.to(model_device) if hasattr(v, 'to') else v for k, v in inputs.items()}
         
         with torch.no_grad():
-            generated_ids = model.generate(**inputs, max_new_tokens=256)
+            generated_ids = model.generate(
+                **inputs,
+                do_sample=True,
+                temperature=1.0,
+                top_k=50,
+                top_p=0.95,
+                max_new_tokens=256,
+                use_cache=True,
+            )
         
-        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        trimmed_ids = [out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)]
+        generated_text = processor.batch_decode(trimmed_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
         
         import re
         import json
