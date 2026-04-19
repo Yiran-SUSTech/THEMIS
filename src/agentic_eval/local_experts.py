@@ -531,7 +531,13 @@ class LocalPlanner:
             "Valid expert values: semantic, structural, quality, vqa.",
             "Valid step_type values: semantic_check, structural_check, quality_check, vqa_evidence, candidate_generation, label_space_check, confusable_disambiguation.",
             "Return compact valid JSON only.",
-            "Example shape only: {\"rationale\":\"Use low-cost semantic evidence first, then structure and artifact checks.\",\"steps\":[{\"step_id\":1,\"expert\":\"semantic\",\"step_type\":\"semantic_check\",\"goal\":\"Check whether the visible subject matches the class label.\",\"planned_model\":\"clip\",\"selection_reason\":\"Low-cost open-vocabulary semantic evidence.\",\"prompt_focus\":\"Inspect whether the visible subject matches the class label.\",\"depends_on\":[],\"expected_signal\":\"Broad semantic match or mismatch evidence.\",\"use_previous_outputs\":false,\"allow_escalation\":true}]}",
+            "CRITICAL: The JSON MUST contain BOTH 'rationale' AND 'steps' fields. The 'steps' field MUST be a non-empty list.",
+            "CRITICAL: Do NOT output only 'rationale' without 'steps'. A plan without 'steps' is invalid.",
+            "CRITICAL: Each step's 'depends_on' must be a list of integers (e.g., [] or [1]), NOT a string.",
+            "CRITICAL: Each step's 'use_previous_outputs' and 'allow_escalation' must be boolean (true/false), NOT strings.",
+            "CRITICAL: All string values must be properly quoted with double quotes.",
+            "Below is a complete valid example. Follow this structure exactly:",
+            '{"rationale":"Use low-cost semantic evidence first, then structure and artifact checks.","steps":[{"step_id":1,"expert":"semantic","step_type":"semantic_check","goal":"Check whether the visible subject matches the class label.","planned_model":"clip","selection_reason":"Low-cost open-vocabulary semantic evidence.","prompt_focus":"Inspect whether the visible subject matches the class label.","depends_on":[],"expected_signal":"Broad semantic match or mismatch evidence.","use_previous_outputs":false,"allow_escalation":true},{"step_id":2,"expert":"structural","step_type":"structural_check","goal":"Check whole-subject structural coherence.","planned_model":"body_pose","selection_reason":"Structural evidence for morphology and pose.","prompt_focus":"Inspect morphology, part attachment, and pose plausibility.","depends_on":[1],"expected_signal":"Structural coherence or failure evidence.","use_previous_outputs":true,"allow_escalation":true},{"step_id":3,"expert":"quality","step_type":"quality_check","goal":"Check visible artifacts and distortions.","planned_model":"q_insight","selection_reason":"Quality check for visible artifacts.","prompt_focus":"Inspect visible artifacts, distortions, malformed parts.","depends_on":[1,2],"expected_signal":"Artifact or distortion evidence.","use_previous_outputs":true,"allow_escalation":true}]}',
             f"Prompt: {prompt or 'N/A'}",
             f"Class label: {class_label or 'N/A'}",
         ]
@@ -579,7 +585,7 @@ class LocalPlanner:
 
 def extract_plan_payload(text: str) -> dict[str, Any]:
     def _looks_like_plan_payload(payload: dict[str, Any]) -> bool:
-        return isinstance(payload.get("steps"), list) or "rationale" in payload
+        return isinstance(payload.get("steps"), list) and len(payload["steps"]) > 0
 
     try:
         payload = extract_json(text)

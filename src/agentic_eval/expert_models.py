@@ -231,137 +231,29 @@ class ImageNetExpert(BaseExpert):
         )
 
 
-class TextEmbeddingExpert(BaseExpert):
-    def load_model(self) -> Tuple[Any, Any]:
-        model_key = f"text_embedding_{self.config.model}"
-        tokenizer_key = f"text_embedding_tokenizer_{self.config.model}"
-
-        if self.registry.get_model(model_key):
-            return self.registry.get_model(model_key), self.registry.get_processor(tokenizer_key)
-
-        try:
-            from transformers import AutoModel, AutoTokenizer
-
-            model_path = self.config.local_path or self.config.model
-            local_only = Path(model_path).exists()
-            tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=local_only)
-            model = AutoModel.from_pretrained(model_path, local_files_only=local_only)
-            model = model.to(self.config.device)
-            model.eval()
-
-            self.registry.set_model(model_key, model)
-            self.registry.set_processor(tokenizer_key, tokenizer)
-            self._model = model
-            self._processor = tokenizer
-
-            return model, tokenizer
-        except ImportError as e:
-            raise ExpertModelError(f"transformers not installed for text embedding: {e}")
-
-    def _encode_texts(self, model: Any, tokenizer: Any, texts: List[str]) -> torch.Tensor:
-        inputs = tokenizer(
-            texts,
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
-            max_length=256,
-        )
-        inputs = {key: value.to(self.config.device) for key, value in inputs.items()}
-
-        with torch.no_grad():
-            outputs = model(**inputs)
-
-        attention_mask = inputs["attention_mask"].unsqueeze(-1)
-        token_embeddings = outputs.last_hidden_state
-        masked_embeddings = token_embeddings * attention_mask
-        pooled = masked_embeddings.sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1)
-        return F.normalize(pooled, p=2, dim=1)
-
-    def evaluate(
-        self,
-        image_path: str,
-        class_label: Optional[str] = None,
-        candidate_pool: Optional[List[str]] = None,
-        top_k: int = 8,
-        **kwargs,
-    ) -> ExpertResult:
-        model, tokenizer = self.load_model()
-
-        label = (class_label or "").strip()
-        if not label:
-            raise ExpertModelError("text_embedding expert requires class_label")
-
-        pool = [item.strip() for item in (candidate_pool or []) if isinstance(item, str) and item.strip()]
-        if label not in pool:
-            pool.insert(0, label)
-
-        unique_pool: list[str] = []
-        seen: set[str] = set()
-        for item in pool:
-            normalized = item.lower()
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            unique_pool.append(item)
-
-        if len(unique_pool) == 1:
-            candidate_labels = unique_pool
-            findings = [f"Candidate: {unique_pool[0]} (seed label)"]
-            confidence = 1.0
-        else:
-            query_embedding = self._encode_texts(model, tokenizer, [label])
-            candidate_embeddings = self._encode_texts(model, tokenizer, unique_pool)
-            scores = (query_embedding @ candidate_embeddings.T).squeeze(0)
-            top_count = min(max(top_k, 1), len(unique_pool))
-            top_scores, top_indices = torch.topk(scores, k=top_count)
-            candidate_labels = [unique_pool[int(index)] for index in top_indices.tolist()]
-            findings = [
-                f"Candidate: {unique_pool[int(index)]} (score: {float(score):.4f})"
-                for index, score in zip(top_indices.tolist(), top_scores.tolist())
-            ]
-            confidence = float(torch.clamp(top_scores[0], min=0.0, max=1.0).item()) if len(top_scores) > 0 else 0.0
-
-        summary = f"Generated {len(candidate_labels)} confusable candidate labels for '{label}'."
-
-        return ExpertResult(
-            expert=self.config.name,
-            summary=summary,
-            findings=findings,
-            severity=0.0,
-            confidence=confidence,
-            source="local",
-            model=self.config.model,
-            extra_info={
-                "class_label": label,
-                "candidate_labels": candidate_labels,
-                "candidate_pool": unique_pool,
-            },
-        )
-
-
 class CLIPExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"clip_{self.config.model}"
         processor_key = f"clip_processor_{self.config.model}"
-
+        
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-
+        
         try:
             from transformers import CLIPModel, CLIPProcessor
-
+            
             model_path = self.config.local_path or self.config.model
             model = CLIPModel.from_pretrained(model_path, local_files_only=Path(model_path).exists())
             processor = CLIPProcessor.from_pretrained(model_path, local_files_only=Path(model_path).exists())
-
+            
             model = model.to(self.config.device)
             model.eval()
-
+            
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
             self._model = model
             self._processor = processor
-
+            
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
@@ -920,225 +812,14 @@ class BackgroundExpert(BaseExpert):
         )
 
 
-class QInsightExpert(BaseExpert):
-    DEFAULT_SYSTEM_PROMPT = (
-        "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. "
-        "The assistant first thinks about the reasoning process in the mind and then provides the user with "
-        "the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> "
-        "</answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>"
-    )
-    DEFAULT_DISTORTION_PROMPT = (
-        'Analyze the given image and determine if it contains any of the following distortions: "noise", '
-        '"compression", "blur", or "darken". If a distortion is present, classify its severity as '
-        '"slight", "moderate", "obvious", "serious", or "catastrophic". Return the result in JSON '
-        'format with the following keys: "distortion_class": The detected distortion (or "null" if none). '
-        'and "severity": The severity level (or "null" if none).'
-    )
-    SEVERITY_MAP = {
-        "null": 0.0,
-        "slight": 0.2,
-        "moderate": 0.45,
-        "obvious": 0.65,
-        "serious": 0.82,
-        "catastrophic": 0.95,
-    }
-
-    def _build_load_attempts(self) -> list[tuple[str, dict[str, Any]]]:
-        attempts: list[tuple[str, dict[str, Any]]] = []
-        if torch.cuda.is_available() and self.config.device.startswith("cuda"):
-            attempts.append((
-                "cuda_eager",
-                {
-                    "device_map": {"": self.config.device},
-                    "attn_implementation": "eager",
-                    "torch_dtype": torch.float16,
-                },
-            ))
-            attempts.append((
-                "cuda_sdpa",
-                {
-                    "device_map": {"": self.config.device},
-                    "attn_implementation": "sdpa",
-                    "torch_dtype": torch.float16,
-                },
-            ))
-        attempts.append((
-            "cpu_eager",
-            {
-                "device_map": "cpu",
-                "attn_implementation": "eager",
-                "torch_dtype": torch.float32,
-            },
-        ))
-        return attempts
-
-    def load_model(self) -> Tuple[Any, Any]:
-        model_key = f"qinsight_{self.config.model}"
-        processor_key = f"qinsight_processor_{self.config.model}"
-
-        if self.registry.get_model(model_key):
-            return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-
-        try:
-            from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-
-            model_path = self.config.local_path or self.config.model
-            local_only = Path(model_path).exists()
-            processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=local_only)
-            load_errors: list[str] = []
-            model = None
-            for attempt_name, load_kwargs in self._build_load_attempts():
-                try:
-                    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                        model_path,
-                        trust_remote_code=True,
-                        local_files_only=local_only,
-                        **load_kwargs,
-                    )
-                    model.eval()
-                    break
-                except Exception as exc:
-                    load_errors.append(f"{attempt_name}: {exc}")
-                    model = None
-            if model is None:
-                raise ExpertModelError(" | ".join(load_errors))
-
-            self.registry.set_model(model_key, model)
-            self.registry.set_processor(processor_key, processor)
-            self._model = model
-            self._processor = processor
-
-            return model, processor
-        except ImportError as e:
-            raise ExpertModelError(f"transformers not installed: {e}")
-
-    def _build_message(self, image_path: str, user_prompt: str) -> list[dict[str, Any]]:
-        return [
-            {"role": "system", "content": [{"type": "text", "text": self.config.prompts.get("system") or self.DEFAULT_SYSTEM_PROMPT}]},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_prompt},
-                    {"type": "image", "image": f"file://{image_path}"},
-                ],
-            },
-        ]
-
-    def _prepare_inputs(self, processor: Any, image_path: str, message: list[dict[str, Any]]) -> Any:
-        process_vision_info_fn = None
-        try:
-            from qwen_vl_utils import process_vision_info as imported_process_vision_info
-            process_vision_info_fn = imported_process_vision_info
-        except Exception:
-            process_vision_info_fn = None
-
-        text = [processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True)]
-        processor_kwargs: dict[str, Any] = {
-            "text": text,
-            "padding": True,
-            "return_tensors": "pt",
-        }
-        if process_vision_info_fn is not None:
-            image_inputs, video_inputs = process_vision_info_fn([message])
-            processor_kwargs["images"] = image_inputs
-            processor_kwargs["videos"] = video_inputs
-        else:
-            processor_kwargs["images"] = [Image.open(image_path).convert("RGB")]
-        return processor(**processor_kwargs)
-
-    def _extract_payload(self, output_text: str) -> dict[str, Any] | None:
-        text = output_text.strip()
-        answer_start = text.find("<answer>")
-        answer_end = text.find("</answer>")
-        if answer_start != -1 and answer_end != -1 and answer_end > answer_start:
-            text = text[answer_start + len("<answer>"):answer_end].strip()
-
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            return None
-
-        try:
-            payload = json.loads(text[start:end + 1])
-        except json.JSONDecodeError:
-            return None
-        return payload if isinstance(payload, dict) else None
-
-    def evaluate(self, image_path: str, prompt: Optional[str] = None, class_label: Optional[str] = None, **kwargs) -> ExpertResult:
-        model, processor = self.load_model()
-        user_prompt = self.config.prompts.get("distortion") or self.DEFAULT_DISTORTION_PROMPT
-        message = self._build_message(image_path, user_prompt)
-        inputs = self._prepare_inputs(processor, image_path, message)
-        inputs = {
-            key: value.to(model.device) if hasattr(value, "to") else value
-            for key, value in inputs.items()
-        }
-
-        with torch.no_grad():
-            generated_ids = model.generate(
-                **inputs,
-                do_sample=True,
-                temperature=1.0,
-                top_k=50,
-                top_p=0.95,
-                max_new_tokens=64,
-                use_cache=True,
-            )
-
-        trimmed_ids = [
-            out_ids[len(in_ids):]
-            for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
-        ]
-        output_text = processor.batch_decode(
-            trimmed_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False,
-        )[0]
-
-        payload = self._extract_payload(output_text) or {}
-        distortion_class = str(payload.get("distortion_class", "null")).strip().lower()
-        severity_label = str(payload.get("severity", "null")).strip().lower()
-        severity = self.SEVERITY_MAP.get(severity_label, 0.5 if distortion_class not in {"", "null", "none"} else 0.0)
-
-        if distortion_class in {"", "null", "none"}:
-            summary = "Q-Insight detected no targeted distortion signal."
-            confidence = 0.75 if payload else 0.35
-        else:
-            severity_phrase = severity_label if severity_label not in {"", "null", "none"} else "unspecified"
-            summary = f"Q-Insight detected {distortion_class} distortion at {severity_phrase} severity."
-            confidence = 0.85 if payload else 0.45
-
-        findings = [
-            f"distortion_class: {distortion_class}",
-            f"severity: {severity_label}",
-            f"raw_response: {output_text}",
-        ]
-
-        return ExpertResult(
-            expert=self.config.name,
-            summary=summary,
-            findings=findings,
-            severity=severity,
-            confidence=confidence,
-            source="local",
-            model=self.config.model,
-            extra_info={
-                "distortion_class": distortion_class,
-                "severity_label": severity_label,
-                "raw_response": output_text,
-                "parsed_payload": payload or None,
-            },
-        )
-
-
 class QwenVLExpert(BaseExpert):
     def load_model(self) -> Tuple[Any, Any]:
         model_key = f"qwen_vl_{self.config.model}"
         processor_key = f"qwen_vl_processor_{self.config.model}"
-
+        
         if self.registry.get_model(model_key):
             return self.registry.get_model(model_key), self.registry.get_processor(processor_key)
-
+        
         try:
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
@@ -1168,21 +849,21 @@ class QwenVLExpert(BaseExpert):
                 )
 
             model.eval()
-
+            
             self.registry.set_model(model_key, model)
             self.registry.set_processor(processor_key, processor)
             self._model = model
             self._processor = processor
-
+            
             return model, processor
         except ImportError as e:
             raise ExpertModelError(f"transformers not installed: {e}")
 
     def evaluate(self, image_path: str, question: str = "Describe this image.", **kwargs) -> ExpertResult:
         model, processor = self.load_model()
-
+        
         image = self._load_image(image_path)
-
+        
         messages = [
             {
                 "role": "user",
@@ -1192,16 +873,16 @@ class QwenVLExpert(BaseExpert):
                 ]
             }
         ]
-
+        
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
-
+        
         with torch.no_grad():
             generated_ids = model.generate(**inputs, max_new_tokens=256)
-
+        
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
+        
         return ExpertResult(
             expert=self.config.name,
             summary=generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
@@ -1221,8 +902,6 @@ EXPERT_CLASS_MAP = {
     "classification": ImageNetExpert,
     "clip": CLIPExpert,
     "clip_score": CLIPExpert,
-    "text_embedding": TextEmbeddingExpert,
-    "mllm_scoring": QInsightExpert,
     "yolo_pose": YOLOPoseExpert,
     "yolo_detect": YOLODetectExpert,
     "detection": YOLODetectExpert,
