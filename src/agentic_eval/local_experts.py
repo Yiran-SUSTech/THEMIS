@@ -1022,6 +1022,9 @@ class LocalQualityExpert:
         }
 
 
+LocalArtifactExpert = LocalQualityExpert
+
+
 class LocalJudge:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
