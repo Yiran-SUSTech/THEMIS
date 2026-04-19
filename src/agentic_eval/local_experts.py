@@ -228,18 +228,23 @@ def _describe_available_experts(settings: Settings) -> str:
 
 def _resolve_vlm_model_class() -> type[Any]:
     try:
-        from transformers import Qwen2_5_VLForConditionalGeneration
+        from transformers import Qwen3VLForConditionalGeneration
 
-        return Qwen2_5_VLForConditionalGeneration
+        return Qwen3VLForConditionalGeneration
     except ImportError:
         try:
-            from transformers import AutoModelForVision2Seq
+            from transformers import Qwen2_5_VLForConditionalGeneration
 
-            return AutoModelForVision2Seq
-        except ImportError as exc:
-            raise LocalExpertError(
-                "Your transformers build does not expose a vision-language generation model loader."
-            ) from exc
+            return Qwen2_5_VLForConditionalGeneration
+        except ImportError:
+            try:
+                from transformers import AutoModelForVision2Seq
+
+                return AutoModelForVision2Seq
+            except ImportError as exc:
+                raise LocalExpertError(
+                    "Your transformers build does not expose a vision-language generation model loader."
+                ) from exc
 
 
 def _build_vlm_load_kwargs(torch: Any, quantization: Optional[str], device: str) -> dict[str, Any]:
