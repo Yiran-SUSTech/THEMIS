@@ -392,7 +392,7 @@ def run_expert(state: GraphState, client: ClaudeVisionClient, step) -> ExpertRes
                 kwargs["class_label"] = image_input.class_label
             elif planned_model in {"animal_pose", "body_pose", "body_pose_strong", "places365", "places365_strong", "background_removal"}:
                 pass
-            elif planned_model in {"iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact"}:
+            elif planned_model in {"iqa_fast", "iqa_default", "iqa_richer", "boundary_artifact", "q_insight"}:
                 pass
             elif planned_model == "vqa":
                 question = step.prompt_focus or step.goal or "Describe this image."
