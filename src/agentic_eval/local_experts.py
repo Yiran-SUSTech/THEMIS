@@ -521,24 +521,39 @@ class LocalPlanner:
             raise LocalExpertError("Local planner failed to initialize")
 
         task_lines = [
-            "Plan the image evaluation and return exactly one JSON object with 'rationale' and 'steps' fields.",
-            "No markdown, no code fences, no explanation before or after JSON.",
-            "Produce a concrete plan with 2 to 6 steps using real downloaded model keys from the catalog below.",
-            "Use the model_size_mb, gflops, accuracy, and suitability metadata to choose appropriate models.",
-            "Multiple steps for the same expert type are encouraged for cross-validation (e.g., EfficientNet + CLIP for semantic).",
-            "For CLIP semantic steps, generate 5 ImageNet-1K candidate class names in prompt_focus for CLIP to rank.",
-            "Every step must include: step_id, expert, step_type, goal, planned_model, selection_reason, prompt_focus, depends_on, expected_signal, use_previous_outputs, allow_escalation.",
-            "expert must be one of: semantic, structural, quality, vqa.",
-            "depends_on must be a list of integers (e.g., [] or [1]).",
-            "use_previous_outputs and allow_escalation must be boolean (true or false).",
-            "All string values must be properly quoted with double quotes.",
-            f"Prompt: {prompt or 'N/A'}",
-            f"Class label: {class_label or 'N/A'}",
+            "### SYSTEM ROLE",
+            "You are the Orchestrator for THEMIS, an agentic image evaluation system.",
+            "Your goal: Plan a multi-step diagnostic pipeline to audit a generated image based on the input context.",
+            "Return EXACTLY one JSON object. No markdown, no triple backticks, no preamble or postscript.",
+
+            "### EVALUATION LOGIC",
+            "1. TASK TYPE: If 'Class label' is provided, it is a C2I task; prioritize semantic category precision. If 'N/A', it is a T2I task; prioritize prompt-attribute binding.",
+            "2. SEMANTIC (CLIP/EfficientNet): Use to verify if the subject matches the class or prompt. For C2I, 'prompt_focus' must list 5 candidate ImageNet classes. For T2I, list 5 key descriptive keywords.",
+            "3. QUALITY (Q-Insight): Always include this to audit artifacts, compression, and visual degradation (noise/blur/darken).",
+            "4. STRUCTURAL: Use general object detectors (YOLO/SAM) or VQA experts in the catalog to check spatial layout or object counts if applicable.",
+
+            "### JSON SCHEMA",
+            '{"rationale": "Brief explanation of the evaluation strategy", "steps": [{"step_id": 1, "expert": "semantic", "step_type": "semantic_check", "goal": "What specific flaw or feature to find", "planned_model": "Must be a KEY from the EXPERT CATALOG", "selection_reason": "Why this model based on its metadata", "prompt_focus": "5 ImageNet classes for C2I or 5 keywords for T2I", "depends_on": [], "expected_signal": "The score range or evidence type you expect", "use_previous_outputs": false, "allow_escalation": true}]}',
+
+            "### FIELD CONSTRAINTS",
+            "- expert: must be one of [semantic, structural, quality, vqa]",
+            "- step_type: must be one of [semantic_check, structural_check, quality_check, vqa_evidence, candidate_generation, label_space_check, confusable_disambiguation]",
+            "- planned_model: MUST be a key from the EXPERT CATALOG below. DO NOT hallucinate models.",
+            "- depends_on: list of integers (e.g., [] or [1, 2])",
+            "- use_previous_outputs and allow_escalation: boolean (true or false)",
+
+            "### PLAN CONSTRAINTS",
+            "- Produce 2 to 5 steps. Cross-validation using multiple models for the same expert type is encouraged.",
+            "- All string values must be properly quoted with double quotes.",
+
+            "### INPUT CONTEXT",
+            f"- Prompt: {prompt or 'N/A'}",
+            f"- Class Label: {class_label or 'N/A'}",
         ]
         expert_catalog = _describe_available_experts(self.settings)
         task_lines.append(expert_catalog)
         if prior_feedback:
-            task_lines.append(prior_feedback)
+            task_lines.append(f"- Prior Feedback: {prior_feedback}")
 
         user_text = "\n".join(task_lines)
         image = self._load_image(image_path)
