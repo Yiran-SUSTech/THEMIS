@@ -6,7 +6,9 @@ from rtmlib import Custom, draw_skeleton
 
 # ================= Configuration =================
 # 1. Hardware Configuration
-device = 'cuda' 
+# device = 'cuda' 
+# backend = 'onnxruntime' 
+device = 'cpu'        # Forced to cpu to ensure compatibility
 backend = 'onnxruntime' 
 
 # 2. Path Configuration: Define your custom model directory
@@ -21,7 +23,9 @@ DET_URL = 'https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/
 POSE_URL = 'https://hf-mirror.com/JunkyByte/easy_ViTPose/resolve/main/onnx/apt36k/vitpose-b-apt36k.onnx'
 
 # Local file paths for the models
-det_local = os.path.join(MODEL_DIR, 'yolox_s_humanart.zip')
+# det_local = os.path.join(MODEL_DIR, 'yolox_s_humanart.zip')
+# pose_local = os.path.join(MODEL_DIR, 'vitpose-b-apt36k.onnx')
+det_local = os.path.join(MODEL_DIR, '20230928/yolox_onnx/yolox_s_8xb8-300e_humanart-3ef259a7/end2end.onnx')
 pose_local = os.path.join(MODEL_DIR, 'vitpose-b-apt36k.onnx')
 # =================================================
 
