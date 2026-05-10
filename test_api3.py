@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import requests
-from rtmlib import Custom, draw_skeleton
+from rtmlib import Custom, Animal, draw_skeleton
 
 # ================= Configuration =================
 # 1. Hardware Configuration
@@ -19,13 +19,13 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 image_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png' 
 
 # 4. Model Mirror Links
-DET_URL = 'https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_s_8xb8-300e_humanart-3ef259a7.zip'
+DET_URL = ' https://ghproxy.net/https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx'
 POSE_URL = 'https://hf-mirror.com/JunkyByte/easy_ViTPose/resolve/main/onnx/apt36k/vitpose-b-apt36k.onnx'
 
 # Local file paths for the models
 # det_local = os.path.join(MODEL_DIR, 'yolox_s_humanart.zip')
 # pose_local = os.path.join(MODEL_DIR, 'vitpose-b-apt36k.onnx')
-det_local = os.path.join(MODEL_DIR, '20230928/yolox_onnx/yolox_s_8xb8-300e_humanart-3ef259a7/end2end.onnx')
+det_local = os.path.join(MODEL_DIR, 'yolox_s.onnx')
 pose_local = os.path.join(MODEL_DIR, 'vitpose-b-apt36k.onnx')
 # =================================================
 
@@ -57,17 +57,19 @@ def run_audit():
 
     # Step 2: Initialize Custom model using local paths
     print("Loading expert models...")
-    custom = Custom(
-        det_class='YOLOX',
-        det_mode='multiclass',
-        det=det_local,           # Use local path to skip internal rtmlib download
-        det_input_size=(640, 640),
-        pose_class='ViTPose',
-        pose=pose_local,         # Use local path to skip internal rtmlib download
-        pose_input_size=(192, 256),
-        backend=backend,
-        device=device
-    )
+    # custom = Custom(
+    #     det_class='YOLOX',
+    #     det_mode='multiclass',
+    #     det=det_local,           # Use local path to skip internal rtmlib download
+    #     det_input_size=(640, 640),
+    #     pose_class='ViTPose',
+    #     pose=pose_local,         # Use local path to skip internal rtmlib download
+    #     pose_input_size=(192, 256),
+    #     backend=backend,
+    #     device=device
+    # )
+    animal = Animal(backend=backend, device=device)
+
 
     # Step 3: Load and process the image
     if not os.path.exists(image_path):
@@ -75,10 +77,14 @@ def run_audit():
         return
 
     img = cv2.imread(image_path)
+    if img is None:
+        print(f"Error: Failed to load image from {image_path}")
+        return
     
     # Run inference
     # keypoints shape: (N, K, 2), scores shape: (N, K)
-    keypoints, scores = custom(img)
+    # keypoints, scores = custom(img)
+    keypoints, scores = animal(img)
 
     # Step 4: Analysis and Visualization
     num_detected = len(keypoints)
