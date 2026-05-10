@@ -15,7 +15,9 @@ client = OpenAI(
 
 # 3. 准备图片
 image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey.png"
+print(f"image_path: {image_path}")
 base64_image = encode_image(image_path)
+print(f"image is transformed to base64")
 
 # 4. 直接粘贴你的长 Prompt (使用三引号包裹)
 prompt_text = """You are evaluating a generated image for image-generation benchmarking.
