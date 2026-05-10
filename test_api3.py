@@ -85,6 +85,8 @@ def run_audit():
     # keypoints shape: (N, K, 2), scores shape: (N, K)
     keypoints, scores = custom(img)
     # keypoints, scores = animal(img)
+    print(f"keypoints: {keypoints}")
+    print(f"scores: {scores}")
 
     # Step 4: Analysis and Visualization
     num_detected = len(keypoints)
