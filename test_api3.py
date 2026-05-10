@@ -16,7 +16,7 @@ MODEL_DIR = '/mnt/afs/zhengmingkai/zyr/THEMIS/new_models'
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 # 3. Local Image Path
-image_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey.png' 
+image_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png' 
 
 # 4. Model Mirror Links
 DET_URL = 'https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_s_8xb8-300e_humanart-3ef259a7.zip'
