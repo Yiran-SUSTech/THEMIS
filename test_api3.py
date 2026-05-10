@@ -16,7 +16,7 @@ MODEL_DIR = '/mnt/afs/zhengmingkai/zyr/THEMIS/new_models'
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 # 3. Local Image Path
-image_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png' 
+image_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey.png' 
 
 # 4. Model Mirror Links
 DET_URL = ' https://ghproxy.net/https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx'
