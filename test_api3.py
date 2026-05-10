@@ -57,18 +57,18 @@ def run_audit():
 
     # Step 2: Initialize Custom model using local paths
     print("Loading expert models...")
-    # custom = Custom(
-    #     det_class='YOLOX',
-    #     det_mode='multiclass',
-    #     det=det_local,           # Use local path to skip internal rtmlib download
-    #     det_input_size=(640, 640),
-    #     pose_class='ViTPose',
-    #     pose=pose_local,         # Use local path to skip internal rtmlib download
-    #     pose_input_size=(192, 256),
-    #     backend=backend,
-    #     device=device
-    # )
-    animal = Animal(backend=backend, device=device)
+    custom = Custom(
+        det_class='YOLOX',
+        det_mode='multiclass',
+        det=det_local,           # Use local path to skip internal rtmlib download
+        det_input_size=(640, 640),
+        pose_class='ViTPose',
+        pose=pose_local,         # Use local path to skip internal rtmlib download
+        pose_input_size=(192, 256),
+        backend=backend,
+        device=device
+    )
+    # animal = Animal(backend=backend, device=device)
 
 
     # Step 3: Load and process the image
@@ -83,8 +83,8 @@ def run_audit():
     
     # Run inference
     # keypoints shape: (N, K, 2), scores shape: (N, K)
-    # keypoints, scores = custom(img)
-    keypoints, scores = animal(img)
+    keypoints, scores = custom(img)
+    # keypoints, scores = animal(img)
 
     # Step 4: Analysis and Visualization
     num_detected = len(keypoints)
