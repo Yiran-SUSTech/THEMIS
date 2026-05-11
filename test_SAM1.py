@@ -6,8 +6,8 @@ import os
 # --- 1. 配置路径 ---
 MODEL_DIR = "new_models/sam1_onnx/machine_learning_models/"
 # 建议先用 MobileSAM 测试，如果追求精度再换 sam_vit_h
-ENCODER_PATH = os.path.join(MODEL_DIR, "mobile_sam.encoder.onnx")
-DECODER_PATH = os.path.join(MODEL_DIR, "mobile_sam.decoder.onnx")
+ENCODER_PATH = os.path.join(MODEL_DIR, "mobile_sam.encoder_v16.onnx")
+DECODER_PATH = os.path.join(MODEL_DIR, "mobile_sam.decoder_v16.onnx")
 IMAGE_PATH = "./test_images/hussar monkey.png" 
 
 # --- 2. 初始化 ONNX Session ---
