@@ -83,8 +83,8 @@ def run_audit():
     
     # Run inference
     # keypoints shape: (N, K, 2), scores shape: (N, K)
-    keypoints, scores = custom(img)
     # keypoints, scores = animal(img)
+    keypoints, scores = custom(img)
     print(f"keypoints: {keypoints}")
     print(f"scores: {scores}")
 
