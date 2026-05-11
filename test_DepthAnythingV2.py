@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 # 1. 路径配置
 MODEL_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/depth_anything_v2_onnx/onnx/model_fp16.onnx"
-INPUT_DIR = "./your_input_images"   # 你的 10,000 张图目录
+INPUT_DIR = "./test_images/"   # 你的 10,000 张图目录
 OUTPUT_DIR = "./depth_results"     # 存放深度图供 Reflector 审计
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -54,7 +54,7 @@ def process_batch():
             cv2.imwrite(save_path, depth_norm)
             
         except Exception as e:
-            print(f"处理 {img_name} 出错: {e}")
+            print(f"process {img_name} error: {e}")
 
 if __name__ == "__main__":
     process_batch()
