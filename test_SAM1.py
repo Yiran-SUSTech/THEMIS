@@ -33,12 +33,12 @@ def preprocess_image(image_path, input_size=1024):
     
     # 标准化
     input_img = input_img / 255.0
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32) # 显式指定 float32
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)  # 显式指定 float32
     input_img = (input_img - mean) / std
     
-    input_img = input_img.transpose(2, 0, 1)[None, ...] # [1, 3, 1024, 1024]
-    return input_img, (h, w), scale
+    input_img = input_img.transpose(2, 0, 1)[None, ...]
+    return input_img.astype(np.float32), (h, w), scale # 核心：强制转为 float32
 
 # --- 3. 运行 Encoder ---
 print("running encoder...")
@@ -66,11 +66,11 @@ print("running decoder...")
 # 注意：SAM 1 的输入名称可能因导出工具不同而有细微差异
 # 如果报错，请使用 print(decoder_session.get_inputs()) 检查名称
 decoder_inputs = {
-    "image_embeddings": image_embeddings,
+    "image_embeddings": image_embeddings.astype(np.float32), # 确保 embedding 是 float32
     "point_coords": onnx_coord.astype(np.float32),
     "point_labels": onnx_label.astype(np.float32),
-    "mask_input": onnx_mask_input,
-    "has_mask_input": onnx_has_mask_input,
+    "mask_input": onnx_mask_input.astype(np.float32),
+    "has_mask_input": onnx_has_mask_input.astype(np.float32),
     "orig_im_size": np.array([orig_h, orig_w], dtype=np.float32)
 }
 
