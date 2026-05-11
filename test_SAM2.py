@@ -10,7 +10,7 @@ IMAGE_PATH = "test_images/hussar monkey.png" # 你的测试图片
 
 # --- 2. 初始化 ONNX Session ---
 # 如果没有 GPU，把 ['CUDAExecutionProvider'] 改为 ['CPUExecutionProvider']
-providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
 encoder_session = ort.InferenceSession(ENCODER_PATH, providers=providers)
 decoder_session = ort.InferenceSession(DECODER_PATH, providers=providers)
 

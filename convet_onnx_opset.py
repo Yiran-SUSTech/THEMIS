@@ -1,27 +1,27 @@
 import onnx
+from onnx import version_converter
+import os
 
 # 路径配置
-old_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/depth_anything_v2_onnx/onnx/model_fp16.onnx'
-new_path = '/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/depth_anything_v2_onnx/onnx/model_fp16_forced_opset16.onnx'
+base_dir = "new_models/sam2_hiera_small_onnx/onnx/"
+target_version = 16
 
-def force_downgrade():
-    print(f"Loading model: {old_path}")
-    # 注意：如果文件很大，加载可能需要一点时间
-    model = onnx.load(old_path)
-
-    # 1. 强制修改 IR 版本为沐曦支持的 8
-    model.ir_version = 8
+def simple_convert(filename):
+    input_path = os.path.join(base_dir, filename)
+    output_path = os.path.join(base_dir, filename.replace(".onnx", "_v16.onnx"))
     
-    # 2. 强制修改 Opset 版本
-    # 绕过 version_converter，直接修改版本标识符
-    for opset in model.opset_import:
-        if opset.domain == '' or opset.domain == 'ai.onnx':
-            print(f"Forcing Opset {opset.version} -> 16")
-            opset.version = 16
+    print(f"正在转换: {filename}...")
+    try:
+        # 加载时会默认加载同目录下的 .onnx_data
+        model = onnx.load(input_path)
+        # 执行转换
+        converted_model = version_converter.convert_version(model, target_version)
+        # 保存时会生成新的 .onnx_data
+        onnx.save(converted_model, output_path)
+        print(f"✅ 成功保存至: {output_path}")
+    except Exception as e:
+        print(f"❌ {filename} 转换失败: {e}")
 
-    # 3. 保存模型
-    onnx.save(model, new_path)
-    print(f"save model to: {new_path}")
-
-if __name__ == "__main__":
-    force_downgrade()
+# 只转这两个核心模型
+simple_convert("vision_encoder.onnx")
+simple_convert("prompt_encoder_mask_decoder.onnx")
