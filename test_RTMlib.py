@@ -8,7 +8,7 @@ from rtmlib import Custom, Animal, draw_skeleton
 # 1. Hardware Configuration
 # device = 'cuda' 
 # backend = 'onnxruntime' 
-device = 'cpu'        # Forced to cpu to ensure compatibility
+device = 'cuda'        # Forced to cuda to ensure compatibility
 backend = 'onnxruntime' 
 
 # 2. Path Configuration: Define your custom model directory
