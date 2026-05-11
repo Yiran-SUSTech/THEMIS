@@ -10,7 +10,7 @@ def simple_convert(filename):
     input_path = os.path.join(base_dir, filename)
     output_path = os.path.join(base_dir, filename.replace(".onnx", "_v16.onnx"))
     
-    print(f"正在转换: {filename}...")
+    print(f"converting: {filename}...")
     try:
         # 加载时会默认加载同目录下的 .onnx_data
         model = onnx.load(input_path)
@@ -18,9 +18,9 @@ def simple_convert(filename):
         converted_model = version_converter.convert_version(model, target_version)
         # 保存时会生成新的 .onnx_data
         onnx.save(converted_model, output_path)
-        print(f"✅ 成功保存至: {output_path}")
+        print(f"success save: {output_path}")
     except Exception as e:
-        print(f"❌ {filename} 转换失败: {e}")
+        print(f"{filename} convert failed: {e}")
 
 # 只转这两个核心模型
 simple_convert("vision_encoder.onnx")
