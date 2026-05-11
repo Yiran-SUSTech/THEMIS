@@ -12,7 +12,8 @@ IMAGE_PATH = "./test_images/hussar monkey.png"
 
 # --- 2. 初始化 ONNX Session ---
 # 适配你的 MACA 环境
-providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+# providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+providers = ['CPUExecutionProvider']
 encoder_session = ort.InferenceSession(ENCODER_PATH, providers=providers)
 decoder_session = ort.InferenceSession(DECODER_PATH, providers=providers)
 
