@@ -82,4 +82,4 @@ try:
     print(completion.choices[0].message.content)
 
 except Exception as e:
-    print(f"发生错误: {e}")
+    print(f"error: {e}")
