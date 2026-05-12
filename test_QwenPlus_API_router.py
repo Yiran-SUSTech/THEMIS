@@ -40,6 +40,9 @@ image_path = "test_images_GPT-XL-c2i_XL/000052.png"
 experts_json_path = "expert_registry.json"
 taxonomy_json_path = "taxonomy_enriched.json" # 确保路径正确
 class_label = "bald eagle"
+# 新增：保存路径配置
+output_plan_dir = "evaluation_plans_output" 
+os.makedirs(output_plan_dir, exist_ok=True) # 如果文件夹不存在则创建
 # --------------
 
 # 准备数据
@@ -114,9 +117,24 @@ try:
         temperature=0.1
     )
     
-    plan_json = completion.choices[0].message.content
-    print("Successfully generated evaluation plan with Taxonomy Priors:")
-    print(plan_json)
+    # 获取返回的内容并解析为字典
+    plan_dict = json.loads(completion.choices[0].message.content)
+    
+    # 6. 【核心保存逻辑】
+    # 提取文件名（不含后缀）作为保存的文件名，例如 000052
+    image_filename = os.path.splitext(os.path.basename(image_path))[0]
+    save_path = os.path.join(output_plan_dir, f"plan_{image_filename}.json")
+    
+    # 将额外信息（原图路径、类别、生成时间）也存进去，方便后续追踪
+    plan_dict["metadata"] = {
+        "original_image": image_path,
+        "class_label": class_label,
+    }
+    
+    with open(save_path, "w", encoding="utf-8") as f:
+        json.dump(plan_dict, f, indent=4, ensure_ascii=False)
+    
+    print(f"Plan saved successfully to: {save_path}")
 
 except Exception as e:
     print(f"Error during API call: {e}")
