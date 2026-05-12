@@ -1,0 +1,47 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A large raptor characterized by a white head and tail, dark brown body, and yellow beak/legs. Key diagnostic features include the specific arrangement of wings (folded or spread), talons gripping a perch, and distinct feather texture.",
+    "initial_observation": "The image depicts a bald eagle perched on a branch against a blue sky. The white head and dark body are distinct. However, the area where the talons meet the branch appears complex, with potential hanging structures that may be distorted leaves or anatomical artifacts. The branch itself shows some irregularity.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "As the 'High-Speed Sieve', this expert must first verify that the subject is indeed a 'bald eagle' and not a generic bird or a different raptor species, ensuring semantic alignment before structural analysis.",
+            "expected_evidence": "Top-1 prediction must be 'bald eagle' (or close synonym like 'Haliaeetus leucocephalus') with probability > 0.6.",
+            "weight": 0.25
+        },
+        {
+            "stage": 2,
+            "expert_id": "open_vocabulary_detector",
+            "rationale": "Required to localize the eagle within the frame and provide bounding box priors for the segmentation expert. It also helps verify the presence of the branch.",
+            "expected_evidence": "Bounding box covering the eagle with confidence > 0.7. Detection of 'branch' or 'tree limb'.",
+            "weight": 0.15
+        },
+        {
+            "stage": 3,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Critical for the 'Organism' archetype. This expert will audit the biological structural correctness, specifically checking for 'Melting' or 'Missing' limbs (wings, legs) and ensuring the talons are anatomically plausible.",
+            "expected_evidence": "Keypoint detection for head, wings, and legs. Score > 0.5 for structural integrity. No 'Melting' (overlapping joints) detected.",
+            "weight": 0.35
+        },
+        {
+            "stage": 4,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Specifically targeting the interaction between the eagle's talons and the branch. AI often fuses these elements. This expert checks for 'Topological Fragmentation' or 'Boundary Melting' at the contact point.",
+            "expected_evidence": "Single connected component for the eagle. Sharp boundary separation between talons and branch (no 'fusing').",
+            "weight": 0.15
+        },
+        {
+            "stage": 5,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "To assess the overall aesthetic and technical quality, ensuring the feathers are not blurry and the image lacks artificial noise.",
+            "expected_evidence": "Technical score > 0.5 (indicating reasonable clarity despite potential compression).",
+            "weight": 0.1
+        }
+    ],
+    "conflict_resolution_strategy": "For the 'Organism' archetype, structural integrity (Animal Pose Auditor) takes precedence over semantic classification. If the classifier identifies a 'bald eagle' but the pose auditor detects 'Missing Limbs' or 'Melting', the image is flagged as a structural failure. The Topology Boundary Auditor serves as the tie-breaker for limb-background fusion issues.",
+    "metadata": {
+        "original_image": "test_images_GPT-XL-c2i_XL/000052.png",
+        "class_label": "bald eagle"
+    }
+}
