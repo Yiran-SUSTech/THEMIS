@@ -50,39 +50,42 @@ prior_knowledge = get_taxonomy_description(taxonomy_json_path, class_label)
 
 # 5. 构建增强型 Planner Prompt（整合先验知识）
 planner_prompt = f"""You are the Lead Strategic Planner for an advanced AI image evaluation system. 
-Your task is to analyze the provided image and class label to formulate a precise "Evaluation Plan" using available expert models.
+Your task is to analyze the provided image and its specific class category to formulate a rigorous "Evaluation Plan" using the Expert Registry.
 
-**Input Data:**
-- Class Label: {class_label}
-- **Prior Knowledge (Taxonomy):** {prior_knowledge}
+**[Input Data]**
+- **Class Label:** {class_label}
+- **Taxonomy Knowledge (Ground Truth):** {prior_knowledge}
+- **Expert Registry (Available Tools):** {experts_content}
 
-- Expert Registry (Available Tools): 
-{experts_content}
+**[Strategic Instruction]**
+1. **Identify Category Archetype:** Determine if the class "{class_label}" is an **Organism** (animal/plant), a **Rigid Object** (architecture/tool/vehicle), or a **Natural Scene** (landscape/texture).
+2. **Feature Mapping:** Based on the Taxonomy Knowledge, extract 2-3 "Non-negotiable" features (e.g., specific symmetry for buildings, anatomical counts for animals, or textural coherence for landscapes).
+3. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws:
+   - *Organisms:* Look for "Melting" limbs, missing parts, or anatomical hallucinations.
+   - *Rigid Objects:* Look for warped lines, perspective distortion, or "fusing" into the background.
+   - *Scenes:* Look for repetitive patterns (mode collapse) or illogical spatial bleeding.
+4. **Tool Selection:** Map the identified risks to the specific `expert_id` in the Registry.
 
-**Instruction:**
-1. **Analyze the Class:** Use the provided "Prior Knowledge" to identify the absolute "Golden Standards" for {class_label}. Focus on unique anatomical features (e.g., beak shape, feather patterns, limb structure) mentioned in the taxonomy.
-2. **Visual Inspection:** Scan the attached image for initial "red flags" that violate the Prior Knowledge or basic physical laws.
-3. **Strategize:** Select relevant expert models from the Registry to conduct a deep-dive audit.
-
-**Requirements:**
-- High priority should be given to **fine_grained_classifier (EVA-02)** to verify the species identity against the taxonomy description.
-- Use **animal_pose_auditor** or **topology_boundary_auditor** if the taxonomy mentions complex limbs or silhouettes.
-- Justify the weights based on how critical a feature is in the taxonomy (e.g., if the taxonomy emphasizes "bald head," assign higher weight to a detail-checking expert).
+**[Output Requirements]**
+- You must prioritize **fine_grained_classifier** for identity verification.
+- You must use **open_vocabulary_detector** if the class requires locating specific parts (e.g., eyes of an eagle, wheels of a car).
+- Justify weights based on the "Structural Criticality" of the feature.
 
 Return JSON ONLY in this exact schema:
 {{
-  "semantic_baseline": "string (Summary of key features from Taxonomy)",
-  "initial_observation": "string (Anomalies found when comparing image to Taxonomy)",
+  "category_archetype": "Organism | Rigid Object | Natural Scene",
+  "semantic_baseline": "A concise summary of the key diagnostic features for this class.",
+  "initial_observation": "Major visual anomalies or successes found during preliminary scan.",
   "evaluation_plan": [
     {{
       "stage": 1,
-      "expert_id": "string (from registry)",
-      "rationale": "string (referencing why this is needed based on Taxonomy/Image)",
-      "expected_evidence": "string",
+      "expert_id": "string (must match the registry)",
+      "rationale": "Logical necessity based on category archetype and taxonomy details.",
+      "expected_evidence": "The specific metric or visual proof this expert must provide.",
       "weight": 0.0-1.0
     }}
   ],
-  "conflict_resolution_strategy": "string"
+  "conflict_resolution_strategy": "The prioritized 'Source of Truth' when experts provide conflicting scores for this specific archetype."
 }}"""
 
 # 6. 调用 API 制定计划
