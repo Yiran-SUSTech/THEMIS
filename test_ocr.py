@@ -1,5 +1,6 @@
 from rapidocr import RapidOCR
 import cv2
+import os
 
 # 1. 明确指向你刚刚转换成功的本地检测模型 ONNX 路径
 det_model_path = 'models/Multilingual_PP-OCRv3_det_infer.onnx'
