@@ -13,7 +13,7 @@ engine = RapidOCR(params={
 
 # 3. 指定你的本地测试图片路径（比如你刚刚上传的那张猴子带水印的图）
 # 请替换为你真实的本地图片路径
-img_path = "./test_images/hussar monkey2.jpg" 
+img_path = "./test_images/hussar monkey2.png" 
 
 # 4. 运行推理
 result, elapse = engine(img_path)
