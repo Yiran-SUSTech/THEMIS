@@ -15,8 +15,12 @@ engine = RapidOCR(params={
 # 请替换为你真实的本地图片路径
 img_path = "./test_images/hussar monkey2.png" 
 
-# 4. 运行推理
-result, elapse = engine(img_path)
+# 4. 运行推理 (修改这行：不要用逗号拆包，直接接收整个对象)
+output = engine(img_path)
+
+# 5. 从 output 对象中提取 result 和 elapse 属性
+result = output.result
+elapse = output.elapse
 
 # 5. 打印解析出来的结构化数据
 print("--- test ocr result ---")
