@@ -15,37 +15,33 @@ engine = RapidOCR(params={
 # 请替换为你真实的本地图片路径
 img_path = "./test_images/hussar monkey2.png" 
 
-# 4. 运行推理 (修改这行：不要用逗号拆包，直接接收整个对象)
+# 4. 运行推理，接收标准的 RapidOCROutput 对象
 output = engine(img_path)
 
-# 5. 从 output 对象中提取 result 和 elapse 属性
-result = output.result
-elapse = output.elapse
+# 5. 从新版 Dataclass 对象中直接提取对齐的属性字段
+boxes = output.boxes   # 形状为 (N, 4, 2) 的坐标数组
+txts = output.txts     # 长度为 N 的文本元组
+scores = output.scores # 长度为 N 的置信度元组
+elapse = output.elapse # 推理耗时
 
-# 5. 打印解析出来的结构化数据
 print("--- test ocr result ---")
-if result:
-    for idx, line in enumerate(result):
-        # line 的结构为: [ [ [x1,y1], [x2,y2], [x3,y3], [x4,y4] ], "识别文本", 识别置信度分数 ]
-        box = line[0]
-        text = line[1]
-        score = line[2]
+# 判断是否有检测到文字 (看 boxes 是否为空且不为 None)
+if boxes is not None and len(boxes) > 0:
+    # 巧妙利用 zip 将检测、识别、置信度打包，按行循环输出
+    for idx, (box, text, score) in enumerate(zip(boxes, txts, scores)):
         print(f"text block id: {idx+1}:")
-        print(f"  - coordinate position: {box}")
+        print(f"  - coordinate position: {box.tolist()}") # 转成 list 方便查看
         print(f"  - text content: {text}")
         print(f"  - confidence score: {score:.4f}")
 else:
     print("image has no text.")
 
-print(f"\nocr inference time: {sum(elapse):.3f} seconds")
+# 打印推理耗时
+if elapse:
+    print(f"\nocr inference time: {elapse:.3f} seconds")
 
-# 6. 可视化结果并保存到本地（会在当前目录下生成 vis_hussar_monkey2.jpg）
-if result:
-    from rapidocr.utils import VisOCR
-    vis = VisOCR()
-    box_list, text_list, score_list = zip(*result)
-    img = cv2.imread(img_path)
-    # 绘制检测框和文本
-    res_img = vis(img, box_list, text_list, score_list)
-    cv2.imwrite(f"vis_{img_path}", res_img)
+# 6. 可视化结果 (新版自带了极其简洁的可视化方法)
+if boxes is not None and len(boxes) > 0:
+    # 新版 RapidOCR 对象原生支持直接调用 .vis() 导出图像，非常省心！
+    output.vis(f"vis_{img_path}")
     print(f"visualized detection result saved to: vis_{img_path}")
