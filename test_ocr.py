@@ -40,8 +40,13 @@ else:
 if elapse:
     print(f"\nocr inference time: {elapse:.3f} seconds")
 
-# 6. 可视化结果 (新版自带了极其简洁的可视化方法)
+# 6. 可视化结果 (安全健壮的版本)
 if boxes is not None and len(boxes) > 0:
-    # 新版 RapidOCR 对象原生支持直接调用 .vis() 导出图像，非常省心！
-    output.vis(f"vis_{img_path}")
-    print(f"visualized detection result saved to: vis_{img_path}")
+    # 使用 os.path.basename 提取纯文件名，比如 "hussar monkey2.png"
+    pure_img_name = os.path.basename(img_path)
+    
+    # 拼接成合理的文件名，如 "vis_hussar monkey2.png"
+    save_path = f"vis_{pure_img_name}"
+    
+    output.vis(save_path)
+    print(f"visualized detection result saved to: {save_path}")
