@@ -207,9 +207,15 @@ def run_inference(model, processor, image_path: str, device: str = "cuda"):
 
 # ==================== 5. 输出解析 ====================
 def parse_output(text: str) -> dict:
-    """解析模型输出，提取 distortion class 和 severity"""
+    """解析模型输出，提取 thinking 内容、distortion class 和 severity"""
+    thinking_content = ""
     distortion_class = "null"
     severity = "null"
+    
+    # 提取 <think> 标签内容（thinking/reasoning 过程）
+    thinking_match = re.search(r"<think>\s*(.*?)\s*</think>", text, re.DOTALL)
+    if thinking_match:
+        thinking_content = thinking_match.group(1).strip()
     
     # 提取 <answer> 标签内容
     answer_match = re.search(r"<answer>\s*(.*?)\s*</answer>", text, re.DOTALL)
@@ -234,6 +240,7 @@ def parse_output(text: str) -> dict:
     severity_score = SEVERITY_MAP.get(severity, 0.0)
     
     return {
+        "thinking": thinking_content,
         "distortion_class": distortion_class,
         "severity": severity,
         "severity_score": severity_score,
@@ -253,6 +260,7 @@ def test_single_image(image_path: str, model_path: str, device: str):
     print(f"\n{'='*60}")
     print(f"results:")
     print(f"  image: {result['image_path']}")
+    print(f"  thinking: {result['thinking'][:100]}..." if result['thinking'] else "  thinking: N/A")
     print(f"  distortion class: {result['distortion_class']}")
     print(f"  severity: {result['severity']}")
     print(f"  severity score: {result['severity_score']}")
@@ -296,6 +304,7 @@ def test_batch_images(image_dir: str, model_path: str, device: str):
     print(f"{'='*60}")
     for r in results:
         print(f"  {os.path.basename(r['image_path'])}: "
+              f"thinking={r['thinking'][:50]}..." if r['thinking'] else "thinking=N/A, ",
               f"distortion={r['distortion_class']}, "
               f"severity={r['severity']} ({r['severity_score']}), "
               f"time={r['inference_time']:.2f}s")
