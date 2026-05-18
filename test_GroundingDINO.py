@@ -50,7 +50,7 @@ def test_monkey():
     from groundingdino.util.slconfig import SLConfig
     
     print("--> processing text Prompt: 'hussar monkey .'")
-    args = SLConfig.fromfile("groundingdino/config/GroundingDINO_SwinT_OGC.py")
+    args = SLConfig.fromfile("/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py")
     args.device = "cpu"
     tmp_model = build_model(args)
     
