@@ -24,15 +24,16 @@ def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
 def export_onnx(model, output_dir):
     caption = "the running dog ." 
     tokenized = model.tokenizer([caption], return_tensors="pt")
+    
     input_ids = tokenized["input_ids"]
-    # 转换为 long 型以增强国产硬件 MACA 算子库的兼容性
-    attention_mask = tokenized["attention_mask"].long() 
+    # 核心修改 1：改回 .bool() 以通过 torch 底层 F._canonical_mask 的断言
+    attention_mask = tokenized["attention_mask"].bool() 
     position_ids = torch.arange(input_ids.shape[1]).unsqueeze(0).long()
     token_type_ids = torch.zeros_like(input_ids).long()
     
-    # 动态生成匹配分词长度的 3D text_token_mask
+    # 核心修改 2：对应改回 .bool()
     B, N = input_ids.shape
-    text_token_mask = torch.ones((B, N, N), dtype=torch.long)
+    text_token_mask = torch.ones((B, N, N), dtype=torch.bool)
     
     img = torch.randn(1, 3, 800, 1200)
 
@@ -47,7 +48,7 @@ def export_onnx(model, output_dir):
        "boxes": {0: "batch_size"}
     }
 
-    print("--> Starting ONNX export with Opset 13 for MACA compatibility...")
+    print("--> Starting ONNX export with Opset 14 for CANONICAL MASK checking...")
     #export onnx model
     torch.onnx.export(
         model,
@@ -56,7 +57,7 @@ def export_onnx(model, output_dir):
         input_names=["img" , "input_ids", "attention_mask", "position_ids", "token_type_ids", "text_token_mask"],
         output_names=["logits", "boxes"],
         dynamic_axes=dynamic_axes,
-        opset_version=13 # 关键修改：降级到 13，适配 ONNX Runtime 1.12.0
+        opset_version=14 # 核心修改 3：升级到 14，既能支持 Bool 算子，又被 ONNX Runtime 1.12 完美兼容
     )
     print(f"--> Export success! Saved to {os.path.join(output_dir, 'groundingdino.onnx')}")
 
