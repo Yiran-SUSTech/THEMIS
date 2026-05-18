@@ -36,7 +36,7 @@ def test_monkey():
     # 这会严厉禁止沐曦编译器去盲目融合和魔改我们转换过来的复杂 Transformer 算子，从而绕过段错误
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     sess_options.enable_mem_pattern = False
-    sess_options.enable_cpu_mem_allocator_change = True
+    # sess_options.enable_cpu_mem_allocator_change = True
     
     # 重新同时放入 MACA 和 CPU
     providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
