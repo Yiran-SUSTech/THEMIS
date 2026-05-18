@@ -83,21 +83,21 @@ def test_monkey():
     print(f"--> output logits shape: {logits.shape} (usually [1, 900, 256])")
     print(f"--> output boxes shape: {boxes.shape}  (usually [1, 900, 4])")
     
-    # 6. 简单的后处理过滤（看看模型有没有真正圈出猴子）
-    # logits 的形状是 [1, 900, 256]，最后一维代表文本 token 的响应强度
-    # 我们把预测结果转为 PyTorch Tensor 方便用内置函数快速看一下最大置信度
-    probs = torch.sigmoid(torch.from_numpy(logits))[0] # [900, 256]
-    boxes_fixed = torch.from_numpy(boxes)[0] # [900, 4]
+    # 6. 核心后处理：文本类别解码 + 图像画框保存
+    import cv2
     
-    # 找出每个检测框对应文本的最大分数
-    max_scores, _ = probs.max(dim=-1)
+    # 将模型输出转为 PyTorch Tensor 方便操作
+    probs = torch.sigmoid(torch.from_numpy(logits))[0]  # [900, 256]
+    boxes_fixed = torch.from_numpy(boxes)[0]            # [900, 4]
     
-    # 设置一个基础检测阈值，看看圈出来的框
+    # 阈值过滤
     thres = 0.3
+    max_scores, max_indices = probs.max(dim=-1)
     keep_idx = max_scores > thres
     
     filtered_scores = max_scores[keep_idx]
     filtered_boxes = boxes_fixed[keep_idx]
+    filtered_token_ids = max_indices[keep_idx] # 每个框响应最强烈的 Token 索引
     
     print(f"\nfiltered results (threshold={thres}):")
     if len(filtered_scores) == 0:
@@ -105,10 +105,55 @@ def test_monkey():
         print(f"--> highest confidence in output is: {max_scores.max().item():.4f}")
     else:
         print(f"--> successfully detected {len(filtered_scores)} potential objects!")
-        for i in range(min(5, len(filtered_scores))):
+        
+        # 为了画框，我们需要重新读取原图获取真实的分辨率尺寸
+        # 注意：因为推理用的是等比例或 resize 后的图，画框必须基于当时送入模型的真实尺寸进行还原
+        # 在你当前脚本中，模型输入的实际尺寸被硬编码缩放为了 (W=1200, H=800)
+        input_w, input_h = 1200, 800
+        
+        # 载入用于画图的基础背景（直接用 OpenCV 读原图并 resize 到推理尺寸）
+        vis_img = cv2.imread(image_path)
+        vis_img = cv2.resize(vis_img, (input_w, input_h))
+        
+        # 获取分词器，用来把 token_id 还原成具体的单词文本
+        tokenizer = tmp_model.tokenizer
+        
+        for i in range(len(filtered_scores)):
             box = filtered_boxes[i].tolist()
-            # 这里的坐标是归一化中心点坐标 [cx, cy, w, h]
-            print(f"    object [{i}]: confidence={filtered_scores[i].item():.4f}, relative coordinates(cx,cy,w,h)={ [round(v,3) for v in box] }")
+            score = filtered_scores[i].item()
+            token_id = filtered_token_ids[i].item()
+            
+            # --- 🔍 核心突破 1：解析物体具体文本类别 ---
+            # 根据 token_id 还原出对应的单词（例如把 id=2342 还原为 "monkey"）
+            predicted_word = tokenizer.decode([token_id]).strip()
+            
+            # --- 核心突破 2：计算真实像素坐标并画框 ---
+            # 模型输出的是归一化的中心点坐标 [cx, cy, w, h]，我们需要还原为左上角和右下角像素坐标
+            cx, cy, w, h = box[0], box[1], box[2], box[3]
+            
+            x1 = int((cx - w / 2) * input_w)
+            y1 = int((cy - h / 2) * input_h)
+            x2 = int((cx + w / 2) * input_w)
+            y2 = int((cy + h / 2) * input_h)
+            
+            # 边界安全防止越界
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(input_w, x2), min(input_h, x2)
+            
+            print(f"    object [{i}]: text_label='{predicted_word}', confidence={score:.4f}, box=[{x1}, {y1}, {x2}, {y2}]")
+            
+            # 用 OpenCV 在图像上画出红色的矩形框（线条粗细为 2）
+            cv2.rectangle(vis_img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            
+            # 把识别出的文本类别标签和置信度写在框的上方
+            label_text = f"{predicted_word} ({score:.2f})"
+            cv2.putText(vis_img, label_text, (x1, max(y1 - 10, 20)), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        
+        # 保存可视化图像到当前目录下
+        output_path = "res_hussar_monkey2.png"
+        cv2.imwrite(output_path, vis_img)
+        print(f"\n--> visualization result saved to: {os.path.abspath(output_path)}")
 
 if __name__ == "__main__":
     test_monkey()
