@@ -25,25 +25,18 @@ def preprocess_image(image_path):
     return t_img.unsqueeze(0).numpy() # 转为 ONNX 需要的 NumPy Batch 格式 [1, 3, 800, 1200]
 
 def test_monkey():
-    model_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/groundingdino_sim.onnx"
+    model_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/weights/groundingdino.onnx"
     # 本地图片路径（注意：Linux下路径分隔符用 / ）
     image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png" 
     
     # 1. 显式指定你服务器上的沐曦计算提供商
-    sess_options = ort.SessionOptions()
-    
-    # 核心防崩绝招：把图优化级别压制在最基础的 Level 1
-    # 这会严厉禁止沐曦编译器去盲目融合和魔改我们转换过来的复杂 Transformer 算子，从而绕过段错误
-    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
-    sess_options.enable_mem_pattern = False
-    # sess_options.enable_cpu_mem_allocator_change = True
-    
-    # 重新同时放入 MACA 和 CPU
-    providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+    # providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+    providers = ['CPUExecutionProvider']
     print(f"--> loading ONNX model to providers: {providers}")
     
+    sess_options = ort.SessionOptions()
     session = ort.InferenceSession(model_path, sess_options, providers=providers)
-    print(f"--> active providers: {session.get_providers()}") # 实时监控谁被激活了
+    print(f"--> active providers: {session.get_providers()}")
 
     # 2. 准备真实的图片输入
     try:
