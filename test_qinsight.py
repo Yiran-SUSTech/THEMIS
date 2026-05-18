@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 """
 Test Q-Insight model for image distortion analysis.
-
-This script tests the Q-Insight model (based on Qwen2.5-VL) for detecting
-image distortions like noise, compression, blur, and darken.
-
-Usage:
-    python test_qinsight.py --image /path/to/image.jpg
-    python test_qinsight.py --image_dir /path/to/images/
+Optimized for MetaX GPUs and saving complete thinking trajectories.
 """
 
 import os
@@ -25,7 +19,6 @@ from PIL import Image
 MODEL_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/models/Q-Insight/score_degradation"
 IMAGE_DIR = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images"
 
-# 固定的 Prompts（与 expert_models.py 中保持一致）
 SYSTEM_PROMPT = (
     "A conversation between User and Assistant. The user asks a question, "
     "and the Assistant solves it. The assistant first thinks about the "
@@ -44,7 +37,6 @@ DISTORTION_PROMPT = (
     'none). and "severity": The severity level (or "null" if none).'
 )
 
-# 严重度映射
 SEVERITY_MAP = {
     "slight": 0.2,
     "moderate": 0.4,
@@ -57,43 +49,43 @@ SEVERITY_MAP = {
 
 # ==================== 2. 模型加载 ====================
 def load_model(model_path: str, device: str = "cuda"):
-    """加载 Q-Insight 模型和 processor"""
-    print(f"\nloading model from: {model_path}")
-    print(f"device: {device}")
+    """加载 Q-Insight 模型和 processor (针对国产显卡优化)"""
+    print(f"\nLoading model from: {model_path}")
+    print(f"Target device: {device}")
     
     try:
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
     except ImportError as e:
-        print(f"failed to import transformers: {e}")
-        print("install with: pip install transformers")
+        print(f"Failed to import transformers: {e}")
         sys.exit(1)
     
     start_load = time.time()
     
-    # 加载 processor
-    print("loading processor...")
+    print("Loading processor...")
     processor = AutoProcessor.from_pretrained(
         model_path,
         local_files_only=True,
         trust_remote_code=True,
     )
-    print(f"processor loaded: {processor.__class__.__name__}")
     
-    # 加载模型
-    print("loading model weights...")
+    print("Loading model weights (using bfloat16 for MetaX compatibility)...")
+    # 针对国产显卡，显式指定 bfloat16 防溢出，eager 模式防算子缺失
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path,
         local_files_only=True,
         trust_remote_code=True,
-        torch_dtype="auto",
-        device_map={"": device},
+        torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+        device_map="auto" if device == "cuda" else None, 
         attn_implementation="eager",
     )
+    if device == "cpu":
+        model = model.to("cpu")
+        
     model.eval()
     
     load_time = time.time() - start_load
-    print(f"model loaded successfully in {load_time:.2f}s")
-    print(f"model parameters: {sum(p.numel() for p in model.parameters()) / 1e9:.2f}B")
+    print(f"Model loaded successfully in {load_time:.2f}s")
+    print(f"Model size: {sum(p.numel() for p in model.parameters()) / 1e9:.2f}B parameters")
     
     return model, processor
 
@@ -107,7 +99,6 @@ def prepare_inputs(processor, image_path: str):
     except ImportError:
         has_qwen_vl_utils = False
     
-    # 构建消息
     messages = [
         {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
         {"role": "user", "content": [
@@ -116,14 +107,12 @@ def prepare_inputs(processor, image_path: str):
         ]},
     ]
     
-    # 应用聊天模板
     text = processor.apply_chat_template(
         messages,
         tokenize=False,
         add_generation_prompt=True
     )
     
-    # 处理图像和文本
     if has_qwen_vl_utils:
         image_inputs, video_inputs = process_vision_info([messages])
         inputs = processor(
@@ -147,100 +136,108 @@ def prepare_inputs(processor, image_path: str):
 
 # ==================== 4. 推理执行 ====================
 def run_inference(model, processor, image_path: str, device: str = "cuda"):
-    """执行单次推理"""
+    """执行单次推理并捕获完整输出"""
     print(f"\n{'='*60}")
-    print(f"[analyzing] {os.path.basename(image_path)}")
+    print(f"[Analyzing] {os.path.basename(image_path)}")
     print(f"{'='*60}")
     
-    # 准备输入
     inputs = prepare_inputs(processor, image_path)
     
-    # 移动到设备
+    # 确保输入数据和模型在同一张卡上
     model_device = next(model.parameters()).device
-    inputs = {k: v.to(model_device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+    inputs = {k: v.to(model_device) if torch.is_tensor(v) else v for k, v in inputs.items()}
     
-    print(f"input_ids shape: {inputs['input_ids'].shape}")
-    if "pixel_values" in inputs:
-        print(f"pixel_values shape: {inputs['pixel_values'].shape}")
-    
-    # 执行推理
-    print("running inference...")
     start_time = time.time()
     
     with torch.no_grad():
         generated_ids = model.generate(
             **inputs,
             do_sample=True,
-            temperature=1.0,
+            temperature=0.7, # 稍微调低温度让 JSON 输出更稳定
             top_k=50,
             top_p=0.95,
-            max_new_tokens=256,
+            max_new_tokens=512, # 扩大 token 限制，防止思考过程太长导致后面的 JSON 被截断
             use_cache=True,
         )
     
     inference_time = time.time() - start_time
     
-    # 解码输出
-    trimmed_ids = [
-        out_ids[len(in_ids):]
-        for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
-    ]
+    # 获取新生成的 tokens
+    in_len = inputs["input_ids"].shape[1]
+    trimmed_ids = [out_ids[in_len:] for out_ids in generated_ids]
+    
     generated_text = processor.batch_decode(
         trimmed_ids,
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False
     )[0]
     
-    print(f"inference time: {inference_time:.2f}s")
-    print(f"\ngenerated text:")
+    print(f"Inference time: {inference_time:.2f}s")
+    print(f"\n[Raw Generated Text Preview]:")
     print(f"{'-'*60}")
-    print(generated_text)
+    # 打印前200个字和后200个字，防止刷屏
+    if len(generated_text) > 400:
+        print(f"{generated_text[:200]}\n\n... [Thinking Process Content] ...\n\n{generated_text[-200:]}")
+    else:
+        print(generated_text)
     print(f"{'-'*60}")
     
-    # 解析结果
+    # 解析结果（核心保存逻辑）
     result = parse_output(generated_text)
     result["inference_time"] = inference_time
-    result["image_path"] = image_path
+    result["image_path"] = os.path.abspath(image_path)
+    result["image_name"] = os.path.basename(image_path)
     
     return result
 
 
 # ==================== 5. 输出解析 ====================
 def parse_output(text: str) -> dict:
-    """解析模型输出，提取 thinking 内容、distortion class 和 severity"""
-    thinking_content = ""
+    """全面解析并提取思维链条与结构化数据"""
+    thinking_content = "N/A"
     distortion_class = "null"
     severity = "null"
     
-    # 提取 <think> 标签内容（thinking/reasoning 过程）
+    # 1. 完整提取 <think> 标签内容
     thinking_match = re.search(r"<think>\s*(.*?)\s*</think>", text, re.DOTALL)
     if thinking_match:
         thinking_content = thinking_match.group(1).strip()
+    else:
+        # 兜底：如果没有闭合标签，尝试提取 <think> 之后的所有内容，直到 <answer> 出现
+        open_think = re.search(r"<think>\s*(.*)", text, re.DOTALL)
+        if open_think:
+            thinking_content = open_think.group(1).split("<answer>")[0].strip()
     
-    # 提取 <answer> 标签内容
+    # 2. 提取 <answer> 标签或直接寻找 JSON
+    answer_text = text
     answer_match = re.search(r"<answer>\s*(.*?)\s*</answer>", text, re.DOTALL)
     if answer_match:
         answer_text = answer_match.group(1).strip()
         
-        # 提取 JSON
-        json_match = re.search(r"\{.*?\}", answer_text, re.DOTALL)
-        if json_match:
+    # 提取 JSON 块
+    json_match = re.search(r"\{.*?\}", answer_text, re.DOTALL)
+    if json_match:
+        try:
+            result_json = json.loads(json_match.group(0))
+            distortion_class = result_json.get("distortion_class", "null")
+            severity = result_json.get("severity", "null")
+        except json.JSONDecodeError:
+            print(f"Warning: JSON decode failed in text sector.")
+    else:
+        # 进一步放松正则，抓取可能没有包裹在标准换行中的 JSON
+        inline_json = re.search(r"\{.*\}", text)
+        if inline_json:
             try:
-                result_json = json.loads(json_match.group(0))
+                result_json = json.loads(inline_json.group(0))
                 distortion_class = result_json.get("distortion_class", "null")
                 severity = result_json.get("severity", "null")
-            except json.JSONDecodeError:
-                print(f"warning: failed to parse JSON from: {answer_text}")
-        else:
-            print(f"warning: no JSON found in answer: {answer_text}")
-    else:
-        print(f"warning: no <answer> tags found in output")
-    
-    # 映射严重度到分数
-    severity_score = SEVERITY_MAP.get(severity, 0.0)
+            except:
+                pass
+                
+    severity_score = SEVERITY_MAP.get(str(severity).lower(), 0.0)
     
     return {
-        "thinking": thinking_content,
+        "thinking": thinking_content, # 这里完整保存，不截断
         "distortion_class": distortion_class,
         "severity": severity,
         "severity_score": severity_score,
@@ -250,42 +247,31 @@ def parse_output(text: str) -> dict:
 # ==================== 6. 主函数 ====================
 def test_single_image(image_path: str, model_path: str, device: str):
     """测试单张图片"""
-    # 加载模型
     model, processor = load_model(model_path, device)
-    
-    # 执行推理
     result = run_inference(model, processor, image_path, device)
     
-    # 打印结果
-    print(f"\n{'='*60}")
-    print(f"results:")
-    print(f"  image: {result['image_path']}")
-    print(f"  thinking: {result['thinking'][:100]}..." if result['thinking'] else "  thinking: N/A")
-    print(f"  distortion class: {result['distortion_class']}")
-    print(f"  severity: {result['severity']}")
-    print(f"  severity score: {result['severity_score']}")
-    print(f"  inference time: {result['inference_time']:.2f}s")
+    print(f"\n{'='*60}\nSingle Target Result:\n{'='*60}")
+    print(f"Image: {result['image_path']}")
+    print(f"Distortion: {result['distortion_class']} | Severity: {result['severity']} ({result['severity_score']})")
+    print(f"Thinking Process Length: {len(result['thinking'])} chars")
     print(f"{'='*60}")
-    
     return result
 
 
 def test_batch_images(image_dir: str, model_path: str, device: str):
-    """批量测试图片目录"""
-    # 加载模型（只加载一次）
+    """批量测试图片目录，确保完整结果安全落地 JSON"""
     model, processor = load_model(model_path, device)
     
-    # 获取图片列表
     image_files = [
         f for f in os.listdir(image_dir)
         if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
     ]
     
     if not image_files:
-        print(f"no images found in {image_dir}")
+        print(f"No valid images found in {image_dir}")
         return []
     
-    print(f"\nfound {len(image_files)} images to test")
+    print(f"\nFound {len(image_files)} targets in pipeline. Starting loop...")
     
     results = []
     for img_file in image_files:
@@ -294,67 +280,39 @@ def test_batch_images(image_dir: str, model_path: str, device: str):
             result = run_inference(model, processor, img_path, device)
             results.append(result)
         except Exception as e:
-            print(f"failed to process {img_file}: {e}")
+            print(f"!!! CRITICAL FAILURE processing {img_file}: {e}")
             import traceback
             traceback.print_exc()
     
-    # 打印汇总
-    print(f"\n{'='*60}")
-    print(f"batch test summary:")
-    print(f"{'='*60}")
+    # 打印控制台精简汇总（修改了原本带有语法小瑕疵的 print 拼接）
+    print(f"\n{'='*60}\nBatch Execution Summary:\n{'='*60}")
     for r in results:
-        print(f"  {os.path.basename(r['image_path'])}: "
-              f"thinking={r['thinking'][:50]}..." if r['thinking'] else "thinking=N/A, ",
-              f"distortion={r['distortion_class']}, "
-              f"severity={r['severity']} ({r['severity_score']}), "
-              f"time={r['inference_time']:.2f}s")
+        think_preview = r['thinking'][:30].replace('\n', ' ') + "..." if r['thinking'] != "N/A" else "N/A"
+        print(f" -> {r['image_name']} | Distortion: {r['distortion_class']} ({r['severity']}) | Think Snippet: {think_preview} | Cost: {r['inference_time']:.2f}s")
     
-    # 保存结果
+    # 落地保存（保存包含完整 thinking 链条的明细）
     output_path = "qinsight_results.json"
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"\nresults saved to: {output_path}")
+    print(f"\n[Success] Deep quality reports saved to: {os.path.abspath(output_path)}")
     
     return results
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test Q-Insight model")
-    parser.add_argument(
-        "--image",
-        type=str,
-        default=None,
-        help="Path to single test image"
-    )
-    parser.add_argument(
-        "--image_dir",
-        type=str,
-        default=None,
-        help="Path to directory of test images"
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        default=MODEL_PATH,
-        help="Path to Q-Insight model"
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda",
-        choices=["cuda", "cpu"],
-        help="Device to use (default: cuda)"
-    )
+    parser = argparse.ArgumentParser(description="Test Q-Insight on MetaX GPU cluster")
+    parser.add_argument("--image", type=str, default=None, help="Path to single image")
+    parser.add_argument("--image_dir", type=str, default=None, help="Path to images directory")
+    parser.add_argument("--model_path", type=str, default=MODEL_PATH, help="Path to Q-Insight directory")
+    parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Device configuration")
     
     args = parser.parse_args()
     
-    # 确定测试模式
     if args.image:
         test_single_image(args.image, args.model_path, args.device)
     elif args.image_dir:
         test_batch_images(args.image_dir, args.model_path, args.device)
     else:
-        # 默认测试 IMAGE_DIR 中的所有图片
         test_batch_images(IMAGE_DIR, args.model_path, args.device)
 
 
