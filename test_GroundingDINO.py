@@ -27,7 +27,7 @@ def preprocess_image(image_path):
 def test_monkey():
     model_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/weights/groundingdino.onnx"
     # 本地图片路径（注意：Linux下路径分隔符用 / ）
-    image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey.png" 
+    image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png" 
     
     # 1. 显式指定你服务器上的沐曦计算提供商
     sess_options = ort.SessionOptions()

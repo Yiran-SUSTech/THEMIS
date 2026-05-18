@@ -62,7 +62,7 @@ print(f"\nloading model {MODEL_PATH} to MetaX MACA engine...")
 print(f"model path: {MODEL_PATH}")
 start_load = time.time()
 session = ort.InferenceSession(MODEL_PATH, providers=providers)
-print(f"success, cost: {time.time() - start_load:.2f} 秒")
+print(f"success, cost: {time.time() - start_load:.2f} s")
 print(f"active providers: {session.get_provider_options().keys()}")
 
 input_name = session.get_inputs()[0].name
