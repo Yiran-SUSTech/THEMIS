@@ -4,21 +4,28 @@ import torch
 import torch.nn.functional as F
 
 # =====================================================================
-# 救星补丁：用基础算子等价替代 F.grid_sample，彻底消灭 aten::grid_sampler 算子
+# 🚀 救星补丁 v2.0：完美对齐官方接口的数学等价 grid_sample
 # =====================================================================
-def open_source_grid_sample_bilinear(input, grid, align_corners=False):
+def open_source_grid_sample_bilinear(input, grid, mode='bilinear', padding_mode='zeros', align_corners=False):
     """
-    一个完全基于基础数学算子实现的双线性插值 grid_sample。
-    它不产生 'aten::grid_sampler'，因此可以在 Opset 13/14 下完美导出，
-    并且完全兼容旧版本的 ONNX Runtime 1.12 和国产 MACA 算子库。
+    100% 严格等效于 PyTorch 原生 F.grid_sample 的双线性插值实现（padding_mode='zeros'）。
+    专为可变形注意力（Deformable Attention）特殊的 4D Tensor 拓扑设计。
+    完全由基础 ONNX 算子构成，在 Opset 14 下可无痛导出，且完美兼容沐曦 MACA 算力。
     """
-    N, C, IH, IW = input.shape
-    _, OH, OW, _ = grid.shape
+    # 严格获取输入的各个维度
+    # input: [B, C, H, W], grid: [B, H_out, W_out, 2]
+    shape = input.shape
+    N = shape[0]
+    C = shape[1]
+    IH = shape[2]
+    IW = shape[3]
+    
+    _, H_out, W_out, _ = grid.shape
 
-    # 将 [-1, 1] 的 grid 映射到图像像素坐标 [0, IW-1] 和 [0, IH-1]
     x = grid[..., 0]
     y = grid[..., 1]
 
+    # 根据 align_corners 的标准数学定义进行坐标映射
     if align_corners:
         x = ((x + 1.0) * 0.5) * (IW - 1)
         y = ((y + 1.0) * 0.5) * (IH - 1)
@@ -26,44 +33,61 @@ def open_source_grid_sample_bilinear(input, grid, align_corners=False):
         x = ((x + 1.0) * 0.5 * IW) - 0.5
         y = ((y + 1.0) * 0.5 * IH) - 0.5
 
-    x0 = torch.floor(x).long()
-    y0 = torch.floor(y).long()
-    x1 = x0 + 1
-    y1 = y0 + 1
+    # 计算插值所需的四个邻域像素坐标
+    x0 = torch.floor(x)
+    y0 = torch.floor(y)
+    x1 = x0 + 1.0
+    y1 = y0 + 1.0
 
-    # 边界裁剪
-    x0 = torch.clamp(x0, 0, IW - 1)
-    x1 = torch.clamp(x1, 0, IW - 1)
-    y0 = torch.clamp(y0, 0, IH - 1)
-    y1 = torch.clamp(y1, 0, IH - 1)
+    # 计算双线性权重系数
+    wa = ((x1 - x) * (y1 - y)).unsqueeze(1) # [B, 1, H_out, W_out]
+    wb = ((x1 - x) * (y - y0)).unsqueeze(1)
+    wc = ((x - x0) * (y1 - y)).unsqueeze(1)
+    wd = ((x - x0) * (y - y0)).unsqueeze(1)
 
-    # 计算双线性插值的权重
-    wa = ((x1.float() - x) * (y1.float() - y)).unsqueeze(1)
-    wb = ((x1.float() - x) * (y - y0.float())).unsqueeze(1)
-    wc = ((x - x0.float()) * (y1.float() - y)).unsqueeze(1)
-    wd = ((x - x0.float()) * (y - y0.float())).unsqueeze(1)
+    # 构造边界掩码（用于处理 padding_mode='zeros' 的填充边界）
+    mask_x0 = (x0 >= 0) & (x0 < IW)
+    mask_x1 = (x1 >= 0) & (x1 < IW)
+    mask_y0 = (y0 >= 0) & (y0 < IH)
+    mask_y1 = (y1 >= 0) & (y1 < IH)
 
-    # 变相实现高级索引 (用 flatten + index_select 替代原生 index_put 以防国产卡不支持)
-    input_reshape = input.view(N, C, IH * IW)
+    mask_a = (mask_x0 & mask_y0).unsqueeze(1)
+    mask_b = (mask_x0 & mask_y1).unsqueeze(1)
+    mask_c = (mask_x1 & mask_y0).unsqueeze(1)
+    mask_d = (mask_x1 & mask_y1).unsqueeze(1)
+
+    # 边界安全裁剪，防止下方的高级索引越界崩溃
+    x0 = torch.clamp(x0, 0, IW - 1).long()
+    x1 = torch.clamp(x1, 0, IW - 1).long()
+    y0 = torch.clamp(y0, 0, IH - 1).long()
+    y1 = torch.clamp(y1, 0, IH - 1).long()
+
+    # 构造批次一维线性基础索引，用于绕过 ONNX 不支持对多维 Tensor 直接进行多维索引的硬伤
+    # 这是最符合可变形注意力多维度输入特性的矩阵展开方式
+    batch_idx = torch.arange(N, device=input.device).view(N, 1, 1)
     
-    # 动态构建一维索引
-    batch_idx = torch.arange(N, device=input.device).view(N, 1, 1) * (IH * IW)
-    idx_a = (y0 * IW + x0 + batch_idx).view(N, -1)
-    idx_b = (y1 * IW + x0 + batch_idx).view(N, -1)
-    idx_c = (y0 * IW + x1 + batch_idx).view(N, -1)
-    idx_d = (y1 * IW + x1 + batch_idx).view(N, -1)
+    # 抽取邻域特征 (使用 where 算子配合一维展平索引，在 ONNX 1.12.0 / MACA 上是最稳的)
+    def gather_feat(y_coords, x_coords, mask):
+        # 将 [B, C, H, W] 展平成 [B, C, H*W]
+        input_flat = input.view(N, C, IH * IW)
+        # 计算平面一维索引
+        flat_idx = y_coords * IW + x_coords
+        # 扩展索引到通道维度：[B, C, H_out, W_out]
+        flat_idx_expanded = flat_idx.unsqueeze(1).expand(-1, C, -1, -1).reshape(N, C, -1)
+        # 抽取特征
+        feat = input_flat.gather(2, flat_idx_expanded).view(N, C, H_out, W_out)
+        # 如果超出原始图像边界，则填充为 0
+        return torch.where(mask, feat, torch.zeros_like(feat))
 
-    input_flat = input.transpose(0, 1).contiguous().view(C, -1)
+    ia = gather_feat(y0, x0, mask_a)
+    ib = gather_feat(y1, x0, mask_b)
+    ic = gather_feat(y0, x1, mask_c)
+    id = gather_feat(y1, x1, mask_d)
 
-    # 使用 gather 算子（ONNX 原生完美支持，且各家硬件都极度优化）
-    ia = input_flat.gather(1, idx_a.expand(C, -1)).view(C, N, OH, OW).transpose(0, 1)
-    ib = input_flat.gather(1, idx_b.expand(C, -1)).view(C, N, OH, OW).transpose(0, 1)
-    ic = input_flat.gather(1, idx_c.expand(C, -1)).view(C, N, OH, OW).transpose(0, 1)
-    id = input_flat.gather(1, idx_d.expand(C, -1)).view(C, N, OH, OW).transpose(0, 1)
-
+    # 加权融合得到结果
     return wa * ia + wb * ib + wc * ic + wd * id
 
-# 核心黑魔法：运行时强行偷天换日
+# 🛠️ 运行时黑魔法偷换
 F.grid_sample = open_source_grid_sample_bilinear
 # =====================================================================
 
@@ -111,7 +135,7 @@ def export_onnx(model, output_dir):
        "boxes": {0: "batch_size"}
     }
 
-    print("--> Starting ONNX export with Opset 14 and Patching Grid Sample...")
+    print("--> Starting ONNX export with Opset 14 and Fixed Interface Patching...")
     torch.onnx.export(
         model,
         f=os.path.join(output_dir, "groundingdino.onnx"),
@@ -119,7 +143,7 @@ def export_onnx(model, output_dir):
         input_names=["img" , "input_ids", "attention_mask", "position_ids", "token_type_ids", "text_token_mask"],
         output_names=["logits", "boxes"],
         dynamic_axes=dynamic_axes,
-        opset_version=14 # 降级为 14，完美配合 ONNX Runtime 1.12
+        opset_version=14 
     )
     print(f"--> Export success! Saved to {os.path.join(output_dir, 'groundingdino.onnx')}")
 
