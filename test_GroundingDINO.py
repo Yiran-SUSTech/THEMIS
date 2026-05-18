@@ -25,7 +25,7 @@ def preprocess_image(image_path):
     return t_img.unsqueeze(0).numpy() # 转为 ONNX 需要的 NumPy Batch 格式 [1, 3, 800, 1200]
 
 def test_monkey():
-    model_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/new_models/groundingdino_sim.onnx"
+    model_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/groundingdino_sim.onnx"
     # 本地图片路径（注意：Linux下路径分隔符用 / ）
     image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey2.png" 
     
