@@ -27,7 +27,8 @@ def test_monkey():
     image_path = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/hussar monkey.png" 
     
     # 1. 显式指定你服务器上的沐曦计算提供商
-    providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+    # providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+    providers = ['CPUExecutionProvider']
     print(f"--> loading ONNX model to providers: {providers}")
     
     sess_options = ort.SessionOptions()
