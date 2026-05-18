@@ -1,4 +1,7 @@
 import os
+import sys
+# 强行把 GroundingDINO 的源码根目录塞进 Python 的全局搜索口袋里
+sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO")
 import torch
 import numpy as np
 import onnxruntime as ort
