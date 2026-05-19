@@ -4,11 +4,12 @@ import json
 import time
 import numpy as np
 
-# 🚀 引入全部 4 个原子化专家模块
+# 🚀 引入全部 5 个原子化专家模块
 from experts.expert_ocr import ImageTextAuditor
 from experts.expert_detector import OpenVocabularyDetector
 from experts.expert_classifier import FineGrainedClassifier
-from experts.expert_pose import AnimalPoseEstimator  # 新加入的姿态专家
+from experts.expert_pose import AnimalPoseEstimator
+from experts.expert_depth import MonocularDepthEstimator  # 新引入的深度专家
 
 # 万能的 NumPy 类型安全转换器
 class ThemeEvidenceEncoder(json.JSONEncoder):
@@ -22,11 +23,12 @@ class ThemeEvidenceEncoder(json.JSONEncoder):
         return super(ThemeEvidenceEncoder, self).default(obj)
 
 print("--> System Initializing, loading expert engines to memory...")
-# 批量初始化长驻内存（按顺序加载）
+# 批量初始化长驻内存（五路引擎并存）
 ocr_expert = ImageTextAuditor(det_model_path='models/Multilingual_PP-OCRv3_det_infer.onnx')
 detector_expert = OpenVocabularyDetector()
 classifier_expert = FineGrainedClassifier()
-pose_expert = AnimalPoseEstimator()  # 🚀 4 号专家就位
+pose_expert = AnimalPoseEstimator()
+depth_expert = MonocularDepthEstimator()  # 🚀 5 号专家就位
 print("--> All expert engines loaded successfully, pipeline ready.\n" + "="*50)
 
 def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
@@ -65,10 +67,19 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     # ==================== [专家 4: rtmlib 姿态关键点] ====================
     print("\n--> [Expert 4] Extruding subject keypoints and poses...")
     t_start = time.time()
-    pose_result = pose_expert.audit(img_bgr)  # 🚀 调用新专家
+    pose_result = pose_expert.audit(img_bgr)
     pose_time = (time.time() - t_start) * 1000
     print(f"    └─ Success. Tracked {pose_result['raw_metrics']['detected_instances_count']} skeletal instances. Cost: {pose_time:.2f} ms")
     expert_responses.append(pose_result)
+
+    # ==================== [专家 5: Depth Anything 单目深度] ====================
+    print("\n--> [Expert 5] Computing monocular depth maps...")
+    t_start = time.time()
+    # 🚀 将图像矩阵和原图路径一并交由深度专家处理
+    depth_result = depth_expert.audit(img_bgr, original_image_path=image_path)
+    depth_time = (time.time() - t_start) * 1000
+    print(f"    └─ Success. Depth map generated and saved. Cost: {depth_time:.2f} ms")
+    expert_responses.append(depth_result)
 
 
     # ==================== [客观证据大礼包组装] ====================
@@ -82,7 +93,8 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
                 "detector_time_ms": round(detector_time, 2),
                 "classifier_time_ms": round(classifier_time, 2),
                 "pose_time_ms": round(pose_time, 2),
-                "total_experts_time_ms": round(ocr_time + detector_time + classifier_time + pose_time, 2)
+                "depth_time_ms": round(depth_time, 2),
+                "total_experts_time_ms": round(ocr_time + detector_time + classifier_time + pose_time + depth_time, 2)
             }
         },
         "expert_responses": expert_responses
@@ -91,7 +103,6 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     return gathered_evidences
 
 if __name__ == "__main__":
-    # 保持用你的赤猴图片进行测试
     test_image = "./test_images/hussar monkey2.png"
     
     raw_evidence_report = run_themis_pipeline(
