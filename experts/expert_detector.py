@@ -81,15 +81,16 @@ class OpenVocabularyDetector:
                 predicted_word = query_text
 
             cx, cy, w, h = box[0], box[1], box[2], box[3]
-            x1 = max(0, int((cx - w / 2) * orig_w))
-            y1 = max(0, int((cy - h / 2) * orig_h))
-            x2 = min(orig_w, int((cx + w / 2) * orig_w))
-            y2 = min(orig_h, int((cy + h / 2) * orig_h))
-            
+            # --- 找到原 DINO 脚本中计算 x1, y1, x2, y2 的位置，修改为标准的 int() 强转 ---
+            x1 = int(max(0, int((cx - w / 2) * orig_w)))
+            y1 = int(max(0, int((cy - h / 2) * orig_h)))
+            x2 = int(min(orig_w, int((cx + w / 2) * orig_w)))
+            y2 = int(min(orig_h, int((cy + h / 2) * orig_h)))
+
             objects_evidence.append({
                 "matched_query_token": predicted_word,
                 "confidence_score": round(score, 4),
-                "bounding_box": [x1, y1, x2, y2]
+                "bounding_box": [x1, y1, x2, y2]  # 🚀 现在它们是纯正的 Python int 了！
             })
             
         return {
