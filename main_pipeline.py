@@ -4,12 +4,13 @@ import json
 import time
 import numpy as np
 
-# 🚀 引入全部 5 个原子化专家模块
+# 🚀 引入全部 6 个原子化专家模块
 from experts.expert_ocr import ImageTextAuditor
 from experts.expert_detector import OpenVocabularyDetector
 from experts.expert_classifier import FineGrainedClassifier
 from experts.expert_pose import AnimalPoseEstimator
-from experts.expert_depth import MonocularDepthEstimator  # 新引入的深度专家
+from experts.expert_depth import MonocularDepthEstimator
+from experts.expert_sam import SegmentAnythingExpert  # 新引入的 SAM 专家
 
 # 万能的 NumPy 类型安全转换器
 class ThemeEvidenceEncoder(json.JSONEncoder):
@@ -23,12 +24,13 @@ class ThemeEvidenceEncoder(json.JSONEncoder):
         return super(ThemeEvidenceEncoder, self).default(obj)
 
 print("--> System Initializing, loading expert engines to memory...")
-# 批量初始化长驻内存（五路引擎并存）
+# 批量初始化长驻内存（六路引擎同步长驻）
 ocr_expert = ImageTextAuditor(det_model_path='models/Multilingual_PP-OCRv3_det_infer.onnx')
 detector_expert = OpenVocabularyDetector()
 classifier_expert = FineGrainedClassifier()
 pose_expert = AnimalPoseEstimator()
-depth_expert = MonocularDepthEstimator()  # 🚀 5 号专家就位
+depth_expert = MonocularDepthEstimator()
+sam_expert = SegmentAnythingExpert()  # 🚀 6 号专家就位
 print("--> All expert engines loaded successfully, pipeline ready.\n" + "="*50)
 
 def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
@@ -56,6 +58,10 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     print(f"    └─ Success. Located {detector_result['raw_metrics']['detected_count']} matching objects. Cost: {detector_time:.2f} ms")
     expert_responses.append(detector_result)
 
+    # 提取 DINO 检测到的第一个物体的 bounding_box，用作 SAM 的高精度引导
+    dino_objects = detector_result["evidence"]["detected_objects"]
+    first_box = dino_objects[0]["bounding_box"] if len(dino_objects) > 0 else None
+
     # ==================== [专家 3: EVA-02 分类] ====================
     print("\n--> [Expert 3] Evaluating fine-grained image classification...")
     t_start = time.time()
@@ -75,11 +81,19 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     # ==================== [专家 5: Depth Anything 单目深度] ====================
     print("\n--> [Expert 5] Computing monocular depth maps...")
     t_start = time.time()
-    # 🚀 将图像矩阵和原图路径一并交由深度专家处理
     depth_result = depth_expert.audit(img_bgr, original_image_path=image_path)
     depth_time = (time.time() - t_start) * 1000
     print(f"    └─ Success. Depth map generated and saved. Cost: {depth_time:.2f} ms")
     expert_responses.append(depth_result)
+
+    # ==================== [专家 6: SAM 像素级分割] ====================
+    print("\n--> [Expert 6] Executing interactive pixel segmentation...")
+    t_start = time.time()
+    # 🚀 传入图、路径以及智能提取自 DINO 的 first_box 引导点
+    sam_result = sam_expert.audit(img_bgr, original_image_path=image_path, hint_box=first_box)
+    sam_time = (time.time() - t_start) * 1000
+    print(f"    └─ Success. Mask saved to disk. Point Prompt: {sam_result['evidence']['prompt_point_used']}. Cost: {sam_time:.2f} ms")
+    expert_responses.append(sam_result)
 
 
     # ==================== [客观证据大礼包组装] ====================
@@ -94,7 +108,8 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
                 "classifier_time_ms": round(classifier_time, 2),
                 "pose_time_ms": round(pose_time, 2),
                 "depth_time_ms": round(depth_time, 2),
-                "total_experts_time_ms": round(ocr_time + detector_time + classifier_time + pose_time + depth_time, 2)
+                "sam_time_ms": round(sam_time, 2),
+                "total_experts_time_ms": round(ocr_time + detector_time + classifier_time + pose_time + depth_time + sam_time, 2)
             }
         },
         "expert_responses": expert_responses
