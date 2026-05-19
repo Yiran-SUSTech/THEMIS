@@ -1,0 +1,43 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "The image must depict an American alligator characterized by a broad, U-shaped snout, dark olive-brown armored skin with prominent osteoderms (scutes), and eyes/nostrils positioned on the top of the head. The subject is partially submerged, requiring a distinct boundary between the rugged skin texture and the water surface.",
+    "initial_observation": "The image shows a close-up of a crocodilian head and upper body in water. The skin texture appears highly detailed with visible scutes, but there is a risk of the texture appearing too 'metallic' or 'stone-like' (common AI artifact). The water line interaction needs verification to ensure the subject isn't 'melting' into the water. The snout shape needs to be confirmed as U-shaped (alligator) rather than V-shaped (crocodile).",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "Verify the species identity. The model must distinguish between an American alligator, a crocodile, or a generic lizard. The broad snout is the key differentiator.",
+            "expected_evidence": "Top-1 prediction should be 'American alligator' or 'Alligator mississippiensis' with high confidence (>0.6). If it predicts 'Crocodile' or 'Lizard', the generation has failed the taxonomy check.",
+            "weight": 0.9
+        },
+        {
+            "stage": 2,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "Audit the texture of the skin and water. AI often generates reptile skin that looks like plastic, wax, or metal rather than organic keratin/bone. It also checks for blur in the water refraction.",
+            "expected_evidence": "Low severity scores for 'Blur' (waxy texture) and 'Noise'. The reasoning should confirm the presence of natural, rugged texture (osteoderms) rather than smooth or artificial surfaces.",
+            "weight": 0.8
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Analyze the interface between the alligator and the water. Aquatic animals are prone to 'melting' artifacts where the body merges with the water surface without a clear physical boundary.",
+            "expected_evidence": "A sharp, continuous mask boundary along the waterline. Low 'Boundary_Melting' score. The mask should clearly separate the dark skin from the green water without fuzzy transitions or 'ghosting' artifacts.",
+            "weight": 0.85
+        },
+        {
+            "stage": 4,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Verify the anatomical placement of facial features. The eyes and nostrils must be on the top of the head (dorsal view) to match the semi-aquatic ambush posture described in the taxonomy.",
+            "expected_evidence": "Keypoints for 'Face (Nose, Eyes)' should be detected on the upper plane of the snout/head. No 'Distortion' in the snout-to-eye ratio.",
+            "weight": 0.7
+        }
+    ],
+    "conflict_resolution_strategy": "If the `fine_grained_classifier` identifies the subject as a Crocodile (V-shaped snout) but the `animal_pose_auditor` confirms correct eye placement, the image is likely a mislabeled species generation. If `topology_boundary_auditor` detects melting at the waterline, this is a critical structural failure regardless of texture quality. Priority is given to Species Identity > Structural Integrity (Boundary) > Texture Quality.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000009.png",
+        "image_filename": "000009.png",
+        "class_id": 50,
+        "class_label": "American alligator",
+        "router_cost_seconds": 41.39
+    }
+}

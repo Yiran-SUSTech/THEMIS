@@ -1,0 +1,43 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A large waterfowl characterized by a robust body, long neck (often S-curved or extended), and specific plumage patterns (barred/scalloped). Key diagnostic features include the black head and neck with a white cheek patch (Canada Goose), black triangular bill, and black webbed feet (palmate). The bird should exhibit a coherent anatomical structure with distinct separation between limbs and body.",
+    "initial_observation": "The image displays a goose with a tucked neck posture standing on a bed of pebbles. While the plumage appears detailed, the feet/legs appear as dark, somewhat indistinct shapes, raising potential concerns about the definition of webbing and toes. The foreground pebbles exhibit a high degree of uniformity which may indicate texture repetition artifacts.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "Verify the semantic identity of the subject. The model must confirm the image represents a 'goose' (specifically a Canada Goose given the markings) and not a hallucinated hybrid or incorrect bird species.",
+            "expected_evidence": "Top-1 prediction should be 'goose' or 'Canada Goose' with high confidence (>0.8).",
+            "weight": 0.3
+        },
+        {
+            "stage": 2,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Audit the biological structural integrity, specifically focusing on the legs and feet. AI models often struggle with bird feet, resulting in 'melting' or missing toes. This expert will check for the presence and correct topology of the hind limbs (legs/feet).",
+            "expected_evidence": "Detection of valid keypoints for hind limbs. Absence of 'Missing' or 'Distortion' flags regarding the legs and feet structure.",
+            "weight": 0.3
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Analyze the physical boundary between the goose's feet and the pebbles. There is a risk of 'Grounding Failure' where the feet merge with the rocks. This expert will segment the bird to ensure it is a single continuous entity and check for boundary sharpness at the contact points.",
+            "expected_evidence": "A single connected mask for the goose. High boundary smoothness score at the feet-pebble interface, indicating distinct separation rather than fusion.",
+            "weight": 0.2
+        },
+        {
+            "stage": 4,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "Assess the overall image quality, specifically looking for 'Noise' or 'Blur' in the feather textures and the pebble foreground. The uniformity of the pebbles suggests potential AI generation artifacts (repetitive patterns) that this VLM can identify.",
+            "expected_evidence": "Low severity scores for 'Noise' and 'Blur'. Reasoning trajectory should confirm natural-looking texture variance in feathers and stones.",
+            "weight": 0.2
+        }
+    ],
+    "conflict_resolution_strategy": "If the fine-grained classifier confirms the species but the pose auditor flags limb distortion, prioritize the anatomical failure as a critical defect. If the boundary auditor detects fusion between feet and pebbles, this confirms a grounding error, overriding minor texture issues. The perceptual auditor serves as a final sanity check for global coherence.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000017.png",
+        "image_filename": "000017.png",
+        "class_id": 99,
+        "class_label": "goose",
+        "router_cost_seconds": 55.74
+    }
+}

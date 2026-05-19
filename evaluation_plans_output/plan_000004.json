@@ -1,0 +1,43 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A raptor characterized by long, narrow, pointed wings held in a dihedral angle, a deeply forked tail, a small head with a hooked yellow-based beak, and contrasting plumage (dark upper, light/barred under).",
+    "initial_observation": "The image displays a bird in flight against a clear blue sky. It exhibits a forked tail with reddish tips and long wings, consistent with a kite. The plumage shows light underparts with dark markings. The beak appears hooked. No obvious extra limbs or gross deformities are immediately visible, but fine anatomical details (talons, specific feather texture) need verification.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "Verify that the subject is taxonomically aligned with 'kite' (Accipitridae) and not a generic bird, a different raptor (like a hawk), or the inanimate object 'kite'.",
+            "expected_evidence": "Top-1 prediction should be 'kite' or a specific kite species (e.g., 'red_kite', 'black_kite') with high confidence (>0.6).",
+            "weight": 0.3
+        },
+        {
+            "stage": 2,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Audit the biological structural integrity. Specifically, check for the presence of valid limb structures (wings and legs) and ensure no 'melting' of joints or missing limbs (e.g., ensuring two wings and two legs are detected, not fused).",
+            "expected_evidence": "Keypoint detection should identify distinct regions for wings (front limbs equivalent) and legs/talons (hind limbs). Scores should be >0.25 to avoid 'Melting' diagnosis.",
+            "weight": 0.3
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Verify the 'Non-negotiable' feature of the deeply forked tail and pointed wing tips. SAM segmentation will detect if the tail is a single continuous entity or if the fork is blurred/fused (Boundary Melting).",
+            "expected_evidence": "The mask for the bird should be a single connected component (connectivity_count = 1). The boundary smoothness at the tail fork should be sharp, not blurred or fused.",
+            "weight": 0.25
+        },
+        {
+            "stage": 4,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "Check for AI-specific artifacts like 'waxy' feather textures, motion blur that obscures the forked tail, or noise in the blue sky background.",
+            "expected_evidence": "Low severity scores for Blur and Noise. Feathers should show distinct texture, not over-smoothing.",
+            "weight": 0.15
+        }
+    ],
+    "conflict_resolution_strategy": "If the fine-grained classifier predicts a different raptor (e.g., 'hawk') but the topology auditor confirms a deeply forked tail and the pose auditor confirms valid anatomy, prioritize the morphological evidence (forked tail) as the defining characteristic of a kite, overriding the global classification which may be confused by similar raptor features.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000004.png",
+        "image_filename": "000004.png",
+        "class_id": 21,
+        "class_label": "kite",
+        "router_cost_seconds": 42.68
+    }
+}

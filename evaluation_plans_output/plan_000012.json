@@ -1,0 +1,50 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A raptor (kite) of the family Accipitridae. Key diagnostic features include a deeply forked or notched tail, long narrow wings with pointed tips (often in a dihedral), a small head with a sharply hooked beak, and contrasting plumage patterns.",
+    "initial_observation": "The image shows a bird of prey in flight against a plain sky. The wings are spread with visible barring. The tail appears to have a notch. The beak is hooked. No immediate catastrophic errors, but fine-grained anatomical and textural verification is required.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "Verify the subject is taxonomically a bird of prey (Accipitridae) and not a 'toy kite' or insect, addressing the potential semantic ambiguity of the class label.",
+            "expected_evidence": "Top-1 prediction should be a raptor species (e.g., 'kite', 'hawk', 'falcon') with probability > 0.6.",
+            "weight": 0.2
+        },
+        {
+            "stage": 2,
+            "expert_id": "open_vocabulary_detector",
+            "rationale": "Localize the bird to establish a bounding box. This serves as the spatial anchor for the segmentation expert and ensures the subject is distinct from the background.",
+            "expected_evidence": "A single bounding box with high confidence (> 0.8) labeled 'kite' or 'bird'.",
+            "weight": 0.1
+        },
+        {
+            "stage": 3,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Audit biological structural integrity. Specifically check for the presence of wings (mapped to Front Limbs) and the head/beak (Face). Check for 'Distortion' in wing angles to ensure they match the 'shallow V' or dihedral description.",
+            "expected_evidence": "Valid keypoints for wings and head. No 'Missing' limbs. Wing angles should be biologically plausible for soaring.",
+            "weight": 0.3
+        },
+        {
+            "stage": 4,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Verify the 'deeply forked or notched' tail. Use segmentation to ensure the tail is a single connected component with a physical notch, rather than a fused or 'melting' blob. Also check wing tips for 'Ghosting Artifacts'.",
+            "expected_evidence": "Connectivity count = 1 for the bird body. Boundary smoothness should show a distinct notch in the tail region, not a smooth curve.",
+            "weight": 0.2
+        },
+        {
+            "stage": 5,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "Analyze plumage texture. AI generations often suffer from 'waxy' over-smoothing on feathers or high-frequency noise. Check for 'Blur' or 'Noise' artifacts in the wing patterns.",
+            "expected_evidence": "Low severity scores for Blur and Noise. Texture should appear distinct and feather-like, not plastic or grainy.",
+            "weight": 0.2
+        }
+    ],
+    "conflict_resolution_strategy": "Prioritize anatomical correctness over texture. If the 'animal_pose_auditor' detects missing wings or the 'topology_boundary_auditor' detects a fused (non-forked) tail, the image is rejected regardless of classification confidence. If the classifier identifies it as a bird but the pose auditor finds severe distortion, the image is classified as a 'structural hallucination'.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000012.png",
+        "image_filename": "000012.png",
+        "class_id": 21,
+        "class_label": "kite",
+        "router_cost_seconds": 65.05
+    }
+}

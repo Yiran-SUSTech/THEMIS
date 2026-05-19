@@ -1,0 +1,50 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A medium-sized terrestrial turtle characterized by a high-domed, dark carapace with vivid radiating yellow/orange starburst patterns on each scute. Key features include a hinged plastron (implied by shell shape), a small head with an upturned snout and matching skin coloration, large prominent eyes with red/orange irises, and stout, elephantine limbs with thick scales.",
+    "initial_observation": "The image presents a high-fidelity close-up of a box turtle. The carapace texture appears highly detailed with distinct scutes and vibrant coloration. The head and eye are clearly visible, showing appropriate reptilian features. One forelimb is visible with scaly texture. The background consists of blurred forest floor debris. No immediate gross anatomical errors are visible, but close inspection of the shell-to-skin transition and limb structure is required.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "To verify the specific species identity. The image must be classified as a 'box turtle' or 'box tortoise' and not a generic turtle or a different species (e.g., a tortoise with different shell patterns). This acts as the high-speed sieve.",
+            "expected_evidence": "Top-1 prediction should be 'box turtle' or a specific subspecies (e.g., 'Terrapene carolina') with high confidence (>0.8).",
+            "weight": 0.3
+        },
+        {
+            "stage": 2,
+            "expert_id": "open_vocabulary_detector",
+            "rationale": "To localize the turtle within the frame and provide a bounding box prior for the segmentation expert. This ensures we are auditing the correct subject, especially given the close-up nature of the shot.",
+            "expected_evidence": "A bounding box tightly enclosing the turtle with a confidence score > 0.85.",
+            "weight": 0.1
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "To audit the physical boundary integrity of the turtle. Specifically, to check for 'Topological Fragmentation' (e.g., the head appearing detached from the shell) or 'Boundary Melting' where the shell patterns bleed into the background or the soft tissue of the neck.",
+            "expected_evidence": "A single connected mask for the turtle entity. High boundary smoothness scores at the shell edge, indicating a solid, continuous object.",
+            "weight": 0.2
+        },
+        {
+            "stage": 4,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "To audit biological structural correctness. Even in a close-up, the visible head, eye, and limb must adhere to biological constraints. We check for 'Distortion' in the visible limb or 'Missing' keypoints for the head/eye region.",
+            "expected_evidence": "Valid keypoints for the head (nose, eyes) and visible limbs. No 'Melting' of joints (e.g., neck merging into shell unnaturally).",
+            "weight": 0.2
+        },
+        {
+            "stage": 5,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "To check for fine-grained texture artifacts. AI often struggles with the complex geometry of reptile scales and shell scutes, resulting in 'Blur' (waxy texture) or 'Noise' in the patterns.",
+            "expected_evidence": "Low severity scores for Blur and Noise. The texture of the shell scutes and leg scales should be sharp and distinct.",
+            "weight": 0.2
+        }
+    ],
+    "conflict_resolution_strategy": "If the `fine_grained_classifier` identifies the subject as a generic 'turtle' but the `topology_boundary_auditor` confirms the high-domed shell structure and specific starburst patterns described in the taxonomy, the visual evidence of the specific features (shell shape/pattern) will override the generic classification. If `animal_pose_auditor` flags 'Missing' limbs, this will be cross-referenced with the image framing; if the limbs are simply out of frame due to the close-up crop, the error will be dismissed as a framing artifact rather than a generation flaw.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000007.png",
+        "image_filename": "000007.png",
+        "class_id": 37,
+        "class_label": "box turtle, box tortoise",
+        "router_cost_seconds": 63.77
+    }
+}

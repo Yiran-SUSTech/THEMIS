@@ -1,0 +1,50 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "Two Nile crocodiles (Crocodylus niloticus) resting on a sandy substrate. Key diagnostic features include: 1) Dorsal armor of large, rectangular, non-overlapping bony scutes (osteoderms) in regular rows. 2) Elongated, robust bodies with thick, muscular tails (approx. 50% length). 3) Broad, V-shaped snouts with dorsal sensory organs. 4) Short, robust limbs (5 digits fore, 4 digits hind).",
+    "initial_observation": "The image displays two large crocodiles lying parallel on sand. The texture of the scales appears highly detailed, but AI generation often struggles with the specific geometry of reptile limbs (digit count) and the seamless integration of the tail into the body. There is a risk of 'limb melting' into the sand or 'tail fragmentation'. The lighting creates strong shadows which might obscure limb details.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "Verify that the generated subject is taxonomically aligned with 'Nile crocodile' and not a generic lizard or alligator. This acts as the high-speed sieve.",
+            "expected_evidence": "Top-1 prediction should be 'African crocodile' or 'Nile crocodile' with high confidence (>0.6).",
+            "weight": 0.15
+        },
+        {
+            "stage": 2,
+            "expert_id": "open_vocabulary_detector",
+            "rationale": "Detect and localize both crocodiles to ensure the count is correct (2) and to provide bounding box priors for segmentation. This checks for 'Spatial_Confusion' if the two bodies are fused.",
+            "expected_evidence": "Two distinct bounding boxes with high confidence scores, corresponding to the two visible bodies.",
+            "weight": 0.2
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "Using the BBoxes from Stage 2, segment the crocodiles to audit 'Topological_Fragmentation' (e.g., floating tail tips) and 'Boundary_Melting' (fusion with the sand or between the two animals).",
+            "expected_evidence": "Two continuous masks with connectivity_count = 1 for each. Sharp boundaries separating the scutes from the sand.",
+            "weight": 0.25
+        },
+        {
+            "stage": 4,
+            "expert_id": "animal_pose_auditor",
+            "rationale": "Audit biological structural correctness. Specifically check for 'Missing' limbs (often hidden or melted in AI gen) and 'Distortion' (abnormal limb-to-body ratios or impossible joint angles).",
+            "expected_evidence": "Keypoints detected for head, torso, and limbs. No 'Melting' scores (<0.25) at limb junctions.",
+            "weight": 0.25
+        },
+        {
+            "stage": 5,
+            "expert_id": "geometric_depth_auditor",
+            "rationale": "Verify 'Grounding_Failure'. The heavy bodies must show a sharp depth discontinuity at the contact point with the sand, avoiding the 'sliding' or 'melting butter' effect common in AI generations of animals on ground.",
+            "expected_evidence": "Depth map showing the crocodiles as distinct foreground objects (brighter) resting on a planar background (darker), with sharp gradients at the belly/limb contact points.",
+            "weight": 0.15
+        }
+    ],
+    "conflict_resolution_strategy": "If the `fine_grained_classifier` identifies the subject as a different reptile (e.g., Alligator), but `open_vocabulary_detector` finds 'crocodile', prioritize the visual evidence of the snout shape (V-shaped vs U-shaped) via manual review or `perceptual_quality_auditor` reasoning. If `topology_boundary_auditor` finds fragmentation (e.g., a detached tail), this is a catastrophic structural failure that overrides a high classification score. If `animal_pose_auditor` detects missing limbs, check `topology_boundary_auditor` to see if they are merged into the body (melting) or simply occluded by shadows.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000011.png",
+        "image_filename": "000011.png",
+        "class_id": 49,
+        "class_label": "African crocodile, Nile crocodile, Crocodylus niloticus",
+        "router_cost_seconds": 52.83
+    }
+}

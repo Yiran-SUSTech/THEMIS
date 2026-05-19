@@ -1,0 +1,43 @@
+{
+    "category_archetype": "Organism",
+    "semantic_baseline": "A European cross spider (Araneus diademata) characterized by a globular, bulbous abdomen significantly larger than the cephalothorax, featuring a prominent white cruciform (cross-shaped) pattern on a variable orange-brown background. It must have eight legs with alternating dark/pale banding and fine spines, and a velvety texture due to dense setae.",
+    "initial_observation": "The image shows a spider with distinct black and white/silver markings entangled in thick white web strands (possibly a stabilimentum). The abdominal pattern consists of white spots but lacks the characteristic orange-brown background of Araneus diademata, resembling an Argiope species more closely. The legs appear long and banded. There is a risk of species mismatch and potential 'melting' of legs into the complex web structure.",
+    "evaluation_plan": [
+        {
+            "stage": 1,
+            "expert_id": "fine_grained_classifier",
+            "rationale": "The visual appearance (black/white/silver coloration) strongly suggests a potential species mismatch (e.g., Argiope vs. Araneus diademata). This expert acts as the 'High-Speed Sieve' to verify if the image actually represents the target class label at a taxonomical level.",
+            "expected_evidence": "Top-1 prediction should be 'garden spider' or 'Araneus diademata'. A prediction of 'Argiope' or 'wasp spider' would indicate a Category Mismatch.",
+            "weight": 0.9
+        },
+        {
+            "stage": 2,
+            "expert_id": "open_vocabulary_detector",
+            "rationale": "Essential for localizing the spider and auditing the leg count. Spiders must have 8 legs. This tool will provide bounding boxes to confirm the presence of the subject and can be prompted to detect 'legs' to verify the count (Counting_Error diagnostic).",
+            "expected_evidence": "Detection of one 'spider' with high confidence. Detection of 8 distinct leg regions. Overlapping boxes would indicate spatial confusion.",
+            "weight": 0.7
+        },
+        {
+            "stage": 3,
+            "expert_id": "topology_boundary_auditor",
+            "rationale": "The spider is entangled in web strands. This expert (SAM1) will segment the spider to audit 'Boundary Melting' and 'Topological Fragmentation'. It checks if the legs are distinct physical entities or if they are fusing with the web silk (a common AI artifact in complex interactions).",
+            "expected_evidence": "A single continuous mask for the spider body. Low boundary variance. No 'pixel islands' of legs floating separately or merging indistinguishably with the web mask.",
+            "weight": 0.8
+        },
+        {
+            "stage": 4,
+            "expert_id": "perceptual_quality_auditor",
+            "rationale": "To audit the fine details of the spider's texture (velvety setae) and the web strands. AI often produces 'waxy' textures or blurs fine hairs. This tool checks for Blur and Noise artifacts.",
+            "expected_evidence": "Low severity scores for Blur and Noise. The reasoning trajectory should confirm the presence of fine hair textures on the legs and body.",
+            "weight": 0.5
+        }
+    ],
+    "conflict_resolution_strategy": "Priority is given to the fine_grained_classifier. If the species is identified as incorrect (e.g., Argiope), the evaluation fails immediately regardless of structural integrity. If the species is correct, the topology_boundary_auditor takes precedence to ensure the spider is not structurally fused with the web. The open_vocabulary_detector serves as a bridge to confirm leg count (8) before segmentation.",
+    "metadata": {
+        "original_image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images_GPT-XL-c2i_XL/000010.png",
+        "image_filename": "000010.png",
+        "class_id": 74,
+        "class_label": "garden spider, Aranea diademata",
+        "router_cost_seconds": 70.09
+    }
+}
