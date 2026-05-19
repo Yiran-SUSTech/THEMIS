@@ -2,64 +2,47 @@ import os
 import cv2
 import json
 
-# 🚀 从 experts 文件夹引入两个完全独立的专家模块
+# 🚀 引入三个完全独立的专家模块
 from experts.expert_ocr import ImageTextAuditor
 from experts.expert_detector import OpenVocabularyDetector
+from experts.expert_classifier import FineGrainedClassifier
 
 print("--> System Initializing, loading experts to memory...")
-# 1. 初始化专家（模型仅在最外层循环外加载一次，长驻内存）
-ocr_expert = ImageTextAuditor(det_model_path='models/Multilingual_PP-OCRv3_det_infer.onnx')
+# 1. 批量初始化专家（一次载入，永不重复）
+ocr_expert = ImageTextAuditor()
 detector_expert = OpenVocabularyDetector()
-print("--> Experts loaded successfully, pipeline ready.\n" + "="*50)
+classifier_expert = FineGrainedClassifier() # EVA-02 在这里被长驻载入
+print("--> All experts loaded successfully, pipeline ready.\n" + "="*50)
 
 def run_themis_pipeline(image_path, class_label=None, target_text=None, expected_count=1):
-    """
-    单张图片的中央流水线控制逻辑
-    :param image_path: 图片本地路径
-    :param class_label: 评测目标的类别标签（如 "hussar monkey"）
-    :param target_text: 可选，用户 Prompt 中期望渲染的文本
-    :param expected_count: 预期目标数量
-    """
     print(f"\n[Processing] Processing image: {image_path}")
     if not os.path.exists(image_path):
         print(f"[-] Error: Image not found at {image_path}")
         return None
 
-    # 一次性读取图像矩阵到内存，直接供多方专家共同运算，拒绝多余的磁盘 I/O
+    # 从物理磁盘只读一次，生成内存矩阵
     img_bgr = cv2.imread(image_path)
-    
-    # 用来存储本张图片实际运行的所有专家结果的容器
     expert_responses = []
 
-    # ==================== [专家 1: OCR 审计独立调用] ====================
-    # 实际项目中，可以通过 if "image_text_auditor" in router_plan_stages: 来控制
+    # ==================== [专家 1: OCR 审计] ====================
     print("\n--> Calling expert OCR auditor [image_text_auditor]...")
     ocr_result = ocr_expert.audit(img_bgr, target_text=target_text)
-    
-    # 打印查看 OCR 输出结果
     print(f"    [OCR Verdict]: {ocr_result['verdict']}")
-    print(f"    [Detected Text Blocks]: {ocr_result['metrics']['detected_text_blocks']}")
-    
-    # 收集到总容器
     expert_responses.append(ocr_result)
 
-
-    # ==================== [专家 2: DINO 目标定位独立调用] ====================
-    # 保持原子化，不依赖 OCR 结果，直接用最原始的 img_bgr 运行
+    # ==================== [专家 2: DINO 检测] ====================
     print("\n--> Calling expert DINO detector [open_vocabulary_detector]...")
-    detector_result = detector_expert.audit(
-        img_bgr, 
-        query_text=class_label, 
-        expected_count=expected_count, 
-        threshold=0.3
-    )
-    
-    # 打印查看 DINO 输出结果
+    detector_result = detector_expert.audit(img_bgr, query_text=class_label, expected_count=expected_count)
     print(f"    [DINO Verdict]: {detector_result['verdict']}")
-    print(f"    [Detected Target Count]: {detector_result['metrics']['detected_count']}")
-    
-    # 收集到总容器
     expert_responses.append(detector_result)
+
+    # ==================== [专家 3: EVA-02 细粒度分类] ====================
+    # 完全解耦运行，不依赖前两个专家的输出，直接做独立的身份审计
+    print("\n--> Calling expert EVA-02 classifier [fine_grained_classifier]...")
+    classifier_result = classifier_expert.audit(img_bgr, target_class=class_label)
+    print(f"    [Classifier Verdict]: {classifier_result['verdict']}")
+    print(f"    [Top-1 Prediction]: {classifier_result['metrics']['top1_prediction']} (Logit: {classifier_result['metrics']['top1_logit']})")
+    expert_responses.append(classifier_result)
 
 
     # ==================== [综合汇总结果阶段] ====================
@@ -68,15 +51,15 @@ def run_themis_pipeline(image_path, class_label=None, target_text=None, expected
             "image_path": image_path,
             "class_label": class_label
         },
-        "expert_responses": expert_responses  # 这里自动综合了 OCR 和 DINO 的全套结构化结果
+        "expert_responses": expert_responses  # OCR + DINO + EVA-02 的数据大团圆
     }
     
     return gathered_evidences
 
 if __name__ == "__main__":
+    # 拿你 test_images 目录里的某张真实图片试刀
     test_image = "./test_images/hussar monkey2.png"
     
-    # 运行流水线
     results = run_themis_pipeline(
         test_image, 
         class_label="hussar monkey", 
@@ -84,6 +67,5 @@ if __name__ == "__main__":
         expected_count=1
     )
     
-    # 打印查看最后综合打包的完整数据，格式完美对齐你的注册表，未来直接喂给 Reflector
-    print("\n" + "="*20 + " Final Gathered Evidences " + "="*20)
+    print("\n" + "="*20 + " Final Gathered Evidences (3 Experts) " + "="*20)
     print(json.dumps(results, indent=4, ensure_ascii=False))
