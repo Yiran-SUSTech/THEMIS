@@ -5,6 +5,8 @@ import numpy as np
 import onnxruntime as ort
 from PIL import Image
 
+# python test_metax_eva02.py
+
 # ==================== 1. 配置路径 ====================
 MODEL_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/eva02_large_metax_compatible.onnx"
 IMAGE_DIR = "./test_images"

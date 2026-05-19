@@ -15,6 +15,8 @@ from pathlib import Path
 import torch
 from PIL import Image
 
+# python test_qinsight.py --image_dir /mnt/afs/zhengmingkai/zyr/THEMIS/test_images
+
 # ==================== 1. 配置路径 ====================
 MODEL_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/models/Q-Insight/score_degradation"
 IMAGE_DIR = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images"

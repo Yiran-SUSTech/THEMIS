@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import os
 
+# python test_SAM1.py
+
 # --- 1. 配置路径 ---
 MODEL_DIR = "new_models/sam1_onnx/machine_learning_models/"
 # 建议先用 MobileSAM 测试，如果追求精度再换 sam_vit_h

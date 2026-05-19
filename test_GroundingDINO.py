@@ -11,6 +11,8 @@ from torchvision.transforms import functional as TVF
 from PIL import Image
 import cv2
 
+# python test_GroundingDINO.py
+
 def preprocess_image(image_path):
     """标准的 Grounding DINO 图像预处理"""
     print(f"--> loading image from: {image_path}")

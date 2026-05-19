@@ -4,6 +4,8 @@ import onnxruntime as ort
 import os
 from tqdm import tqdm
 
+# python test_DepthAnythingV1.py
+
 MODEL_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/depth_anything_v1_onnx/onnx/model_fp16.onnx"
 INPUT_DIR = "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images" 
 OUTPUT_DIR = "/mnt/afs/zhengmingkai/zyr/THEMIS/depth_results_v1"

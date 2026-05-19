@@ -4,6 +4,8 @@ import os
 import requests
 from rtmlib import Custom, Animal, draw_skeleton
 
+# python test_RTMlib.py
+
 # ================= Configuration =================
 # 1. Hardware Configuration
 # device = 'cuda' 
