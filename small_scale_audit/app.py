@@ -1,0 +1,405 @@
+import os
+import json
+import gradio as gr
+
+# ==========================================
+# 1. 路径配置与核心数据加载
+# ==========================================
+BASE_DIR = "."  
+IMAGE_DIR = os.path.join(BASE_DIR, "test_images_XL_fixed_id")
+TAXONOMY_DIR = os.path.join(BASE_DIR, "taxonomy_info")
+CLASS_ID_FILE = os.path.join(IMAGE_DIR, "class_ids.txt")
+
+ZH_GUIDE_PATH = os.path.join(BASE_DIR, "标注指南.md")
+EN_GUIDE_PATH = os.path.join(BASE_DIR, "Annotation Guideline.md")
+
+image_to_class = {}
+class_to_taxonomy = {}
+raw_img_list = [] 
+
+def init_data():
+    global image_to_class, class_to_taxonomy, raw_img_list
+    if os.path.exists(CLASS_ID_FILE):
+        with open(CLASS_ID_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    img_id, cls_id = line.strip().split()
+                    image_to_class[f"{img_id}.png"] = int(cls_id)
+                    
+    if os.path.exists(TAXONOMY_DIR):
+        for file in os.listdir(TAXONOMY_DIR):
+            if file.endswith(".json") and "structured" in file:
+                try:
+                    with open(os.path.join(TAXONOMY_DIR, file), "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        for item in data:
+                            class_to_taxonomy[item["class_id"]] = item
+                except Exception as e:
+                    print(f"Error loading {file}: {e}")
+                    
+    if os.path.exists(IMAGE_DIR):
+        raw_img_list = sorted([f for f in os.listdir(IMAGE_DIR) if f.endswith(('.png', '.jpg', '.jpeg'))])
+
+init_data()
+
+# ==========================================
+# 动态 MD 指南加载器
+# ==========================================
+def load_markdown_guide(language):
+    target_path = ZH_GUIDE_PATH if language == "简体中文 (Chinese)" else EN_GUIDE_PATH
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return f"⚠️ Guide file not found at: `{target_path}`"
+
+# ==========================================
+# 单一用户独占主 JSON 数据库管理
+# ==========================================
+def get_user_file_path(annotator_id):
+    out_dir = os.path.join(BASE_DIR, "output_results")
+    os.makedirs(out_dir, exist_ok=True)
+    return os.path.join(out_dir, f"User_{int(annotator_id)}_final_annotations.json")
+
+def load_user_database(annotator_id):
+    if not annotator_id:
+        return {}
+    file_path = get_user_file_path(annotator_id)
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except:
+                return {}
+    return {}
+
+def save_to_user_database(annotator_id, img_name, single_record):
+    file_path = get_user_file_path(annotator_id)
+    db = load_user_database(annotator_id)
+    db[img_name] = single_record
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(db, f, indent=4, ensure_ascii=False)
+
+def build_dropdown_choices(user_db):
+    choices = []
+    for img in raw_img_list:
+        if img in user_db:
+            choices.append((f"√ {img}", img)) 
+        else:
+            choices.append((img, img))
+    return choices
+
+# ==========================================
+# 2. 核心计算与业务逻辑
+# ==========================================
+def calculate_scores(artifact_score, veto, *checkmarks):
+    if veto == "Yes (Total Mismatch - 0分)":
+        return 0.0, 0.0
+    checked_count = 0
+    na_count = 0
+    total_items = len(checkmarks)
+    for val in checkmarks:
+        if val == "🟢 Checked":
+            checked_count += 1
+        elif val == "⚪ N/A":
+            na_count += 1
+    effective_total = total_items - na_count
+    alignment_score = 5 * (checked_count / effective_total) if effective_total > 0 else 0.0
+    return round(alignment_score, 2), round(alignment_score * float(artifact_score), 2)
+
+def load_image_ui_state(img_name, annotator_id):
+    if not img_name or not annotator_id:
+        return ("Unknown", "None", 5, "No", 0.0, 0.0, *[gr.update(visible=False) for _ in range(30)])
+    
+    class_id = image_to_class.get(img_name, None)
+    if class_id is None or class_id not in class_to_taxonomy:
+        return (f"Unknown (ID: {class_id})", "None", 5, "No", 0.0, 0.0, *[gr.update(visible=False) for _ in range(30)])
+        
+    tax_data = class_to_taxonomy[class_id]
+    class_name = tax_data.get("class_name", "Unknown")
+    super_cat = tax_data.get("super_category", "Unknown")
+    checkpoints = tax_data.get("diagnostic_checkpoints", {})
+    
+    flat_points = []
+    for section, points in checkpoints.items():
+        for p in points:
+            flat_points.append((section, p))
+            
+    user_db = load_user_database(annotator_id)
+    has_history = img_name in user_db
+    hist_data = user_db.get(img_name, {}) if has_history else {}
+    
+    saved_artifact = hist_data.get("scores", {}).get("artifact_score", 5) if has_history else 5
+    saved_veto = "Yes (Total Mismatch - 0分)" if (has_history and hist_data.get("veto_activated", False)) else "No"
+    
+    updates = []
+    for i in range(30):
+        if i < len(flat_points):
+            section, p = flat_points[i]
+            saved_val = "🔴 Missing"
+            if has_history:
+                saved_val = hist_data.get("fine_grained_details", {}).get(section, {}).get(p, "🔴 Missing")
+            updates.append(gr.update(label=p, value=saved_val, visible=True))
+        else:
+            updates.append(gr.update(visible=False, value="⚪ N/A"))
+            
+    meta_str = f"**Class ID**: {class_id}  |  **Super Category**: {super_cat}"
+    
+    flat_vals = [u['value'] for u in updates if 'value' in u]
+    if not flat_vals:
+        flat_vals = ["🔴 Missing"] * len(flat_points)
+        
+    align_calc, total_calc = calculate_scores(saved_artifact, saved_veto, *flat_vals)
+    
+    return (
+        class_name, meta_str, 
+        saved_artifact, saved_veto, 
+        align_calc, total_calc,
+        *updates
+    )
+
+def save_annotation(img_name, class_name, align_s, artifact_s, total_s, veto, annotator_id, *checkmarks):
+    if not img_name or not annotator_id:
+        return gr.update(value="⚠️ Save Failed: Context Missing"), gr.update()
+    
+    class_id = image_to_class.get(img_name)
+    tax_data = class_to_taxonomy.get(class_id, {})
+    checkpoints = tax_data.get("diagnostic_checkpoints", {})
+    
+    flat_points = []
+    for section, points in checkpoints.items():
+        for p in points:
+            flat_points.append((section, p))
+            
+    details = {}
+    for i, val in enumerate(checkmarks):
+        if i < len(flat_points):
+            section, p = flat_points[i]
+            if section not in details:
+                details[section] = {}
+            details[section][p] = val
+
+    single_record = {
+        "image_name": img_name, 
+        "class_id": class_id, 
+        "class_name": class_name,
+        "veto_activated": True if veto == "Yes (Total Mismatch - 0分)" else False,
+        "scores": {
+            "alignment_score": float(align_s),   
+            "artifact_score": float(artifact_s),   
+            "total_score": float(total_s)
+        },
+        "fine_grained_details": details
+    }
+    
+    save_to_user_database(annotator_id, img_name, single_record)
+    
+    updated_db = load_user_database(annotator_id)
+    new_choices = build_dropdown_choices(updated_db)
+    
+    # 体验增强：保存后自动探寻下一张未标注的图，无缝推进流水线
+    next_img = img_name
+    for img in raw_img_list:
+        if img not in updated_db:
+            next_img = img
+            break
+    
+    return gr.update(value=f"💾 Saved {img_name} successfully!"), gr.update(choices=new_choices, value=next_img)
+
+# ==========================================
+# 用户隔离会话控制处理函数
+# ==========================================
+def start_session(total_users, current_user):
+    # 注意这里增加到返回 7 个基础控制组件 + 6 个文字组件 + 30 个插槽
+    if not current_user:
+        return [gr.update() for _ in range(7)] + ["⚠️ Please specify your Annotator ID!", "None", 5, "No", 0.0, 0.0] + [gr.update() for _ in range(30)]
+    
+    if int(current_user) > int(total_users) or int(current_user) <= 0:
+        return [gr.update() for _ in range(7)] + [f"⚠️ Invalid ID. Must be 1 ~ {total_users}", "None", 5, "No", 0.0, 0.0] + [gr.update() for _ in range(30)]
+        
+    user_db = load_user_database(current_user)
+    completed_imgs = list(user_db.keys())
+    
+    target_img = raw_img_list[0] if raw_img_list else None
+    for img in raw_img_list:
+        if img not in completed_imgs:
+            target_img = img
+            break
+    if not target_img and raw_img_list:
+        target_img = raw_img_list[-1]
+            
+    progress_status = f"👋 **Welcome Back User {int(current_user)}!** Audited {len(completed_imgs)}/{len(raw_img_list)} images. Resuming from YOUR exclusive checkpoint."
+    dropdown_choices = build_dropdown_choices(user_db)
+    
+    cls_name, meta, art_v, veto_v, al_v, tot_v, *slots = load_image_ui_state(target_img, current_user)
+    
+    # 【彻底修复】：不仅更新菜单和文字，将最底层的隐式图名容器和画面播放器一并强制清洗！
+    return (
+        gr.update(interactive=True), 
+        gr.update(visible=True), 
+        gr.Tabs(selected="workspace"), 
+        gr.update(choices=dropdown_choices, value=target_img), 
+        gr.update(value=progress_status),
+        gr.update(value=target_img),                                                  # 强刷隐式图名
+        gr.update(value=os.path.join(IMAGE_DIR, target_img) if target_img else None), # 强刷画面
+        cls_name, meta, art_v, veto_v, al_v, tot_v, *slots
+    )
+
+def request_exit():
+    return gr.update(visible=True)
+
+def execute_exit(generate_report, annotator_id):
+    msg = f"🚪 Session safely closed for User {annotator_id}."
+    if generate_report == "Yes, generate summary report":
+        user_db = load_user_database(annotator_id)
+        out_dir = os.path.join(BASE_DIR, "output_results")
+        report_path = os.path.join(out_dir, f"User_{int(annotator_id)}_audit_summary.txt")
+        
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(f"=== ANNOTATOR {annotator_id} CENTRAL REPORT ===\n")
+            f.write(f"Total Dataset Count: {len(raw_img_list)}\n")
+            f.write(f"Progress Reached: {len(user_db)} / {len(raw_img_list)}\n")
+            f.write(f"Status: Interrupted Session Backup Done.\n")
+        msg += f"\n📊 Individual summary report compiled at: {report_path}"
+    
+    return gr.Tabs(selected="guideline"), gr.update(visible=False), gr.update(visible=False), gr.update(interactive=False), msg
+
+# ==========================================
+# 3. UI 布局与组件配置
+# ==========================================
+custom_theme = gr.themes.Soft(primary_hue="teal", secondary_hue="slate", neutral_hue="neutral").set(
+    button_primary_background_fill="*primary_200", 
+    button_primary_background_fill_hover="*primary_300",
+    button_primary_text_color="*neutral_800"
+)
+
+with gr.Blocks(title="Fine-Grained Visual Audit System") as demo:
+    gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台")
+    
+    raw_img_holder = gr.Textbox(visible=False, value="")
+    
+    with gr.Tabs() as main_tabs:
+        
+        # --- TAB 1: 门口页 ---
+        with gr.Tab("📜 Annotation Guideline", id="guideline"):
+            with gr.Group():
+                gr.Markdown("### 👥 Step 1: Initialize User Context & Audit Team")
+                with gr.Row():
+                    total_user_num = gr.Number(value=3, label="Total Number of Annotators in Team", precision=0)
+                    current_user_id = gr.Number(value=1, label="Your Assigned Annotator ID (e.g., 1, 2, 3)", precision=0)
+            
+            with gr.Group():
+                gr.Markdown("### 📜 Step 2: Review Full Audit Documentation")
+                lang_selector = gr.Dropdown(choices=["简体中文 (Chinese)", "English (UK/US)"], value="简体中文 (Chinese)", label="选择指南语言 / Select Documentation Language")
+                md_viewer = gr.Markdown(value=load_markdown_guide("简体中文 (Chinese)"))
+                lang_selector.change(load_markdown_guide, inputs=[lang_selector], outputs=[md_viewer])
+
+            start_btn = gr.Button("🚀 Start/Resume My Audit Session", variant="primary", size="lg")
+            exit_msg_box = gr.Markdown("")
+
+        # --- TAB 2: 主标注工作区 ---
+        with gr.Tab("💻 Active Workspace", id="workspace", interactive=False) as workspace_tab:
+            with gr.Column(visible=False) as workspace_container:
+                
+                with gr.Row():
+                    user_status_bar = gr.Markdown("🟢 **Current Status: Session Active**")
+                    exit_req_btn = gr.Button("🚪 Exit & Save Mid-Progress", variant="stop", size="sm")
+                
+                with gr.Group(visible=False) as exit_confirm_container:
+                    gr.Markdown("### 🛠️ Interrupted Mid-Progress Session Save")
+                    report_radio = gr.Radio(choices=["Yes, generate summary report", "No, just exit directly"], value="Yes, generate summary report", label="Do you want to export your personal progress report?", interactive=True)
+                    with gr.Row():
+                        confirm_exit_btn = gr.Button("Confirm Exit & Close", variant="primary")
+                        cancel_exit_btn = gr.Button("Cancel", variant="secondary")
+
+                gr.Markdown("---")
+                
+                with gr.Row():
+                    # --- 左侧 ---
+                    with gr.Column(scale=4):
+                        image_selector = gr.Dropdown(choices=[], label="🖼️ Select Target Image")
+                        image_viewer = gr.Image(label="AI Generated Image", type="filepath")
+                        
+                        def on_dropdown_select(selected_val):
+                            if not selected_val:
+                                return "", None
+                            return selected_val, os.path.join(IMAGE_DIR, selected_val)
+                        
+                        with gr.Accordion("💡 Dimension 2: Artifact Slider Quick Guide", open=True):
+                            gr.Markdown("""
+                            * **5 (Flawless)**: Photographic quality, zero physical distortion.
+                            * **4 (Minor)**: Tiny AI traces, framework entirely intact.
+                            * **3 (Moderate)**: Clear structural errors, local chaotic patterns.
+                            * **2 (Severe)**: Misplaced components, heavily deformed details.
+                            * **1 (Collapse)**: Massive structural melting. Useless AI failure.
+                            * **0 (Chaos)**: Pure pixel/structural noise.
+                            """)
+                        
+                        gr.Markdown("### 📐 Live Score Dashboard")
+                        with gr.Row():
+                            alignment_disp = gr.Number(label="Alignment Score (Auto)", value=0.0, precision=2)
+                            artifact_disp = gr.Slider(minimum=0, maximum=5, step=1, value=5, label="❌ Artifact Score (Manual)")
+                        
+                        total_disp = gr.Number(label="🏆 Total Score (Alignment × Artifact)", value=0.0, precision=2)
+                        save_btn = gr.Button("💾 Save & Submit This Image", variant="primary")
+                        msg_box = gr.Markdown("")
+
+                    # --- 右侧 ---
+                    with gr.Column(scale=6):
+                        class_name_disp = gr.Textbox(label="🏷️ Target Class Name", interactive=False, value="Loading...")
+                        meta_disp = gr.Markdown("**Class ID**: --  |  **Super Category**: --")
+                        veto_radio = gr.Radio(choices=["No", "Yes (Total Mismatch - 0分)"], value="No", label="🚨 Veto Trigger", info="Force Alignment to 0 if wrong object.")
+                        
+                        with gr.Accordion("💡 Dimension 1: Attribute Tri-State Guide", open=True):
+                            gr.Markdown("""
+                            * **🟢 Checked**: Perfectly present, matches description.
+                            * **🔴 Missing**: Missing or heavily violated in its corresponding region.
+                            * **⚪ N/A**: Out of frame due to extreme close-up/cropping.
+                            """)
+                        
+                        gr.Markdown("### 🔍 Fine-Grained Attribute Checklists (Clean View)")
+                        with gr.Group():
+                            radio_slots = []
+                            for _ in range(30):
+                                r = gr.Radio(choices=["🟢 Checked", "🔴 Missing", "⚪ N/A"], value="🔴 Missing", visible=False, label="")
+                                radio_slots.append(r)
+
+    # ==========================================
+    # 4. 高级事件链流转
+    # ==========================================
+    start_btn.click(
+        start_session, 
+        inputs=[total_user_num, current_user_id], 
+        outputs=[
+            workspace_tab, workspace_container, main_tabs, image_selector, user_status_bar, 
+            raw_img_holder, image_viewer,  # <==== 补上了这里！
+            class_name_disp, meta_disp, artifact_disp, veto_radio, alignment_disp, total_disp, 
+            *radio_slots
+        ]
+    )
+    
+    image_selector.change(
+        on_dropdown_select, 
+        inputs=[image_selector], 
+        outputs=[raw_img_holder, image_viewer]
+    ).then(
+        load_image_ui_state, 
+        inputs=[raw_img_holder, current_user_id], 
+        outputs=[class_name_disp, meta_disp, artifact_disp, veto_radio, alignment_disp, total_disp, *radio_slots]
+    )
+    
+    exit_req_btn.click(request_exit, inputs=[], outputs=[exit_confirm_container])
+    cancel_exit_btn.click(lambda: gr.update(visible=False), inputs=[], outputs=[exit_confirm_container])
+    confirm_exit_btn.click(execute_exit, inputs=[report_radio, current_user_id], outputs=[main_tabs, workspace_container, exit_confirm_container, workspace_tab, exit_msg_box])
+
+    score_inputs = [artifact_disp, veto_radio] + radio_slots
+    for widget in score_inputs:
+        widget.change(calculate_scores, inputs=score_inputs, outputs=[alignment_disp, total_disp])
+        
+    save_btn.click(
+        save_annotation,
+        inputs=[raw_img_holder, class_name_disp, alignment_disp, artifact_disp, total_disp, veto_radio, current_user_id] + radio_slots,
+        outputs=[msg_box, image_selector]
+    )
+
+if __name__ == "__main__":
+    demo.launch(server_name="127.0.0.1", server_port=7860, theme=custom_theme)
