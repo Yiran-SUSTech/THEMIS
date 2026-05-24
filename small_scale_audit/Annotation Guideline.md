@@ -26,12 +26,12 @@ For each attribute point in the checklist, annotators must label it with one of 
 ### 📐 Alignment Score Automatic Calculation Formula:
 The system will automatically calculate the true alignment ratio based on the annotator's input by eliminating the Not Applicable (N/A) items:
 
-$$\text{Alignment Score} = 5 \times \frac{\text{\# Checked}}{\text{\# Total} - \text{\# N/A}}$$
+$$\text{Alignment Score} = 5 \times \frac{\text{\\# Checked}}{\text{\\# Total} - \text{\\# N/A}}$$
 
 > **Formula Glossary:**
-> * **$\text{\# Checked}$** = Total count of attributes marked as "🟢 Checked".
-> * **$\text{\# Total}$** = Total number of attribute rows in the category's JSON checklist.
-> * **$\text{\# N/A}$** = Total count of attributes marked as "⚪ N/A".
+> * **$\text{\\# Checked}$** = Total count of attributes marked as "🟢 Checked".
+> * **$\text{\\# Total}$** = Total number of attribute rows in the category's JSON checklist.
+> * **$\text{\\# N/A}$** = Total count of attributes marked as "⚪ N/A".
 
 > **⚠️ Line-Crossing Veto (Crucial)**: If the generated image depicts a completely different species or object entirely (e.g., the target class is "slot machine" but the model generates a "frog"), it is a total mismatch. In this case, you do not need to check item by item—**directly assign 0.0 to the final Alignment Score**.
 
