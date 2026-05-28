@@ -6,7 +6,7 @@ import gradio as gr
 # 1. 路径配置与核心数据加载
 # ==========================================
 BASE_DIR = "."  
-IMAGE_DIR = os.path.join(BASE_DIR, "test_images_XL_fixed_id")
+IMAGE_DIR = os.path.join(BASE_DIR, "online_test_images")
 TAXONOMY_DIR = os.path.join(BASE_DIR, "taxonomy_info")
 CLASS_ID_FILE = os.path.join(IMAGE_DIR, "class_ids.txt")
 
@@ -266,13 +266,72 @@ def execute_exit(generate_report, annotator_id):
 # ==========================================
 # 3. UI 布局与组件配置
 # ==========================================
+custom_css = """
+/* 全局字体统一设置 */
+body, .gradio-container, .main, .wrap, .container {
+    font-family: "Times New Roman", "SimSun", serif !important;
+}
+
+/* 标题字体 */
+h1, h2, h3, h4, h5, h6, .prose h1, .prose h2, .prose h3 {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-weight: bold !important;
+}
+
+/* Markdown 内容字体 */
+.prose, .markdown-content, .md-preview {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+}
+
+/* 标签和说明文字 */
+label, .form-label, .block-label {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-size: 14px !important;
+}
+
+/* 按钮字体 */
+button, .lg.svelte-1vft05d, .primary, .secondary, .stop {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-weight: bold !important;
+}
+
+/* 下拉菜单和输入框字体 */
+select, input, textarea, .dropdown, .textbox, .number {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-size: 14px !important;
+}
+
+/* 单选框和复选框标签 */
+.radio label, .checkbox label, .form-radio label {
+    font-family: "Times New Roman", "SimSun", serif !important;
+    font-size: 14px !important;
+}
+
+/* 代码块保持等宽字体 */
+code, pre, .code-block {
+    font-family: "Consolas", "Courier New", monospace !important;
+}
+
+/* 表格字体 */
+table, .dataframe, td, th {
+    font-family: "Times New Roman", "SimSun", serif !important;
+}
+
+/* 状态栏和信息提示 */
+.status, .info, .warning, .error {
+    font-family: "Times New Roman", "SimSun", serif !important;
+}
+"""
+
 custom_theme = gr.themes.Soft(primary_hue="teal", secondary_hue="slate", neutral_hue="neutral").set(
     button_primary_background_fill="*primary_200", 
     button_primary_background_fill_hover="*primary_300",
     button_primary_text_color="*neutral_800"
 )
 
-with gr.Blocks(title="Fine-Grained Visual Audit System") as demo:
+with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css) as demo:
     gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台")
     
     raw_img_holder = gr.Textbox(visible=False, value="")
