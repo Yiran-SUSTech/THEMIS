@@ -25,6 +25,8 @@ def init_data():
                 if line.strip():
                     img_id, cls_id = line.strip().split()
                     image_to_class[f"{img_id}.png"] = int(cls_id)
+                    image_to_class[f"{img_id}.jpg"] = int(cls_id)
+                    image_to_class[f"{img_id}.jpeg"] = int(cls_id)
                     
     if os.path.exists(TAXONOMY_DIR):
         for file in os.listdir(TAXONOMY_DIR):
@@ -38,7 +40,22 @@ def init_data():
                     print(f"Error loading {file}: {e}")
                     
     if os.path.exists(IMAGE_DIR):
-        raw_img_list = sorted([f for f in os.listdir(IMAGE_DIR) if f.endswith(('.png', '.jpg', '.jpeg'))])
+        # 按照 class_ids.txt 的顺序加载图片
+        raw_img_list = []
+        if os.path.exists(CLASS_ID_FILE):
+            with open(CLASS_ID_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        img_id, _ = line.strip().split()
+                        # 查找实际存在的图片文件
+                        for ext in ['.png', '.jpg', '.jpeg']:
+                            img_name = f"{img_id}{ext}"
+                            if os.path.exists(os.path.join(IMAGE_DIR, img_name)):
+                                raw_img_list.append(img_name)
+                                break
+        else:
+            # 如果没有 class_ids.txt，则按文件名排序
+            raw_img_list = sorted([f for f in os.listdir(IMAGE_DIR) if f.endswith(('.png', '.jpg', '.jpeg'))])
 
 init_data()
 
@@ -323,7 +340,55 @@ table, .dataframe, td, th {
 .status, .info, .warning, .error {
     font-family: "Times New Roman", "SimSun", serif !important;
 }
+
+/* 只读数字输入框样式 */
+input[readonly], .number input[readonly] {
+    background-color: #f0f0f0 !important;
+    cursor: not-allowed !important;
+}
+
+/* 图片缩放容器样式 */
+.image-viewer-wrapper {
+    overflow: hidden !important;
+    position: relative !important;
+    cursor: default !important;
+}
+
+.image-viewer-wrapper.zoomed {
+    cursor: grab !important;
+}
+
+.image-viewer-wrapper:active {
+    cursor: grabbing !important;
+}
+
+.image-viewer-wrapper img {
+    transition: transform 0.15s ease-out !important;
+    transform-origin: 0 0 !important;
+    max-width: 100% !important;
+}
+
+.image-viewer-wrapper img.dragging {
+    transition: none !important;
+}
 """
+
+# ==========================================
+# 图片缩放功能
+# ==========================================
+ZOOM_STEP = 25  # 每次缩放 25%
+ZOOM_MIN = 25
+ZOOM_MAX = 400
+
+def zoom_image(current_zoom, direction):
+    """处理图片缩放"""
+    new_zoom = current_zoom + direction * ZOOM_STEP
+    new_zoom = max(ZOOM_MIN, min(ZOOM_MAX, new_zoom))  # 限制在 25% - 400%
+    return new_zoom
+
+def reset_zoom():
+    """重置缩放"""
+    return 100
 
 custom_theme = gr.themes.Soft(primary_hue="teal", secondary_hue="slate", neutral_hue="neutral").set(
     button_primary_background_fill="*primary_200", 
@@ -331,7 +396,164 @@ custom_theme = gr.themes.Soft(primary_hue="teal", secondary_hue="slate", neutral
     button_primary_text_color="*neutral_800"
 )
 
-with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css) as demo:
+custom_js = """
+(function() {
+    let scale = 1;
+    let panX = 0, panY = 0;
+    let isPanning = false;
+    let startX, startY;
+    let lastMouseX = 0, lastMouseY = 0;
+    let targetImg = null;
+    let targetContainer = null;
+    
+    function findImage() {
+        if (targetImg && targetContainer) return;
+        
+        const allImgs = document.querySelectorAll('img');
+        for (const img of allImgs) {
+            if (img.src && img.src.includes('online_test_images')) {
+                targetImg = img;
+                targetContainer = img.closest('.wrap, .group, div');
+                if (targetContainer) {
+                    targetContainer.style.overflow = 'hidden';
+                    targetContainer.style.position = 'relative';
+                }
+                return;
+            }
+        }
+    }
+    
+    function getContainer() {
+        findImage();
+        return targetContainer;
+    }
+    
+    function getImg() {
+        findImage();
+        return targetImg;
+    }
+    
+    window.zoomIn = function() {
+        const container = getContainer();
+        const img = getImg();
+        if (!container || !img) return 100;
+        
+        const oldScale = scale;
+        scale = Math.min(scale + 0.25, 4);
+        
+        const rect = container.getBoundingClientRect();
+        const centerX = lastMouseX - rect.left;
+        const centerY = lastMouseY - rect.top;
+        
+        panX = centerX - (centerX - panX) * (scale / oldScale);
+        panY = centerY - (centerY - panY) * (scale / oldScale);
+        
+        if (scale > 1) {
+            container.style.cursor = 'grab';
+            container.style.overflow = 'auto';
+        }
+        
+        img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        img.style.transformOrigin = '0 0';
+        img.style.transition = 'transform 0.2s ease-out';
+        
+        return Math.round(scale * 100);
+    };
+    
+    window.zoomOut = function() {
+        const container = getContainer();
+        const img = getImg();
+        if (!container || !img) return 100;
+        
+        const oldScale = scale;
+        scale = Math.max(scale - 0.25, 0.25);
+        
+        if (scale <= 1) {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            container.style.cursor = 'default';
+            container.style.overflow = 'hidden';
+        } else {
+            const rect = container.getBoundingClientRect();
+            const centerX = lastMouseX - rect.left;
+            const centerY = lastMouseY - rect.top;
+            
+            panX = centerX - (centerX - panX) * (scale / oldScale);
+            panY = centerY - (centerY - panY) * (scale / oldScale);
+        }
+        
+        img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        img.style.transformOrigin = '0 0';
+        img.style.transition = 'transform 0.2s ease-out';
+        
+        return Math.round(scale * 100);
+    };
+    
+    window.resetZoom = function() {
+        const container = getContainer();
+        const img = getImg();
+        if (!container || !img) return 100;
+        
+        scale = 1;
+        panX = 0;
+        panY = 0;
+        container.style.cursor = 'default';
+        container.style.overflow = 'hidden';
+        img.style.transform = '';
+        
+        return 100;
+    };
+    
+    function setupPan() {
+        findImage();
+        if (!targetContainer || targetContainer.dataset.panSetup) return;
+        
+        targetContainer.dataset.panSetup = '1';
+        targetContainer.style.overflow = 'hidden';
+        targetContainer.style.position = 'relative';
+        
+        targetContainer.addEventListener('mousemove', function(e) {
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+        
+        targetContainer.addEventListener('mousedown', function(e) {
+            if (scale <= 1 || !targetImg) return;
+            isPanning = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            targetContainer.style.cursor = 'grabbing';
+            targetImg.style.transition = 'none';
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (!isPanning || !targetImg) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            targetImg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (isPanning && targetContainer) {
+                isPanning = false;
+                targetContainer.style.cursor = scale > 1 ? 'grab' : 'default';
+                if (targetImg) targetImg.style.transition = 'transform 0.2s ease-out';
+            }
+        });
+    }
+    
+    const observer = new MutationObserver(setupPan);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    setTimeout(setupPan, 500);
+    setTimeout(setupPan, 1500);
+    setTimeout(setupPan, 3000);
+})();
+"""
+
+with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=custom_js) as demo:
     gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台")
     
     raw_img_holder = gr.Textbox(visible=False, value="")
@@ -373,15 +595,62 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css) as demo
                 gr.Markdown("---")
                 
                 with gr.Row():
-                    # --- 左侧 ---
+                    # --- 左侧：图片展示区 ---
                     with gr.Column(scale=4):
                         image_selector = gr.Dropdown(choices=[], label="🖼️ Select Target Image")
-                        image_viewer = gr.Image(label="AI Generated Image", type="filepath")
+                        
+                        # 图片查看器 + 缩放控制
+                        with gr.Group():
+                            image_viewer = gr.Image(label="AI Generated Image", type="filepath")
+                            with gr.Row():
+                                zoom_in_btn = gr.Button("🔍 Zoom In", variant="secondary", size="sm")
+                                zoom_out_btn = gr.Button("🔍 Zoom Out", variant="secondary", size="sm")
+                                zoom_reset_btn = gr.Button("🔄 Reset", variant="secondary", size="sm")
+                            zoom_level = gr.Number(value=100, label="Zoom Level (%)", precision=0, interactive=False)
                         
                         def on_dropdown_select(selected_val):
                             if not selected_val:
-                                return "", None
-                            return selected_val, os.path.join(IMAGE_DIR, selected_val)
+                                return "", None, 100
+                            return selected_val, os.path.join(IMAGE_DIR, selected_val), 100
+                        
+                        # 图片信息区
+                        class_name_disp = gr.Textbox(label="🏷️ Target Class Name", interactive=False, value="Loading...")
+                        meta_disp = gr.Markdown("**Class ID**: --  |  **Super Category**: --")
+                        
+                        # 总分和保存按钮
+                        total_disp = gr.Number(label="🏆 Total Score (Alignment × Artifact)", value=0.0, precision=2, interactive=False)
+                        save_btn = gr.Button("💾 Save & Submit This Image", variant="primary")
+                        msg_box = gr.Markdown("")
+
+                    # --- 右侧：Dimension 1 (Attribute) ---
+                    with gr.Column(scale=6):
+                        gr.Markdown("### 📏 Dimension 1: Fine-Grained Attribute Alignment")
+                        
+                        with gr.Accordion("💡 Dimension 1: Attribute Tri-State Guide", open=True):
+                            gr.Markdown("""
+                            * **🟢 Checked**: Perfectly present, matches description.
+                            * **🔴 Missing**: Missing or heavily violated in its corresponding region.
+                            * **⚪ N/A**: Out of frame due to extreme close-up/cropping.
+                            """)
+                        
+                        gr.Markdown("### � Fine-Grained Attribute Checklists (Clean View)")
+                        with gr.Group():
+                            radio_slots = []
+                            for _ in range(30):
+                                r = gr.Radio(choices=["🟢 Checked", "🔴 Missing", "⚪ N/A"], value="🔴 Missing", visible=False, label="")
+                                radio_slots.append(r)
+                        
+                        gr.Markdown("---")
+                        
+                        # Veto Trigger（属于 Dimension 1）
+                        veto_radio = gr.Radio(choices=["No", "Yes (Total Mismatch - 0分)"], value="No", label="🚨 Veto Trigger", info="Force Alignment to 0 if wrong object.")
+                        
+                        # Alignment Score（Dimension 1 的结果）
+                        alignment_disp = gr.Number(label="📊 Alignment Score (Auto-calculated from Attributes)", value=0.0, precision=2)
+                    
+                    # --- 中间：Dimension 2 (Artifact) ---
+                    with gr.Column(scale=3):
+                        gr.Markdown("### 🎨 Dimension 2: Artifact Quality Assessment")
                         
                         with gr.Accordion("💡 Dimension 2: Artifact Slider Quick Guide", open=True):
                             gr.Markdown("""
@@ -393,34 +662,8 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css) as demo
                             * **0 (Chaos)**: Pure pixel/structural noise.
                             """)
                         
-                        gr.Markdown("### 📐 Live Score Dashboard")
-                        with gr.Row():
-                            alignment_disp = gr.Number(label="Alignment Score (Auto)", value=0.0, precision=2)
-                            artifact_disp = gr.Slider(minimum=0, maximum=5, step=1, value=5, label="❌ Artifact Score (Manual)")
-                        
-                        total_disp = gr.Number(label="🏆 Total Score (Alignment × Artifact)", value=0.0, precision=2)
-                        save_btn = gr.Button("💾 Save & Submit This Image", variant="primary")
-                        msg_box = gr.Markdown("")
-
-                    # --- 右侧 ---
-                    with gr.Column(scale=6):
-                        class_name_disp = gr.Textbox(label="🏷️ Target Class Name", interactive=False, value="Loading...")
-                        meta_disp = gr.Markdown("**Class ID**: --  |  **Super Category**: --")
-                        veto_radio = gr.Radio(choices=["No", "Yes (Total Mismatch - 0分)"], value="No", label="🚨 Veto Trigger", info="Force Alignment to 0 if wrong object.")
-                        
-                        with gr.Accordion("💡 Dimension 1: Attribute Tri-State Guide", open=True):
-                            gr.Markdown("""
-                            * **🟢 Checked**: Perfectly present, matches description.
-                            * **🔴 Missing**: Missing or heavily violated in its corresponding region.
-                            * **⚪ N/A**: Out of frame due to extreme close-up/cropping.
-                            """)
-                        
-                        gr.Markdown("### 🔍 Fine-Grained Attribute Checklists (Clean View)")
-                        with gr.Group():
-                            radio_slots = []
-                            for _ in range(30):
-                                r = gr.Radio(choices=["🟢 Checked", "🔴 Missing", "⚪ N/A"], value="🔴 Missing", visible=False, label="")
-                                radio_slots.append(r)
+                        gr.Markdown("### 🎯 Artifact Score")
+                        artifact_disp = gr.Slider(minimum=0, maximum=5, step=1, value=5, label="Artifact Score (Manual)")
 
     # ==========================================
     # 4. 高级事件链流转
@@ -439,11 +682,33 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css) as demo
     image_selector.change(
         on_dropdown_select, 
         inputs=[image_selector], 
-        outputs=[raw_img_holder, image_viewer]
+        outputs=[raw_img_holder, image_viewer, zoom_level]
     ).then(
         load_image_ui_state, 
         inputs=[raw_img_holder, current_user_id], 
         outputs=[class_name_disp, meta_disp, artifact_disp, veto_radio, alignment_disp, total_disp, *radio_slots]
+    )
+    
+    # 缩放按钮事件
+    zoom_in_btn.click(
+        None,
+        inputs=[],
+        outputs=[zoom_level],
+        js="() => { return window.zoomIn ? window.zoomIn() : 100; }"
+    )
+    
+    zoom_out_btn.click(
+        None,
+        inputs=[],
+        outputs=[zoom_level],
+        js="() => { return window.zoomOut ? window.zoomOut() : 100; }"
+    )
+    
+    zoom_reset_btn.click(
+        None,
+        inputs=[],
+        outputs=[zoom_level],
+        js="() => { return window.resetZoom ? window.resetZoom() : 100; }"
     )
     
     exit_req_btn.click(request_exit, inputs=[], outputs=[exit_confirm_container])
