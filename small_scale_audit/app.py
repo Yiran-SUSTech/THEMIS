@@ -403,45 +403,36 @@ custom_js = """
     let isPanning = false;
     let startX, startY;
     let lastMouseX = 0, lastMouseY = 0;
-    let targetImg = null;
-    let targetContainer = null;
+    let initialized = false;
     
-    function findImage() {
-        if (targetImg && targetContainer) return;
+    function getElements() {
+        const group = document.getElementById('image-viewer-group');
+        if (!group) return null;
         
-        const allImgs = document.querySelectorAll('img');
-        for (const img of allImgs) {
-            if (img.src && img.src.includes('online_test_images')) {
-                targetImg = img;
-                targetContainer = img.closest('.wrap, .group, div');
-                if (targetContainer) {
-                    targetContainer.style.overflow = 'hidden';
-                    targetContainer.style.position = 'relative';
-                }
-                return;
-            }
-        }
+        const img = group.querySelector('img');
+        if (!img) return null;
+        
+        const wrapper = group.querySelector('.wrap') || group;
+        
+        return { img, wrapper, group };
     }
     
-    function getContainer() {
-        findImage();
-        return targetContainer;
-    }
-    
-    function getImg() {
-        findImage();
-        return targetImg;
+    function applyTransform(img) {
+        if (!img) return;
+        img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        img.style.transformOrigin = '0 0';
+        img.style.transition = 'transform 0.2s ease-out';
     }
     
     window.zoomIn = function() {
-        const container = getContainer();
-        const img = getImg();
-        if (!container || !img) return 100;
+        const elements = getElements();
+        if (!elements) return 100;
         
+        const { img, wrapper } = elements;
         const oldScale = scale;
         scale = Math.min(scale + 0.25, 4);
         
-        const rect = container.getBoundingClientRect();
+        const rect = wrapper.getBoundingClientRect();
         const centerX = lastMouseX - rect.left;
         const centerY = lastMouseY - rect.top;
         
@@ -449,22 +440,18 @@ custom_js = """
         panY = centerY - (centerY - panY) * (scale / oldScale);
         
         if (scale > 1) {
-            container.style.cursor = 'grab';
-            container.style.overflow = 'auto';
+            wrapper.style.cursor = 'grab';
         }
         
-        img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-        img.style.transformOrigin = '0 0';
-        img.style.transition = 'transform 0.2s ease-out';
-        
+        applyTransform(img);
         return Math.round(scale * 100);
     };
     
     window.zoomOut = function() {
-        const container = getContainer();
-        const img = getImg();
-        if (!container || !img) return 100;
+        const elements = getElements();
+        if (!elements) return 100;
         
+        const { img, wrapper } = elements;
         const oldScale = scale;
         scale = Math.max(scale - 0.25, 0.25);
         
@@ -472,10 +459,9 @@ custom_js = """
             scale = 1;
             panX = 0;
             panY = 0;
-            container.style.cursor = 'default';
-            container.style.overflow = 'hidden';
+            wrapper.style.cursor = 'default';
         } else {
-            const rect = container.getBoundingClientRect();
+            const rect = wrapper.getBoundingClientRect();
             const centerX = lastMouseX - rect.left;
             const centerY = lastMouseY - rect.top;
             
@@ -483,63 +469,64 @@ custom_js = """
             panY = centerY - (centerY - panY) * (scale / oldScale);
         }
         
-        img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-        img.style.transformOrigin = '0 0';
-        img.style.transition = 'transform 0.2s ease-out';
-        
+        applyTransform(img);
         return Math.round(scale * 100);
     };
     
     window.resetZoom = function() {
-        const container = getContainer();
-        const img = getImg();
-        if (!container || !img) return 100;
+        const elements = getElements();
+        if (!elements) return 100;
         
+        const { img, wrapper } = elements;
         scale = 1;
         panX = 0;
         panY = 0;
-        container.style.cursor = 'default';
-        container.style.overflow = 'hidden';
+        wrapper.style.cursor = 'default';
         img.style.transform = '';
         
         return 100;
     };
     
     function setupPan() {
-        findImage();
-        if (!targetContainer || targetContainer.dataset.panSetup) return;
+        if (initialized) return;
         
-        targetContainer.dataset.panSetup = '1';
-        targetContainer.style.overflow = 'hidden';
-        targetContainer.style.position = 'relative';
+        const elements = getElements();
+        if (!elements) return;
         
-        targetContainer.addEventListener('mousemove', function(e) {
+        const { img, wrapper } = elements;
+        initialized = true;
+        
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.position = 'relative';
+        wrapper.style.cursor = 'default';
+        
+        wrapper.addEventListener('mousemove', function(e) {
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
         });
         
-        targetContainer.addEventListener('mousedown', function(e) {
-            if (scale <= 1 || !targetImg) return;
+        wrapper.addEventListener('mousedown', function(e) {
+            if (scale <= 1) return;
             isPanning = true;
             startX = e.clientX - panX;
             startY = e.clientY - panY;
-            targetContainer.style.cursor = 'grabbing';
-            targetImg.style.transition = 'none';
+            wrapper.style.cursor = 'grabbing';
+            img.style.transition = 'none';
             e.preventDefault();
         });
         
         document.addEventListener('mousemove', function(e) {
-            if (!isPanning || !targetImg) return;
+            if (!isPanning) return;
             panX = e.clientX - startX;
             panY = e.clientY - startY;
-            targetImg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         });
         
         document.addEventListener('mouseup', function() {
-            if (isPanning && targetContainer) {
+            if (isPanning) {
                 isPanning = false;
-                targetContainer.style.cursor = scale > 1 ? 'grab' : 'default';
-                if (targetImg) targetImg.style.transition = 'transform 0.2s ease-out';
+                wrapper.style.cursor = scale > 1 ? 'grab' : 'default';
+                img.style.transition = 'transform 0.2s ease-out';
             }
         });
     }
@@ -550,6 +537,7 @@ custom_js = """
     setTimeout(setupPan, 500);
     setTimeout(setupPan, 1500);
     setTimeout(setupPan, 3000);
+    setTimeout(setupPan, 5000);
 })();
 """
 
@@ -600,8 +588,8 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
                         image_selector = gr.Dropdown(choices=[], label="🖼️ Select Target Image")
                         
                         # 图片查看器 + 缩放控制
-                        with gr.Group():
-                            image_viewer = gr.Image(label="AI Generated Image", type="filepath")
+                        with gr.Group(elem_id="image-viewer-group"):
+                            image_viewer = gr.Image(label="AI Generated Image", type="filepath", elem_id="target-image")
                             with gr.Row():
                                 zoom_in_btn = gr.Button("🔍 Zoom In", variant="secondary", size="sm")
                                 zoom_out_btn = gr.Button("🔍 Zoom Out", variant="secondary", size="sm")
