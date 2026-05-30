@@ -12,6 +12,12 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+C2I_DIR = Path(__file__).resolve().parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+if str(C2I_DIR) not in sys.path:
+    sys.path.insert(0, str(C2I_DIR))
 
 IMAGE_DIR = PROJECT_ROOT / "test_images"
 CLASS_IDS_TXT = IMAGE_DIR / "class_ids.txt"
@@ -21,12 +27,23 @@ EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
 PLAN_DIR = Path(__file__).resolve().parent / "output" / "plans"
 APPROVED_DIR = Path(__file__).resolve().parent / "output" / "approved_plans"
 JUDGE_FEEDBACK_DIR = Path(__file__).resolve().parent / "output" / "judge_feedback"
+EXPERT_RESULTS_DIR = Path(__file__).resolve().parent / "output" / "expert_results"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 from step1_router import generate_plan, revise_plan, validate_plan, load_experts_registry
 from step2_judge import review_plan
+from step3_execute import (
+    ExpertManager,
+    execute_plan,
+    save_testimony_bundle,
+    load_approved_plans,
+    resolve_image_path as resolve_image_path_global,
+    collect_required_expert_ids,
+    DEFAULT_GPU_CONFIG,
+    EXPERT_MODULE_MAP,
+)
 
 
 def parse_class_ids(txt_path: str) -> dict[str, int]:
@@ -222,9 +239,116 @@ def run_pipeline_for_image(
     return current_plan
 
 
+def run_step3_pipeline(
+    approved_dir: Path,
+    expert_results_dir: Path,
+    gpu_config: dict,
+    image_id_filter: str = "",
+    limit: int = 0,
+    expert_manager: ExpertManager | None = None,
+) -> None:
+    """Step 3: Load expert models, read approved plans, execute local expert evaluation.
+
+    This function:
+    1. Loads all required expert models onto designated GPUs at startup
+    2. Reads approved_plan_*.json from the approved_plans directory
+    3. For each plan, orchestrates expert execution (with dependency resolution)
+    4. Saves standardized Expert Testimony Bundles for Step 4 (Reflector)
+
+    If expert_manager is provided (pre-loaded at program startup), it will be
+    reused directly instead of creating a new one. Cleanup is only performed
+    when the manager was created internally (not passed from outside).
+    """
+    plans = load_approved_plans(approved_dir)
+
+    if image_id_filter:
+        plans = [p for p in plans if image_id_filter in p.get("_source_file", "")]
+        if not plans:
+            print(f"[ERROR] No approved plan found for image ID: {image_id_filter}")
+            return
+
+    if limit > 0:
+        plans = plans[:limit]
+
+    if not plans:
+        print("[ERROR] No approved plans found. Run Step 1+2 first.")
+        return
+
+    required_ids = collect_required_expert_ids(plans)
+    print(f"\n[Step 3] Plans to execute: {len(plans)}")
+    print(f"[Step 3] Required experts: {required_ids}")
+
+    owns_manager = expert_manager is None
+    if owns_manager:
+        expert_manager = ExpertManager(gpu_config=gpu_config)
+        expert_manager.load_all(required_ids)
+
+    if not expert_manager.loaded_experts:
+        print("[ERROR] No experts loaded successfully. Cannot proceed with Step 3.")
+        return
+
+    print(f"\n{'=' * 60}")
+    print(f"  Step 3: Executing {len(plans)} Approved Plans")
+    print(f"  Loaded experts: {expert_manager.get_loaded_ids()}")
+    print(f"{'=' * 60}")
+
+    success_count = 0
+    failed_count = 0
+    total_start = time.time()
+
+    for idx, plan in enumerate(plans, 1):
+        metadata = plan.get("metadata", {})
+        image_path_raw = metadata.get("original_image", "")
+        class_label = metadata.get("class_label", "")
+        source_file = plan.get("_source_file", "unknown")
+
+        image_path = resolve_image_path_global(image_path_raw)
+        if image_path is None:
+            print(f"\n[{idx}/{len(plans)}] Image not found: {image_path_raw} "
+                  f"(Plan: {source_file})")
+            failed_count += 1
+            continue
+
+        print(f"\n[{idx}/{len(plans)}] {os.path.basename(image_path)} "
+              f"(Plan: {source_file})")
+
+        try:
+            bundle = execute_plan(plan, expert_manager, image_path, class_label)
+            save_testimony_bundle(bundle, expert_results_dir)
+            success_count += 1
+        except Exception as e:
+            print(f"  [FATAL] Pipeline crashed: {type(e).__name__}: {e}")
+            failed_count += 1
+
+    total_elapsed = time.time() - total_start
+
+    print(f"\n{'=' * 60}")
+    print(f"  Step 3 Execution Summary")
+    print(f"{'=' * 60}")
+    print(f"  Total plans:     {len(plans)}")
+    print(f"  Successful:      {success_count}")
+    print(f"  Failed:          {failed_count}")
+    print(f"  Total elapsed:   {total_elapsed:.2f}s")
+    print(f"{'=' * 60}")
+
+    if owns_manager:
+        expert_manager.cleanup()
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="THEMIS C2I Dispatcher - Orchestrates Router and Judge iteration loop"
+        description="THEMIS C2I Dispatcher - Orchestrates the full evaluation pipeline"
+    )
+    parser.add_argument(
+        "--step",
+        type=str,
+        default="12",
+        choices=["1", "2", "12", "3", "123"],
+        help=(
+            "Which step(s) to run: "
+            "'1'=Router only, '2'=Judge only, '12'=Router+Judge (default), "
+            "'3'=Expert execution only, '123'=Full pipeline"
+        ),
     )
     parser.add_argument(
         "--max-iterations",
@@ -254,7 +378,13 @@ def main():
         "--approved-dir",
         type=str,
         default=str(APPROVED_DIR),
-        help="Directory to save approved plan JSON files",
+        help="Directory to save/read approved plan JSON files",
+    )
+    parser.add_argument(
+        "--expert-results-dir",
+        type=str,
+        default=str(EXPERT_RESULTS_DIR),
+        help="Directory to save expert_results_*.json files (Step 3)",
     )
     parser.add_argument(
         "--save-feedback",
@@ -274,116 +404,321 @@ def main():
         default="",
         help="Process a single image by its ID (e.g., 000000)",
     )
+    parser.add_argument(
+        "--gpu-config",
+        type=str,
+        default=None,
+        help="Path to a custom GPU allocation JSON file (Step 3)",
+    )
     args = parser.parse_args()
 
     image_dir = Path(args.image_dir)
     class_ids_txt = Path(args.class_ids)
     plan_dir = Path(args.plan_dir)
     approved_dir = Path(args.approved_dir)
+    expert_results_dir = Path(args.expert_results_dir)
 
     plan_dir.mkdir(parents=True, exist_ok=True)
     approved_dir.mkdir(parents=True, exist_ok=True)
+    expert_results_dir.mkdir(parents=True, exist_ok=True)
 
     judge_feedback_dir = None
     if args.save_feedback:
         judge_feedback_dir = JUDGE_FEEDBACK_DIR
         judge_feedback_dir.mkdir(parents=True, exist_ok=True)
 
-    if not DASHSCOPE_API_KEY:
-        print("[ERROR] DASHSCOPE_API_KEY not set. Please run:")
-        print("  export DASHSCOPE_API_KEY=your_api_key_here  (Linux/Mac)")
-        print("  set DASHSCOPE_API_KEY=your_api_key_here     (Windows CMD)")
-        return
+    gpu_config = DEFAULT_GPU_CONFIG
+    if args.gpu_config:
+        try:
+            with open(args.gpu_config, "r", encoding="utf-8") as f:
+                gpu_config = json.load(f)
+            print(f"[INFO] Loaded custom GPU config from: {args.gpu_config}")
+        except Exception as e:
+            print(f"[WARN] Failed to load GPU config, using defaults: {e}")
 
-    client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+    step = args.step
+    run_step12 = step in ("1", "2", "12", "123")
+    run_step3 = step in ("3", "123")
+    is_full_pipeline = step == "123"
 
-    img_to_class = parse_class_ids(str(class_ids_txt))
-    imagenet_classes = load_imagenet_classes(str(IMAGENET_CLASSES_JSON))
-    experts_registry_str = load_experts_registry(str(EXPERTS_REGISTRY_JSON))
+    # ── Pre-load Expert Models at Startup ───────────────────────────────
+    # When running Step 3 (alone or as part of 123), load all expert models
+    # onto GPUs immediately at program startup, before any other work begins.
+    expert_manager = None
+    if run_step3:
+        print(f"\n{'='*60}")
+        print(f"  Pre-loading Expert Models at Startup")
+        print(f"{'='*60}")
 
-    if not img_to_class:
-        print("[ERROR] No image-class mappings loaded. Check class_ids.txt path.")
-        return
+        if step == "3":
+            plans = load_approved_plans(approved_dir)
+            if args.image_id:
+                plans = [p for p in plans if args.image_id in p.get("_source_file", "")]
+            if args.limit > 0:
+                plans = plans[:args.limit]
+            if plans:
+                required_ids = collect_required_expert_ids(plans)
+            else:
+                required_ids = list(EXPERT_MODULE_MAP.keys())
+        else:
+            required_ids = list(EXPERT_MODULE_MAP.keys())
 
-    image_files = sorted(
-        f
-        for f in os.listdir(image_dir)
-        if f.lower().endswith((".png", ".jpg", ".jpeg"))
-    )
+        expert_manager = ExpertManager(gpu_config=gpu_config)
+        expert_manager.load_all(required_ids)
 
-    valid_images = []
-    for img_name in image_files:
-        img_id = os.path.splitext(img_name)[0]
-        if img_id not in img_to_class:
-            continue
-        class_id = img_to_class[img_id]
-        class_label = imagenet_classes.get(class_id, f"class_{class_id}")
-        valid_images.append((img_name, img_id, class_id, class_label))
+        if not expert_manager.loaded_experts:
+            print("[ERROR] No experts loaded successfully. Step 3 will fail.")
+            if step == "3":
+                return
 
-    if args.image_id:
-        valid_images = [
-            (name, iid, cid, cl) for name, iid, cid, cl in valid_images
-            if iid == args.image_id
-        ]
-        if not valid_images:
-            print(f"[ERROR] Image ID '{args.image_id}' not found in class_ids.txt")
+        print(f"\n  Pre-loaded experts: {expert_manager.get_loaded_ids()}")
+        print(f"{'='*60}")
+
+    # ── Full Pipeline (Step 1→2→3 per image) ────────────────────────────
+    # For --step 123, process each image through all three steps sequentially
+    # before moving to the next image. Expert models stay loaded throughout.
+    if is_full_pipeline:
+        if not DASHSCOPE_API_KEY:
+            print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2.")
             return
 
-    if args.limit > 0:
-        valid_images = valid_images[: args.limit]
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
 
-    print(f"\n{'='*60}")
-    print(f"THEMIS C2I Dispatcher")
-    print(f"Images to process: {len(valid_images)}")
-    print(f"Max iterations:    {args.max_iterations}")
-    print(f"Save feedback:     {args.save_feedback}")
-    print(f"Plan directory:    {plan_dir}")
-    print(f"Approved dir:      {approved_dir}")
-    if judge_feedback_dir:
-        print(f"Feedback dir:      {judge_feedback_dir}")
-    print(f"{'='*60}")
+        img_to_class = parse_class_ids(str(class_ids_txt))
+        imagenet_classes = load_imagenet_classes(str(IMAGENET_CLASSES_JSON))
+        experts_registry_str = load_experts_registry(str(EXPERTS_REGISTRY_JSON))
 
-    success_count = 0
-    failed_count = 0
-    total_start = time.time()
+        if not img_to_class:
+            print("[ERROR] No image-class mappings loaded. Check class_ids.txt path.")
+            return
 
-    for idx, (img_name, img_id, class_id, class_label) in enumerate(valid_images, 1):
-        image_path = resolve_image_path(image_dir, img_id)
-        if image_path is None:
-            print(f"[ERROR] Image not found for ID: {img_id}")
-            failed_count += 1
-            continue
-
-        print(f"\n[{idx}/{len(valid_images)}] Processing: {img_name}")
-
-        result = run_pipeline_for_image(
-            client=client,
-            image_path=str(image_path),
-            img_id=img_id,
-            class_id=class_id,
-            class_label=class_label,
-            experts_registry_str=experts_registry_str,
-            max_iterations=args.max_iterations,
-            plan_dir=plan_dir,
-            approved_dir=approved_dir,
-            judge_feedback_dir=judge_feedback_dir,
+        image_files = sorted(
+            f
+            for f in os.listdir(image_dir)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
         )
 
-        if result is not None:
-            success_count += 1
-        else:
-            failed_count += 1
+        valid_images = []
+        for img_name in image_files:
+            img_id = os.path.splitext(img_name)[0]
+            if img_id not in img_to_class:
+                continue
+            class_id = img_to_class[img_id]
+            class_label = imagenet_classes.get(class_id, f"class_{class_id}")
+            valid_images.append((img_name, img_id, class_id, class_label))
 
-    total_cost = time.time() - total_start
+        if args.image_id:
+            valid_images = [
+                (name, iid, cid, cl) for name, iid, cid, cl in valid_images
+                if iid == args.image_id
+            ]
+            if not valid_images:
+                print(f"[ERROR] Image ID '{args.image_id}' not found in class_ids.txt")
+                return
 
-    print(f"\n{'='*60}")
-    print(f"Dispatcher Summary")
-    print(f"{'='*60}")
-    print(f"  Total images:    {len(valid_images)}")
-    print(f"  Successful:      {success_count}")
-    print(f"  Failed:          {failed_count}")
-    print(f"  Total elapsed:   {total_cost:.2f}s")
-    print(f"{'='*60}")
+        if args.limit > 0:
+            valid_images = valid_images[:args.limit]
+
+        print(f"\n{'='*60}")
+        print(f"THEMIS C2I Full Pipeline (Step 1→2→3 per image)")
+        print(f"Images to process: {len(valid_images)}")
+        print(f"Max iterations:    {args.max_iterations}")
+        print(f"Expert models:     LOADED (resident in GPU memory)")
+        print(f"Plan directory:    {plan_dir}")
+        print(f"Approved dir:      {approved_dir}")
+        print(f"Expert results:    {expert_results_dir}")
+        print(f"{'='*60}")
+
+        step12_ok = 0
+        step12_fail = 0
+        step3_ok = 0
+        step3_fail = 0
+        total_start = time.time()
+
+        for idx, (img_name, img_id, class_id, class_label) in enumerate(valid_images, 1):
+            image_path = resolve_image_path(image_dir, img_id)
+            if image_path is None:
+                print(f"\n[{idx}/{len(valid_images)}] Image not found for ID: {img_id}")
+                step12_fail += 1
+                step3_fail += 1
+                continue
+
+            print(f"\n{'#'*60}")
+            print(f"  [{idx}/{len(valid_images)}] {img_name} | {class_label}")
+            print(f"{'#'*60}")
+
+            # ── Step 1+2: Router + Judge ─────────────────────────────
+            approved_plan = run_pipeline_for_image(
+                client=client,
+                image_path=str(image_path),
+                img_id=img_id,
+                class_id=class_id,
+                class_label=class_label,
+                experts_registry_str=experts_registry_str,
+                max_iterations=args.max_iterations,
+                plan_dir=plan_dir,
+                approved_dir=approved_dir,
+                judge_feedback_dir=judge_feedback_dir,
+            )
+
+            if approved_plan is None:
+                step12_fail += 1
+                step3_fail += 1
+                continue
+
+            step12_ok += 1
+
+            # ── Step 3: Execute Approved Plan ────────────────────────
+            resolved_path = resolve_image_path_global(
+                approved_plan.get("metadata", {}).get("original_image", "")
+            )
+            if resolved_path is None:
+                print(f"  [Step 3] Image path resolution failed, skipping execution.")
+                step3_fail += 1
+                continue
+
+            try:
+                bundle = execute_plan(
+                    approved_plan, expert_manager, resolved_path, class_label,
+                )
+                save_testimony_bundle(bundle, expert_results_dir)
+                step3_ok += 1
+            except Exception as e:
+                print(f"  [Step 3] FATAL: {type(e).__name__}: {e}")
+                step3_fail += 1
+
+        total_elapsed = time.time() - total_start
+
+        print(f"\n{'='*60}")
+        print(f"  Full Pipeline Summary")
+        print(f"{'='*60}")
+        print(f"  Total images:       {len(valid_images)}")
+        print(f"  Step 1+2 OK:        {step12_ok}")
+        print(f"  Step 1+2 Failed:    {step12_fail}")
+        print(f"  Step 3 OK:          {step3_ok}")
+        print(f"  Step 3 Failed:      {step3_fail}")
+        print(f"  Total elapsed:      {total_elapsed:.2f}s")
+        print(f"{'='*60}")
+
+        if expert_manager is not None:
+            expert_manager.cleanup()
+
+        return
+
+    # ── Step 1+2 only (batch mode) ──────────────────────────────────────
+    if run_step12:
+        if not DASHSCOPE_API_KEY:
+            print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2.")
+            print("  export DASHSCOPE_API_KEY=your_api_key_here  (Linux/Mac)")
+            print("  set DASHSCOPE_API_KEY=your_api_key_here     (Windows CMD)")
+            return
+
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+
+        img_to_class = parse_class_ids(str(class_ids_txt))
+        imagenet_classes = load_imagenet_classes(str(IMAGENET_CLASSES_JSON))
+        experts_registry_str = load_experts_registry(str(EXPERTS_REGISTRY_JSON))
+
+        if not img_to_class:
+            print("[ERROR] No image-class mappings loaded. Check class_ids.txt path.")
+            return
+
+        image_files = sorted(
+            f
+            for f in os.listdir(image_dir)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+        )
+
+        valid_images = []
+        for img_name in image_files:
+            img_id = os.path.splitext(img_name)[0]
+            if img_id not in img_to_class:
+                continue
+            class_id = img_to_class[img_id]
+            class_label = imagenet_classes.get(class_id, f"class_{class_id}")
+            valid_images.append((img_name, img_id, class_id, class_label))
+
+        if args.image_id:
+            valid_images = [
+                (name, iid, cid, cl) for name, iid, cid, cl in valid_images
+                if iid == args.image_id
+            ]
+            if not valid_images:
+                print(f"[ERROR] Image ID '{args.image_id}' not found in class_ids.txt")
+                return
+
+        if args.limit > 0:
+            valid_images = valid_images[:args.limit]
+
+        print(f"\n{'='*60}")
+        print(f"THEMIS C2I Dispatcher - Step 1+2 (Router + Judge)")
+        print(f"Images to process: {len(valid_images)}")
+        print(f"Max iterations:    {args.max_iterations}")
+        print(f"Save feedback:     {args.save_feedback}")
+        print(f"Plan directory:    {plan_dir}")
+        print(f"Approved dir:      {approved_dir}")
+        if judge_feedback_dir:
+            print(f"Feedback dir:      {judge_feedback_dir}")
+        print(f"{'='*60}")
+
+        success_count = 0
+        failed_count = 0
+        total_start = time.time()
+
+        for idx, (img_name, img_id, class_id, class_label) in enumerate(valid_images, 1):
+            image_path = resolve_image_path(image_dir, img_id)
+            if image_path is None:
+                print(f"[ERROR] Image not found for ID: {img_id}")
+                failed_count += 1
+                continue
+
+            print(f"\n[{idx}/{len(valid_images)}] Processing: {img_name}")
+
+            result = run_pipeline_for_image(
+                client=client,
+                image_path=str(image_path),
+                img_id=img_id,
+                class_id=class_id,
+                class_label=class_label,
+                experts_registry_str=experts_registry_str,
+                max_iterations=args.max_iterations,
+                plan_dir=plan_dir,
+                approved_dir=approved_dir,
+                judge_feedback_dir=judge_feedback_dir,
+            )
+
+            if result is not None:
+                success_count += 1
+            else:
+                failed_count += 1
+
+        total_cost = time.time() - total_start
+
+        print(f"\n{'='*60}")
+        print(f"Step 1+2 Summary")
+        print(f"{'='*60}")
+        print(f"  Total images:    {len(valid_images)}")
+        print(f"  Successful:      {success_count}")
+        print(f"  Failed:          {failed_count}")
+        print(f"  Total elapsed:   {total_cost:.2f}s")
+        print(f"{'='*60}")
+
+    # ── Step 3 only (batch mode) ────────────────────────────────────────
+    if run_step3:
+        print(f"\n{'='*60}")
+        print(f"THEMIS C2I Dispatcher - Step 3 (Expert Execution)")
+        print(f"Approved dir:       {approved_dir}")
+        print(f"Expert results dir: {expert_results_dir}")
+        print(f"{'='*60}")
+
+        run_step3_pipeline(
+            approved_dir=approved_dir,
+            expert_results_dir=expert_results_dir,
+            gpu_config=gpu_config,
+            image_id_filter=args.image_id,
+            limit=args.limit,
+            expert_manager=expert_manager,
+        )
 
 
 if __name__ == "__main__":
