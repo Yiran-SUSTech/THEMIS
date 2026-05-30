@@ -91,7 +91,10 @@ def build_router_prompt(
     expert_ids_str = ", ".join(expert_ids) if expert_ids else "See Expert Registry above"
 
     return f"""You are the Lead Strategic Planner (Router) for an advanced AI image evaluation system.
-Your task is to analyze the provided image and its specific class category, then formulate a rigorous evaluation plan using the available Expert Registry.
+Your task is to analyze the provided image AND its specific class category, then formulate a rigorous evaluation plan using the available Expert Registry.
+
+**[CRITICAL: Image-Centric Analysis]**
+The class label tells you WHAT the image is supposed to depict, but you MUST also analyze the ACTUAL image content. The image may contain additional subjects beyond the class label (e.g., a person holding the animal, background objects, etc.). These additional subjects can also exhibit AI-generation artifacts (melting, missing parts, fusion) and MUST be covered by the evaluation plan. When selecting an expert, you MUST specify which subject in the image it applies to via the `target_subject` field.
 
 **[Input Data]**
 - **Class Label:** {class_label}
@@ -100,14 +103,14 @@ Your task is to analyze the provided image and its specific class category, then
 - **Expert Registry (Available Tools):** {experts_registry_str}
 
 **[Strategic Instruction]**
-1. **Identify Category Archetype:** Determine if the class "{class_label}" is an **Organism** (animal/plant), a **Rigid Object** (architecture/tool/vehicle), or a **Natural Scene** (landscape/texture).
-2. **Feature Mapping:** Based on the Taxonomy Prior Knowledge, extract 2-10 "Non-negotiable" diagnostic features that must be verified in the image (e.g., specific symmetry for buildings, anatomical counts for animals, textural coherence for landscapes).
-3. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws:
+1. **Identify ALL Subjects in the Image:** Beyond the class "{class_label}", identify any other visible subjects (people, animals, objects) that could exhibit AI-generation artifacts. For example, if a person is holding the fish, the person's limbs and face should also be audited.
+2. **Feature Mapping:** Based on the Taxonomy Prior Knowledge AND the actual image content, extract 2-10 "Non-negotiable" diagnostic features that must be verified.
+3. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws across ALL visible subjects:
    - *Organisms:* Look for "Melting" limbs, missing parts, or anatomical hallucinations.
    - *Rigid Objects:* Look for warped lines, perspective distortion, or "fusing" into the background.
    - *Scenes:* Look for repetitive patterns (mode collapse) or illogical spatial bleeding.
-4. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}.
-5. **Weight Allocation:** Assign weights based on "Structural Criticality" — anatomy/structure experts should receive higher weights for organisms, geometric experts for rigid objects, etc. All weights for selected experts must sum to 1.0.
+4. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}. **CRITICAL: You MUST check each expert's `applicable_scenes` and `best_for` fields to ensure it is compatible with the `target_subject`'s morphology.** For example, `animal_pose_auditor` detects 17 keypoints for limbed animals/humans — it is applicable to a person in the image, but NOT to a fish, snake, or other limbless organism.
+5. **Weight Allocation:** Assign weights based on "Structural Criticality" — the class subject's experts should generally have higher weights; auxiliary subjects' experts can have lower weights. All weights for selected experts must sum to 1.0.
 
 **[Output Requirements]**
 Return a pure JSON object (no Markdown wrapping) with this exact schema:
@@ -116,7 +119,8 @@ Return a pure JSON object (no Markdown wrapping) with this exact schema:
   "selected_experts": [
     {{
       "expert_name": "string (must exactly match an expert_id from the Expert Registry)",
-      "reason": "Why this expert is selected for this specific class and image",
+      "target_subject": "string (which subject in the image this expert should be applied to, e.g., 'the fish', 'the person holding the fish', 'the background')",
+      "reason": "Why this expert is selected for this specific target_subject",
       "weight": 0.0
     }}
   ],
@@ -125,10 +129,12 @@ Return a pure JSON object (no Markdown wrapping) with this exact schema:
 }}
 
 **[Constraints]**
-- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification.
+- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification of the class subject.
 - You MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
+- You MUST specify a `target_subject` for every selected expert. This is critical for the dispatcher to know which object to feed into each expert model.
+- You MUST NOT apply an expert to a `target_subject` whose morphology is incompatible with that expert's capabilities. For instance, do NOT set `target_subject` to "the fish" for `animal_pose_auditor`, but you MAY set `target_subject` to "the person holding the fish".
 - All weights must be positive and sum to 1.0.
-- Select 3-5 experts appropriate for the category.
+- Select 3-5 experts appropriate for the category and image content.
 - Output ONLY the JSON object, no additional text."""
 
 
@@ -157,6 +163,9 @@ def build_router_revision_prompt(
     return f"""You are the Lead Strategic Planner (Router) for an advanced AI image evaluation system.
 Your previous plan was REJECTED by the Judge. You must revise it based on the feedback below.
 
+**[CRITICAL: Image-Centric Analysis]**
+The class label tells you WHAT the image is supposed to depict, but you MUST also analyze the ACTUAL image content. The image may contain additional subjects beyond the class label (e.g., a person holding the animal, background objects, etc.). These additional subjects can also exhibit AI-generation artifacts (melting, missing parts, fusion) and MUST be covered by the evaluation plan. When selecting an expert, you MUST specify which subject in the image it applies to via the `target_subject` field.
+
 **[Input Data]**
 - **Class Label:** {class_label}
 - **Taxonomy Class Name:** {taxonomy_class_name}
@@ -172,14 +181,14 @@ Your previous plan was REJECTED by the Judge. You must revise it based on the fe
 **[Strategic Instruction]**
 1. Carefully read the Judge's feedback and understand what was wrong with your previous plan.
 2. Revise the plan to address ALL issues raised by the Judge.
-3. **Identify Category Archetype:** Determine if the class "{class_label}" is an **Organism** (animal/plant), a **Rigid Object** (architecture/tool/vehicle), or a **Natural Scene** (landscape/texture).
-4. **Feature Mapping:** Based on the Taxonomy Prior Knowledge, extract 2-10 "Non-negotiable" diagnostic features that must be verified in the image.
-5. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws:
+3. **Identify ALL Subjects in the Image:** Beyond the class "{class_label}", identify any other visible subjects (people, animals, objects) that could exhibit AI-generation artifacts. For example, if a person is holding the fish, the person's limbs and face should also be audited.
+4. **Feature Mapping:** Based on the Taxonomy Prior Knowledge AND the actual image content, extract 2-10 "Non-negotiable" diagnostic features that must be verified.
+5. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws across ALL visible subjects:
    - *Organisms:* Look for "Melting" limbs, missing parts, or anatomical hallucinations.
    - *Rigid Objects:* Look for warped lines, perspective distortion, or "fusing" into the background.
    - *Scenes:* Look for repetitive patterns (mode collapse) or illogical spatial bleeding.
-6. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}.
-7. **Weight Allocation:** Assign weights based on "Structural Criticality" — anatomy/structure experts should receive higher weights for organisms, geometric experts for rigid objects, etc. All weights for selected experts must sum to 1.0.
+6. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}. **CRITICAL: You MUST check each expert's `applicable_scenes` and `best_for` fields to ensure it is compatible with the `target_subject`'s morphology.** For example, `animal_pose_auditor` detects 17 keypoints for limbed animals/humans — it is applicable to a person in the image, but NOT to a fish, snake, or other limbless organism.
+7. **Weight Allocation:** Assign weights based on "Structural Criticality" — the class subject's experts should generally have higher weights; auxiliary subjects' experts can have lower weights. All weights for selected experts must sum to 1.0.
 
 **[Output Requirements]**
 Return a pure JSON object (no Markdown wrapping) with this exact schema:
@@ -188,7 +197,8 @@ Return a pure JSON object (no Markdown wrapping) with this exact schema:
   "selected_experts": [
     {{
       "expert_name": "string (must exactly match an expert_id from the Expert Registry)",
-      "reason": "Why this expert is selected for this specific class and image",
+      "target_subject": "string (which subject in the image this expert should be applied to, e.g., 'the fish', 'the person holding the fish', 'the background')",
+      "reason": "Why this expert is selected for this specific target_subject",
       "weight": 0.0
     }}
   ],
@@ -197,10 +207,12 @@ Return a pure JSON object (no Markdown wrapping) with this exact schema:
 }}
 
 **[Constraints]**
-- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification.
+- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification of the class subject.
 - You MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
+- You MUST specify a `target_subject` for every selected expert. This is critical for the dispatcher to know which object to feed into each expert model.
+- You MUST NOT apply an expert to a `target_subject` whose morphology is incompatible with that expert's capabilities. For instance, do NOT set `target_subject` to "the fish" for `animal_pose_auditor`, but you MAY set `target_subject` to "the person holding the fish".
 - All weights must be positive and sum to 1.0.
-- Select 3-5 experts appropriate for the category.
+- Select 3-5 experts appropriate for the category and image content.
 - Output ONLY the JSON object, no additional text."""
 
 
@@ -237,6 +249,9 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
                 f"  [WARN] Invalid expert_name '{expert['expert_name']}', "
                 f"must be one of: {valid_expert_ids}"
             )
+            return False
+        if "target_subject" not in expert or not expert["target_subject"].strip():
+            print(f"  [WARN] Expert '{expert['expert_name']}' missing 'target_subject'")
             return False
         if "weight" not in expert:
             print(f"  [WARN] Expert '{expert['expert_name']}' missing 'weight'")
