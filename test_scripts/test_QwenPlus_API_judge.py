@@ -5,7 +5,7 @@ from datetime import datetime
 
 # 1. 初始化客户端
 client = OpenAI(
-    api_key="sk-9165cc69015b4a12ab542fb5edc20612",
+    api_key="sk-b3f4209a88814328aef5edc425e3af0e",
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

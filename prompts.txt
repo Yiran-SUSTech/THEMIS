@@ -100,3 +100,46 @@ Please read the 10 classes from the source file and dissect/streamline the "enri
 ]
 
 Please read the current source file via `#` if needed, create the new structured file, and write the complete output now:
+
+
+
+
+
+# building system
+我在当前项目中构建一个针对c2i和t2i的图片生成模型的Agentic测评系统。该系统主要测评被测试数据集中图片的Alignment score（是否符合class或者prompt）和Artifact score（畸变、伪影、融化、模糊、结构崩坏等情况）。这个系统包含一个router、judge、reflector（此三者都用Qwen3.6-plus担任，通过API调用）以及若干专家模型。
+我想先针对c2i的图片生成模型搭建这个测评系统。
+第一步，在c2i的设定下，router的任务是根据待测评图片本身、该图片的类别（ImageNet-1K中的类别）、该类别的taxonomy先验信息（放在当前项目的taxonomy_info下）、能调用的专家模型（专家模型的相关信息都记录在当前目录的expert_registry.json文件中），
+生成如何测评这张图片的plan。这个plan是一个标准化、结构化的json文件。这一步相关的调用可以参考test_scripts\test_QwenPlus_API_router.py的代码。
+第二步，这个plan以及待检测的图片本身、类别，之后都会发送给judge，然后judge评判这个plan是否合理，如果不合理，会生成plan哪里不合理的解释，并将解释发送给router，让router修改plan。这个反馈是一个标准化、结构化的json文件。这一步相关的调用可以参考test_scripts\test_QwenPlus_API_judge.py的代码。如果plan被judge认可，则进行下一步。
+第三步，让系统在本地执行plan。plan中要调用的专家模型都已经在本地配置好，并且测试过了。他们的接口放在当前项目的experts文件夹下，调用可参考当前项目的main_pipeline.py代码。当然，得修改main_pipeline.py，按照plan执行测评。
+第四步，将系统执行测评后的结果、被测试的图片本身、被测试图片的ImageNet-1k类别，都发送给reflector，让reflector自己先给这张图片做出一个判断和评价，再结合专家模型提交的结果做出最终的判断和评价，需要至少包含该图片的Alignment score（0-5分的连续分数，分数越高越和class匹配）、Artifact score（0-5分的连续分数，分数越高画面越好，越没有伪影、融化等情况）、做出这样判断的简介解释。
+
+请看看上面对于这个系统的描述，以及现在已有的相关代码、文件，然后开始构建这个系统的第一步。
+
+
+
+我在当前项目中构建一个针对 c2i 和 t2i 的图片生成模型的 Agentic 测评系统。该系统主要测评被测试数据集中图片的 Alignment score（是否符合 class 或者 prompt）和 Artifact score（畸变、伪影、融化、模糊、结构崩坏等情况）。这个系统包含一个 router、judge、reflector（此三者都用 Qwen3.6-plus 担任，通过 API 调用）以及若干专家模型。
+我想先针对 c2i 的图片生成模型搭建这个测评系统。整个系统分为四个步骤，而当前任务是完整实现“第一步”。
+第一步： 在 c2i 的设定下，router 的任务是根据待测评图片本身、该图片的类别（ImageNet-1K 中的类别）、该类别的 taxonomy 先验信息（放在当前项目的 taxonomy_info 下）、能调用的专家模型（专家模型的相关信息都记录在当前目录的 expert_registry.json 文件中），生成如何测评这张图片的 plan。
+第二步： 这个 plan 以及待检测的图片本身、类别，之后都会发送给 judge 评判（参考 test_scripts/test_QwenPlus_API_judge.py）。
+第三步： 本地执行 plan。专家模型接口在 experts/ 文件夹下（参考 main_pipeline.py），我将在远程服务器上运行这个测评系统，并且相关的专家模型已配置好，不用修改现有代码中涉及的模型调用路径。
+第四步： 发送给 reflector 做出最终的判断和评价（Alignment score 0-5分，Artifact score 0-5分）。
+当前请帮我开始构建这个系统的【第一步】，具体要求如下：
+输出代码
+参考代码：第一步相关的调用请参考 test_scripts/test_QwenPlus_API_router.py 的代码，确保 Qwen3.6-plus 的 API 调用传参、图片多模态输入方式与测试脚本一致。
+上下文合并：编写一个主控路由函数，在当前项目的test_images文件夹中挨个读取待测试图片、该图片的 ImageNet-1K 类别（图片名和其对应的ImageNet-1K class id被记录在test_images\class_ids.txt中），自动去 taxonomy_info/ 下寻找对应类别的先验知识文本（taxonomy_info/中的每个文件包含10个class的相关info，比如taxonomy_info\taxonomy_enriched_Batch_2.json包含了class id从20到29的info，taxonomy_info\taxonomy_enriched_Batch_40.json包含了class id从400到409的info。要根据class id找到对应的文件，然后才能找到对应的先验taxonomy info），并读取 expert_registry.json（记录了能调用的专家模型的功能、性能等信息，方便router根据这些信息制定plan）。将这些信息组合成 Prompt 输入给 Router。
+Plan 格式约束：Router 最终输出的 plan 必须是一个标准化、结构化的纯 JSON 字符串（无需 Markdown 格式包裹），且必须包含以下核心字段：
+JSON
+{
+  "image_class": "string",
+  "selected_experts": [
+    {
+      "expert_name": "string (必须与 expert_registry 中的 name 一致)",
+      "reason": "为什么调用该专家",
+      "weight": 0.0 // 针对该类别的权重分配
+    }
+  ],
+  "focus_areas": ["string (如 feet, facial_details, background)"],
+  "custom_prompts_for_reflector": "string (传给后续步骤的特殊审计提示)"
+}
+请检查当前项目已有的相关代码和文件，然后为我在当前项目下的c2i文件夹下编写实现【第一步】的核心脚本。写完后请告诉我如何运行并验证它。
