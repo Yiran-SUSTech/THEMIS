@@ -143,3 +143,40 @@ JSON
   "custom_prompts_for_reflector": "string (传给后续步骤的特殊审计提示)"
 }
 请检查当前项目已有的相关代码和文件，然后为我在当前项目下的c2i文件夹下编写实现【第一步】的核心脚本。写完后请告诉我如何运行并验证它。
+
+
+我在当前项目中构建一个针对 c2i 和 t2i 的图片生成模型的 Agentic 测评系统。该系统主要测评被测试数据集中图片的 Alignment score（是否符合 class 或者 prompt）和 Artifact score（畸变、伪影、融化、模糊、结构崩坏等情况）。这个系统包含一个 router、judge、reflector（此三者都用 Qwen3.6-plus 担任，通过 API 调用）以及若干专家模型。
+我想先针对 c2i 的图片生成模型搭建这个测评系统。整个系统分为四个步骤：
+第一步： 在 c2i 的设定下，router 的任务是根据待测评图片本身、该图片的类别（ImageNet-1K 中的类别）、该类别的 taxonomy 先验信息（放在当前项目的 taxonomy_info 下）、能调用的专家模型（专家模型的相关信息都记录在当前目录的 expert_registry.json 文件中），生成如何测评这张图片的 plan。
+第二步： 这个 plan 以及待检测的图片本身、类别，之后都会发送给 judge 评判（参考 test_scripts/test_QwenPlus_API_judge.py，可在其基础上修改）。
+第三步： 本地执行 plan。专家模型接口在 experts/ 文件夹下（参考 main_pipeline.py），我将在远程服务器上运行这个测评系统，并且相关的专家模型已配置好，不用修改现有代码中涉及的模型调用路径。
+第四步： 发送给 reflector 做出最终的判断和评价（Alignment score 0-5分，Artifact score 0-5分）。
+我现在需要你帮我构建整个测评系统的**【第二步：Judge 审核与 Plan 迭代闭环】**。
+在这一步中，系统需要将第一步生成的 plan（JSON 格式）、待检测的图片本身、以及它的 ImageNet-1K 类别发送给 Judge（同样由 Qwen3.6-plus 担任） 进行合理性审核。如果 Judge 认为 Plan 不合理，必须触发反馈闭环，让 Router 重新修改，直到 Judge 审核通过或达到迭代上限。
+请检查当前项目已有的相关文件内容，并严格按照以下要求进行开发：
+1. 参考代码与接口规范
+请先参考c2i\step1_router.py中的代码，了解plan生成的方式，因为plan是第二步的关键输入。
+API 调用：请严格参考 test_scripts/test_QwenPlus_API_judge.py 中的代码，确保 Judge 的 API 调用传参和图片多模态输入方式与测试脚本一致。
+复用已有结构：必须兼容第一步中为 Router 设计的输入协议与输出 plan.json 的格式（在当前项目c2i\output\plans文件夹下）。
+2. 实现核心逻辑：Judge-Router 迭代闭环
+请在项目中编写或扩展一个核心控制函数（如 run_stage2_review_loop），实现以下逻辑流程：
+输入：待测图片、类别、Taxonomy 先验信息、专家注册表、以及 Router 产生的初始 Plan。
+循环体（最大迭代次数限制，让用户运行时作为参数传入脚本，如 3 次）：
+将当前 Plan、图片、类别以及 Taxonomy 知识发送给 Judge。
+Judge 的判断要求：Judge 需要审视：该类别选用的专家模型是否必要？是否遗漏了关键专家（例如动物类别漏掉了姿态模型）？权重分配是否合理？
+Judge 输出规范：Judge 必须返回一个结构化的 JSON 字符串（无需 Markdown 包裹），格式如下：
+JSON
+{
+  "is_approved": true, // true 或 false
+  "reasons_for_rejection": "string (如果通过则为空，如果不通过，详细说明 Plan 哪里不合理)",
+  "suggestions": ["string (具体的修改建议)"]
+}
+分支处理：
+如果 is_approved 为 true：跳出循环，保存最终被认可的 approved_plan.json，流程通关。
+如果 is_approved 为 false：将 Judge 的 reasons_for_rejection 和 suggestions 作为反馈历史追加到 Prompt 中，重新调用 Router。Router 必须根据 Judge 的意见修正并输出全新版本的 Plan JSON，随后进入下一次循环。
+3. 错误处理与防御性编程
+必须处理 Qwen3.6-plus 返回的 JSON 解析异常（json.JSONDecodeError）。如果模型返回了带 ```json 标记的 Markdown，请用正则或字符串裁剪进行清洗。
+如果达到最大迭代次数（如 3 次）仍未通过，系统应强制中断，记录日志，并默认采用最近一次的 Plan 强行推进，防止大模型陷入无限死循环浪费 Token。
+4. 通关验证
+请为我编写、或在合适的位置集成实现这个闭环的脚本。
+这一步所有的文件都继续在当前项目的c2i文件夹下创建，写完后，请告诉我如何运行它，并确保能在控制台打印出类似："Iteration 1: Rejected -> Iteration 2: Approved!" 的完整博弈日志。
