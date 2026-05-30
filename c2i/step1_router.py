@@ -263,6 +263,76 @@ def run_router_for_image(
     return plan
 
 
+def process_images(
+    client: OpenAI,
+    images: list[tuple[str, str, int, str]],
+    experts_registry_str: str,
+    image_dir: Path,
+    output_plan_dir: Path,
+    start_idx: int = 1,
+) -> tuple[int, list[dict], list[tuple[str, str, int, str]]]:
+    success_count = 0
+    time_records = []
+    failed_images = []
+
+    for idx, (img_name, img_id, class_id, class_label) in enumerate(
+        images, start=start_idx
+    ):
+        print(
+            f"[{idx}/{start_idx - 1 + len(images)}] Processing: {img_name} "
+            f"(class_id={class_id}, label={class_label})"
+        )
+
+        plan = run_router_for_image(
+            client, img_name, class_id, class_label, experts_registry_str, image_dir
+        )
+
+        if plan is None:
+            print(f"  -> FAILED\n")
+            failed_images.append((img_name, img_id, class_id, class_label))
+            continue
+
+        save_path = output_plan_dir / f"plan_{img_id}.json"
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(plan, f, indent=4, ensure_ascii=False)
+
+        cost = plan["metadata"]["router_cost_seconds"]
+        time_records.append({"img_name": img_name, "cost": cost})
+        success_count += 1
+
+        valid_tag = "VALID" if plan["metadata"]["plan_valid"] else "INVALID"
+        print(
+            f"  -> Saved to {save_path.name} | "
+            f"Cost: {cost:.2f}s | Plan: {valid_tag}\n"
+        )
+
+    return success_count, time_records, failed_images
+
+
+def print_summary(
+    success_count: int,
+    total_count: int,
+    time_records: list[dict],
+    failed_images: list[tuple[str, str, int, str]],
+) -> None:
+    print(f"\n{'='*60}")
+    print(f"Router Performance Summary")
+    print(f"{'='*60}")
+    if time_records:
+        total = sum(r["cost"] for r in time_records)
+        avg = total / len(time_records)
+        print(f"  Successfully planned : {success_count}/{total_count}")
+        print(f"  Total elapsed time   : {total:.2f}s")
+        print(f"  Average plan time    : {avg:.2f}s per image")
+    else:
+        print(f"  Successfully planned : 0/{total_count}")
+    if failed_images:
+        print(f"\n  Failed images ({len(failed_images)}):")
+        for img_name, _, class_id, class_label in failed_images:
+            print(f"    - {img_name} (class_id={class_id}, label={class_label})")
+    print(f"{'='*60}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="THEMIS C2I Step 1: Router - Generate evaluation plans for test images"
@@ -291,6 +361,12 @@ def main():
         default=str(CLASS_IDS_TXT),
         help="Path to class_ids.txt",
     )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=3,
+        help="Max retry rounds for failed images (default: 3)",
+    )
     args = parser.parse_args()
 
     image_dir = Path(args.image_dir)
@@ -300,8 +376,8 @@ def main():
 
     if not DASHSCOPE_API_KEY:
         print("[ERROR] DASHSCOPE_API_KEY not set. Please run:")
-        print("  set DASHSCOPE_API_KEY=your_api_key_here")
-        print("or pass it as an environment variable before running this script.")
+        print("  export DASHSCOPE_API_KEY=your_api_key_here  (Linux/Mac)")
+        print("  set DASHSCOPE_API_KEY=your_api_key_here      (Windows CMD)")
         return
 
     client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
@@ -338,51 +414,39 @@ def main():
     print(f"Output directory:  {output_plan_dir}")
     print(f"{'='*60}\n")
 
-    time_records = []
-    success_count = 0
+    all_time_records = []
+    total_success = 0
+    total_count = len(valid_images)
 
-    for idx, (img_name, img_id, class_id, class_label) in enumerate(
-        valid_images, start=1
-    ):
-        print(
-            f"[{idx}/{len(valid_images)}] Processing: {img_name} "
-            f"(class_id={class_id}, label={class_label})"
+    success_count, time_records, failed_images = process_images(
+        client, valid_images, experts_registry_str, image_dir, output_plan_dir
+    )
+    all_time_records.extend(time_records)
+    total_success += success_count
+
+    retry_round = 0
+    while failed_images and retry_round < args.max_retries:
+        retry_round += 1
+        print(f"\n{'='*60}")
+        print(f"Retry Round {retry_round}/{args.max_retries}")
+        print(f"Failed images: {len(failed_images)}")
+        for img_name, _, class_id, class_label in failed_images:
+            print(f"  - {img_name} (class_id={class_id}, label={class_label})")
+        print(f"{'='*60}")
+
+        answer = input(f"\nRetry these {len(failed_images)} failed images? [y/N]: ").strip().lower()
+        if answer not in ("y", "yes"):
+            print("Retry skipped by user.")
+            break
+
+        print()
+        success_count, time_records, failed_images = process_images(
+            client, failed_images, experts_registry_str, image_dir, output_plan_dir
         )
+        all_time_records.extend(time_records)
+        total_success += success_count
 
-        plan = run_router_for_image(
-            client, img_name, class_id, class_label, experts_registry_str, image_dir
-        )
-
-        if plan is None:
-            print(f"  -> FAILED\n")
-            continue
-
-        save_path = output_plan_dir / f"plan_{img_id}.json"
-        with open(save_path, "w", encoding="utf-8") as f:
-            json.dump(plan, f, indent=4, ensure_ascii=False)
-
-        cost = plan["metadata"]["router_cost_seconds"]
-        time_records.append({"img_name": img_name, "cost": cost})
-        success_count += 1
-
-        valid_tag = "VALID" if plan["metadata"]["plan_valid"] else "INVALID"
-        print(
-            f"  -> Saved to {save_path.name} | "
-            f"Cost: {cost:.2f}s | Plan: {valid_tag}\n"
-        )
-
-    print(f"\n{'='*60}")
-    print(f"Router Performance Summary")
-    print(f"{'='*60}")
-    if time_records:
-        total = sum(r["cost"] for r in time_records)
-        avg = total / len(time_records)
-        print(f"  Successfully planned : {success_count}/{len(valid_images)}")
-        print(f"  Total elapsed time   : {total:.2f}s")
-        print(f"  Average plan time    : {avg:.2f}s per image")
-    else:
-        print("  No successful plans generated.")
-    print(f"{'='*60}")
+    print_summary(total_success, total_count, all_time_records, failed_images)
 
 
 if __name__ == "__main__":
