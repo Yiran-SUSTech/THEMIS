@@ -86,13 +86,13 @@ class AnimalPoseEstimator:
         for region, count in sorted(region_low_counts.items(), key=lambda x: -x[1]):
             risk_zones.append(f"{region}({count} low-conf keypoints)")
 
-        if low_conf_ratio >= 0.5:
+        if low_conf_ratio >= 0.4:
             risk_level = "HIGH"
             risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — widespread structural uncertainty, likely severe artifacts."
-        elif low_conf_ratio >= 0.3:
+        elif low_conf_ratio >= 0.25:
             risk_level = "MEDIUM"
             risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — notable uncertainty in {', '.join(risk_zones)}, probable artifact zones."
-        elif low_conf_ratio >= 0.1:
+        elif low_conf_ratio >= 0.15:
             risk_level = "LOW"
             risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — minor uncertainty in {', '.join(risk_zones)}."
         else:
