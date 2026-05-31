@@ -183,14 +183,18 @@ class ExpertManager:
         kwargs = {}
         device = gpu_cfg.get("device", "cpu")
 
-        # Use the accepts_device flag from EXPERT_MODULE_MAP for data-driven dispatch
         config = EXPERT_MODULE_MAP.get(expert_id, {})
         if config.get("accepts_device", False):
-            # For CUDA-based experts, ensure a valid CUDA device; fallback to "cuda"
             if device.startswith("cuda"):
                 kwargs["device"] = device
             else:
                 kwargs["device"] = "cuda"
+
+        if expert_id == "topology_boundary_auditor":
+            kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")
+            kwargs["output_dir"] = str(PROJECT_ROOT / "sam_results_v1")
+        elif expert_id == "image_text_auditor":
+            kwargs["det_model_path"] = str(PROJECT_ROOT / "models" / "Multilingual_PP-OCRv3_det_infer.onnx")
 
         return kwargs
 
