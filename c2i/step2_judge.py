@@ -189,7 +189,7 @@ def review_plan(
                 },
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         cost_time = time.time() - start_time
         raw_content = completion.choices[0].message.content

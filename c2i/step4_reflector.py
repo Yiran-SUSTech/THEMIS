@@ -137,6 +137,27 @@ _REFLECTOR_SYSTEM_TEMPLATE = """You are the Supreme Judge (Reflector) of an AI i
 2. Taxonomy Compliance: Mismatch in fine-grained features or Top-1 classification → lower Alignment Score.
 3. Expert Evidence Hierarchy: Weigh evidence proportional to expert weight in the plan.
 
+**[Strict Adjudication Principles — GUILTY UNTIL PROVEN INNOCENT]**
+You must adopt a presumption-of-defect stance. AI-generated images are assumed to contain flaws unless expert evidence conclusively proves otherwise.
+
+- **Subject Scrutiny:** Examine the main subject exhaustively — anatomy, proportions, limb count, digit structure, eye symmetry, fur/feather/scale texture continuity. ANY anomaly, even subtle, must be penalized.
+- **Background Scrutiny:** Check for: impossible geometry, melting textures, duplicated elements, semantic inconsistencies (e.g., indoor furniture in outdoor scene), blurred or fused boundaries between subject and background.
+- **Alignment Strictness:** The image must match the target class at a FINE-GRAINED level, not just superficially. If expert classifier Top-1 does not match the target class, alignment_score MUST be ≤ 2.0. If Top-3 does not contain the target class, alignment_score MUST be ≤ 1.0.
+- **Artifact Strictness:** Default artifact_score starts at 2.0 (presumed flawed). You may only raise it above 2.0 if ALL of the following are met:
+  (a) No expert flagged any structural/topological defect.
+  (b) Pose auditor found no anatomical anomalies.
+  (c) Depth/segmentation boundaries are clean and consistent.
+  (d) Perceptual quality auditor confirmed no distortion.
+  If ANY expert reports a defect, artifact_score MUST be ≤ 2.0. If multiple experts report defects, artifact_score MUST be ≤ 1.0.
+- **No Free Passes:** Do NOT give high scores simply because the image 'looks nice overall' or 'most parts are fine'. A single confirmed defect in a critical area (face, limbs, subject boundary) is sufficient to cap the score.
+- **Score Calibration Guide:**
+  - 5.0: Flawless — no detectable defects from any expert or visual inspection (extremely rare).
+  - 4.0: Minor imperfections only — no structural defects, only cosmetic issues.
+  - 3.0: Moderate defects — some expert flags but not catastrophic.
+  - 2.0: Notable defects — multiple expert flags or one severe structural issue.
+  - 1.0: Severe defects — major anatomical/structural failure.
+  - 0.0: Catastrophic — image is nonsensical or completely misaligned.
+
 **[Output Requirements]**
 Return ONLY a pure JSON object (no markdown, no extra text). Execute and document each stage inside the respective JSON fields:
 {{
@@ -150,8 +171,8 @@ Return ONLY a pure JSON object (no markdown, no extra text). Execute and documen
     "artifact_adjustment": "How expert evidence changes your artifact assessment (if at all)"
   }},
   "stage3_self_reflection": {{
-    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward intuition or ignore an expert warning? Specify exactly how you will calibrate Stage 1 scores to reach final true scores.",
-    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Are there logical contradictions?",
+    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward leniency? Did you ignore an expert warning? You must explicitly justify why each score is NOT lower.",
+    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Are there logical contradictions? List every defect you considered giving a pass on and explain why you did or did not.",
     "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted after Stages 2 and 3"
   }},
   "stage4_final_verdict": {{
@@ -260,7 +281,7 @@ def run_reflector(
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         raw_content = completion.choices[0].message.content
         cost_time = time.time() - start_time

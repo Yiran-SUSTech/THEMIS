@@ -303,7 +303,7 @@ def _call_router_api(
                 },
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         raw_content = completion.choices[0].message.content
         result = parse_json_safely(raw_content)

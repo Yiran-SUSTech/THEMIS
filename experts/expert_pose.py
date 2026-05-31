@@ -9,6 +9,27 @@ COCO_SKELETON = [
     (13, 15), (14, 16), (5, 11), (6, 12),
 ]
 
+COCO_KEYPOINT_NAMES = {
+    0: "Nose", 1: "Left_Eye", 2: "Right_Eye",
+    3: "Left_Ear", 4: "Right_Ear",
+    5: "Left_Shoulder", 6: "Right_Shoulder",
+    7: "Left_Elbow", 8: "Right_Elbow",
+    9: "Left_Wrist", 10: "Right_Wrist",
+    11: "Left_Hip", 12: "Right_Hip",
+    13: "Left_Knee", 14: "Right_Knee",
+    15: "Left_Ankle", 16: "Right_Ankle",
+}
+
+KEYPOINT_BODY_REGIONS = {
+    0: "Face", 1: "Face", 2: "Face", 3: "Face", 4: "Face",
+    5: "Front_Limbs", 6: "Front_Limbs", 7: "Front_Limbs", 8: "Front_Limbs",
+    9: "Front_Limbs", 10: "Front_Limbs",
+    11: "Hind_Limbs", 12: "Hind_Limbs", 13: "Hind_Limbs", 14: "Hind_Limbs",
+    15: "Hind_Limbs", 16: "Hind_Limbs",
+}
+
+LOW_CONFIDENCE_THRESHOLD = 0.5
+
 
 class AnimalPoseEstimator:
     def __init__(self, 
@@ -34,6 +55,60 @@ class AnimalPoseEstimator:
             backend=backend,
             device=device
         )
+
+    def _assess_artifact_risk(self, instances_evidence):
+        total_kpts = 0
+        low_conf_kpts = []
+        region_low_counts = {}
+
+        for inst in instances_evidence:
+            for kpt in inst.get("keypoints", []):
+                total_kpts += 1
+                conf = kpt["confidence"]
+                kid = kpt["keypoint_id"]
+                if conf < LOW_CONFIDENCE_THRESHOLD:
+                    name = COCO_KEYPOINT_NAMES.get(kid, f"Kpt_{kid}")
+                    region = KEYPOINT_BODY_REGIONS.get(kid, "Unknown")
+                    low_conf_kpts.append({
+                        "keypoint_id": kid,
+                        "name": name,
+                        "region": region,
+                        "confidence": conf,
+                    })
+                    region_low_counts[region] = region_low_counts.get(region, 0) + 1
+
+        if total_kpts == 0:
+            return None
+
+        low_conf_ratio = len(low_conf_kpts) / total_kpts
+
+        risk_zones = []
+        for region, count in sorted(region_low_counts.items(), key=lambda x: -x[1]):
+            risk_zones.append(f"{region}({count} low-conf keypoints)")
+
+        if low_conf_ratio >= 0.5:
+            risk_level = "HIGH"
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — widespread structural uncertainty, likely severe artifacts."
+        elif low_conf_ratio >= 0.3:
+            risk_level = "MEDIUM"
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — notable uncertainty in {', '.join(risk_zones)}, probable artifact zones."
+        elif low_conf_ratio >= 0.1:
+            risk_level = "LOW"
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — minor uncertainty in {', '.join(risk_zones)}."
+        else:
+            risk_level = "MINIMAL"
+            risk_reason = f"Only {low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — structural integrity appears sound."
+
+        return {
+            "low_confidence_threshold": LOW_CONFIDENCE_THRESHOLD,
+            "total_keypoints": total_kpts,
+            "low_confidence_count": len(low_conf_kpts),
+            "low_confidence_ratio": round(low_conf_ratio, 4),
+            "low_confidence_keypoints": low_conf_kpts,
+            "affected_body_regions": risk_zones,
+            "artifact_risk_level": risk_level,
+            "risk_reasoning": risk_reason,
+        }
 
     def _draw_visualization(self, img_bgr, instances_evidence):
         vis = img_bgr.copy()
@@ -97,8 +172,12 @@ class AnimalPoseEstimator:
                 })
 
         evidence = {
-            "detected_pose_instances": instances_evidence
+            "detected_pose_instances": instances_evidence,
         }
+
+        risk_assessment = self._assess_artifact_risk(instances_evidence)
+        if risk_assessment is not None:
+            evidence["low_confidence_analysis"] = risk_assessment
 
         if save_viz and viz_output_path and instances_evidence:
             vis = self._draw_visualization(img_bgr, instances_evidence)
