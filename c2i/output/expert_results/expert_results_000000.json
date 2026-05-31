@@ -6,30 +6,31 @@
     "class_id": 0,
     "class_label": "tench, Tinca tinca",
     "plan_reference": "approved_plan_000000",
-    "execution_timestamp": "2026-05-31 16:15:25",
+    "execution_timestamp": "2026-05-31 20:40:06",
     "focus_areas": [
-        "fish_anatomy",
-        "human_pose_integrity",
-        "boundary_sharpness",
-        "texture_coherence",
-        "spatial_grounding"
+        "fish_scales",
+        "barbels",
+        "fin_structure",
+        "lateral_line",
+        "hand_fish_interaction",
+        "man_limbs"
     ],
-    "custom_prompts_for_reflector": "Pay extra attention to whether the fish's tail fuses with the background or the person's hands, and verify the person's fingers are correctly positioned around the fish without any melting artifacts.",
+    "custom_prompts_for_reflector": "Pay special attention to the fish's scale texture (should be smooth/slimy, not rough), the presence of barbels at the mouth corners, and the specific shape of the dorsal and caudal fins. Check for any anatomical hallucinations in the fish's body proportions. Also, verify the man's fingers are correctly interacting with the fish without merging.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
-            "target_subject": "the fish",
-            "weight": 0.15,
-            "reason": "To locate the fish within the image and provide bounding box priors for segmentation experts, ensuring the fish is correctly identified and positioned relative to the person.",
+            "target_subject": "tench",
+            "weight": 0.2,
+            "reason": "To locate the fish and its specific body parts (fins, barbels, lateral line) for detailed auditing, as the class requires locating specific components.",
             "status": "success",
-            "execution_time_ms": 10061.88,
+            "execution_time_ms": 10112.03,
             "evidence": {
                 "detected_objects": [
                     {
-                        "matched_query_token": "fish",
-                        "confidence_score": 0.4345,
+                        "matched_query_token": "tench",
+                        "confidence_score": 0.343,
                         "bounding_box": [
                             167,
                             233,
@@ -46,14 +47,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "scene",
+            "weight": 0.15,
+            "reason": "To verify the spatial relationship between the man, the fish, and the background environment, ensuring valid 3D structure.",
+            "status": "success",
+            "execution_time_ms": 446.34,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i/output/depth_maps/000000_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 15.6672,
+                    "mean_value": 7.3169,
+                    "std_deviation": 4.793
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "500x375"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "animal_pose_auditor",
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
-            "target_subject": "the person holding the fish",
-            "weight": 0.25,
-            "reason": "To audit the anatomical integrity of the person holding the fish, checking for correct limb positioning, joint angles, and ensuring no melting or missing parts in the human figure.",
+            "target_subject": "man",
+            "weight": 0.15,
+            "reason": "To audit the man's pose and limb integrity, as he is a prominent auxiliary subject holding the fish.",
             "status": "success",
-            "execution_time_ms": 460.7,
+            "execution_time_ms": 484.21,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -177,11 +203,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "the fish",
-            "weight": 0.25,
-            "reason": "To verify if the fish held by the person is indeed a tench (Tinca tinca) and not a similar cyprinid species, checking for specific taxonomic features like the small scales and barbels.",
+            "target_subject": "tench",
+            "weight": 0.3,
+            "reason": "To verify the identity of the fish as a tench (Tinca tinca) based on specific taxonomic features like scale texture, coloration, and fin structure.",
             "status": "success",
-            "execution_time_ms": 588.76,
+            "execution_time_ms": 496.72,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -212,37 +238,18 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "the fish",
+            "target_subject": "tench",
             "weight": 0.2,
-            "reason": "To verify the physical boundary integrity of the fish, ensuring it is a single continuous entity without floating parts or blurred edges, and checking for any fusion artifacts with the person's hands.",
+            "reason": "To check for boundary blur or fusion between the fish and the hands holding it, ensuring the fish is a distinct entity.",
             "status": "success",
-            "execution_time_ms": 805.15,
+            "execution_time_ms": 843.67,
             "evidence": {
-                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/sam_results_v1/000000_mask.png",
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i/output/sam_masks/000000_mask.png",
                 "mask_confidence_score": 0.9553,
                 "prompt_point_used": [
                     257,
                     275
                 ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "the entire image",
-            "weight": 0.15,
-            "reason": "To assess the overall image quality, checking for artifacts like noise, compression, blur, or lighting issues that could affect the clarity of both the fish and the person.",
-            "status": "success",
-            "execution_time_ms": 4703.84,
-            "evidence": {
-                "thinking_trajectory": "The image appears to be clear and well-focused, with no visible signs of noise, compression, blur, or darkening.",
-                "distortion_class": "null",
-                "severity_level": "null",
-                "severity_score": 0.0
             },
             "raw_metrics": {},
             "error": null,
@@ -253,7 +260,7 @@
         "total_experts_planned": 5,
         "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 14842.57,
+        "total_execution_time_ms": 11030.12,
         "failed_expert_ids": []
     }
 }
