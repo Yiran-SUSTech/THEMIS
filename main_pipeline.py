@@ -130,7 +130,7 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     return gathered_evidences
 
 if __name__ == "__main__":
-    test_image = "./test_images/hussar monkey2.png"
+    test_image = "./test_images/000000.png"
     
     raw_evidence_report = run_themis_pipeline(
         image_path=test_image, 
