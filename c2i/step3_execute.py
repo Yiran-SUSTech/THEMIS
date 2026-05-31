@@ -93,61 +93,6 @@ EXPERT_DEPENDENCIES = {
     "topology_boundary_auditor": ["open_vocabulary_detector"],
 }
 
-POSE_VIZ_DIR = C2I_DIR / "output" / "pose_visualizations"
-
-COCO_SKELETON = [
-    (0, 1), (0, 2), (1, 3), (2, 4),
-    (5, 6), (5, 7), (6, 8), (7, 9),
-    (8, 10), (11, 12), (11, 13), (12, 14),
-    (13, 15), (14, 16), (5, 11), (6, 12),
-]
-
-
-def save_pose_visualization(
-    img_bgr,
-    pose_evidence: dict,
-    output_path: str | Path,
-) -> str | None:
-    if not pose_evidence.get("detected_pose_instances"):
-        return None
-
-    vis = img_bgr.copy()
-    instances = pose_evidence["detected_pose_instances"]
-
-    for inst in instances:
-        keypoints = inst.get("keypoints", [])
-        kpt_coords = {}
-        for kpt in keypoints:
-            kid = kpt["keypoint_id"]
-            x, y = int(round(kpt["x"])), int(round(kpt["y"]))
-            conf = kpt["confidence"]
-            kpt_coords[kid] = (x, y)
-
-            if conf >= 0.3:
-                cv2.circle(vis, (x, y), 4, (0, 255, 0), -1)
-            else:
-                cv2.circle(vis, (x, y), 4, (0, 0, 255), -1)
-
-            label = f"{kid}:{conf:.2f}"
-            cv2.putText(
-                vis, label, (x + 5, y - 5),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.32,
-                (255, 255, 0), 1, cv2.LINE_AA,
-            )
-
-        for i, j in COCO_SKELETON:
-            if i in kpt_coords and j in kpt_coords:
-                ci = next((k["confidence"] for k in keypoints if k["keypoint_id"] == i), 0)
-                cj = next((k["confidence"] for k in keypoints if k["keypoint_id"] == j), 0)
-                color = (0, 200, 200) if ci >= 0.3 and cj >= 0.3 else (0, 80, 80)
-                cv2.line(vis, kpt_coords[i], kpt_coords[j], color, 1, cv2.LINE_AA)
-
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(output_path), vis)
-    print(f"  [SAVED] Pose visualization -> {output_path.name}")
-    return str(output_path)
-
 
 class NumpySafeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -296,6 +241,8 @@ def _invoke_expert_audit(
     class_label: str,
     target_subject: str,
     hint_box: list | None = None,
+    save_pose_viz: bool = False,
+    pose_viz_path: str | None = None,
 ) -> dict:
     """Invoke a single expert's audit() method with full exception isolation.
 
@@ -312,7 +259,11 @@ def _invoke_expert_audit(
         elif expert_id == "fine_grained_classifier":
             result = expert_instance.audit(img_bgr)
         elif expert_id == "animal_pose_auditor":
-            result = expert_instance.audit(img_bgr)
+            result = expert_instance.audit(
+                img_bgr,
+                save_viz=save_pose_viz,
+                viz_output_path=pose_viz_path,
+            )
         elif expert_id == "geometric_depth_auditor":
             result = expert_instance.audit(img_bgr, original_image_path=image_path)
         elif expert_id == "topology_boundary_auditor":
@@ -479,9 +430,14 @@ def execute_plan(
                 return _make_failed_testimony(eid, entry, "Expert model not loaded")
 
             box = hint_box if eid == "topology_boundary_auditor" else None
+            pose_viz = None
+            if save_pose_viz and eid == "animal_pose_auditor":
+                pose_viz_dir = C2I_DIR / "output" / "pose_visualizations"
+                pose_viz = str(pose_viz_dir / f"{image_id}_pose_viz.png")
             result = _invoke_expert_audit(
                 instance, eid, img_bgr, image_path, class_label,
                 entry["target_subject"], hint_box=box,
+                save_pose_viz=save_pose_viz, pose_viz_path=pose_viz,
             )
             return _wrap_testimony(eid, entry, result)
 
@@ -497,18 +453,6 @@ def execute_plan(
                     testimonies.append(testimony)
                 except Exception as e:
                     print(f"    [FUTURE ERROR] {type(e).__name__}: {e}")
-
-    # ── Save Pose Visualization (if requested) ─────────────────────────
-    if save_pose_viz:
-        for t in testimonies:
-            if t.get("expert_id") == "animal_pose_auditor" and t.get("status") == "success":
-                pose_evidence = t.get("evidence", {}).get("detected_pose_instances")
-                if pose_evidence:
-                    viz_path = POSE_VIZ_DIR / f"{image_id}_pose_viz.png"
-                    saved = save_pose_visualization(img_bgr, t["evidence"], viz_path)
-                    if saved:
-                        t["evidence"]["saved_pose_viz_path"] = saved
-                break
 
     # ── Assemble Expert Testimony Bundle ────────────────────────────────
     pipeline_elapsed = (time.time() - pipeline_start) * 1000
