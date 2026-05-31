@@ -30,7 +30,8 @@ class QInsightDistortionAnalyzer:
         use_cuda = device.startswith("cuda")
         max_memory = None
         if use_cuda and num_gpus > 0:
-            max_memory = {i: "auto" for i in range(num_gpus)}
+            # 必须改为具体单位，不能写 "auto"
+            max_memory = {i: "28GB" for i in range(num_gpus)}
         
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
