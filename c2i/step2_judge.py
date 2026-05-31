@@ -170,6 +170,7 @@ def review_plan(
     }
 
     try:
+        start_time = time.time()
         completion = client.chat.completions.create(
             model=JUDGE_MODEL,
             messages=[
@@ -190,11 +191,14 @@ def review_plan(
             response_format={"type": "json_object"},
             temperature=0.1,
         )
+        cost_time = time.time() - start_time
         raw_content = completion.choices[0].message.content
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Judge returned unparseable JSON: {raw_content[:200]}")
             return None
+
+        result["judge_cost_seconds"] = round(cost_time, 2)
 
         usage = getattr(completion, "usage", None)
         if usage:

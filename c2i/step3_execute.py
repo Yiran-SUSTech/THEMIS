@@ -80,7 +80,7 @@ EXPERT_MODULE_MAP = {
 }
 
 DEFAULT_GPU_CONFIG = {
-    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 2},    # Q-Insight → GPU 0,1
+    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 1},    # Q-Insight → GPU 0
     "animal_pose_auditor":        {"device": "cuda:2", "num_gpus": 1},  # ViTPose → GPU 2
     "geometric_depth_auditor":    {"device": "maca:0", "num_gpus": 1},  # Depth → MACA 0
     "fine_grained_classifier":    {"device": "maca:1", "num_gpus": 1},  # EVA-02 → MACA 1
@@ -247,6 +247,7 @@ class ExpertManager:
 
         if expert_id == "perceptual_quality_auditor":
             kwargs["num_gpus"] = num_gpus
+            kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
 
         if expert_id == "topology_boundary_auditor":
             kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")

@@ -113,6 +113,7 @@ def save_judge_feedback(
             "reasons_for_rejection": judge_result.get("reasons_for_rejection", ""),
             "suggestions": judge_result.get("suggestions", []),
         },
+        "judge_cost_seconds": judge_result.get("judge_cost_seconds", 0),
         "audited_plan": plan,
     }
     feedback_path = judge_feedback_dir / f"judge_feedback_{img_id}_iter{iteration}.json"
@@ -172,8 +173,9 @@ def run_pipeline_for_image(
         is_approved = judge_result.get("is_approved", False)
         reasons = judge_result.get("reasons_for_rejection", "")
         suggestions = judge_result.get("suggestions", [])
+        judge_cost = judge_result.get("judge_cost_seconds", 0)
 
-        print(f"  [Step 2] Verdict: {'Approved' if is_approved else 'Rejected'}")
+        print(f"  [Step 2] Verdict: {'Approved' if is_approved else 'Rejected'} | Cost: {judge_cost:.2f}s")
         if not is_approved:
             print(f"  [Step 2] Reasons: {reasons}")
             print(f"  [Step 2] Suggestions: {json.dumps(suggestions, ensure_ascii=False)}")

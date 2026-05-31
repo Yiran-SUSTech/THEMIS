@@ -112,16 +112,22 @@ def _build_expert_context_str(
     return "\n\n".join(parts)
 
 
-def _sanitize_evidence(evidence: dict) -> dict:
-    clean = {}
-    for k, v in evidence.items():
-        if k in ("saved_mask_path", "saved_depth_path", "mask_visualization_path"):
-            clean[k] = v
-        elif isinstance(v, (dict, list, str, int, float, bool)) or v is None:
-            clean[k] = v
-        else:
-            clean[k] = str(v)
-    return clean
+def _sanitize_evidence(evidence):
+    import numpy as np
+    if isinstance(evidence, dict):
+        return {k: _sanitize_evidence(v) for k, v in evidence.items()}
+    elif isinstance(evidence, list):
+        return [_sanitize_evidence(v) for v in evidence]
+    elif isinstance(evidence, (np.integer,)):
+        return int(evidence)
+    elif isinstance(evidence, (np.floating,)):
+        return float(evidence)
+    elif isinstance(evidence, np.ndarray):
+        return evidence.tolist()
+    elif isinstance(evidence, (str, int, float, bool)) or evidence is None:
+        return evidence
+    else:
+        return str(evidence)
 
 
 _REFLECTOR_SYSTEM_TEMPLATE = """You are the Supreme Judge (Reflector) of an AI image evaluation system. You must follow the 4-Stage Cognition Chain strictly: independent visual audit, evidence cross-examination, self-reflection, and final verdict. You must prioritize the Taxonomy Ground Truth as the source of truth. Output JSON only, no markdown wrapping.
@@ -308,8 +314,10 @@ def save_final_report(
     filename = f"final_evaluation_report_{image_id}.json"
     filepath = output_dir / filename
 
+    safe_report = _sanitize_evidence(report)
+
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=4, ensure_ascii=False)
+        json.dump(safe_report, f, indent=4, ensure_ascii=False)
 
     print(f"  [SAVED] {filename}")
     return str(filepath)
