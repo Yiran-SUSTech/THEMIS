@@ -208,3 +208,79 @@ JSON
 权重兜底：如果某个专家挂了，记录其日志，但保持其他专家的权重设计，留给第四步的 Reflector 去做最终对齐。
 
 这一步新创建的文件都放到当前项目的c2i文件夹中。
+
+
+
+我在当前项目中构建一个针对 c2i 和 t2i 的图片生成模型的 Agentic 测评系统。该系统主要测评被测试数据集中图片的 Alignment score（是否符合 class 或者 prompt）和 Artifact score（畸变、伪影、融化、模糊、结构崩坏等情况）。这个系统包含一个 router、judge、reflector（此三者都用 Qwen3.6-plus 担任，通过 API 调用）以及若干专家模型。
+我想先针对 c2i 的图片生成模型搭建这个测评系统。整个系统分为四个步骤：
+第一步： 在 c2i 的设定下，router 的任务是根据待测评图片本身、该图片的类别（ImageNet-1K 中的类别）、该类别的 taxonomy 先验信息（放在当前项目的 taxonomy_info 下）、能调用的专家模型（专家模型的相关信息都记录在当前目录的 expert_registry.json 文件中），生成如何测评这张图片的 plan。
+第二步： 这个 plan 以及待检测的图片本身、类别，之后都会发送给 judge 评判（参考 test_scripts/test_QwenPlus_API_judge.py，可在其基础上修改）。
+第三步： 本地执行 plan。专家模型接口在 experts/ 文件夹下（参考 main_pipeline.py）。
+第四步： 发送给 reflector 做出最终的判断和评价（Alignment score 0-5分，越高越符合类别；Artifact score 0-5分，越高图片质量越好。两者都是连续的小数）。
+我已经跑通了第一步到第三步，目前正在进入整个测评系统的最后一环**【第四步：Reflector 共识总审与自我反思（Self-Reflection）】**进行进一步的需求升级。
+
+在这一步中，Reflector 不仅要接收待测图片、类别、专家执行结果（在当前项目c2i\output\expert_results下），还必须同时接收该类别的 taxonomy_info（作为终审的法律依据，由c2i\dispatcher.py提供，就像提供给router那样）。
+此外，Reflector 的执行流程必须包含一个显式的自我反思（Self-Reflection）内部步骤：它必须先基于所有输入推导出一个“初审结论”，然后自我质询该结论是否合理（是否存在给分虚高、专家证据被忽略、或前后逻辑矛盾等情况），并在 JSON 中输出它的反思过程，如果发现不合理则自行就地修正，最终输出终审报告。
+总的来说，Reflector要先独立用他的多模态视觉理解能力审核一下图片，做出对图片的初步判断（在Alignment和Artifact方面，分数和理由），然后再结合专家模型汇报的结果，再看看初步判断是否要修改、如何修改，然后进入self-reflection的环节，最后做出最终评价和打分。
+请检查当前项目的c2i文件夹下的文件，并在c2i这个文件夹下编写或重构最末端的控制代码，并严格按照以下要求进行开发：
+
+1. 参考代码与接口规范
+参考当前项目的c2i文件夹中的文件，理清前3步的运行逻辑、结果的保存方式和路径。在c2i下创建step4_reflector.py代码文件，仿照c2i\step1_router.py和D:\THEMIS\c2i\step2_judge.py写出单次调用Reflector的接口。续写c2i\dispatcher.py，实现Reflector相关的调度、参数数据的传输、结果保存等功能。
+API 调用：请确保 Reflector 的 API 调用传参、图片多模态输入方式（多模态 Message 结构）与第 1、2 步中跑通的 Qwen3.6-plus 形式严格一致（参考c2i\step1_router.py和D:\THEMIS\c2i\step2_judge.py）。有些专家的结果可能包含图片，比如segmentation模型的掩码图，也需要和原图一起，上传给Reflector（c2i\dispatcher.py中负责）。
+上下文依赖：你需要编写 Python 逻辑，自动读取第三步本地执行后保存的 expert_results.json 文件，并将其转化为纯文本格式作为 Prompt 的上下文输入。
+reflector在分析专家模型的结果的时候，也还得知晓这个专家模型是被router用来测什么的（即c2i\output\expert_results\expert_results_[image id].json中的"target_subject"内容)，以及专家模型的功能和结果的意义（在expert_registry.json中）
+2. 编写构建 Reflector Prompt 的函数
+请在合适的位置实现 build_reflector_prompt 函数。其核心 Prompt 模板必须包含以下博弈与反思逻辑，也可根据你的理解和上面的要求修改和扩展：
+
+Python
+def build_reflector_prompt(
+    class_label: str,
+    taxonomy_info: dict | None,
+    expert_results_str: str,
+) -> str:
+    taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
+    
+    return f"""You are the Supreme Judge of an AI image evaluation system. Deliver the final evaluation verdict by following a 4-Stage Cognition Chain embedded directly within the output JSON schema below.
+
+**[Context]**
+- Target Class: {class_label}
+- Taxonomy Ground Truth: {taxonomy_desc}
+- Expert Testimonies: {expert_results_str}
+
+**[Core Priority Laws]**
+1. Anatomy/Topology > Aesthetics: If structure experts flag defects (e.g., melting boundaries, extra limbs) with high confidence, penalize Artifact Score heavily regardless of visual appeal.
+2. Taxonomy Compliance: Mismatch in fine-grained class features or Top-1 classification requires lowering Alignment Score.
+
+**[Output Requirements]**
+Return ONLY a pure JSON object (no markdown, no extra text). You must execute and document each step inside the respective JSON fields:
+{{
+  "stage1_independent_visual_audit": {{
+    "alignment_thought": "Analyze the image independently without looking at expert data. Does it match '{class_label}' visually? (Give tentative score 0-5 & reason)",
+    "artifact_thought": "Scan for visible hallucinations, melting, or blurring. (Give tentative score 0-5 & reason)"
+  }},
+  "stage2_evidence_cross_examination": {{
+    "expert_vs_intuition": "Read Expert Testimonies. Compare their hard data (joint counts, depth jumps) with your Stage 1 thoughts. Resolve any contradictions."
+  }},
+  "stage3_self_reflection": {{
+    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward intuition or ignore an expert warning? Specify exactly how you will calibrate scores from Stage 1 to reach final true scores."
+  }},
+  "stage4_final_verdict": {{
+    "alignment_score": 0.0,      // Continuous float (0.0 to 5.0)
+    "artifact_score": 0.0,       // Continuous float (0.0 to 5.0)
+    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
+    "artifact_reasoning": "Concise definitive logic explaining the final artifact score, explicitly citing which expert evidence was adopted or overridden.",
+    "hard_failure_triggered": false,
+    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
+  }}
+}}"""
+
+3. 核心控制流与自修正（Self-Refinement）
+代码防御：必须使用正则或字符串裁剪清洗模型可能输出的 ```json 标记。
+数据落盘：Reflector 生成最终 JSON 后，需要将此最终结果命名为 final_evaluation_report_[image id].json 保存到当前项目的c2i目录下合适的文件夹下（可新建一个文件夹）。
+
+4. 通关验证与日志输出
+请为我编写或集成好这最后的第四步脚本。
+
+运行结束后，控制台需要打印出清晰的结算单，形如：
+"--- Final Evaluation Complete ---"
+"Class: [类别] | Alignment: [X.X]/5.0 | Artifact: [Y.Y]/5.0 | Hard Failure: [True/False]"

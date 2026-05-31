@@ -10,14 +10,28 @@ class FineGrainedClassifier:
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/eva02_large_metax_compatible.onnx",
                  label_path="/mnt/afs/zhengmingkai/zyr/THEMIS/imagenet_classes.json",
-                 input_size=448):
-        print(f"[Init] Loading EVA-02 Model to MetaX MACA engine...")
-        providers = ['MACAExecutionProvider', 'CPUExecutionProvider']
+                 input_size=448,
+                 device="maca:0"):
+        print(f"[Init] Loading EVA-02 Model (Device: {device})...")
+        providers = self._build_providers(device)
         self.session = ort.InferenceSession(model_path, providers=providers)
         self.input_size = input_size
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
         self._load_labels(label_path)
+
+    @staticmethod
+    def _build_providers(device: str):
+        if device.startswith("maca:"):
+            device_id = int(device.split(":")[1])
+            return [('MACAExecutionProvider', {'device_id': device_id}), 'CPUExecutionProvider']
+        elif device.startswith("cuda:"):
+            device_id = int(device.split(":")[1])
+            return [('CUDAExecutionProvider', {'device_id': device_id}), 'CPUExecutionProvider']
+        elif device == "cpu":
+            return ['CPUExecutionProvider']
+        else:
+            return ['CPUExecutionProvider']
 
     def _load_labels(self, label_path):
         try:

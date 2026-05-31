@@ -44,7 +44,7 @@ EXPERT_MODULE_MAP = {
     "geometric_depth_auditor": {
         "module": "experts.expert_depth",
         "class_name": "MonocularDepthEstimator",
-        "accepts_device": False,
+        "accepts_device": True,
         "internal_expert_id": "monocular_depth_estimator",
     },
     "topology_boundary_auditor": {
@@ -62,7 +62,7 @@ EXPERT_MODULE_MAP = {
     "fine_grained_classifier": {
         "module": "experts.expert_classifier",
         "class_name": "FineGrainedClassifier",
-        "accepts_device": False,
+        "accepts_device": True,
         "internal_expert_id": "fine_grained_classifier",
     },
     "perceptual_quality_auditor": {
@@ -80,10 +80,10 @@ EXPERT_MODULE_MAP = {
 }
 
 DEFAULT_GPU_CONFIG = {
-    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 2},
-    "animal_pose_auditor": {"device": "cuda:0", "num_gpus": 1},
-    "geometric_depth_auditor": {"device": "maca:0", "num_gpus": 1},
-    "fine_grained_classifier": {"device": "maca:0", "num_gpus": 1},
+    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 2},    # Q-Insight → GPU 0,1
+    "animal_pose_auditor":        {"device": "cuda:2", "num_gpus": 1},  # ViTPose → GPU 2
+    "geometric_depth_auditor":    {"device": "maca:0", "num_gpus": 1},  # Depth → MACA 0
+    "fine_grained_classifier":    {"device": "maca:1", "num_gpus": 1},  # EVA-02 → MACA 1
     "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
     "topology_boundary_auditor": {"device": "cpu", "num_gpus": 0},
     "image_text_auditor": {"device": "cpu", "num_gpus": 0},
@@ -112,8 +112,9 @@ class ExpertManager:
     Experts that are too large can occupy multiple GPUs (configured via gpu_config).
     """
 
-    def __init__(self, gpu_config: dict | None = None):
+    def __init__(self, gpu_config: dict | None = None, expert_output_dirs: dict | None = None):
         self.gpu_config = gpu_config or dict(DEFAULT_GPU_CONFIG)
+        self.expert_output_dirs = expert_output_dirs or {}
         self.loaded_experts: dict = {}
         self.load_errors: dict = {}
         self._load_times: dict = {}
@@ -182,17 +183,27 @@ class ExpertManager:
     def _build_init_kwargs(self, expert_id: str, gpu_cfg: dict) -> dict:
         kwargs = {}
         device = gpu_cfg.get("device", "cpu")
+        num_gpus = gpu_cfg.get("num_gpus", 0)
 
         config = EXPERT_MODULE_MAP.get(expert_id, {})
+
         if config.get("accepts_device", False):
-            if device.startswith("cuda"):
-                kwargs["device"] = device
-            else:
-                kwargs["device"] = "cuda"
+            kwargs["device"] = device
+
+        if expert_id == "perceptual_quality_auditor":
+            kwargs["num_gpus"] = num_gpus
 
         if expert_id == "topology_boundary_auditor":
             kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")
-            kwargs["output_dir"] = str(PROJECT_ROOT / "sam_results_v1")
+            if expert_id in self.expert_output_dirs:
+                kwargs["output_dir"] = str(self.expert_output_dirs[expert_id])
+            else:
+                kwargs["output_dir"] = str(C2I_DIR / "output" / "sam_masks")
+        elif expert_id == "geometric_depth_auditor":
+            if expert_id in self.expert_output_dirs:
+                kwargs["output_dir"] = str(self.expert_output_dirs[expert_id])
+            else:
+                kwargs["output_dir"] = str(C2I_DIR / "output" / "depth_maps")
         elif expert_id == "image_text_auditor":
             kwargs["det_model_path"] = str(PROJECT_ROOT / "models" / "Multilingual_PP-OCRv3_det_infer.onnx")
 

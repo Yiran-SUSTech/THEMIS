@@ -9,9 +9,10 @@ from PIL import Image
 class QInsightDistortionAnalyzer:
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/models/Q-Insight/score_degradation",
-                 device="cuda"):
+                 device="cuda",
+                 num_gpus=1):
         
-        print(f"[Init] Loading Q-Insight VLM to memory (Device: {device})...")
+        print(f"[Init] Loading Q-Insight VLM to memory (Device: {device}, GPUs: {num_gpus})...")
         self.device = device
         
         try:
@@ -22,21 +23,25 @@ class QInsightDistortionAnalyzer:
         except ImportError:
             self.has_qwen_vl_utils = False
 
-        # 1. 载入本地常驻内存的 Processor 和 Model
         self.processor = AutoProcessor.from_pretrained(
             model_path, local_files_only=True, trust_remote_code=True
         )
         
-        # 强制指定 bfloat16 与 eager 机制防止国产显卡溢出或算子缺失
+        use_cuda = device.startswith("cuda")
+        max_memory = None
+        if use_cuda and num_gpus > 0:
+            max_memory = {i: "auto" for i in range(num_gpus)}
+        
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
             local_files_only=True,
             trust_remote_code=True,
-            torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
-            device_map="auto" if device == "cuda" else None,
+            torch_dtype=torch.bfloat16 if use_cuda else torch.float32,
+            device_map="auto" if use_cuda else None,
+            max_memory=max_memory,
             attn_implementation="eager"
         )
-        if device == "cpu":
+        if not use_cuda:
             self.model = self.model.to("cpu")
             
         self.model.eval()

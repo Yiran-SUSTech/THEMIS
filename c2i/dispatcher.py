@@ -28,6 +28,12 @@ PLAN_DIR = Path(__file__).resolve().parent / "output" / "plans"
 APPROVED_DIR = Path(__file__).resolve().parent / "output" / "approved_plans"
 JUDGE_FEEDBACK_DIR = Path(__file__).resolve().parent / "output" / "judge_feedback"
 EXPERT_RESULTS_DIR = Path(__file__).resolve().parent / "output" / "expert_results"
+FINAL_REPORTS_DIR = Path(__file__).resolve().parent / "output" / "final_reports"
+
+EXPERT_OUTPUT_DIRS = {
+    "topology_boundary_auditor": Path(__file__).resolve().parent / "output" / "sam_masks",
+    "geometric_depth_auditor": Path(__file__).resolve().parent / "output" / "depth_maps",
+}
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -44,6 +50,7 @@ from step3_execute import (
     DEFAULT_GPU_CONFIG,
     EXPERT_MODULE_MAP,
 )
+from step4_reflector import run_reflector, save_final_report, print_final_summary
 
 
 def parse_class_ids(txt_path: str) -> dict[str, int]:
@@ -280,7 +287,7 @@ def run_step3_pipeline(
 
     owns_manager = expert_manager is None
     if owns_manager:
-        expert_manager = ExpertManager(gpu_config=gpu_config)
+        expert_manager = ExpertManager(gpu_config=gpu_config, expert_output_dirs=EXPERT_OUTPUT_DIRS)
         expert_manager.load_all(required_ids)
 
     if not expert_manager.loaded_experts:
@@ -335,6 +342,124 @@ def run_step3_pipeline(
         expert_manager.cleanup()
 
 
+def _load_expert_results(expert_results_dir: Path) -> list[dict]:
+    results = []
+    if not expert_results_dir.exists():
+        print(f"[WARN] Expert results directory not found: {expert_results_dir}")
+        return results
+    for f in sorted(expert_results_dir.glob("expert_results_*.json")):
+        try:
+            with open(f, "r", encoding="utf-8") as fp:
+                result = json.load(fp)
+            result["_source_file"] = f.name
+            results.append(result)
+        except Exception as e:
+            print(f"[WARN] Failed to load expert result {f.name}: {e}")
+    return results
+
+
+def run_step4_pipeline(
+    client: OpenAI,
+    expert_results_dir: Path,
+    final_reports_dir: Path,
+    experts_registry_str: str,
+    image_id_filter: str = "",
+    limit: int = 0,
+) -> None:
+    expert_results_list = _load_expert_results(expert_results_dir)
+
+    if image_id_filter:
+        expert_results_list = [
+            r for r in expert_results_list
+            if image_id_filter in r.get("image_id", "")
+        ]
+        if not expert_results_list:
+            print(f"[ERROR] No expert results found for image ID: {image_id_filter}")
+            return
+
+    if limit > 0:
+        expert_results_list = expert_results_list[:limit]
+
+    if not expert_results_list:
+        print("[ERROR] No expert results found. Run Step 3 first.")
+        return
+
+    print(f"\n{'=' * 60}")
+    print(f"  Step 4: Reflector Final Evaluation")
+    print(f"  Expert results to evaluate: {len(expert_results_list)}")
+    print(f"  Final reports dir: {final_reports_dir}")
+    print(f"{'=' * 60}")
+
+    final_reports_dir.mkdir(parents=True, exist_ok=True)
+
+    success_count = 0
+    failed_count = 0
+    total_start = time.time()
+
+    for idx, expert_result in enumerate(expert_results_list, 1):
+        image_id = expert_result.get("image_id", "unknown")
+        class_id = expert_result.get("class_id")
+        class_label = expert_result.get("class_label", "N/A")
+        source_file = expert_result.get("_source_file", "unknown")
+
+        if class_id is None:
+            print(f"\n[{idx}/{len(expert_results_list)}] Skipping {source_file}: missing class_id")
+            failed_count += 1
+            continue
+
+        image_path_raw = expert_result.get("image_path", "")
+        image_path = resolve_image_path_global(image_path_raw)
+        if image_path is None:
+            img_stem = image_id
+            for ext in [".png", ".jpg", ".jpeg"]:
+                candidate = IMAGE_DIR / f"{img_stem}{ext}"
+                if candidate.exists():
+                    image_path = str(candidate)
+                    break
+
+        if image_path is None:
+            print(f"\n[{idx}/{len(expert_results_list)}] Image not found for ID: {image_id}")
+            failed_count += 1
+            continue
+
+        print(f"\n[{idx}/{len(expert_results_list)}] {os.path.basename(image_path)} "
+              f"| Class: {class_label} (Result: {source_file})")
+
+        try:
+            report = run_reflector(
+                client=client,
+                image_path=image_path,
+                class_id=class_id,
+                class_label=class_label,
+                expert_results=expert_result,
+                experts_registry_str=experts_registry_str,
+            )
+
+            if report is None:
+                print(f"  [Step 4] FAILED - Reflector returned no valid response")
+                failed_count += 1
+                continue
+
+            save_final_report(report, final_reports_dir)
+            print_final_summary(report)
+
+            success_count += 1
+        except Exception as e:
+            print(f"  [FATAL] Reflector pipeline crashed: {type(e).__name__}: {e}")
+            failed_count += 1
+
+    total_elapsed = time.time() - total_start
+
+    print(f"\n{'=' * 60}")
+    print(f"  Step 4 Reflector Summary")
+    print(f"{'=' * 60}")
+    print(f"  Total evaluations: {len(expert_results_list)}")
+    print(f"  Successful:        {success_count}")
+    print(f"  Failed:            {failed_count}")
+    print(f"  Total elapsed:     {total_elapsed:.2f}s")
+    print(f"{'=' * 60}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="THEMIS C2I Dispatcher - Orchestrates the full evaluation pipeline"
@@ -343,11 +468,12 @@ def main():
         "--step",
         type=str,
         default="12",
-        choices=["1", "2", "12", "3", "123"],
+        choices=["1", "2", "12", "3", "123", "4", "1234"],
         help=(
             "Which step(s) to run: "
             "'1'=Router only, '2'=Judge only, '12'=Router+Judge (default), "
-            "'3'=Expert execution only, '123'=Full pipeline"
+            "'3'=Expert execution only, '4'=Reflector only, "
+            "'123'=Full pipeline (Steps 1-3), '1234'=Full pipeline (Steps 1-4)"
         ),
     )
     parser.add_argument(
@@ -387,6 +513,12 @@ def main():
         help="Directory to save expert_results_*.json files (Step 3)",
     )
     parser.add_argument(
+        "--final-reports-dir",
+        type=str,
+        default=str(FINAL_REPORTS_DIR),
+        help="Directory to save final_evaluation_report_*.json files (Step 4)",
+    )
+    parser.add_argument(
         "--save-feedback",
         action="store_true",
         default=False,
@@ -417,10 +549,12 @@ def main():
     plan_dir = Path(args.plan_dir)
     approved_dir = Path(args.approved_dir)
     expert_results_dir = Path(args.expert_results_dir)
+    final_reports_dir = Path(args.final_reports_dir)
 
     plan_dir.mkdir(parents=True, exist_ok=True)
     approved_dir.mkdir(parents=True, exist_ok=True)
     expert_results_dir.mkdir(parents=True, exist_ok=True)
+    final_reports_dir.mkdir(parents=True, exist_ok=True)
 
     judge_feedback_dir = None
     if args.save_feedback:
@@ -437,9 +571,10 @@ def main():
             print(f"[WARN] Failed to load GPU config, using defaults: {e}")
 
     step = args.step
-    run_step12 = step in ("1", "2", "12", "123")
-    run_step3 = step in ("3", "123")
-    is_full_pipeline = step == "123"
+    run_step12 = step in ("1", "2", "12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
+    is_full_pipeline = step in ("123", "1234")
 
     # ── Pre-load Expert Models at Startup ───────────────────────────────
     # When running Step 3 (alone or as part of 123), load all expert models
@@ -463,7 +598,7 @@ def main():
         else:
             required_ids = list(EXPERT_MODULE_MAP.keys())
 
-        expert_manager = ExpertManager(gpu_config=gpu_config)
+        expert_manager = ExpertManager(gpu_config=gpu_config, expert_output_dirs=EXPERT_OUTPUT_DIRS)
         expert_manager.load_all(required_ids)
 
         if not expert_manager.loaded_experts:
@@ -603,10 +738,29 @@ def main():
         if expert_manager is not None:
             expert_manager.cleanup()
 
+    # ── Step 4: Reflector (standalone or after full pipeline) ───────────
+    if run_step4:
+        if not DASHSCOPE_API_KEY:
+            print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 4 (Reflector).")
+            return
+
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+        experts_registry_str = load_experts_registry(str(EXPERTS_REGISTRY_JSON))
+
+        run_step4_pipeline(
+            client=client,
+            expert_results_dir=expert_results_dir,
+            final_reports_dir=final_reports_dir,
+            experts_registry_str=experts_registry_str,
+            image_id_filter=args.image_id,
+            limit=args.limit,
+        )
+
+    if is_full_pipeline and not run_step4:
         return
 
     # ── Step 1+2 only (batch mode) ──────────────────────────────────────
-    if run_step12:
+    if run_step12 and not is_full_pipeline:
         if not DASHSCOPE_API_KEY:
             print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2.")
             print("  export DASHSCOPE_API_KEY=your_api_key_here  (Linux/Mac)")
@@ -704,7 +858,7 @@ def main():
         print(f"{'='*60}")
 
     # ── Step 3 only (batch mode) ────────────────────────────────────────
-    if run_step3:
+    if run_step3 and not is_full_pipeline:
         print(f"\n{'='*60}")
         print(f"THEMIS C2I Dispatcher - Step 3 (Expert Execution)")
         print(f"Approved dir:       {approved_dir}")

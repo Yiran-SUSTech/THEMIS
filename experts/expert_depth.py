@@ -6,23 +6,38 @@ import onnxruntime as ort
 class MonocularDepthEstimator:
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/new_models/depth_anything_v1_onnx/onnx/model_fp16.onnx",
-                 output_dir="/mnt/afs/zhengmingkai/zyr/THEMIS/depth_results_v1"):
+                 output_dir="/mnt/afs/zhengmingkai/zyr/THEMIS/depth_results_v1",
+                 device="maca:0"):
         
-        print(f"[Init] Loading Depth Anything V1 Model to MetaX MACA engine...")
+        print(f"[Init] Loading Depth Anything V1 Model (Device: {device})...")
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         
-        # 绑定国产 MetaX MACA 硬件提供商
-        providers = [('MACAExecutionProvider', {'device_id': 0}), 'CPUExecutionProvider']
+        providers = self._build_providers(device)
         self.session = ort.InferenceSession(model_path, providers=providers)
         
         self.input_node = self.session.get_inputs()[0]
-        
-        # 解析模型所需的固定输入宽高（例如 518x518）
-        def get_dim(dim):
-            return dim if isinstance(dim, int) and dim > 0 else 518
-        self.input_h = get_dim(self.input_node.shape[2])
-        self.input_w = get_dim(self.input_node.shape[3])
+        self._init_input_dims()
+
+    @staticmethod
+    def _build_providers(device: str):
+        if device.startswith("maca:"):
+            device_id = int(device.split(":")[1])
+            return [('MACAExecutionProvider', {'device_id': device_id}), 'CPUExecutionProvider']
+        elif device.startswith("cuda:"):
+            device_id = int(device.split(":")[1])
+            return [('CUDAExecutionProvider', {'device_id': device_id}), 'CPUExecutionProvider']
+        elif device == "cpu":
+            return ['CPUExecutionProvider']
+        else:
+            return ['CPUExecutionProvider']
+
+    def _get_dim(self, dim):
+        return dim if isinstance(dim, int) and dim > 0 else 518
+
+    def _init_input_dims(self):
+        self.input_h = self._get_dim(self.input_node.shape[2])
+        self.input_w = self._get_dim(self.input_node.shape[3])
 
     def audit(self, img_bgr, original_image_path):
         """
