@@ -35,7 +35,7 @@ sam_expert = SegmentAnythingExpert()
 qinsight_expert = QInsightDistortionAnalyzer()  # 🚀 7 号专家就位
 print("--> All expert engines loaded successfully, pipeline ready.\n" + "="*50)
 
-def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
+def run_themis_pipeline(image_path, class_label, text_threshold=0.3, save_pose_viz=False):
     print(f"\n[Processing] Processing image: {image_path}")
     if not os.path.exists(image_path):
         print(f"[-] Error: Image not found at {image_path}")
@@ -76,7 +76,12 @@ def run_themis_pipeline(image_path, class_label, text_threshold=0.3):
     # ==================== [专家 4: rtmlib 姿态关键点] ====================
     print("\n--> [Expert 4] Extruding subject keypoints and poses...")
     t_start = time.time()
-    pose_result = pose_expert.audit(img_bgr)
+    pose_viz_path = None
+    if save_pose_viz:
+        img_stem = os.path.splitext(os.path.basename(image_path))[0]
+        os.makedirs("output/pose_visualizations", exist_ok=True)
+        pose_viz_path = f"output/pose_visualizations/{img_stem}_pose_viz.png"
+    pose_result = pose_expert.audit(img_bgr, save_viz=save_pose_viz, viz_output_path=pose_viz_path)
     pose_time = (time.time() - t_start) * 1000
     print(f"    └─ Success. Tracked {pose_result['raw_metrics']['detected_instances_count']} skeletal instances. Cost: {pose_time:.2f} ms")
     expert_responses.append(pose_result)
