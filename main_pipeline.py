@@ -35,7 +35,7 @@ sam_expert = SegmentAnythingExpert()
 qinsight_expert = QInsightDistortionAnalyzer()  # 🚀 7 号专家就位
 print("--> All expert engines loaded successfully, pipeline ready.\n" + "="*50)
 
-def run_themis_pipeline(image_path, class_label, text_threshold=0.3, save_pose_viz=False):
+def run_themis_pipeline(image_path, class_label, text_threshold=0.3, save_pose_viz=True):
     print(f"\n[Processing] Processing image: {image_path}")
     if not os.path.exists(image_path):
         print(f"[-] Error: Image not found at {image_path}")
