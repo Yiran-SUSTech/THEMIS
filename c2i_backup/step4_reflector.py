@@ -82,10 +82,10 @@ def _build_expert_context_str(
     parts = []
 
     if focus_areas:
-        parts.append(f"Focus Areas: {json.dumps(focus_areas, ensure_ascii=False)}")
+        parts.append(f"Router-specified Focus Areas: {json.dumps(focus_areas, ensure_ascii=False)}")
 
     if custom_prompts:
-        parts.append(f"Custom Audit Hints: {custom_prompts}")
+        parts.append(f"Router's Custom Audit Hints for Reflector: {custom_prompts}")
 
     for t in testimonies:
         eid = t.get("expert_id", "unknown")
@@ -96,14 +96,21 @@ def _build_expert_context_str(
         error = t.get("error")
 
         reg_entry = registry_map.get(eid, {})
+        expert_desc = reg_entry.get("description", "No description available.")
         expert_specialty = reg_entry.get("specialty", "N/A")
         diagnostic_criteria = reg_entry.get("diagnostic_criteria", {})
 
-        block = f"--- Expert: {eid} ---\nTarget: \"{target_subject}\" | Weight: {weight} | Specialty: {expert_specialty}\nDiagnostic Criteria: {json.dumps(diagnostic_criteria, ensure_ascii=False)}\nStatus: {status}"
+        block = f"""--- Expert: {eid} ---
+Target Subject: "{target_subject}" (assigned by Router to audit this specific subject)
+Weight in Plan: {weight}
+Specialty: {expert_specialty}
+Description: {expert_desc}
+Diagnostic Criteria: {json.dumps(diagnostic_criteria, ensure_ascii=False)}
+Execution Status: {status}"""
 
         if status == "success":
             evidence_clean = _sanitize_evidence(evidence)
-            block += f"\nEvidence:\n{json.dumps(evidence_clean, indent=2, ensure_ascii=False)}"
+            block += f"\nEvidence Output:\n{json.dumps(evidence_clean, indent=2, ensure_ascii=False)}"
         else:
             block += f"\nError: {error or 'Unknown error'}"
 
@@ -124,41 +131,6 @@ def _sanitize_evidence(evidence: dict) -> dict:
     return clean
 
 
-_REFLECTOR_SYSTEM_TEMPLATE = """You are the Supreme Judge (Reflector) of an AI image evaluation system. You must follow the 4-Stage Cognition Chain strictly: independent visual audit, evidence cross-examination, self-reflection, and final verdict. You must prioritize the Taxonomy Ground Truth as the source of truth. Output JSON only, no markdown wrapping.
-
-**[Core Priority Laws]**
-1. Anatomy/Topology > Aesthetics: Structure defects flagged by experts → penalize Artifact Score heavily regardless of visual appeal.
-2. Taxonomy Compliance: Mismatch in fine-grained features or Top-1 classification → lower Alignment Score.
-3. Expert Evidence Hierarchy: Weigh evidence proportional to expert weight in the plan.
-
-**[Output Requirements]**
-Return ONLY a pure JSON object (no markdown, no extra text). Execute and document each stage inside the respective JSON fields:
-{{
-  "stage1_independent_visual_audit": {{
-    "alignment_thought": "BEFORE reading expert data, independently analyze the image. Does it match 'TARGET_CLASS'? (tentative score 0-5 & reason)",
-    "artifact_thought": "Scan for visible hallucinations, melting, or blurring. (tentative score 0-5 & reason)"
-  }},
-  "stage2_evidence_cross_examination": {{
-    "expert_vs_intuition": "Compare expert hard data with your Stage 1 assessment. Resolve contradictions — explain which you trust and why.",
-    "alignment_adjustment": "How expert evidence changes your alignment assessment (if at all)",
-    "artifact_adjustment": "How expert evidence changes your artifact assessment (if at all)"
-  }},
-  "stage3_self_reflection": {{
-    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward intuition or ignore an expert warning? Specify exactly how you will calibrate Stage 1 scores to reach final true scores.",
-    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Are there logical contradictions?",
-    "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted after Stages 2 and 3"
-  }},
-  "stage4_final_verdict": {{
-    "alignment_score": 0.0,
-    "artifact_score": 0.0,
-    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
-    "artifact_reasoning": "Concise definitive logic explaining the final artifact score, citing which expert evidence was adopted or overridden.",
-    "hard_failure_triggered": false,
-    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
-  }}
-}}"""
-
-
 def build_reflector_prompt(
     class_label: str,
     taxonomy_info: dict | None,
@@ -166,12 +138,52 @@ def build_reflector_prompt(
 ) -> str:
     taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
 
-    return f"""Proceed through the 4-Stage Cognition Chain defined in the system context.
+    return f"""You are the Supreme Judge (Reflector) of an AI image evaluation system. Deliver the final evaluation verdict by following a 4-Stage Cognition Chain embedded directly within the output JSON schema below.
 
 **[Context]**
 - Target Class: {class_label}
 - Taxonomy Ground Truth: {taxonomy_desc}
-- Expert Testimonies: {expert_results_str}"""
+- Expert Testimonies: {expert_results_str}
+
+**[Core Priority Laws]**
+1. Anatomy/Topology > Aesthetics: If structure experts flag defects (e.g., melting boundaries, extra limbs) with high confidence, penalize Artifact Score heavily regardless of visual appeal.
+2. Taxonomy Compliance: Mismatch in fine-grained class features or Top-1 classification requires lowering Alignment Score.
+3. Expert Evidence Hierarchy: Weigh expert evidence proportional to the expert's weight in the plan. Higher-weight experts have greater influence on the final verdict.
+
+**[4-Stage Cognition Chain - MANDATORY]**
+You MUST execute and document each stage inside the respective JSON fields:
+
+- **Stage 1 - Independent Visual Audit**: BEFORE reading any expert data, use your own multimodal visual understanding to independently analyze the image. Give tentative alignment and artifact scores with reasoning.
+- **Stage 2 - Evidence Cross-Examination**: Now read the Expert Testimonies. Compare their hard data (joint counts, depth jumps, classification logits, boundary scores) with your Stage 1 visual assessment. Resolve any contradictions. If experts disagree with your visual impression, explain which you trust and why.
+- **Stage 3 - Self-Reflection**: Challenge your blended conclusion from Stage 2. Did you bias toward your own intuition and ignore an expert warning? Did you give artificially high scores because the image "looks nice"? Are there logical contradictions between your alignment and artifact reasoning? Specify exactly how you will calibrate scores from Stage 1 to reach final true scores. If you find unreasonable scoring, correct it here.
+- **Stage 4 - Final Verdict**: Deliver the definitive scores and reasoning.
+
+**[Output Requirements]**
+Return ONLY a pure JSON object (no markdown, no extra text). You must execute and document each step inside the respective JSON fields:
+{{
+  "stage1_independent_visual_audit": {{
+    "alignment_thought": "Analyze the image independently without looking at expert data. Does it match '{class_label}' visually? (Give tentative score 0-5 & reason)",
+    "artifact_thought": "Scan for visible hallucinations, melting, or blurring. (Give tentative score 0-5 & reason)"
+  }},
+  "stage2_evidence_cross_examination": {{
+    "expert_vs_intuition": "Read Expert Testimonies. Compare their hard data (joint counts, depth jumps) with your Stage 1 thoughts. Resolve any contradictions.",
+    "alignment_adjustment": "How expert evidence changes your alignment assessment (if at all)",
+    "artifact_adjustment": "How expert evidence changes your artifact assessment (if at all)"
+  }},
+  "stage3_self_reflection": {{
+    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward intuition or ignore an expert warning? Specify exactly how you will calibrate scores from Stage 1 to reach final true scores.",
+    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Are there logical contradictions?",
+    "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted after Stages 2 and 3"
+  }},
+  "stage4_final_verdict": {{
+    "alignment_score": 0.0,
+    "artifact_score": 0.0,
+    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
+    "artifact_reasoning": "Concise definitive logic explaining the final artifact score, explicitly citing which expert evidence was adopted or overridden.",
+    "hard_failure_triggered": false,
+    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
+  }}
+}}"""
 
 
 def _collect_auxiliary_images(expert_results: dict) -> list[str]:
@@ -232,25 +244,20 @@ def run_reflector(
         except Exception as e:
             print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
 
-    system_msg = _REFLECTOR_SYSTEM_TEMPLATE
-
-    system_message = {
-        "role": "system",
-        "content": [
-            {
-                "type": "text",
-                "text": system_msg,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-    }
+    system_msg = (
+        "You are the Supreme Judge (Reflector) of an AI image evaluation system. "
+        "You must follow the 4-Stage Cognition Chain strictly: independent visual audit, "
+        "evidence cross-examination, self-reflection, and final verdict. "
+        "You must prioritize the Taxonomy Ground Truth as the source of truth. "
+        "Output JSON only, no markdown wrapping."
+    )
 
     start_time = time.time()
     try:
         completion = client.chat.completions.create(
             model=REFLECTOR_MODEL,
             messages=[
-                system_message,
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
@@ -263,14 +270,6 @@ def run_reflector(
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
             return None
-
-        usage = getattr(completion, "usage", None)
-        if usage:
-            details = getattr(usage, "prompt_tokens_details", None)
-            cached = getattr(details, "cached_tokens", 0) if details else 0
-            created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
-            if cached or created:
-                print(f"  [CACHE] Reflector: hit={cached} tokens, created={created} tokens")
 
         result["metadata"] = {
             "original_image": image_path,

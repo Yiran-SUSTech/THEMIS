@@ -30,6 +30,27 @@ def load_experts_registry(file_path: str = str(EXPERTS_REGISTRY_JSON)) -> str:
         return json.dumps(json.load(f), indent=2)
 
 
+def build_router_registry_summary(experts_registry_str: str) -> str:
+    try:
+        registry = json.loads(experts_registry_str)
+    except (json.JSONDecodeError, TypeError):
+        return experts_registry_str
+
+    summary = []
+    for e in registry:
+        entry = {
+            "expert_id": e.get("expert_id"),
+            "best_for": e.get("best_for"),
+            "applicable_scenes": e.get("applicable_scenes"),
+        }
+        if e.get("topology_map"):
+            entry["topology_map"] = e["topology_map"]
+            entry["morphology_note"] = "ONLY for limbed subjects (humans, dogs, cats). NOT for limbless (fish, snakes)."
+        summary.append(entry)
+
+    return json.dumps(summary, indent=2, ensure_ascii=False)
+
+
 def get_taxonomy_info(class_id: int) -> dict | None:
     batch_num = class_id // 10
     batch_file = TAXONOMY_DIR / f"taxonomy_enriched_Batch_{batch_num}.json"
@@ -76,41 +97,20 @@ def parse_json_safely(raw_text: str) -> dict | None:
         return None
 
 
-def build_router_prompt(
-    class_label: str,
-    taxonomy_info: dict | None,
-    experts_registry_str: str,
-) -> str:
-    taxonomy_desc = "No specific taxonomy prior knowledge found for this class."
-    taxonomy_class_name = class_label
-    if taxonomy_info:
-        taxonomy_class_name = taxonomy_info.get("class_name", class_label)
-        taxonomy_desc = taxonomy_info.get("enriched_description", taxonomy_desc)
-
-    expert_ids = extract_expert_ids(experts_registry_str)
-    expert_ids_str = ", ".join(expert_ids) if expert_ids else "See Expert Registry above"
-
-    return f"""You are the Lead Strategic Planner (Router) for an advanced AI image evaluation system.
-Your task is to analyze the provided image AND its specific class category, then formulate a rigorous evaluation plan using the available Expert Registry.
-
-**[CRITICAL: Image-Centric Analysis]**
-The class label tells you WHAT the image is supposed to depict, but you MUST also analyze the ACTUAL image content. The image may contain additional subjects beyond the class label (e.g., a person holding the animal, background objects, etc.). These additional subjects can also exhibit AI-generation artifacts (melting, missing parts, fusion) and MUST be covered by the evaluation plan. When selecting an expert, you MUST specify which subject in the image it applies to via the `target_subject` field.
-
-**[Input Data]**
-- **Class Label:** {class_label}
-- **Taxonomy Class Name:** {taxonomy_class_name}
-- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}
-- **Expert Registry (Available Tools):** {experts_registry_str}
-
-**[Strategic Instruction]**
-1. **Identify ALL Subjects in the Image:** Beyond the class "{class_label}", identify any other visible subjects (people, animals, objects) that could exhibit AI-generation artifacts. For example, if a person is holding the fish, the person's limbs and face should also be audited.
-2. **Feature Mapping:** Based on the Taxonomy Prior Knowledge AND the actual image content, extract 2-10 "Non-negotiable" diagnostic features that must be verified.
-3. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws across ALL visible subjects:
-   - *Organisms:* Look for "Melting" limbs, missing parts, or anatomical hallucinations.
-   - *Rigid Objects:* Look for warped lines, perspective distortion, or "fusing" into the background.
-   - *Scenes:* Look for repetitive patterns (mode collapse) or illogical spatial bleeding.
-4. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}. **CRITICAL: You MUST check each expert's `applicable_scenes` and `best_for` fields to ensure it is compatible with the `target_subject`'s morphology.** For example, `animal_pose_auditor` detects 17 keypoints for limbed animals/humans — it is applicable to a person in the image, but NOT to a fish, snake, or other limbless organism.
-5. **Weight Allocation:** Assign weights based on "Structural Criticality" — the class subject's experts should generally have higher weights; auxiliary subjects' experts can have lower weights. All weights for selected experts must sum to 1.0.
+_COMMON_ROUTER_INSTRUCTIONS = """**[Strategic Instruction]**
+1. **Subject Inventory:** Identify ALL visible subjects (class subject + auxiliary subjects like people, background objects) that could exhibit AI-generation artifacts.
+2. **Feature Mapping:** Based on Taxonomy AND image content, extract 2-10 "Non-negotiable" diagnostic features.
+3. **Visual Risk Assessment:** Scrutinize for category-specific flaws:
+   - *Organisms:* Melting limbs, missing parts, anatomical hallucinations.
+   - *Rigid Objects:* Warped lines, perspective distortion, fusing into background.
+   - *Scenes:* Repetitive patterns (mode collapse), illogical spatial bleeding.
+4. **Expert Selection Rules:**
+   - Map risks to expert_ids ({expert_ids_str}). Each expert's `target_subject` MUST be morphologically compatible with that expert's capabilities (check applicable_scenes/best_for/topology_map in Registry).
+   - MUST include "fine_grained_classifier" for class subject identity verification.
+   - MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
+   - MUST specify a `target_subject` for every selected expert.
+   - Select 3-5 experts appropriate for the category and image content.
+5. **Weight Allocation:** Assign weights by Structural Criticality — class subject's experts get higher weights; auxiliary subjects' experts get lower weights. All weights must be positive and sum to 1.0.
 
 **[Output Requirements]**
 Return a pure JSON object (no Markdown wrapping) with this exact schema:
@@ -119,23 +119,52 @@ Return a pure JSON object (no Markdown wrapping) with this exact schema:
   "selected_experts": [
     {{
       "expert_name": "string (must exactly match an expert_id from the Expert Registry)",
-      "target_subject": "string (which subject in the image this expert should be applied to, e.g., 'the fish', 'the person holding the fish', 'the background')",
+      "target_subject": "string (which subject in the image this expert should be applied to)",
       "reason": "Why this expert is selected for this specific target_subject",
       "weight": 0.0
     }}
   ],
-  "focus_areas": ["string (e.g., feet, facial_details, background, limb_integrity, textural_coherence)"],
-  "custom_prompts_for_reflector": "string (special audit hints for the Reflector in later steps, e.g., 'Pay extra attention to whether the tail fuses with the background')"
+  "focus_areas": ["string (e.g., feet, facial_details, background, limb_integrity)"],
+  "custom_prompts_for_reflector": "string (special audit hints for the Reflector)"
 }}
 
-**[Constraints]**
-- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification of the class subject.
-- You MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
-- You MUST specify a `target_subject` for every selected expert. This is critical for the dispatcher to know which object to feed into each expert model.
-- You MUST NOT apply an expert to a `target_subject` whose morphology is incompatible with that expert's capabilities. For instance, do NOT set `target_subject` to "the fish" for `animal_pose_auditor`, but you MAY set `target_subject` to "the person holding the fish".
-- All weights must be positive and sum to 1.0.
-- Select 3-5 experts appropriate for the category and image content.
-- Output ONLY the JSON object, no additional text."""
+Output ONLY the JSON object, no additional text."""
+
+
+def _build_context_block(
+    class_label: str,
+    taxonomy_info: dict | None,
+    experts_registry_str: str,
+) -> tuple[str, str, str]:
+    taxonomy_desc = "No specific taxonomy prior knowledge found for this class."
+    taxonomy_class_name = class_label
+    if taxonomy_info:
+        taxonomy_class_name = taxonomy_info.get("class_name", class_label)
+        taxonomy_desc = taxonomy_info.get("enriched_description", taxonomy_desc)
+
+    expert_ids = extract_expert_ids(experts_registry_str)
+    expert_ids_str = ", ".join(expert_ids) if expert_ids else "See Expert Registry above"
+    registry_summary = build_router_registry_summary(experts_registry_str)
+
+    variable_context = (
+        f"- **Class Label:** {class_label}\n"
+        f"- **Taxonomy Class Name:** {taxonomy_class_name}\n"
+        f"- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}"
+    )
+    return variable_context, expert_ids_str, registry_summary
+
+
+def build_router_prompt(
+    class_label: str,
+    taxonomy_info: dict | None,
+    experts_registry_str: str,
+) -> str:
+    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+
+    return f"""Analyze the provided image AND its class category, then formulate a rigorous evaluation plan using the Expert Registry and Strategic Instructions provided in the system context.
+
+**[Input Data]**
+{variable_context}"""
 
 
 def build_router_revision_prompt(
@@ -145,14 +174,7 @@ def build_router_revision_prompt(
     previous_plan: dict,
     feedback_history: list[dict],
 ) -> str:
-    taxonomy_desc = "No specific taxonomy prior knowledge found for this class."
-    taxonomy_class_name = class_label
-    if taxonomy_info:
-        taxonomy_class_name = taxonomy_info.get("class_name", class_label)
-        taxonomy_desc = taxonomy_info.get("enriched_description", taxonomy_desc)
-
-    expert_ids = extract_expert_ids(experts_registry_str)
-    expert_ids_str = ", ".join(expert_ids) if expert_ids else "See Expert Registry above"
+    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
 
     feedback_text = ""
     for i, fb in enumerate(feedback_history, 1):
@@ -160,17 +182,10 @@ def build_router_revision_prompt(
         feedback_text += f"Reasons for Rejection: {fb.get('reasons_for_rejection', 'N/A')}\n"
         feedback_text += f"Suggestions: {json.dumps(fb.get('suggestions', []), ensure_ascii=False)}\n"
 
-    return f"""You are the Lead Strategic Planner (Router) for an advanced AI image evaluation system.
-Your previous plan was REJECTED by the Judge. You must revise it based on the feedback below.
-
-**[CRITICAL: Image-Centric Analysis]**
-The class label tells you WHAT the image is supposed to depict, but you MUST also analyze the ACTUAL image content. The image may contain additional subjects beyond the class label (e.g., a person holding the animal, background objects, etc.). These additional subjects can also exhibit AI-generation artifacts (melting, missing parts, fusion) and MUST be covered by the evaluation plan. When selecting an expert, you MUST specify which subject in the image it applies to via the `target_subject` field.
+    return f"""Your previous plan was REJECTED by the Judge. Revise it based on the feedback below, following the Expert Registry and Strategic Instructions provided in the system context.
 
 **[Input Data]**
-- **Class Label:** {class_label}
-- **Taxonomy Class Name:** {taxonomy_class_name}
-- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}
-- **Expert Registry (Available Tools):** {experts_registry_str}
+{variable_context}
 
 **[Your Previous Plan (REJECTED)]**
 {json.dumps(previous_plan, indent=2, ensure_ascii=False)}
@@ -178,42 +193,8 @@ The class label tells you WHAT the image is supposed to depict, but you MUST als
 **[Judge Feedback History]**
 {feedback_text}
 
-**[Strategic Instruction]**
-1. Carefully read the Judge's feedback and understand what was wrong with your previous plan.
-2. Revise the plan to address ALL issues raised by the Judge.
-3. **Identify ALL Subjects in the Image:** Beyond the class "{class_label}", identify any other visible subjects (people, animals, objects) that could exhibit AI-generation artifacts. For example, if a person is holding the fish, the person's limbs and face should also be audited.
-4. **Feature Mapping:** Based on the Taxonomy Prior Knowledge AND the actual image content, extract 2-10 "Non-negotiable" diagnostic features that must be verified.
-5. **Visual Risk Assessment:** Scrutinize the image for category-specific flaws across ALL visible subjects:
-   - *Organisms:* Look for "Melting" limbs, missing parts, or anatomical hallucinations.
-   - *Rigid Objects:* Look for warped lines, perspective distortion, or "fusing" into the background.
-   - *Scenes:* Look for repetitive patterns (mode collapse) or illogical spatial bleeding.
-6. **Expert Selection:** Map the identified risks to specific `expert_name` values from the Registry. You MUST use the exact `expert_id` values from the Expert Registry as the `expert_name` field. Available expert_ids: {expert_ids_str}. **CRITICAL: You MUST check each expert's `applicable_scenes` and `best_for` fields to ensure it is compatible with the `target_subject`'s morphology.** For example, `animal_pose_auditor` detects 17 keypoints for limbed animals/humans — it is applicable to a person in the image, but NOT to a fish, snake, or other limbless organism.
-7. **Weight Allocation:** Assign weights based on "Structural Criticality" — the class subject's experts should generally have higher weights; auxiliary subjects' experts can have lower weights. All weights for selected experts must sum to 1.0.
-
-**[Output Requirements]**
-Return a pure JSON object (no Markdown wrapping) with this exact schema:
-{{
-  "image_class": "The ImageNet class label string",
-  "selected_experts": [
-    {{
-      "expert_name": "string (must exactly match an expert_id from the Expert Registry)",
-      "target_subject": "string (which subject in the image this expert should be applied to, e.g., 'the fish', 'the person holding the fish', 'the background')",
-      "reason": "Why this expert is selected for this specific target_subject",
-      "weight": 0.0
-    }}
-  ],
-  "focus_areas": ["string (e.g., feet, facial_details, background, limb_integrity, textural_coherence)"],
-  "custom_prompts_for_reflector": "string (special audit hints for the Reflector in later steps)"
-}}
-
-**[Constraints]**
-- You MUST include "fine_grained_classifier" as one of the selected experts for identity verification of the class subject.
-- You MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
-- You MUST specify a `target_subject` for every selected expert. This is critical for the dispatcher to know which object to feed into each expert model.
-- You MUST NOT apply an expert to a `target_subject` whose morphology is incompatible with that expert's capabilities. For instance, do NOT set `target_subject` to "the fish" for `animal_pose_auditor`, but you MAY set `target_subject` to "the person holding the fish".
-- All weights must be positive and sum to 1.0.
-- Select 3-5 experts appropriate for the category and image content.
-- Output ONLY the JSON object, no additional text."""
+**[Revision Directive]**
+Address ALL issues raised by the Judge."""
 
 
 def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
@@ -265,17 +246,49 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
     return True
 
 
+def _build_cached_system_message(
+    system_msg: str,
+    registry_summary: str = "",
+    formatted_instructions: str = "",
+) -> dict:
+    parts = [system_msg]
+    if formatted_instructions:
+        parts.append(formatted_instructions)
+    if registry_summary:
+        parts.append(f"**[Expert Registry (Available Tools)]**\n{registry_summary}")
+    combined_text = "\n\n".join(parts)
+    return {
+        "role": "system",
+        "content": [
+            {
+                "type": "text",
+                "text": combined_text,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+    }
+
+
 def _call_router_api(
     client: OpenAI,
     base64_image: str,
     prompt: str,
     system_msg: str,
+    registry_summary: str = "",
+    formatted_instructions: str = "",
 ) -> dict | None:
+    if registry_summary:
+        system_message = _build_cached_system_message(
+            system_msg, registry_summary, formatted_instructions
+        )
+    else:
+        system_message = {"role": "system", "content": system_msg}
+
     try:
         completion = client.chat.completions.create(
             model=ROUTER_MODEL,
             messages=[
-                {"role": "system", "content": system_msg},
+                system_message,
                 {
                     "role": "user",
                     "content": [
@@ -296,6 +309,15 @@ def _call_router_api(
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
+
+        usage = getattr(completion, "usage", None)
+        if usage:
+            details = getattr(usage, "prompt_tokens_details", None)
+            cached = getattr(details, "cached_tokens", 0) if details else 0
+            created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
+            if cached or created:
+                print(f"  [CACHE] Router: hit={cached} tokens, created={created} tokens")
+
         return result
     except Exception as e:
         print(f"  [ERROR] Router API call failed: {e}")
@@ -315,6 +337,8 @@ def generate_plan(
 
     base64_image = encode_image(image_path)
     prompt = build_router_prompt(class_label, taxonomy_info, experts_registry_str)
+    _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
     system_msg = (
         "You are a highly logical Router Agent for image auditing. "
         "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
@@ -322,7 +346,11 @@ def generate_plan(
     )
 
     start_time = time.time()
-    plan = _call_router_api(client, base64_image, prompt, system_msg)
+    plan = _call_router_api(
+        client, base64_image, prompt, system_msg,
+        registry_summary=registry_summary,
+        formatted_instructions=formatted_instructions,
+    )
     cost_time = time.time() - start_time
 
     if plan is None:
@@ -357,15 +385,20 @@ def revise_plan(
         class_label, taxonomy_info, experts_registry_str,
         previous_plan, feedback_history,
     )
+    _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
     system_msg = (
         "You are a highly logical Router Agent for image auditing. "
-        "Your previous plan was rejected and you must revise it based on Judge feedback. "
         "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
-        "Output JSON only, and strictly follow the format as in the previous plan."
+        "Output JSON only."
     )
 
     start_time = time.time()
-    plan = _call_router_api(client, base64_image, prompt, system_msg)
+    plan = _call_router_api(
+        client, base64_image, prompt, system_msg,
+        registry_summary=registry_summary,
+        formatted_instructions=formatted_instructions,
+    )
     cost_time = time.time() - start_time
 
     if plan is None:
