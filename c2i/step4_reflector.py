@@ -113,8 +113,12 @@ def _build_expert_context_str(
     testimonies = expert_results.get("expert_testimonies", [])
     custom_prompts = expert_results.get("custom_prompts_for_reflector", "")
     focus_areas = expert_results.get("focus_areas", [])
+    image_description = expert_results.get("image_description", "")
 
     parts = []
+
+    if image_description:
+        parts.append(f"Router Image Description: {image_description}")
 
     if focus_areas:
         parts.append(f"Focus Areas: {json.dumps(focus_areas, ensure_ascii=False)}")

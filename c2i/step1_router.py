@@ -98,23 +98,44 @@ def parse_json_safely(raw_text: str) -> dict | None:
 
 
 _COMMON_ROUTER_INSTRUCTIONS = """**[Strategic Instruction]**
-1. **Subject Inventory:** Identify ALL visible subjects (class subject + auxiliary subjects like people, background objects) that could exhibit AI-generation artifacts.
-2. **Feature Mapping:** Based on Taxonomy AND image content, extract 2-10 "Non-negotiable" diagnostic features.
-3. **Visual Risk Assessment:** Scrutinize for category-specific flaws:
-   - *Organisms:* Melting limbs, missing parts, anatomical hallucinations.
-   - *Rigid Objects:* Warped lines, perspective distortion, fusing into background.
-   - *Scenes:* Repetitive patterns (mode collapse), illogical spatial bleeding.
-4. **Expert Selection Rules:**
-   - Map risks to expert_ids ({expert_ids_str}). Each expert's `target_subject` MUST be morphologically compatible with that expert's capabilities (check applicable_scenes/best_for/topology_map in Registry).
-   - MUST include "fine_grained_classifier" for class subject identity verification.
-   - MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
-   - MUST specify a `target_subject` for every selected expert.
-   - Select 3-5 experts appropriate for the category and image content.
-5. **Weight Allocation:** Assign weights by Structural Criticality — class subject's experts get higher weights; auxiliary subjects' experts get lower weights. All weights must be positive and sum to 1.0.
+You MUST follow these steps IN ORDER. Your output JSON MUST include the `image_description` field as the result of Step 0.
+
+**Step 0 — Image Content Inventory (MANDATORY)**
+Before selecting any expert, you MUST first describe what you see in the image. This description drives all subsequent decisions.
+- List ALL visible entities: the class subject, any people, animals, objects, text, and notable background elements.
+- For each entity, note its role (main subject, secondary subject, background element) and whether it could exhibit AI-generation artifacts.
+- This step ensures you do NOT miss any detectable entity (e.g., a person in the background of a fish image).
+
+**Step 1 — Subject Inventory**
+Based on Step 0, identify ALL visible subjects (class subject + auxiliary subjects like people, background objects) that could exhibit AI-generation artifacts.
+
+**Step 2 — Feature Mapping**
+Based on Taxonomy AND image content from Step 0, extract 2-10 "Non-negotiable" diagnostic features.
+
+**Step 3 — Visual Risk Assessment**
+Scrutinize for category-specific flaws:
+- *Organisms:* Melting limbs, missing parts, anatomical hallucinations.
+- *Rigid Objects:* Warped lines, perspective distortion, fusing into background.
+- *Scenes:* Repetitive patterns (mode collapse), illogical spatial bleeding.
+
+**Step 4 — Expert Selection Rules**
+Map risks to expert_ids ({expert_ids_str}). Key rules:
+- Each expert's `target_subject` MUST be morphologically compatible with that expert's capabilities (check applicable_scenes/best_for/topology_map in Registry).
+- MUST include "fine_grained_classifier" for class subject identity verification.
+- MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
+- **CRITICAL — Detect ALL limbed entities:** If Step 0 identified ANY person, animal, or limbed creature in the image (whether main subject, secondary subject, or background element), you MUST include "animal_pose_auditor" with that entity as `target_subject`. For example, if the image shows a fish being held by a person, include animal_pose_auditor targeting "person" in addition to fish-targeted experts. Do NOT ignore background people — they are common sources of AI artifacts.
+- **CRITICAL — Detect ALL text:** If Step 0 identified ANY text in the image (signs, labels, watermarks), you MUST include "image_text_auditor" with that text region as `target_subject`.
+- **CRITICAL — Same expert, different targets:** The same expert_id MAY appear multiple times in `selected_experts` with DIFFERENT `target_subject` values. For example, if the image contains both a person and a monkey, you should include TWO entries of "animal_pose_auditor" — one targeting "person" and one targeting "monkey". Similarly, if the image contains multiple distinct objects that each need boundary checking, include multiple "topology_boundary_auditor" entries with different targets.
+- MUST specify a `target_subject` for every selected expert.
+- Select 3-8 expert entries appropriate for the category and image content. You may select up to 8 expert entries (counting duplicates) to cover all detectable entities.
+
+**Step 5 — Weight Allocation**
+Assign weights by Structural Criticality — class subject's experts get higher weights; auxiliary subjects' experts get lower weights. All weights must be positive and sum to 1.0.
 
 **[Output Requirements]**
 Return a pure JSON object (no Markdown wrapping) with this exact schema:
 {{
+  "image_description": "A brief description of ALL visible entities in the image, their roles, and potential artifact risks. This is the output of Step 0.",
   "image_class": "The ImageNet class label string",
   "selected_experts": [
     {{
@@ -209,6 +230,9 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
         return False
     if "custom_prompts_for_reflector" not in plan:
         print("  [WARN] Plan missing 'custom_prompts_for_reflector'")
+        return False
+    if "image_description" not in plan:
+        print("  [WARN] Plan missing 'image_description' (required since Step 0)")
         return False
 
     valid_expert_ids = set(extract_expert_ids(experts_registry_str)) if experts_registry_str else {

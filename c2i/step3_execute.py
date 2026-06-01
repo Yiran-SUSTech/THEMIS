@@ -378,35 +378,35 @@ def execute_plan(
     print(f"  Experts to run: {[e['expert_name'] for e in selected_experts]}")
 
     # ── Phase 1: Run dependency experts (detector) ──────────────────────
-    detector_result = None
-    hint_box = None
-    detector_entry = None
-
-    for entry in selected_experts:
-        if entry["expert_name"] == "open_vocabulary_detector":
-            detector_entry = entry
-            break
+    # Support multiple open_vocabulary_detector entries with different targets.
+    # Each detector run produces a hint_box keyed by its target_subject.
+    hint_box_map: dict[str, list] = {}
+    detector_entries = [
+        e for e in selected_experts if e["expert_name"] == "open_vocabulary_detector"
+    ]
 
     testimonies: list[dict] = []
 
-    if detector_entry:
+    for det_idx, detector_entry in enumerate(detector_entries):
         eid = "open_vocabulary_detector"
         instance = expert_manager.get_expert(eid)
+        target = detector_entry.get("target_subject", "")
 
         if instance is not None:
-            print(f"  [Phase 1] Running {eid} (query: '{detector_entry['target_subject']}')...")
+            print(f"  [Phase 1] Running {eid} #{det_idx+1} (query: '{target}')...")
             detector_result = _invoke_expert_audit(
                 instance, eid, img_bgr, image_path, class_label,
-                detector_entry["target_subject"],
+                target,
             )
 
             if detector_result.get("status") != "failed":
                 detected_objects = detector_result.get("evidence", {}).get("detected_objects", [])
                 if detected_objects:
-                    hint_box = detected_objects[0]["bounding_box"]
-                    print(f"    Got hint_box from detector: {hint_box}")
+                    box = detected_objects[0]["bounding_box"]
+                    hint_box_map[target] = box
+                    print(f"    Got hint_box for '{target}': {box}")
                 else:
-                    print(f"    Detector found 0 objects, SAM will use center-point fallback.")
+                    print(f"    Detector found 0 objects for '{target}', SAM will use center-point fallback.")
 
             testimonies.append(_wrap_testimony(eid, detector_entry, detector_result))
         else:
@@ -419,21 +419,39 @@ def execute_plan(
     ]
 
     if remaining_entries:
-        expert_names = [e["expert_name"] for e in remaining_entries]
+        expert_names = [f"{e['expert_name']}->{e.get('target_subject','')}" for e in remaining_entries]
         print(f"  [Phase 2] Running in parallel: {expert_names}")
 
-        def _run_entry(entry: dict) -> dict:
+        pose_viz_count: dict[str, int] = {}
+        entry_pose_viz: dict[int, str | None] = {}
+        for i, entry in enumerate(remaining_entries):
+            eid = entry["expert_name"]
+            pose_viz = None
+            if save_pose_viz and eid == "animal_pose_auditor":
+                pose_viz_dir = C2I_DIR / "output" / "pose_visualizations"
+                count = pose_viz_count.get(eid, 0)
+                pose_viz_count[eid] = count + 1
+                target_slug = entry.get("target_subject", "subject").replace(" ", "_")[:20]
+                suffix = f"_{target_slug}" if count > 0 or pose_viz_count.get(eid, 0) > 1 else ""
+                pose_viz = str(pose_viz_dir / f"{image_id}_pose_viz{suffix}.png")
+            entry_pose_viz[i] = pose_viz
+
+        def _run_entry(entry: dict, idx: int) -> dict:
             eid = entry["expert_name"]
             instance = expert_manager.get_expert(eid)
 
             if instance is None:
                 return _make_failed_testimony(eid, entry, "Expert model not loaded")
 
-            box = hint_box if eid == "topology_boundary_auditor" else None
-            pose_viz = None
-            if save_pose_viz and eid == "animal_pose_auditor":
-                pose_viz_dir = C2I_DIR / "output" / "pose_visualizations"
-                pose_viz = str(pose_viz_dir / f"{image_id}_pose_viz.png")
+            box = None
+            if eid == "topology_boundary_auditor":
+                target = entry.get("target_subject", "")
+                box = hint_box_map.get(target)
+                if box is None and hint_box_map:
+                    box = next(iter(hint_box_map.values()))
+
+            pose_viz = entry_pose_viz.get(idx)
+
             result = _invoke_expert_audit(
                 instance, eid, img_bgr, image_path, class_label,
                 entry["target_subject"], hint_box=box,
@@ -443,12 +461,13 @@ def execute_plan(
 
         max_workers = min(len(remaining_entries), 4)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(_run_entry, entry) for entry in remaining_entries]
+            futures = [executor.submit(_run_entry, entry, i) for i, entry in enumerate(remaining_entries)]
             for future in as_completed(futures):
                 try:
                     testimony = future.result()
                     status_icon = "OK" if testimony["status"] == "success" else "FAIL"
-                    print(f"    [{testimony['expert_id']}] {status_icon} "
+                    target_info = f"->{testimony.get('target_subject','')}" if testimony.get('target_subject') else ""
+                    print(f"    [{testimony['expert_id']}{target_info}] {status_icon} "
                           f"({testimony['execution_time_ms']:.0f}ms)")
                     testimonies.append(testimony)
                 except Exception as e:
@@ -471,6 +490,7 @@ def execute_plan(
         "execution_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "focus_areas": approved_plan.get("focus_areas", []),
         "custom_prompts_for_reflector": approved_plan.get("custom_prompts_for_reflector", ""),
+        "image_description": approved_plan.get("image_description", ""),
         "expert_testimonies": testimonies,
         "execution_summary": {
             "total_experts_planned": len(selected_experts),
