@@ -44,13 +44,18 @@ class OpenVocabularyDetector:
         if not caption.endswith("."):
             caption += " ."
             
-        tokenized = self.tmp_model.tokenizer([caption], return_tensors="pt")
+        MAX_TEXT_LEN = 256
+        tokenized = self.tmp_model.tokenizer(
+            [caption], return_tensors="pt", padding="max_length",
+            max_length=MAX_TEXT_LEN, truncation=True,
+        )
         input_ids = tokenized["input_ids"].numpy()
         attention_mask = tokenized["attention_mask"].bool().numpy()
-        position_ids = torch.arange(input_ids.shape[1]).unsqueeze(0).long().numpy()
-        token_type_ids = torch.zeros_like(tokenized["input_ids"]).long().numpy()
-        
+        position_ids = torch.arange(MAX_TEXT_LEN).unsqueeze(0).long().numpy()
+        token_type_ids = torch.zeros((1, MAX_TEXT_LEN), dtype=torch.long).numpy()
+
         B, N = input_ids.shape
+        real_token_len = int(tokenized["attention_mask"].sum().item())
         text_token_mask = torch.ones((B, N, N), dtype=torch.bool).numpy()
 
         onnx_inputs = {
@@ -62,7 +67,7 @@ class OpenVocabularyDetector:
         probs = torch.sigmoid(torch.from_numpy(logits))[0]
         boxes_fixed = torch.from_numpy(boxes)[0]
         
-        max_scores, max_indices = probs[:, :N].max(dim=-1)
+        max_scores, max_indices = probs[:, :real_token_len].max(dim=-1)
         keep_idx = max_scores > threshold
         
         filtered_scores = max_scores[keep_idx]
