@@ -178,6 +178,7 @@ class ExpertManager:
             self.load_errors[expert_id] = error_msg
             print(f"FAILED ({elapsed:.2f}s)")
             print(f"           {error_msg}")
+            traceback.print_exc()
             return False
 
     def _build_init_kwargs(self, expert_id: str, gpu_cfg: dict) -> dict:
@@ -193,6 +194,10 @@ class ExpertManager:
         if expert_id == "perceptual_quality_auditor":
             kwargs["num_gpus"] = num_gpus
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
+
+        if expert_id == "open_vocabulary_detector":
+            kwargs["model_path"] = str(PROJECT_ROOT / "new_models" / "groundingdino_sim.onnx")
+            kwargs["config_path"] = str(PROJECT_ROOT / "GroundingDINO" / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py")
 
         if expert_id == "topology_boundary_auditor":
             kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")

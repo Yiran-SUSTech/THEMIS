@@ -7,7 +7,9 @@ import cv2
 from PIL import Image
 from torchvision.transforms import functional as TVF
 
-sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO")
+from pathlib import Path as _Path
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT / "GroundingDINO"))
 from groundingdino.models import build_model
 from groundingdino.util.slconfig import SLConfig
 
