@@ -51,6 +51,7 @@ from step3_execute import (
     EXPERT_MODULE_MAP,
 )
 from step4_reflector import run_reflector, save_final_report, print_final_summary
+from conversation_session import ConversationSession, build_combined_system_content
 
 
 def parse_class_ids(txt_path: str) -> dict[str, int]:
@@ -133,6 +134,7 @@ def run_pipeline_for_image(
     plan_dir: Path,
     approved_dir: Path,
     judge_feedback_dir: Path | None,
+    session: ConversationSession | None = None,
 ) -> dict | None:
     print(f"\n{'#'*60}")
     print(f"  Image: {img_id} | Class: {class_label}")
@@ -141,6 +143,7 @@ def run_pipeline_for_image(
     print(f"\n  [Step 1] Router generating initial plan...")
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
+        session=session,
     )
     if current_plan is None:
         print(f"  [Step 1] FAILED - Router could not generate plan\n")
@@ -163,6 +166,7 @@ def run_pipeline_for_image(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
+            session=session,
         )
 
         if judge_result is None:
@@ -215,6 +219,7 @@ def run_pipeline_for_image(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
+                session=session,
             )
 
             if revised_plan is None:
@@ -546,6 +551,12 @@ def main():
         help="Path to a custom GPU allocation JSON file (Step 3)",
     )
     parser.add_argument(
+        "--session",
+        action="store_true",
+        default=False,
+        help="Use stateful single-session multi-turn conversation for each image (Router+Judge+Reflector share one conversation)",
+    )
+    parser.add_argument(
         "--save-pose-viz",
         action="store_true",
         default=False,
@@ -696,6 +707,16 @@ def main():
                     step4_fail += 1
                 continue
 
+            session = None
+            if args.session:
+                from step1_router import get_taxonomy_info as _get_tax
+                tax_info = _get_tax(class_id)
+                system_content = build_combined_system_content(
+                    experts_registry_str, class_label, tax_info,
+                )
+                session = ConversationSession(system_content)
+                print(f"  [SESSION] Created conversation session for {img_id}")
+
             print(f"\n{'#'*60}")
             print(f"  [{idx}/{len(valid_images)}] {img_name} | {class_label}")
             print(f"{'#'*60}")
@@ -712,6 +733,7 @@ def main():
                 plan_dir=plan_dir,
                 approved_dir=approved_dir,
                 judge_feedback_dir=judge_feedback_dir,
+                session=session,
             )
 
             if approved_plan is None:
@@ -757,6 +779,7 @@ def main():
                         class_label=class_label,
                         expert_results=bundle,
                         experts_registry_str=experts_registry_str,
+                        session=session,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
@@ -878,6 +901,16 @@ def main():
                 failed_count += 1
                 continue
 
+            session = None
+            if args.session:
+                from step1_router import get_taxonomy_info as _get_tax
+                tax_info = _get_tax(class_id)
+                system_content = build_combined_system_content(
+                    experts_registry_str, class_label, tax_info,
+                )
+                session = ConversationSession(system_content)
+                print(f"  [SESSION] Created conversation session for {img_id}")
+
             print(f"\n[{idx}/{len(valid_images)}] Processing: {img_name}")
 
             result = run_pipeline_for_image(
@@ -891,6 +924,7 @@ def main():
                 plan_dir=plan_dir,
                 approved_dir=approved_dir,
                 judge_feedback_dir=judge_feedback_dir,
+                session=session,
             )
 
             if result is not None:

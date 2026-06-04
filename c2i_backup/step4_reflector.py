@@ -68,6 +68,41 @@ def load_experts_registry(file_path: str = str(EXPERTS_REGISTRY_JSON)) -> str:
         return json.dumps(json.load(f), indent=2)
 
 
+EXPERT_BLIND_SPOTS = {
+    "fine_grained_classifier": [
+        "Cannot detect structural artifacts (melting, extra limbs, fusion).",
+        "Cannot verify if specific anatomical features (barbels, whiskers, etc.) are visually present — only predicts class identity.",
+        "A high-confidence Top-1 prediction does NOT mean the image is artifact-free.",
+    ],
+    "open_vocabulary_detector": [
+        "Cannot assess structural integrity of detected objects.",
+        "Failure to detect an object may indicate the object is malformed or fused with surroundings, not just a model limitation.",
+    ],
+    "animal_pose_auditor": [
+        "Only detects keypoints for limbed subjects (humans, dogs, cats). Cannot audit fish, snakes, or limbless creatures.",
+        "Low confidence keypoints indicate structural uncertainty — do NOT dismiss as model noise.",
+        "Does not directly detect texture artifacts, color anomalies, or background defects.",
+    ],
+    "topology_boundary_auditor": [
+        "High mask confidence only means the segmentation model found a coherent region — it does NOT mean the boundary is artifact-free.",
+        "Cannot detect subtle fusion between subject and background if the color/texture is similar.",
+        "Does not check anatomical correctness inside the mask.",
+    ],
+    "geometric_depth_auditor": [
+        "Depth statistics alone do not indicate artifact presence or absence.",
+        "Cannot detect texture-level artifacts, anatomical errors, or color anomalies.",
+    ],
+    "perceptual_quality_auditor": [
+        "Only detects graphics-level distortions (noise, blur, compression, darkening).",
+        "Cannot detect structural/anatomical artifacts (extra limbs, melting, fusion, semantic inconsistencies).",
+        "A 'null' distortion verdict does NOT mean the image is artifact-free — it means no graphics-level distortion was found.",
+    ],
+    "image_text_auditor": [
+        "Only audits text regions. Cannot detect any non-text artifacts.",
+    ],
+}
+
+
 def _build_expert_context_str(
     expert_results: dict,
     experts_registry_str: str,
@@ -78,14 +113,18 @@ def _build_expert_context_str(
     testimonies = expert_results.get("expert_testimonies", [])
     custom_prompts = expert_results.get("custom_prompts_for_reflector", "")
     focus_areas = expert_results.get("focus_areas", [])
+    image_description = expert_results.get("image_description", "")
 
     parts = []
 
+    if image_description:
+        parts.append(f"Router Image Description: {image_description}")
+
     if focus_areas:
-        parts.append(f"Router-specified Focus Areas: {json.dumps(focus_areas, ensure_ascii=False)}")
+        parts.append(f"Focus Areas: {json.dumps(focus_areas, ensure_ascii=False)}")
 
     if custom_prompts:
-        parts.append(f"Router's Custom Audit Hints for Reflector: {custom_prompts}")
+        parts.append(f"Custom Audit Hints: {custom_prompts}")
 
     for t in testimonies:
         eid = t.get("expert_id", "unknown")
@@ -96,39 +135,131 @@ def _build_expert_context_str(
         error = t.get("error")
 
         reg_entry = registry_map.get(eid, {})
-        expert_desc = reg_entry.get("description", "No description available.")
         expert_specialty = reg_entry.get("specialty", "N/A")
         diagnostic_criteria = reg_entry.get("diagnostic_criteria", {})
 
-        block = f"""--- Expert: {eid} ---
-Target Subject: "{target_subject}" (assigned by Router to audit this specific subject)
-Weight in Plan: {weight}
-Specialty: {expert_specialty}
-Description: {expert_desc}
-Diagnostic Criteria: {json.dumps(diagnostic_criteria, ensure_ascii=False)}
-Execution Status: {status}"""
+        block = f'--- Expert: {eid} ---\nTarget: "{target_subject}" | Weight: {weight} | Specialty: {expert_specialty}\nDiagnostic Criteria: {json.dumps(diagnostic_criteria, ensure_ascii=False)}\nStatus: {status}'
+
+        blind_spots = EXPERT_BLIND_SPOTS.get(eid, [])
+        if blind_spots:
+            block += f"\nNOT_Capable_Of: {json.dumps(blind_spots, ensure_ascii=False)}"
 
         if status == "success":
             evidence_clean = _sanitize_evidence(evidence)
-            block += f"\nEvidence Output:\n{json.dumps(evidence_clean, indent=2, ensure_ascii=False)}"
+            block += f"\nEvidence:\n{json.dumps(evidence_clean, indent=2, ensure_ascii=False)}"
         else:
             block += f"\nError: {error or 'Unknown error'}"
 
         parts.append(block)
 
+    blind_spot_warning = (
+        "\n--- CRITICAL: Expert Blind Spot Warning ---\n"
+        "Each expert has limitations (see NOT_Capable_Of above). "
+        "'No defect reported' does NOT equal 'no defect exists'. "
+        "Experts can only detect defects within their specialty. "
+        "Structural artifacts (melting, fusion, extra/missing parts) may go undetected "
+        "if no expert covers that specific check. "
+        "You MUST independently verify areas that experts cannot cover. "
+        "Do NOT assume the image is defect-free just because all experts reported success."
+    )
+    parts.append(blind_spot_warning)
+
     return "\n\n".join(parts)
 
 
-def _sanitize_evidence(evidence: dict) -> dict:
-    clean = {}
-    for k, v in evidence.items():
-        if k in ("saved_mask_path", "saved_depth_path", "mask_visualization_path"):
-            clean[k] = v
-        elif isinstance(v, (dict, list, str, int, float, bool)) or v is None:
-            clean[k] = v
-        else:
-            clean[k] = str(v)
-    return clean
+def _sanitize_evidence(evidence):
+    import numpy as np
+    if isinstance(evidence, dict):
+        return {k: _sanitize_evidence(v) for k, v in evidence.items()}
+    elif isinstance(evidence, list):
+        return [_sanitize_evidence(v) for v in evidence]
+    elif isinstance(evidence, (np.integer,)):
+        return int(evidence)
+    elif isinstance(evidence, (np.floating,)):
+        return float(evidence)
+    elif isinstance(evidence, np.ndarray):
+        return evidence.tolist()
+    elif isinstance(evidence, (str, int, float, bool)) or evidence is None:
+        return evidence
+    else:
+        return str(evidence)
+
+
+_REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Supreme Judge (Reflector) of an AI image evaluation system. You must follow the 4-Stage Cognition Chain strictly: independent visual audit, evidence cross-examination, self-reflection, and final verdict. You must prioritize the Taxonomy Ground Truth as the source of truth. Output JSON only, no markdown wrapping.
+
+**[Core Priority Laws]**
+1. Your Own Eyes > Expert Silence: If YOU see a defect but no expert flagged it, trust your eyes — experts have blind spots and may simply be unable to detect that type of defect.
+2. Anatomy/Topology > Aesthetics: Structure defects → penalize Artifact Score heavily regardless of visual appeal.
+3. Taxonomy Compliance: Mismatch in fine-grained features or Top-1 classification → lower Alignment Score.
+4. Expert Evidence for Alignment, Your Eyes for Artifact: Expert evidence is most useful for Alignment (classifier identity verification). For Artifact detection, your own visual inspection is the PRIMARY instrument — experts are supplementary.
+
+**[Strict Adjudication Principles — GUILTY UNTIL PROVEN INNOCENT]**
+You must adopt a presumption-of-defect stance. AI-generated images are assumed to contain flaws unless you can conclusively prove otherwise through your own visual inspection.
+
+- **Subject Scrutiny:** Examine the main subject exhaustively — anatomy, proportions, limb count, digit structure, eye symmetry, fur/feather/scale texture continuity. ANY anomaly, even subtle, must be penalized.
+- **Background Scrutiny:** Check for: impossible geometry, melting textures, duplicated elements, semantic inconsistencies (e.g., indoor furniture in outdoor scene), blurred or fused boundaries between subject and background.
+- **Alignment Strictness:** The image must match the target class at a FINE-GRAINED level, not just superficially. If expert classifier Top-1 does not match the target class, alignment_score MUST be ≤ 2.0. If Top-3 does not contain the target class, alignment_score MUST be ≤ 1.0.
+- **Artifact Strictness:** Default artifact_score starts at 2.0 (presumed flawed). You may only raise it above 2.0 if ALL of the following are met:
+  (a) No expert flagged any structural/topological defect.
+  (b) Pose auditor found no anatomical anomalies.
+  (c) Depth/segmentation boundaries are clean and consistent.
+  (d) Perceptual quality auditor confirmed no distortion.
+  (e) YOUR OWN visual inspection found NO defects in subject, background, or boundaries.
+  If ANY expert reports a defect, artifact_score MUST be ≤ 2.0. If multiple experts report defects, artifact_score MUST be ≤ 1.0.
+- **Pose Low-Confidence Rule (CRITICAL):** When animal_pose_auditor evidence contains a `low_confidence_analysis` field, you MUST use it as a primary artifact indicator:
+  (a) Low confidence keypoints (confidence < 0.5) mean the pose model is UNCERTAIN about that body part — this is a strong signal of potential artifact (melting, fusion, hallucination, or structural breakdown) in that region.
+  (b) If `artifact_risk_level` is HIGH (>=40% low-confidence ratio), artifact_score MUST be ≤ 1.5.
+  (c) If `artifact_risk_level` is MEDIUM (>=25% low-confidence ratio), artifact_score MUST be ≤ 2.0.
+  (d) If `artifact_risk_level` is LOW (>=15% low-confidence ratio), artifact_score MUST be ≤ 3.0.
+  (e) You MUST cite the affected body regions from `affected_body_regions` in your artifact_reasoning.
+  (f) Do NOT dismiss low-confidence keypoints as 'model limitation' — the pose model's uncertainty IS the diagnostic signal.
+- **Expert Blind Spot Awareness (CRITICAL):** Each expert has blind spots (see NOT_Capable_Of in their testimony). 'No defect reported' does NOT mean 'no defect exists'. Experts can only detect defects within their narrow specialty. You MUST independently verify:
+  (a) Anatomical features that the classifier cannot verify (e.g., are barbels visible? is the lateral line continuous? are all fins correctly shaped?)
+  (b) Subject-background fusion that SAM cannot detect when colors are similar
+  (c) Structural artifacts in body regions where pose keypoints have low confidence
+  (d) Background semantic consistency that no expert specifically checks
+  (e) Subject-background boundary quality beyond what mask confidence measures
+- **Independent Visual Verification:** In Stage 1, you must perform your OWN thorough visual inspection BEFORE reading expert data. In Stage 2, you must NOT let expert 'no defect' reports override your own visual findings. If you see a potential defect with your own eyes but no expert flagged it, trust your eyes — the expert may simply be blind to that type of defect.
+- **Whole-Image Audit:** You must audit the ENTIRE image, not just the main subject. Background, secondary objects, and subject-background boundaries are all artifact-prone zones. Check:
+  (a) Background geometry: impossible structures, melting textures, duplicated elements
+  (b) Background semantics: out-of-place objects, inconsistent lighting
+  (c) Subject-background boundary: fusion, melting, halo artifacts, unnatural transitions
+  (d) Secondary subjects: anatomical correctness of all visible entities, not just the primary subject
+- **No Free Passes:** Do NOT give high scores simply because the image 'looks nice overall' or 'most parts are fine'. A single confirmed defect in a critical area (face, limbs, subject boundary) is sufficient to cap the score.
+- **Score Calibration Guide:**
+  - 5.0: Flawless — no detectable defects from any expert or visual inspection (extremely rare).
+  - 4.0: Minor imperfections only — no structural defects, only cosmetic issues.
+  - 3.0: Moderate defects — some expert flags but not catastrophic.
+  - 2.0: Notable defects — multiple expert flags or one severe structural issue.
+  - 1.0: Severe defects — major anatomical/structural failure.
+  - 0.0: Catastrophic — image is nonsensical or completely misaligned.
+
+**[Output Requirements]**
+Return ONLY a pure JSON object (no markdown, no extra text). Execute and document each stage inside the respective JSON fields:
+{
+  "stage1_independent_visual_audit": {
+    "alignment_thought": "BEFORE reading expert data, independently analyze the image. Does it match 'TARGET_CLASS' at a FINE-GRAINED level? Check EVERY key feature from the taxonomy (not just overall appearance). List features that match AND features that are missing or wrong. (tentative score 0-5 & reason)",
+    "artifact_thought": "BEFORE reading expert data, scan the ENTIRE image for artifacts with a FAULT-FINDING mindset. Assume the image IS flawed and your job is to find every flaw. Check THREE zones: (A) Subject — anatomy, proportions, texture continuity, limb/organ correctness, eye symmetry, skin/fur/scale quality; (B) Background — geometry, texture, semantic consistency, duplicated elements, impossible structures; (C) Subject-Background Boundary — fusion, melting, halo, unnatural transitions, color bleeding. For EACH zone, list EVERY potential defect you find, no matter how subtle. If a zone appears clean, explicitly state what you checked and confirmed. (tentative score 0-5 & reason)"
+  },
+  "stage2_evidence_cross_examination": {
+    "expert_vs_intuition": "Compare expert hard data with your Stage 1 assessment. CRITICAL RULE for Artifact: If you found defects in Stage 1 but experts report 'no defect', do NOT let experts override your visual findings — experts have blind spots (see NOT_Capable_Of). Expert 'no defect' only means the expert's specific tool could not detect a defect, NOT that no defect exists. For Alignment, expert classifier evidence is more reliable and can adjust your score.",
+    "alignment_adjustment": "How expert evidence changes your alignment assessment (if at all). Classifier evidence is strong signal for alignment.",
+    "artifact_adjustment": "How expert evidence changes your artifact assessment. Remember: expert silence on artifacts does NOT override your own visual findings. Only EXPLICIT expert defect reports (e.g., low-confidence keypoints, boundary anomalies) should lower the score further. Your Stage 1 visual findings are the PRIMARY artifact evidence."
+  },
+  "stage3_self_reflection": {
+    "critique_and_calibration": "Challenge your conclusion from the STRICT side. For each score, you must argue why it should NOT be LOWER, not why it should not be higher. If you found defects in Stage 1, did you fully account for them in the final score? Did you let expert 'no defect' reports weaken your own visual findings?",
+    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Did you let expert 'no defect' reports override your own eyes? List every defect you found in Stage 1 and explain whether you gave it appropriate weight in the final score. If you raised a score above Stage 1's tentative score, justify exactly why — the default direction should be downward, not upward.",
+    "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted. The final scores should be <= Stage 1 tentative scores UNLESS expert evidence provides POSITIVE proof (not just absence of negative evidence) that the image is better than Stage 1 assessment."
+  },
+  "stage4_final_verdict": {
+    "alignment_score": 0.0,
+    "artifact_score": 0.0,
+    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
+    "artifact_reasoning": "Concise definitive logic explaining the final artifact score. You MUST cite: (1) defects you found with your own eyes, (2) expert evidence that supports or contradicts your findings, (3) why you trusted your eyes or the expert in case of contradiction.",
+    "hard_failure_triggered": false,
+    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
+  }
+}"""
 
 
 def build_reflector_prompt(
@@ -138,52 +269,12 @@ def build_reflector_prompt(
 ) -> str:
     taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
 
-    return f"""You are the Supreme Judge (Reflector) of an AI image evaluation system. Deliver the final evaluation verdict by following a 4-Stage Cognition Chain embedded directly within the output JSON schema below.
+    return f"""Proceed through the 4-Stage Cognition Chain defined in the system context.
 
 **[Context]**
 - Target Class: {class_label}
 - Taxonomy Ground Truth: {taxonomy_desc}
-- Expert Testimonies: {expert_results_str}
-
-**[Core Priority Laws]**
-1. Anatomy/Topology > Aesthetics: If structure experts flag defects (e.g., melting boundaries, extra limbs) with high confidence, penalize Artifact Score heavily regardless of visual appeal.
-2. Taxonomy Compliance: Mismatch in fine-grained class features or Top-1 classification requires lowering Alignment Score.
-3. Expert Evidence Hierarchy: Weigh expert evidence proportional to the expert's weight in the plan. Higher-weight experts have greater influence on the final verdict.
-
-**[4-Stage Cognition Chain - MANDATORY]**
-You MUST execute and document each stage inside the respective JSON fields:
-
-- **Stage 1 - Independent Visual Audit**: BEFORE reading any expert data, use your own multimodal visual understanding to independently analyze the image. Give tentative alignment and artifact scores with reasoning.
-- **Stage 2 - Evidence Cross-Examination**: Now read the Expert Testimonies. Compare their hard data (joint counts, depth jumps, classification logits, boundary scores) with your Stage 1 visual assessment. Resolve any contradictions. If experts disagree with your visual impression, explain which you trust and why.
-- **Stage 3 - Self-Reflection**: Challenge your blended conclusion from Stage 2. Did you bias toward your own intuition and ignore an expert warning? Did you give artificially high scores because the image "looks nice"? Are there logical contradictions between your alignment and artifact reasoning? Specify exactly how you will calibrate scores from Stage 1 to reach final true scores. If you find unreasonable scoring, correct it here.
-- **Stage 4 - Final Verdict**: Deliver the definitive scores and reasoning.
-
-**[Output Requirements]**
-Return ONLY a pure JSON object (no markdown, no extra text). You must execute and document each step inside the respective JSON fields:
-{{
-  "stage1_independent_visual_audit": {{
-    "alignment_thought": "Analyze the image independently without looking at expert data. Does it match '{class_label}' visually? (Give tentative score 0-5 & reason)",
-    "artifact_thought": "Scan for visible hallucinations, melting, or blurring. (Give tentative score 0-5 & reason)"
-  }},
-  "stage2_evidence_cross_examination": {{
-    "expert_vs_intuition": "Read Expert Testimonies. Compare their hard data (joint counts, depth jumps) with your Stage 1 thoughts. Resolve any contradictions.",
-    "alignment_adjustment": "How expert evidence changes your alignment assessment (if at all)",
-    "artifact_adjustment": "How expert evidence changes your artifact assessment (if at all)"
-  }},
-  "stage3_self_reflection": {{
-    "critique_and_calibration": "Challenge your blended conclusion. Did you bias toward intuition or ignore an expert warning? Specify exactly how you will calibrate scores from Stage 1 to reach final true scores.",
-    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Are there logical contradictions?",
-    "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted after Stages 2 and 3"
-  }},
-  "stage4_final_verdict": {{
-    "alignment_score": 0.0,
-    "artifact_score": 0.0,
-    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
-    "artifact_reasoning": "Concise definitive logic explaining the final artifact score, explicitly citing which expert evidence was adopted or overridden.",
-    "hard_failure_triggered": false,
-    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
-  }}
-}}"""
+- Expert Testimonies: {expert_results_str}"""
 
 
 def _collect_auxiliary_images(expert_results: dict) -> list[str]:
@@ -244,24 +335,29 @@ def run_reflector(
         except Exception as e:
             print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
 
-    system_msg = (
-        "You are the Supreme Judge (Reflector) of an AI image evaluation system. "
-        "You must follow the 4-Stage Cognition Chain strictly: independent visual audit, "
-        "evidence cross-examination, self-reflection, and final verdict. "
-        "You must prioritize the Taxonomy Ground Truth as the source of truth. "
-        "Output JSON only, no markdown wrapping."
-    )
+    system_msg = _REFLECTOR_SYSTEM_TEMPLATE
+
+    system_message = {
+        "role": "system",
+        "content": [
+            {
+                "type": "text",
+                "text": system_msg,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+    }
 
     start_time = time.time()
     try:
         completion = client.chat.completions.create(
             model=REFLECTOR_MODEL,
             messages=[
-                {"role": "system", "content": system_msg},
+                system_message,
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         raw_content = completion.choices[0].message.content
         cost_time = time.time() - start_time
@@ -270,6 +366,14 @@ def run_reflector(
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
             return None
+
+        usage = getattr(completion, "usage", None)
+        if usage:
+            details = getattr(usage, "prompt_tokens_details", None)
+            cached = getattr(details, "cached_tokens", 0) if details else 0
+            created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
+            if cached or created:
+                print(f"  [CACHE] Reflector: hit={cached} tokens, created={created} tokens")
 
         result["metadata"] = {
             "original_image": image_path,
@@ -307,8 +411,10 @@ def save_final_report(
     filename = f"final_evaluation_report_{image_id}.json"
     filepath = output_dir / filename
 
+    safe_report = _sanitize_evidence(report)
+
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=4, ensure_ascii=False)
+        json.dump(safe_report, f, indent=4, ensure_ascii=False)
 
     print(f"  [SAVED] {filename}")
     return str(filepath)

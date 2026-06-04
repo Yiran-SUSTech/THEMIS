@@ -290,6 +290,21 @@ def _collect_auxiliary_images(expert_results: dict) -> list[str]:
     return paths
 
 
+def _build_reflector_user_prompt_session(
+    class_label: str,
+    taxonomy_info: dict | None,
+    expert_results_str: str,
+) -> str:
+    taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
+
+    return f"""[Reflector Role] Based on the expert results below, proceed through the 4-Stage Cognition Chain defined in your Reflector Role instructions.
+
+**[Context]**
+- Target Class: {class_label}
+- Taxonomy Ground Truth: {taxonomy_desc}
+- Expert Testimonies: {expert_results_str}"""
+
+
 def run_reflector(
     client: OpenAI,
     image_path: str,
@@ -297,15 +312,55 @@ def run_reflector(
     class_label: str,
     expert_results: dict,
     experts_registry_str: str,
+    session=None,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
 
     expert_results_str = _build_expert_context_str(expert_results, experts_registry_str)
-    prompt = build_reflector_prompt(class_label, taxonomy_info, expert_results_str)
 
     base64_image = encode_image(image_path)
+
+    start_time = time.time()
+
+    if session is not None:
+        prompt = _build_reflector_user_prompt_session(class_label, taxonomy_info, expert_results_str)
+        user_content = [{"type": "text", "text": prompt}]
+
+        aux_images = _collect_auxiliary_images(expert_results)
+        for aux_path in aux_images:
+            try:
+                aux_b64 = encode_image(aux_path)
+                aux_label = Path(aux_path).stem
+                user_content.append({"type": "text", "text": f"[Auxiliary Expert Output Image: {aux_label}]"})
+                user_content.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{aux_b64}"}})
+            except Exception as e:
+                print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
+
+        session.add_user(user_content)
+        raw_content, completion = session.call_api(
+            client, REFLECTOR_MODEL, response_format={"type": "json_object"},
+        )
+        cost_time = time.time() - start_time
+
+        result = parse_json_safely(raw_content)
+        if result is None:
+            print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
+            return None
+
+        result["metadata"] = {
+            "original_image": image_path,
+            "class_id": class_id,
+            "class_label": class_label,
+            "taxonomy_available": taxonomy_info is not None,
+            "auxiliary_images_included": [Path(p).name for p in _collect_auxiliary_images(expert_results)],
+            "reflector_cost_seconds": round(cost_time, 2),
+            "session_turn_count": session.turn_count,
+        }
+        return result
+
+    prompt = build_reflector_prompt(class_label, taxonomy_info, expert_results_str)
 
     user_content = [
         {"type": "text", "text": prompt},
@@ -348,7 +403,6 @@ def run_reflector(
         ],
     }
 
-    start_time = time.time()
     try:
         completion = client.chat.completions.create(
             model=REFLECTOR_MODEL,
@@ -366,14 +420,6 @@ def run_reflector(
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
             return None
-
-        usage = getattr(completion, "usage", None)
-        if usage:
-            details = getattr(usage, "prompt_tokens_details", None)
-            cached = getattr(details, "cached_tokens", 0) if details else 0
-            created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
-            if cached or created:
-                print(f"  [CACHE] Reflector: hit={cached} tokens, created={created} tokens")
 
         result["metadata"] = {
             "original_image": image_path,
