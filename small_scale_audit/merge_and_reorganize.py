@@ -97,33 +97,30 @@ def main():
     print("\n📁 Step 5: Renumbering and copying images...")
     print("   🔀 Shuffling images within each class (random mixing from both sources)")
     new_class_id_mapping = []  # [(new_img_id, class_id), ...]
+    source_mapping = []  # [(new_img_id, source_folder_name), ...]
     current_number = 0
     copied_count = 0
-    
+
     for class_id in sorted(class_groups.keys()):
         img_list = class_groups[class_id]
-        
-        # 随机打乱相同 class id 的所有图片（混合两个来源）
+
         random.shuffle(img_list)
-        
+
         for old_img_id, source_folder in img_list:
             new_img_id = f"{current_number:06d}"
-            
-            # 查找源图片文件
+
             src_file, ext = find_image_file(source_folder, old_img_id)
             if src_file is None:
                 print(f"   ⚠️  Warning: Image {old_img_id} not found in {source_folder}, skipping")
                 continue
-            
-            # 目标文件路径
+
             dst_file = os.path.join(TARGET_DIR, f"{new_img_id}{ext}")
-            
-            # 复制文件
+
             shutil.copy2(src_file, dst_file)
             copied_count += 1
-            
-            # 记录映射关系
+
             new_class_id_mapping.append((new_img_id, class_id))
+            source_mapping.append((new_img_id, os.path.basename(source_folder)))
             current_number += 1
     
     print(f"   ✅ Copied {copied_count} images")
@@ -138,6 +135,17 @@ def main():
     
     print(f"   ✅ Generated: {new_class_id_path}")
     print(f"   Total entries: {len(new_class_id_mapping)}")
+
+    # 6.5 生成 source_mapping.txt
+    print("\n📝 Step 6.5: Generating source_mapping.txt...")
+    source_mapping_path = os.path.join(TARGET_DIR, "source_mapping.txt")
+
+    with open(source_mapping_path, "w", encoding="utf-8") as f:
+        for new_img_id, source_name in source_mapping:
+            f.write(f"{new_img_id} {source_name}\n")
+
+    print(f"   ✅ Generated: {source_mapping_path}")
+    print(f"   Total entries: {len(source_mapping)}")
     
     # 7. 输出统计信息
     print("\n" + "="*60)
