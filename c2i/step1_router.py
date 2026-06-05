@@ -188,6 +188,34 @@ def build_router_prompt(
 {variable_context}"""
 
 
+def _build_revision_user_prompt_session(
+    class_label: str,
+    taxonomy_info: dict | None,
+    experts_registry_str: str,
+    previous_plan: dict,
+    feedback_history: list[dict],
+) -> str:
+    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+
+    latest_feedback = feedback_history[-1] if feedback_history else {}
+    reasons = latest_feedback.get('reasons_for_rejection', 'N/A')
+    suggestions = latest_feedback.get('suggestions', [])
+
+    return f"""[Router Role] Your previous plan was REJECTED by the Judge. Revise it based on the feedback.
+
+**[Input Data]**
+{variable_context}
+
+**[Judge's Latest Rejection Reasons]**
+{reasons}
+
+**[Judge's Suggestions]**
+{json.dumps(suggestions, ensure_ascii=False)}
+
+**[Revision Directive]**
+Address ALL issues raised by the Judge. Output the revised plan as JSON."""
+
+
 def build_router_revision_prompt(
     class_label: str,
     taxonomy_info: dict | None,
@@ -354,6 +382,7 @@ def generate_plan(
     class_id: int,
     class_label: str,
     experts_registry_str: str,
+    session=None,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -361,20 +390,35 @@ def generate_plan(
 
     base64_image = encode_image(image_path)
     prompt = build_router_prompt(class_label, taxonomy_info, experts_registry_str)
-    _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
-    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
-    system_msg = (
-        "You are a highly logical Router Agent for image auditing. "
-        "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
-        "Output JSON only."
-    )
 
     start_time = time.time()
-    plan = _call_router_api(
-        client, base64_image, prompt, system_msg,
-        registry_summary=registry_summary,
-        formatted_instructions=formatted_instructions,
-    )
+
+    if session is not None:
+        user_content = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
+        ]
+        session.add_user(user_content)
+        raw_content, completion = session.call_api(
+            client, ROUTER_MODEL, response_format={"type": "json_object"},
+        )
+        plan = parse_json_safely(raw_content)
+        if plan is None:
+            print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
+    else:
+        _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+        formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
+        system_msg = (
+            "You are a highly logical Router Agent for image auditing. "
+            "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
+            "Output JSON only."
+        )
+        plan = _call_router_api(
+            client, base64_image, prompt, system_msg,
+            registry_summary=registry_summary,
+            formatted_instructions=formatted_instructions,
+        )
+
     cost_time = time.time() - start_time
 
     if plan is None:
@@ -399,30 +443,49 @@ def revise_plan(
     experts_registry_str: str,
     previous_plan: dict,
     feedback_history: list[dict],
+    session=None,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
 
     base64_image = encode_image(image_path)
-    prompt = build_router_revision_prompt(
-        class_label, taxonomy_info, experts_registry_str,
-        previous_plan, feedback_history,
-    )
-    _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
-    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
-    system_msg = (
-        "You are a highly logical Router Agent for image auditing. "
-        "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
-        "Output JSON only."
-    )
 
     start_time = time.time()
-    plan = _call_router_api(
-        client, base64_image, prompt, system_msg,
-        registry_summary=registry_summary,
-        formatted_instructions=formatted_instructions,
-    )
+
+    if session is not None:
+        prompt = _build_revision_user_prompt_session(
+            class_label, taxonomy_info, experts_registry_str,
+            previous_plan, feedback_history,
+        )
+        user_content = [
+            {"type": "text", "text": prompt},
+        ]
+        session.add_user(user_content)
+        raw_content, completion = session.call_api(
+            client, ROUTER_MODEL, response_format={"type": "json_object"},
+        )
+        plan = parse_json_safely(raw_content)
+        if plan is None:
+            print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
+    else:
+        prompt = build_router_revision_prompt(
+            class_label, taxonomy_info, experts_registry_str,
+            previous_plan, feedback_history,
+        )
+        _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+        formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
+        system_msg = (
+            "You are a highly logical Router Agent for image auditing. "
+            "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
+            "Output JSON only."
+        )
+        plan = _call_router_api(
+            client, base64_image, prompt, system_msg,
+            registry_summary=registry_summary,
+            formatted_instructions=formatted_instructions,
+        )
+
     cost_time = time.time() - start_time
 
     if plan is None:

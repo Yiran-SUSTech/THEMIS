@@ -138,6 +138,30 @@ Output ONLY the JSON object, no additional text."""
     return prompt, registry_summary
 
 
+def _build_judge_user_prompt_session(
+    plan: dict,
+    class_label: str,
+    taxonomy_info: dict | None,
+) -> str:
+    taxonomy_desc = "No specific taxonomy prior knowledge found for this class."
+    taxonomy_class_name = class_label
+    if taxonomy_info:
+        taxonomy_class_name = taxonomy_info.get("class_name", class_label)
+        taxonomy_desc = taxonomy_info.get("enriched_description", taxonomy_desc)
+
+    return f"""[Judge Role] Review the evaluation plan you just generated as Router.
+
+**[Context]**
+- **Target Class:** {class_label}
+- **Taxonomy Class Name:** {taxonomy_class_name}
+- **Taxonomy Prior Knowledge:** {taxonomy_desc}
+
+**[The Plan to Audit]**
+{json.dumps(plan, indent=2, ensure_ascii=False)}
+
+Evaluate the plan on the 5 dimensions defined in your Judge Role instructions. Output JSON."""
+
+
 def review_plan(
     client: OpenAI,
     image_path: str,
@@ -145,10 +169,28 @@ def review_plan(
     class_label: str,
     plan: dict,
     experts_registry_str: str,
+    session=None,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
+
+    start_time = time.time()
+
+    if session is not None:
+        prompt = _build_judge_user_prompt_session(plan, class_label, taxonomy_info)
+        user_content = [{"type": "text", "text": prompt}]
+        session.add_user(user_content)
+        raw_content, completion = session.call_api(
+            client, JUDGE_MODEL, response_format={"type": "json_object"},
+        )
+        result = parse_json_safely(raw_content)
+        if result is None:
+            print(f"  [ERROR] Judge returned unparseable JSON: {raw_content[:200]}")
+            return None
+        cost_time = time.time() - start_time
+        result["judge_cost_seconds"] = round(cost_time, 2)
+        return result
 
     base64_image = encode_image(image_path)
     prompt, registry_summary = build_judge_prompt(plan, class_label, taxonomy_info, experts_registry_str)
@@ -170,7 +212,6 @@ def review_plan(
     }
 
     try:
-        start_time = time.time()
         completion = client.chat.completions.create(
             model=JUDGE_MODEL,
             messages=[

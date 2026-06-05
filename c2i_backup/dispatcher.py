@@ -113,6 +113,7 @@ def save_judge_feedback(
             "reasons_for_rejection": judge_result.get("reasons_for_rejection", ""),
             "suggestions": judge_result.get("suggestions", []),
         },
+        "judge_cost_seconds": judge_result.get("judge_cost_seconds", 0),
         "audited_plan": plan,
     }
     feedback_path = judge_feedback_dir / f"judge_feedback_{img_id}_iter{iteration}.json"
@@ -172,8 +173,9 @@ def run_pipeline_for_image(
         is_approved = judge_result.get("is_approved", False)
         reasons = judge_result.get("reasons_for_rejection", "")
         suggestions = judge_result.get("suggestions", [])
+        judge_cost = judge_result.get("judge_cost_seconds", 0)
 
-        print(f"  [Step 2] Verdict: {'Approved' if is_approved else 'Rejected'}")
+        print(f"  [Step 2] Verdict: {'Approved' if is_approved else 'Rejected'} | Cost: {judge_cost:.2f}s")
         if not is_approved:
             print(f"  [Step 2] Reasons: {reasons}")
             print(f"  [Step 2] Suggestions: {json.dumps(suggestions, ensure_ascii=False)}")
@@ -253,6 +255,7 @@ def run_step3_pipeline(
     image_id_filter: str = "",
     limit: int = 0,
     expert_manager: ExpertManager | None = None,
+    save_pose_viz: bool = False,
 ) -> None:
     """Step 3: Load expert models, read approved plans, execute local expert evaluation.
 
@@ -320,7 +323,7 @@ def run_step3_pipeline(
               f"(Plan: {source_file})")
 
         try:
-            bundle = execute_plan(plan, expert_manager, image_path, class_label)
+            bundle = execute_plan(plan, expert_manager, image_path, class_label, save_pose_viz=save_pose_viz)
             save_testimony_bundle(bundle, expert_results_dir)
             success_count += 1
         except Exception as e:
@@ -542,6 +545,12 @@ def main():
         default=None,
         help="Path to a custom GPU allocation JSON file (Step 3)",
     )
+    parser.add_argument(
+        "--save-pose-viz",
+        action="store_true",
+        default=False,
+        help="Save animal_pose_auditor keypoint visualization with ID and confidence labels",
+    )
     args = parser.parse_args()
 
     image_dir = Path(args.image_dir)
@@ -655,19 +664,26 @@ def main():
             valid_images = valid_images[:args.limit]
 
         print(f"\n{'='*60}")
-        print(f"THEMIS C2I Full Pipeline (Step 1→2→3 per image)")
+        if run_step4:
+            print(f"THEMIS C2I Full Pipeline (Step 1→2→3→4 per image)")
+        else:
+            print(f"THEMIS C2I Full Pipeline (Step 1→2→3 per image)")
         print(f"Images to process: {len(valid_images)}")
         print(f"Max iterations:    {args.max_iterations}")
         print(f"Expert models:     LOADED (resident in GPU memory)")
         print(f"Plan directory:    {plan_dir}")
         print(f"Approved dir:      {approved_dir}")
         print(f"Expert results:    {expert_results_dir}")
+        if run_step4:
+            print(f"Final reports:     {final_reports_dir}")
         print(f"{'='*60}")
 
         step12_ok = 0
         step12_fail = 0
         step3_ok = 0
         step3_fail = 0
+        step4_ok = 0
+        step4_fail = 0
         total_start = time.time()
 
         for idx, (img_name, img_id, class_id, class_label) in enumerate(valid_images, 1):
@@ -676,6 +692,8 @@ def main():
                 print(f"\n[{idx}/{len(valid_images)}] Image not found for ID: {img_id}")
                 step12_fail += 1
                 step3_fail += 1
+                if run_step4:
+                    step4_fail += 1
                 continue
 
             print(f"\n{'#'*60}")
@@ -699,6 +717,8 @@ def main():
             if approved_plan is None:
                 step12_fail += 1
                 step3_fail += 1
+                if run_step4:
+                    step4_fail += 1
                 continue
 
             step12_ok += 1
@@ -710,17 +730,46 @@ def main():
             if resolved_path is None:
                 print(f"  [Step 3] Image path resolution failed, skipping execution.")
                 step3_fail += 1
+                if run_step4:
+                    step4_fail += 1
                 continue
 
+            bundle = None
             try:
                 bundle = execute_plan(
                     approved_plan, expert_manager, resolved_path, class_label,
+                    save_pose_viz=args.save_pose_viz,
                 )
                 save_testimony_bundle(bundle, expert_results_dir)
                 step3_ok += 1
             except Exception as e:
                 print(f"  [Step 3] FATAL: {type(e).__name__}: {e}")
                 step3_fail += 1
+
+            # ── Step 4: Reflector (inline per image) ─────────────────
+            if run_step4 and bundle is not None:
+                print(f"\n  [Step 4] Reflector evaluating {img_id}...")
+                try:
+                    report = run_reflector(
+                        client=client,
+                        image_path=resolved_path,
+                        class_id=class_id,
+                        class_label=class_label,
+                        expert_results=bundle,
+                        experts_registry_str=experts_registry_str,
+                    )
+                    if report is None:
+                        print(f"  [Step 4] FAILED - Reflector returned no valid response")
+                        step4_fail += 1
+                    else:
+                        save_final_report(report, final_reports_dir)
+                        print_final_summary(report)
+                        step4_ok += 1
+                except Exception as e:
+                    print(f"  [Step 4] FATAL: {type(e).__name__}: {e}")
+                    step4_fail += 1
+            elif run_step4 and bundle is None:
+                step4_fail += 1
 
         total_elapsed = time.time() - total_start
 
@@ -732,14 +781,17 @@ def main():
         print(f"  Step 1+2 Failed:    {step12_fail}")
         print(f"  Step 3 OK:          {step3_ok}")
         print(f"  Step 3 Failed:      {step3_fail}")
+        if run_step4:
+            print(f"  Step 4 OK:          {step4_ok}")
+            print(f"  Step 4 Failed:      {step4_fail}")
         print(f"  Total elapsed:      {total_elapsed:.2f}s")
         print(f"{'='*60}")
 
         if expert_manager is not None:
             expert_manager.cleanup()
 
-    # ── Step 4: Reflector (standalone or after full pipeline) ───────────
-    if run_step4:
+    # ── Step 4: Reflector (standalone only, not when already inlined in 1234) ───
+    if run_step4 and not is_full_pipeline:
         if not DASHSCOPE_API_KEY:
             print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 4 (Reflector).")
             return
@@ -756,7 +808,7 @@ def main():
             limit=args.limit,
         )
 
-    if is_full_pipeline and not run_step4:
+    if is_full_pipeline:
         return
 
     # ── Step 1+2 only (batch mode) ──────────────────────────────────────
@@ -872,6 +924,7 @@ def main():
             image_id_filter=args.image_id,
             limit=args.limit,
             expert_manager=expert_manager,
+            save_pose_viz=args.save_pose_viz,
         )
 
 
