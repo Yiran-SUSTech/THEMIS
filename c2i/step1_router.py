@@ -13,6 +13,7 @@ if sys.stdout.encoding != "utf-8":
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
+TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
@@ -40,12 +41,11 @@ def build_router_registry_summary(experts_registry_str: str) -> str:
     for e in registry:
         entry = {
             "expert_id": e.get("expert_id"),
+            "description": e.get("description"),
             "best_for": e.get("best_for"),
-            "applicable_scenes": e.get("applicable_scenes"),
         }
-        if e.get("topology_map"):
-            entry["topology_map"] = e["topology_map"]
-            entry["morphology_note"] = "ONLY for limbed subjects (humans, dogs, cats). NOT for limbless (fish, snakes)."
+        if e.get("expert_id") == "animal_pose_auditor":
+            entry["note"] = "ONLY for limbed subjects (humans, dogs, cats). NOT for limbless (fish, snakes)."
         summary.append(entry)
 
     return json.dumps(summary, indent=2, ensure_ascii=False)
@@ -54,6 +54,20 @@ def build_router_registry_summary(experts_registry_str: str) -> str:
 def get_taxonomy_info(class_id: int) -> dict | None:
     batch_num = class_id // 10
     batch_file = TAXONOMY_DIR / f"taxonomy_enriched_Batch_{batch_num}.json"
+    if not batch_file.exists():
+        return None
+    with open(batch_file, "r", encoding="utf-8") as f:
+        items = json.load(f)
+    for item in items:
+        if item.get("class_id") == class_id:
+            return item
+    return None
+
+
+def get_structured_taxonomy_info(class_id: int) -> dict | None:
+    """Read structured taxonomy info (diagnostic_checkpoints) from taxonomy_info_structural/."""
+    batch_num = class_id // 10
+    batch_file = TAXONOMY_STRUCTURAL_DIR / f"taxonomy_enriched_Batch_{batch_num}_structured.json"
     if not batch_file.exists():
         return None
     with open(batch_file, "r", encoding="utf-8") as f:
@@ -97,65 +111,48 @@ def parse_json_safely(raw_text: str) -> dict | None:
         return None
 
 
-_COMMON_ROUTER_INSTRUCTIONS = """**[Strategic Instruction]**
-You MUST follow these steps IN ORDER. Your output JSON MUST include the `image_description` field as the result of Step 0.
+_COMMON_ROUTER_INSTRUCTIONS = """You are a Router Agent for AI-generated image evaluation. Follow these steps in order and output a single JSON object.
 
-**Step 0 — Image Content Inventory (MANDATORY)**
-Before selecting any expert, you MUST first describe what you see in the image. This description drives all subsequent decisions.
-- List ALL visible entities: the class subject, any people, animals, objects, text, and notable background elements.
-- For each entity, note its role (main subject, secondary subject, background element) and whether it could exhibit AI-generation artifacts.
-- This step ensures you do NOT miss any detectable entity (e.g., a person in the background of a fish image).
+**Step 1 — Checkpoint Verification**
+You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
+- Is it testable in this image? (If uncertain, mark `is_testable: false`.)
+- If testable, does the image match the checkpoint description? (`is_present: true/false`)
+- Brief reasoning for both.
 
-**Step 1 — Subject Inventory**
-Based on Step 0, identify ALL visible subjects (class subject + auxiliary subjects like people, background objects) that could exhibit AI-generation artifacts.
+**Step 2 — Artifact Detection**
+Scan the entire image for AI-generation artifacts. For each artifact found:
+- Type: melting, fusion, extra_limbs, missing_parts, structural_collapse, blur, texture_anomaly, perspective_distortion, text_gibberish, other.
+- Location and severity (0-5 scale: 0=none, 1=barely noticeable, 3=moderately severe, 5=catastrophic).
+- Brief reasoning. If no artifacts, output empty list.
 
-**Step 2 — Feature Mapping**
-Based on Taxonomy AND image content from Step 0, extract 2-10 "Non-negotiable" diagnostic features.
+**Step 3 — Expert Selection**
+Select experts from ({expert_ids_str}) based on visible entities and artifact risks. Rules:
+- MUST include "fine_grained_classifier" for the class subject.
+- Include "animal_pose_auditor" ONLY for limbed subjects (people, dogs, cats, etc.), NOT for limbless ones (fish, snakes).
+- Include "image_text_auditor" ONLY if text is visible.
+- Same expert_id may appear multiple times with different `target_subject`.
+- Select 3-8 experts. Specify `target_subject` for each.
 
-**Step 3 — Visual Risk Assessment**
-Scrutinize for category-specific flaws:
-- *Organisms:* Melting limbs, missing parts, anatomical hallucinations.
-- *Rigid Objects:* Warped lines, perspective distortion, fusing into background.
-- *Scenes:* Repetitive patterns (mode collapse), illogical spatial bleeding.
+**Step 4 — Weights**
+Class subject's experts get higher weights; auxiliary subjects' get lower. All weights positive, sum to 1.0.
 
-**Step 4 — Expert Selection Rules**
-Map risks to expert_ids ({expert_ids_str}). Key rules:
-- Each expert's `target_subject` MUST be morphologically compatible with that expert's capabilities (check applicable_scenes/best_for/topology_map in Registry).
-- MUST include "fine_grained_classifier" for class subject identity verification.
-- MUST include "open_vocabulary_detector" if the class requires locating specific body parts or components.
-- **CRITICAL — Detect ALL limbed entities:** If Step 0 identified ANY person, animal, or limbed creature in the image (whether main subject, secondary subject, or background element), you MUST include "animal_pose_auditor" with that entity as `target_subject`. For example, if the image shows a fish being held by a person, include animal_pose_auditor targeting "person" in addition to fish-targeted experts. Do NOT ignore background people — they are common sources of AI artifacts.
-- **CRITICAL — Detect ALL text:** If Step 0 identified ANY text in the image (signs, labels, watermarks), you MUST include "image_text_auditor" with that text region as `target_subject`.
-- **CRITICAL — Same expert, different targets:** The same expert_id MAY appear multiple times in `selected_experts` with DIFFERENT `target_subject` values. For example, if the image contains both a person and a monkey, you should include TWO entries of "animal_pose_auditor" — one targeting "person" and one targeting "monkey". Similarly, if the image contains multiple distinct objects that each need boundary checking, include multiple "topology_boundary_auditor" entries with different targets.
-- MUST specify a `target_subject` for every selected expert.
-- Select 3-8 expert entries appropriate for the category and image content. You may select up to 8 expert entries (counting duplicates) to cover all detectable entities.
-
-**Step 5 — Weight Allocation**
-Assign weights by Structural Criticality — class subject's experts get higher weights; auxiliary subjects' experts get lower weights. All weights must be positive and sum to 1.0.
-
-**[Output Requirements]**
-Return a pure JSON object (no Markdown wrapping) with this exact schema:
+**Output JSON schema:**
 {{
-  "image_description": "A brief description of ALL visible entities in the image, their roles, and potential artifact risks. This is the output of Step 0.",
-  "image_class": "The ImageNet class label string",
-  "selected_experts": [
-    {{
-      "expert_name": "string (must exactly match an expert_id from the Expert Registry)",
-      "target_subject": "string (which subject in the image this expert should be applied to)",
-      "reason": "Why this expert is selected for this specific target_subject",
-      "weight": 0.0
-    }}
-  ],
-  "focus_areas": ["string (e.g., feet, facial_details, background, limb_integrity)"],
-  "custom_prompts_for_reflector": "string (special audit hints for the Reflector)"
-}}
-
-Output ONLY the JSON object, no additional text."""
+  "image_description": "Brief description of all visible entities and their roles",
+  "image_class": "ImageNet class label",
+  "checkpoint_verdicts": [{{"checkpoint": "str", "category": "str", "is_testable": bool, "is_present": bool, "reasoning": "str"}}],
+  "artifact_observations": [{{"artifact_type": "str", "location": "str", "severity": float, "reasoning": "str"}}],
+  "selected_experts": [{{"expert_name": "str", "target_subject": "str", "reason": "str", "weight": float}}],
+  "focus_areas": ["str"],
+  "custom_prompts_for_reflector": "str"
+}}"""
 
 
 def _build_context_block(
     class_label: str,
     taxonomy_info: dict | None,
     experts_registry_str: str,
+    structured_taxonomy_info: dict | None = None,
 ) -> tuple[str, str, str]:
     taxonomy_desc = "No specific taxonomy prior knowledge found for this class."
     taxonomy_class_name = class_label
@@ -167,10 +164,18 @@ def _build_context_block(
     expert_ids_str = ", ".join(expert_ids) if expert_ids else "See Expert Registry above"
     registry_summary = build_router_registry_summary(experts_registry_str)
 
+    # Build diagnostic checkpoints context
+    checkpoints_text = "No structured diagnostic checkpoints available for this class."
+    if structured_taxonomy_info:
+        checkpoints = structured_taxonomy_info.get("diagnostic_checkpoints", {})
+        if checkpoints:
+            checkpoints_text = json.dumps(checkpoints, indent=2, ensure_ascii=False)
+
     variable_context = (
         f"- **Class Label:** {class_label}\n"
         f"- **Taxonomy Class Name:** {taxonomy_class_name}\n"
-        f"- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}"
+        f"- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}\n"
+        f"- **Diagnostic Checkpoints (for Step 1 verification):**\n{checkpoints_text}"
     )
     return variable_context, expert_ids_str, registry_summary
 
@@ -179,8 +184,11 @@ def build_router_prompt(
     class_label: str,
     taxonomy_info: dict | None,
     experts_registry_str: str,
+    structured_taxonomy_info: dict | None = None,
 ) -> str:
-    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+    variable_context, _, _ = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
 
     return f"""Analyze the provided image AND its class category, then formulate a rigorous evaluation plan using the Expert Registry and Strategic Instructions provided in the system context.
 
@@ -194,8 +202,11 @@ def _build_revision_user_prompt_session(
     experts_registry_str: str,
     previous_plan: dict,
     feedback_history: list[dict],
+    structured_taxonomy_info: dict | None = None,
 ) -> str:
-    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+    variable_context, _, _ = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
 
     latest_feedback = feedback_history[-1] if feedback_history else {}
     reasons = latest_feedback.get('reasons_for_rejection', 'N/A')
@@ -222,8 +233,11 @@ def build_router_revision_prompt(
     experts_registry_str: str,
     previous_plan: dict,
     feedback_history: list[dict],
+    structured_taxonomy_info: dict | None = None,
 ) -> str:
-    variable_context, _, _ = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+    variable_context, _, _ = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
 
     feedback_text = ""
     for i, fb in enumerate(feedback_history, 1):
@@ -262,6 +276,33 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
     if "image_description" not in plan:
         print("  [WARN] Plan missing 'image_description' (required since Step 0)")
         return False
+
+    # Validate checkpoint_verdicts
+    if "checkpoint_verdicts" not in plan or not isinstance(plan["checkpoint_verdicts"], list):
+        print("  [WARN] Plan missing or invalid 'checkpoint_verdicts'")
+        return False
+    for cv in plan["checkpoint_verdicts"]:
+        if "checkpoint" not in cv:
+            print(f"  [WARN] checkpoint_verdict missing 'checkpoint': {cv}")
+            return False
+        if "is_testable" not in cv:
+            print(f"  [WARN] checkpoint_verdict missing 'is_testable': {cv}")
+            return False
+        if "is_present" not in cv:
+            print(f"  [WARN] checkpoint_verdict missing 'is_present': {cv}")
+            return False
+
+    # Validate artifact_observations
+    if "artifact_observations" not in plan or not isinstance(plan["artifact_observations"], list):
+        print("  [WARN] Plan missing or invalid 'artifact_observations'")
+        return False
+    for ao in plan["artifact_observations"]:
+        if "artifact_type" not in ao:
+            print(f"  [WARN] artifact_observation missing 'artifact_type': {ao}")
+            return False
+        if "severity" not in ao:
+            print(f"  [WARN] artifact_observation missing 'severity': {ao}")
+            return False
 
     valid_expert_ids = set(extract_expert_ids(experts_registry_str)) if experts_registry_str else {
         "animal_pose_auditor",
@@ -388,8 +429,12 @@ def generate_plan(
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
 
+    structured_taxonomy_info = get_structured_taxonomy_info(class_id)
+    if structured_taxonomy_info is None:
+        print(f"  [WARN] No structured taxonomy info for class_id={class_id}, proceeding without diagnostic checkpoints.")
+
     base64_image = encode_image(image_path)
-    prompt = build_router_prompt(class_label, taxonomy_info, experts_registry_str)
+    prompt = build_router_prompt(class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info)
 
     start_time = time.time()
 
@@ -406,7 +451,9 @@ def generate_plan(
         if plan is None:
             print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
     else:
-        _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+        _, expert_ids_str, registry_summary = _build_context_block(
+            class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+        )
         formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
         system_msg = (
             "You are a highly logical Router Agent for image auditing. "
@@ -449,6 +496,8 @@ def revise_plan(
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
 
+    structured_taxonomy_info = get_structured_taxonomy_info(class_id)
+
     base64_image = encode_image(image_path)
 
     start_time = time.time()
@@ -456,7 +505,7 @@ def revise_plan(
     if session is not None:
         prompt = _build_revision_user_prompt_session(
             class_label, taxonomy_info, experts_registry_str,
-            previous_plan, feedback_history,
+            previous_plan, feedback_history, structured_taxonomy_info,
         )
         user_content = [
             {"type": "text", "text": prompt},
@@ -471,9 +520,11 @@ def revise_plan(
     else:
         prompt = build_router_revision_prompt(
             class_label, taxonomy_info, experts_registry_str,
-            previous_plan, feedback_history,
+            previous_plan, feedback_history, structured_taxonomy_info,
         )
-        _, expert_ids_str, registry_summary = _build_context_block(class_label, taxonomy_info, experts_registry_str)
+        _, expert_ids_str, registry_summary = _build_context_block(
+            class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+        )
         formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
         system_msg = (
             "You are a highly logical Router Agent for image auditing. "

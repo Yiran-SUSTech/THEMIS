@@ -38,7 +38,7 @@ EXPERT_OUTPUT_DIRS = {
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
-from step1_router import generate_plan, revise_plan, validate_plan, load_experts_registry
+from step1_router import generate_plan, revise_plan, validate_plan, load_experts_registry, get_structured_taxonomy_info
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager,
@@ -51,7 +51,7 @@ from step3_execute import (
     EXPERT_MODULE_MAP,
 )
 from step4_reflector import run_reflector, save_final_report, print_final_summary
-from conversation_session import ConversationSession, build_combined_system_content
+from conversation_session import ConversationSession, build_combined_system_content, build_reflector_only_system_content
 
 
 def parse_class_ids(txt_path: str) -> dict[str, int]:
@@ -711,8 +711,9 @@ def main():
             if args.session:
                 from step1_router import get_taxonomy_info as _get_tax
                 tax_info = _get_tax(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
                 system_content = build_combined_system_content(
-                    experts_registry_str, class_label, tax_info,
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
                 )
                 session = ConversationSession(system_content)
                 print(f"  [SESSION] Created conversation session for {img_id}")
@@ -772,6 +773,17 @@ def main():
             if run_step4 and bundle is not None:
                 print(f"\n  [Step 4] Reflector evaluating {img_id}...")
                 try:
+                    # Reflector uses an independent session to avoid role confusion
+                    reflector_session = None
+                    if args.session:
+                        from step1_router import get_taxonomy_info as _get_tax
+                        tax_info_r = _get_tax(class_id)
+                        struct_tax_info_r = get_structured_taxonomy_info(class_id)
+                        reflector_system = build_reflector_only_system_content(
+                            experts_registry_str, class_label, tax_info_r, struct_tax_info_r,
+                        )
+                        reflector_session = ConversationSession(reflector_system)
+
                     report = run_reflector(
                         client=client,
                         image_path=resolved_path,
@@ -779,7 +791,8 @@ def main():
                         class_label=class_label,
                         expert_results=bundle,
                         experts_registry_str=experts_registry_str,
-                        session=session,
+                        session=reflector_session,
+                        router_plan=approved_plan,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
@@ -905,8 +918,9 @@ def main():
             if args.session:
                 from step1_router import get_taxonomy_info as _get_tax
                 tax_info = _get_tax(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
                 system_content = build_combined_system_content(
-                    experts_registry_str, class_label, tax_info,
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
                 )
                 session = ConversationSession(system_content)
                 print(f"  [SESSION] Created conversation session for {img_id}")
