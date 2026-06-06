@@ -7,6 +7,7 @@ from step1_router import (
     build_router_registry_summary,
     _build_context_block,
     parse_json_safely,
+    get_structured_taxonomy_info,
 )
 from step4_reflector import _REFLECTOR_SYSTEM_TEMPLATE
 
@@ -39,17 +40,18 @@ def build_combined_system_content(
     experts_registry_str: str,
     class_label: str,
     taxonomy_info: dict | None,
+    structured_taxonomy_info: dict | None = None,
 ) -> list[dict]:
     _, expert_ids_str, registry_summary = _build_context_block(
-        class_label, taxonomy_info, experts_registry_str,
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
     )
     router_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
 
-    judge_evaluation_dimensions = """1. **Expert Necessity & Applicability:** For each selected expert, is it necessary AND is its `target_subject` compatible with its capabilities? Cross-reference `applicable_scenes`/`best_for`/`topology_map` with the actual subjects.
-2. **Missing Experts:** Are critical experts missing for ANY visible subject? Base this on `applicable_scenes` and `best_for`, NOT blanket rules.
-3. **Weight Rationality:** Do weights reflect structural criticality? Class subject's experts should generally have higher weights.
-4. **Focus Areas Completeness:** Do focus areas cover critical diagnostic features for ALL visible subjects per Taxonomy?
-5. **Custom Prompts Quality:** Are custom prompts specific and actionable?
+    judge_evaluation_dimensions = """1. **Checkpoint Verdicts:** Are is_testable/is_present judgments reasonable? Did the Router avoid evaluating too many checkpoints by marking them untestable?
+2. **Artifact Observations:** Are severity ratings consistent? If no artifacts found, does the image suggest missed issues?
+3. **Expert Selection:** Is each expert's target_subject compatible with its capabilities? Are critical experts missing?
+4. **Weights:** Do weights reflect structural criticality (class subject > auxiliary)?
+5. **Focus Areas:** Do focus areas cover critical diagnostic features?
 
 Judge output format:
 {
@@ -71,6 +73,31 @@ Judge output format:
         "for logical rigor, scientific validity, and completeness.\n\n"
         f"{judge_evaluation_dimensions}\n\n"
         "## Role 3: Reflector (Supreme Judge)\n"
+        f"{_REFLECTOR_SYSTEM_TEMPLATE}\n\n"
+        f"## Expert Registry (Available Tools)\n{registry_summary}"
+    )
+
+    return [
+        {
+            "type": "text",
+            "text": combined_text,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+def build_reflector_only_system_content(
+    experts_registry_str: str,
+    class_label: str,
+    taxonomy_info: dict | None,
+    structured_taxonomy_info: dict | None = None,
+) -> list[dict]:
+    """Build system content for an independent Reflector session (not shared with Router/Judge)."""
+    _, _, registry_summary = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
+
+    combined_text = (
         f"{_REFLECTOR_SYSTEM_TEMPLATE}\n\n"
         f"## Expert Registry (Available Tools)\n{registry_summary}"
     )

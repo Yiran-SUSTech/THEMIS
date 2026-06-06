@@ -13,6 +13,7 @@ if sys.stdout.encoding != "utf-8":
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
+TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
@@ -28,6 +29,20 @@ def encode_image(image_path: str) -> str:
 def get_taxonomy_info(class_id: int) -> dict | None:
     batch_num = class_id // 10
     batch_file = TAXONOMY_DIR / f"taxonomy_enriched_Batch_{batch_num}.json"
+    if not batch_file.exists():
+        return None
+    with open(batch_file, "r", encoding="utf-8") as f:
+        items = json.load(f)
+    for item in items:
+        if item.get("class_id") == class_id:
+            return item
+    return None
+
+
+def get_structured_taxonomy_info(class_id: int) -> dict | None:
+    """Read structured taxonomy info (diagnostic_checkpoints) from taxonomy_info_structural/."""
+    batch_num = class_id // 10
+    batch_file = TAXONOMY_STRUCTURAL_DIR / f"taxonomy_enriched_Batch_{batch_num}_structured.json"
     if not batch_file.exists():
         return None
     with open(batch_file, "r", encoding="utf-8") as f:
@@ -159,8 +174,7 @@ def _build_expert_context_str(
         "Experts can only detect defects within their specialty. "
         "Structural artifacts (melting, fusion, extra/missing parts) may go undetected "
         "if no expert covers that specific check. "
-        "You MUST independently verify areas that experts cannot cover. "
-        "Do NOT assume the image is defect-free just because all experts reported success."
+        "You MUST verify areas that experts cannot cover based on Router's observations."
     )
     parts.append(blind_spot_warning)
 
@@ -185,80 +199,37 @@ def _sanitize_evidence(evidence):
         return str(evidence)
 
 
-_REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Supreme Judge (Reflector) of an AI image evaluation system. You must follow the 4-Stage Cognition Chain strictly: independent visual audit, evidence cross-examination, self-reflection, and final verdict. You must prioritize the Taxonomy Ground Truth as the source of truth. Output JSON only, no markdown wrapping.
+_REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation system. Review the Router's assessment and expert evidence, then produce the final evaluation. Output JSON only, no markdown.
 
-**[Core Priority Laws]**
-1. Your Own Eyes > Expert Silence: If YOU see a defect but no expert flagged it, trust your eyes — experts have blind spots and may simply be unable to detect that type of defect.
-2. Anatomy/Topology > Aesthetics: Structure defects → penalize Artifact Score heavily regardless of visual appeal.
-3. Taxonomy Compliance: Mismatch in fine-grained features or Top-1 classification → lower Alignment Score.
-4. Expert Evidence for Alignment, Your Eyes for Artifact: Expert evidence is most useful for Alignment (classifier identity verification). For Artifact detection, your own visual inspection is the PRIMARY instrument — experts are supplementary.
+**Core Principles:**
+1. For alignment: expert classifier hard data is more reliable than Router's visual impression.
+2. For artifacts: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
+3. Structural defects outweigh aesthetic quality.
+4. Be critical — do NOT rubber-stamp the Router's assessment. Actively look for issues the Router may have missed or underestimated.
+5. When in doubt about an artifact, lean toward flagging it rather than ignoring it.
 
-**[Strict Adjudication Principles — GUILTY UNTIL PROVEN INNOCENT]**
-You must adopt a presumption-of-defect stance. AI-generated images are assumed to contain flaws unless you can conclusively prove otherwise through your own visual inspection.
+**Scoring Guidelines:**
+- The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
+- Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+- A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+- Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
+- You may score higher or lower than the base scores if your judgment warrants it.
 
-- **Subject Scrutiny:** Examine the main subject exhaustively — anatomy, proportions, limb count, digit structure, eye symmetry, fur/feather/scale texture continuity. ANY anomaly, even subtle, must be penalized.
-- **Background Scrutiny:** Check for: impossible geometry, melting textures, duplicated elements, semantic inconsistencies (e.g., indoor furniture in outdoor scene), blurred or fused boundaries between subject and background.
-- **Alignment Strictness:** The image must match the target class at a FINE-GRAINED level, not just superficially. If expert classifier Top-1 does not match the target class, alignment_score MUST be ≤ 2.0. If Top-3 does not contain the target class, alignment_score MUST be ≤ 1.0.
-- **Artifact Strictness:** Default artifact_score starts at 2.0 (presumed flawed). You may only raise it above 2.0 if ALL of the following are met:
-  (a) No expert flagged any structural/topological defect.
-  (b) Pose auditor found no anatomical anomalies.
-  (c) Depth/segmentation boundaries are clean and consistent.
-  (d) Perceptual quality auditor confirmed no distortion.
-  (e) YOUR OWN visual inspection found NO defects in subject, background, or boundaries.
-  If ANY expert reports a defect, artifact_score MUST be ≤ 2.0. If multiple experts report defects, artifact_score MUST be ≤ 1.0.
-- **Pose Low-Confidence Rule (CRITICAL):** When animal_pose_auditor evidence contains a `low_confidence_analysis` field, you MUST use it as a primary artifact indicator:
-  (a) Low confidence keypoints (confidence < 0.5) mean the pose model is UNCERTAIN about that body part — this is a strong signal of potential artifact (melting, fusion, hallucination, or structural breakdown) in that region.
-  (b) If `artifact_risk_level` is HIGH (>=40% low-confidence ratio), artifact_score MUST be ≤ 1.5.
-  (c) If `artifact_risk_level` is MEDIUM (>=25% low-confidence ratio), artifact_score MUST be ≤ 2.0.
-  (d) If `artifact_risk_level` is LOW (>=15% low-confidence ratio), artifact_score MUST be ≤ 3.0.
-  (e) You MUST cite the affected body regions from `affected_body_regions` in your artifact_reasoning.
-  (f) Do NOT dismiss low-confidence keypoints as 'model limitation' — the pose model's uncertainty IS the diagnostic signal.
-- **Expert Blind Spot Awareness (CRITICAL):** Each expert has blind spots (see NOT_Capable_Of in their testimony). 'No defect reported' does NOT mean 'no defect exists'. Experts can only detect defects within their narrow specialty. You MUST independently verify:
-  (a) Anatomical features that the classifier cannot verify (e.g., are barbels visible? is the lateral line continuous? are all fins correctly shaped?)
-  (b) Subject-background fusion that SAM cannot detect when colors are similar
-  (c) Structural artifacts in body regions where pose keypoints have low confidence
-  (d) Background semantic consistency that no expert specifically checks
-  (e) Subject-background boundary quality beyond what mask confidence measures
-- **Independent Visual Verification:** In Stage 1, you must perform your OWN thorough visual inspection BEFORE reading expert data. In Stage 2, you must NOT let expert 'no defect' reports override your own visual findings. If you see a potential defect with your own eyes but no expert flagged it, trust your eyes — the expert may simply be blind to that type of defect.
-- **Whole-Image Audit:** You must audit the ENTIRE image, not just the main subject. Background, secondary objects, and subject-background boundaries are all artifact-prone zones. Check:
-  (a) Background geometry: impossible structures, melting textures, duplicated elements
-  (b) Background semantics: out-of-place objects, inconsistent lighting
-  (c) Subject-background boundary: fusion, melting, halo artifacts, unnatural transitions
-  (d) Secondary subjects: anatomical correctness of all visible entities, not just the primary subject
-- **No Free Passes:** Do NOT give high scores simply because the image 'looks nice overall' or 'most parts are fine'. A single confirmed defect in a critical area (face, limbs, subject boundary) is sufficient to cap the score.
-- **Score Calibration Guide:**
-  - 5.0: Flawless — no detectable defects from any expert or visual inspection (extremely rare).
-  - 4.0: Minor imperfections only — no structural defects, only cosmetic issues.
-  - 3.0: Moderate defects — some expert flags but not catastrophic.
-  - 2.0: Notable defects — multiple expert flags or one severe structural issue.
-  - 1.0: Severe defects — major anatomical/structural failure.
-  - 0.0: Catastrophic — image is nonsensical or completely misaligned.
+**Your Task:**
+- Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
+- Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
+- Note any new artifacts found by experts that the Router missed.
+- Produce final alignment_score and artifact_score (0-5 continuous).
 
-**[Output Requirements]**
-Return ONLY a pure JSON object (no markdown, no extra text). Execute and document each stage inside the respective JSON fields:
+**Output JSON:**
 {
-  "stage1_independent_visual_audit": {
-    "alignment_thought": "BEFORE reading expert data, independently analyze the image. Does it match 'TARGET_CLASS' at a FINE-GRAINED level? Check EVERY key feature from the taxonomy (not just overall appearance). List features that match AND features that are missing or wrong. (tentative score 0-5 & reason)",
-    "artifact_thought": "BEFORE reading expert data, scan the ENTIRE image for artifacts with a FAULT-FINDING mindset. Assume the image IS flawed and your job is to find every flaw. Check THREE zones: (A) Subject — anatomy, proportions, texture continuity, limb/organ correctness, eye symmetry, skin/fur/scale quality; (B) Background — geometry, texture, semantic consistency, duplicated elements, impossible structures; (C) Subject-Background Boundary — fusion, melting, halo, unnatural transitions, color bleeding. For EACH zone, list EVERY potential defect you find, no matter how subtle. If a zone appears clean, explicitly state what you checked and confirmed. (tentative score 0-5 & reason)"
-  },
-  "stage2_evidence_cross_examination": {
-    "expert_vs_intuition": "Compare expert hard data with your Stage 1 assessment. CRITICAL RULE for Artifact: If you found defects in Stage 1 but experts report 'no defect', do NOT let experts override your visual findings — experts have blind spots (see NOT_Capable_Of). Expert 'no defect' only means the expert's specific tool could not detect a defect, NOT that no defect exists. For Alignment, expert classifier evidence is more reliable and can adjust your score.",
-    "alignment_adjustment": "How expert evidence changes your alignment assessment (if at all). Classifier evidence is strong signal for alignment.",
-    "artifact_adjustment": "How expert evidence changes your artifact assessment. Remember: expert silence on artifacts does NOT override your own visual findings. Only EXPLICIT expert defect reports (e.g., low-confidence keypoints, boundary anomalies) should lower the score further. Your Stage 1 visual findings are the PRIMARY artifact evidence."
-  },
-  "stage3_self_reflection": {
-    "critique_and_calibration": "Challenge your conclusion from the STRICT side. For each score, you must argue why it should NOT be LOWER, not why it should not be higher. If you found defects in Stage 1, did you fully account for them in the final score? Did you let expert 'no defect' reports weaken your own visual findings?",
-    "bias_check": "Did you give artificially high scores because the image 'looks nice'? Did you let expert 'no defect' reports override your own eyes? List every defect you found in Stage 1 and explain whether you gave it appropriate weight in the final score. If you raised a score above Stage 1's tentative score, justify exactly why — the default direction should be downward, not upward.",
-    "final_calibration": "Explicit statement of how Stage 1 tentative scores are adjusted. The final scores should be <= Stage 1 tentative scores UNLESS expert evidence provides POSITIVE proof (not just absence of negative evidence) that the image is better than Stage 1 assessment."
-  },
-  "stage4_final_verdict": {
-    "alignment_score": 0.0,
-    "artifact_score": 0.0,
-    "alignment_reasoning": "Concise definitive logic explaining the final alignment score.",
-    "artifact_reasoning": "Concise definitive logic explaining the final artifact score. You MUST cite: (1) defects you found with your own eyes, (2) expert evidence that supports or contradicts your findings, (3) why you trusted your eyes or the expert in case of contradiction.",
-    "hard_failure_triggered": false,
-    "key_defects": ["string (e.g., Extra_Limbs, Edge_Melting, Perspective_Warp, Identity_Mismatched)"]
-  }
+  "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning. Flag any checkpoints the Router was too lenient on.",
+  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
+  "alignment_score": 0.0,
+  "artifact_score": 0.0,
+  "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
+  "artifact_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
+  "key_defects": ["string"]
 }"""
 
 
@@ -266,15 +237,133 @@ def build_reflector_prompt(
     class_label: str,
     taxonomy_info: dict | None,
     expert_results_str: str,
+    router_plan: dict | None = None,
+    structured_taxonomy_info: dict | None = None,
 ) -> str:
     taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
 
-    return f"""Proceed through the 4-Stage Cognition Chain defined in the system context.
+    # Build Router's assessment context
+    router_assessment = ""
+    base_scores_text = ""
+    if router_plan:
+        checkpoint_verdicts = router_plan.get("checkpoint_verdicts", [])
+        artifact_observations = router_plan.get("artifact_observations", [])
+        image_description = router_plan.get("image_description", "")
+
+        # Compute base scores (for reference — Reflector may adjust)
+        testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
+        present = [cv for cv in testable if cv.get("is_present", False)]
+        untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
+        base_alignment = 5.0 * len(present) / len(testable) if testable else 0.0
+
+        if untestable:
+            untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * base_alignment
+            base_alignment -= untestable_penalty
+
+        if artifact_observations:
+            max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
+            severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
+            minor_count = len(artifact_observations) - severe_count
+            base_artifact = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+            base_artifact = max(0.0, base_artifact)
+        else:
+            base_artifact = 5.0
+
+        base_scores_text = f"Formula Reference (starting point only, NOT your final score): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Artifact={base_artifact:.2f}"
+
+        router_assessment = f"""
+**[Router's Assessment]**
+- Image: {image_description}
+- Checkpoint Verdicts: {json.dumps(checkpoint_verdicts, indent=2, ensure_ascii=False)}
+- Artifact Observations: {json.dumps(artifact_observations, indent=2, ensure_ascii=False)}
+- {base_scores_text}
+"""
+
+    # Build diagnostic checkpoints context
+    checkpoints_text = ""
+    if structured_taxonomy_info:
+        checkpoints = structured_taxonomy_info.get("diagnostic_checkpoints", {})
+        if checkpoints:
+            checkpoints_text = f"\n**[Diagnostic Checkpoints]**\n{json.dumps(checkpoints, indent=2, ensure_ascii=False)}\n"
+
+    return f"""Review the Router's assessment and expert evidence to produce the final evaluation.
 
 **[Context]**
 - Target Class: {class_label}
-- Taxonomy Ground Truth: {taxonomy_desc}
-- Expert Testimonies: {expert_results_str}"""
+- Taxonomy: {taxonomy_desc}
+{checkpoints_text}
+{router_assessment}
+**[Expert Testimonies]**
+{expert_results_str}"""
+
+
+def _calibrate_scores(
+    result: dict,
+    expert_results: dict,
+    router_plan: dict | None = None,
+) -> dict:
+    """Post-process Reflector output with hard rules that cannot be violated.
+    These rules were previously in the prompt but are now enforced in code for reliability."""
+    alignment_score = result.get("alignment_score", 0.0)
+    artifact_score = result.get("artifact_score", 0.0)
+    adjustments = []
+
+    # --- Alignment calibration based on expert classifier ---
+    if expert_results:
+        for t in expert_results.get("expert_testimonies", []):
+            if t.get("expert_id") == "fine_grained_classifier" and t.get("status") == "success":
+                evidence = t.get("evidence", {})
+                top1 = evidence.get("top1_label", "")
+                top3 = evidence.get("top3_labels", [])
+                class_label = result.get("metadata", {}).get("class_label", "")
+
+                # Top-1 mismatch → alignment ≤ 2.0
+                if top1 and top1 != class_label:
+                    if alignment_score > 2.0:
+                        adjustments.append(f"Classifier Top-1 '{top1}' != target '{class_label}', capping alignment {alignment_score:.2f} → 2.0")
+                        alignment_score = 2.0
+
+                # Top-3 mismatch → alignment ≤ 1.0
+                if top3 and class_label not in top3:
+                    if alignment_score > 1.0:
+                        adjustments.append(f"Target '{class_label}' not in Top-3 {top3}, capping alignment {alignment_score:.2f} → 1.0")
+                        alignment_score = 1.0
+                break
+
+    # --- Artifact calibration based on pose low-confidence ---
+    if expert_results:
+        for t in expert_results.get("expert_testimonies", []):
+            if t.get("expert_id") == "animal_pose_auditor" and t.get("status") == "success":
+                evidence = t.get("evidence", {})
+                lca = evidence.get("low_confidence_analysis", {})
+                if lca:
+                    risk_level = lca.get("artifact_risk_level", "")
+                    low_ratio = lca.get("low_confidence_ratio", 0.0)
+
+                    if risk_level == "HIGH" or low_ratio >= 0.40:
+                        if artifact_score > 1.5:
+                            adjustments.append(f"Pose HIGH risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 1.5")
+                            artifact_score = 1.5
+                    elif risk_level == "MEDIUM" or low_ratio >= 0.25:
+                        if artifact_score > 2.0:
+                            adjustments.append(f"Pose MEDIUM risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 2.0")
+                            artifact_score = 2.0
+                    elif risk_level == "LOW" or low_ratio >= 0.15:
+                        if artifact_score > 3.0:
+                            adjustments.append(f"Pose LOW risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 3.0")
+                            artifact_score = 3.0
+                break
+
+    # Clamp scores to [0, 5]
+    alignment_score = max(0.0, min(5.0, alignment_score))
+    artifact_score = max(0.0, min(5.0, artifact_score))
+
+    result["alignment_score"] = round(alignment_score, 2)
+    result["artifact_score"] = round(artifact_score, 2)
+    if adjustments:
+        result["code_adjustments"] = adjustments
+
+    return result
 
 
 def _collect_auxiliary_images(expert_results: dict) -> list[str]:
@@ -294,15 +383,57 @@ def _build_reflector_user_prompt_session(
     class_label: str,
     taxonomy_info: dict | None,
     expert_results_str: str,
+    router_plan: dict | None = None,
+    structured_taxonomy_info: dict | None = None,
 ) -> str:
     taxonomy_desc = taxonomy_info.get("enriched_description", "No specific taxonomy found.") if taxonomy_info else "No specific taxonomy found."
 
-    return f"""[Reflector Role] Based on the expert results below, proceed through the 4-Stage Cognition Chain defined in your Reflector Role instructions.
+    # Build Router's assessment context (compact for session mode)
+    router_assessment = ""
+    if router_plan:
+        checkpoint_verdicts = router_plan.get("checkpoint_verdicts", [])
+        artifact_observations = router_plan.get("artifact_observations", [])
+
+        testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
+        present = [cv for cv in testable if cv.get("is_present", False)]
+        untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
+        base_alignment = 5.0 * len(present) / len(testable) if testable else 0.0
+
+        if untestable:
+            untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * base_alignment
+            base_alignment -= untestable_penalty
+
+        if artifact_observations:
+            max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
+            severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
+            minor_count = len(artifact_observations) - severe_count
+            base_artifact = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+            base_artifact = max(0.0, base_artifact)
+        else:
+            base_artifact = 5.0
+
+        router_assessment = f"""
+**[Router's Assessment]**
+- Checkpoint Verdicts: {json.dumps(checkpoint_verdicts, indent=2, ensure_ascii=False)}
+- Artifact Observations: {json.dumps(artifact_observations, indent=2, ensure_ascii=False)}
+- Formula Reference (starting point only): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Artifact={base_artifact:.2f}
+"""
+
+    checkpoints_text = ""
+    if structured_taxonomy_info:
+        checkpoints = structured_taxonomy_info.get("diagnostic_checkpoints", {})
+        if checkpoints:
+            checkpoints_text = f"\n**[Diagnostic Checkpoints]**\n{json.dumps(checkpoints, indent=2, ensure_ascii=False)}\n"
+
+    return f"""[Reflector Role] Review the Router's assessment and expert evidence.
 
 **[Context]**
 - Target Class: {class_label}
-- Taxonomy Ground Truth: {taxonomy_desc}
-- Expert Testimonies: {expert_results_str}"""
+- Taxonomy: {taxonomy_desc}
+{checkpoints_text}
+{router_assessment}
+**[Expert Testimonies]**
+{expert_results_str}"""
 
 
 def run_reflector(
@@ -313,10 +444,13 @@ def run_reflector(
     expert_results: dict,
     experts_registry_str: str,
     session=None,
+    router_plan: dict | None = None,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
+
+    structured_taxonomy_info = get_structured_taxonomy_info(class_id)
 
     expert_results_str = _build_expert_context_str(expert_results, experts_registry_str)
 
@@ -325,7 +459,10 @@ def run_reflector(
     start_time = time.time()
 
     if session is not None:
-        prompt = _build_reflector_user_prompt_session(class_label, taxonomy_info, expert_results_str)
+        prompt = _build_reflector_user_prompt_session(
+            class_label, taxonomy_info, expert_results_str,
+            router_plan, structured_taxonomy_info,
+        )
         user_content = [{"type": "text", "text": prompt}]
 
         aux_images = _collect_auxiliary_images(expert_results)
@@ -358,9 +495,13 @@ def run_reflector(
             "reflector_cost_seconds": round(cost_time, 2),
             "session_turn_count": session.turn_count,
         }
+        result = _calibrate_scores(result, expert_results, router_plan)
         return result
 
-    prompt = build_reflector_prompt(class_label, taxonomy_info, expert_results_str)
+    prompt = build_reflector_prompt(
+        class_label, taxonomy_info, expert_results_str,
+        router_plan, structured_taxonomy_info,
+    )
 
     user_content = [
         {"type": "text", "text": prompt},
@@ -429,6 +570,7 @@ def run_reflector(
             "auxiliary_images_included": [Path(p).name for p in aux_images],
             "reflector_cost_seconds": round(cost_time, 2),
         }
+        result = _calibrate_scores(result, expert_results, router_plan)
 
         return result
 
@@ -467,15 +609,17 @@ def save_final_report(
 
 
 def print_final_summary(report: dict) -> None:
-    verdict = report.get("stage4_final_verdict", {})
     metadata = report.get("metadata", {})
     class_label = metadata.get("class_label", "N/A")
-    alignment_score = verdict.get("alignment_score", 0.0)
-    artifact_score = verdict.get("artifact_score", 0.0)
-    hard_failure = verdict.get("hard_failure_triggered", False)
-    key_defects = verdict.get("key_defects", [])
+    alignment_score = report.get("alignment_score", 0.0)
+    artifact_score = report.get("artifact_score", 0.0)
+    key_defects = report.get("key_defects", [])
+    code_adjustments = report.get("code_adjustments", [])
 
     print(f"\n--- Final Evaluation Complete ---")
-    print(f"Class: {class_label} | Alignment: {alignment_score:.1f}/5.0 | Artifact: {artifact_score:.1f}/5.0 | Hard Failure: {hard_failure}")
+    print(f"Class: {class_label} | Alignment: {alignment_score:.1f}/5.0 | Artifact: {artifact_score:.1f}/5.0")
+    if code_adjustments:
+        for adj in code_adjustments:
+            print(f"  [Code Adjustment] {adj}")
     if key_defects:
         print(f"Key Defects: {', '.join(key_defects)}")

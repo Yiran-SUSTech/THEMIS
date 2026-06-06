@@ -38,7 +38,7 @@ EXPERT_OUTPUT_DIRS = {
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
-from step1_router import generate_plan, revise_plan, validate_plan, load_experts_registry
+from step1_router import generate_plan, revise_plan, validate_plan, load_experts_registry, get_structured_taxonomy_info
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager,
@@ -51,7 +51,7 @@ from step3_execute import (
     EXPERT_MODULE_MAP,
 )
 from step4_reflector import run_reflector, save_final_report, print_final_summary
-from conversation_session import ConversationSession, build_combined_system_content
+from conversation_session import ConversationSession, build_combined_system_content, build_reflector_only_system_content
 
 
 def parse_class_ids(txt_path: str) -> dict[str, int]:
@@ -94,6 +94,47 @@ def resolve_image_path(image_dir: Path, img_id: str) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def compute_router_scores(plan: dict) -> dict:
+    checkpoint_verdicts = plan.get("checkpoint_verdicts", [])
+    artifact_observations = plan.get("artifact_observations", [])
+
+    testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
+    present = [cv for cv in testable if cv.get("is_present", False)]
+    untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
+    alignment_score = 5.0 * len(present) / len(testable) if testable else 0.0
+
+    if untestable:
+        untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * alignment_score
+        alignment_score -= untestable_penalty
+
+    if artifact_observations:
+        max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
+        severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
+        minor_count = len(artifact_observations) - severe_count
+        artifact_score = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+        artifact_score = max(0.0, artifact_score)
+    else:
+        artifact_score = 5.0
+
+    return {
+        "router_alignment_score": round(alignment_score, 2),
+        "router_artifact_score": round(artifact_score, 2),
+        "checkpoint_summary": {
+            "total": len(checkpoint_verdicts),
+            "testable": len(testable),
+            "present": len(present),
+            "absent": len(testable) - len(present),
+            "untestable": len(untestable),
+        },
+        "artifact_summary": {
+            "count": len(artifact_observations),
+            "max_severity": max((ao.get("severity", 0.0) for ao in artifact_observations), default=0.0),
+            "severe_count": sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0),
+            "minor_count": sum(1 for ao in artifact_observations if 0 < ao.get("severity", 0.0) < 2.0),
+        },
+    }
 
 
 def save_judge_feedback(
@@ -239,6 +280,18 @@ def run_pipeline_for_image(
             current_plan = revised_plan
 
     current_plan["metadata"]["iteration_log"] = iteration_log
+
+    router_scores = compute_router_scores(current_plan)
+    current_plan["router_scores"] = router_scores
+
+    cs = router_scores["checkpoint_summary"]
+    a_s = router_scores["artifact_summary"]
+    print(f"\n  --- Router Assessment ---")
+    print(f"  Alignment: {router_scores['router_alignment_score']:.2f}/5.0 ({cs['present']}/{cs['testable']} passed, {cs['untestable']} untestable)")
+    if a_s["count"] > 0:
+        print(f"  Artifact:  {router_scores['router_artifact_score']:.2f}/5.0 ({a_s['count']} artifacts, max severity={a_s['max_severity']:.1f}, {a_s['severe_count']} severe, {a_s['minor_count']} minor)")
+    else:
+        print(f"  Artifact:  5.00/5.0 (no artifacts observed)")
 
     approved_save_path = approved_dir / f"approved_plan_{img_id}.json"
     with open(approved_save_path, "w", encoding="utf-8") as f:
@@ -711,8 +764,9 @@ def main():
             if args.session:
                 from step1_router import get_taxonomy_info as _get_tax
                 tax_info = _get_tax(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
                 system_content = build_combined_system_content(
-                    experts_registry_str, class_label, tax_info,
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
                 )
                 session = ConversationSession(system_content)
                 print(f"  [SESSION] Created conversation session for {img_id}")
@@ -772,6 +826,17 @@ def main():
             if run_step4 and bundle is not None:
                 print(f"\n  [Step 4] Reflector evaluating {img_id}...")
                 try:
+                    # Reflector uses an independent session to avoid role confusion
+                    reflector_session = None
+                    if args.session:
+                        from step1_router import get_taxonomy_info as _get_tax
+                        tax_info_r = _get_tax(class_id)
+                        struct_tax_info_r = get_structured_taxonomy_info(class_id)
+                        reflector_system = build_reflector_only_system_content(
+                            experts_registry_str, class_label, tax_info_r, struct_tax_info_r,
+                        )
+                        reflector_session = ConversationSession(reflector_system)
+
                     report = run_reflector(
                         client=client,
                         image_path=resolved_path,
@@ -779,7 +844,8 @@ def main():
                         class_label=class_label,
                         expert_results=bundle,
                         experts_registry_str=experts_registry_str,
-                        session=session,
+                        session=reflector_session,
+                        router_plan=approved_plan,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
@@ -905,8 +971,9 @@ def main():
             if args.session:
                 from step1_router import get_taxonomy_info as _get_tax
                 tax_info = _get_tax(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
                 system_content = build_combined_system_content(
-                    experts_registry_str, class_label, tax_info,
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
                 )
                 session = ConversationSession(system_content)
                 print(f"  [SESSION] Created conversation session for {img_id}")
