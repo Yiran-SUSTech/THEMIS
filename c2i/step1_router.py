@@ -113,17 +113,19 @@ def parse_json_safely(raw_text: str) -> dict | None:
 
 _COMMON_ROUTER_INSTRUCTIONS = """You are a Router Agent for AI-generated image evaluation. Follow these steps in order and output a single JSON object.
 
-**Step 1 — Checkpoint Verification**
+**Step 1 — Checkpoint Verification (STRICT)**
 You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
-- Is it testable in this image? (If uncertain, mark `is_testable: false`.)
-- If testable, does the image match the checkpoint description? (`is_present: true/false`)
-- Brief reasoning for both.
+- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). When in doubt, mark as testable and give your best judgment.
+- If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
+- Brief reasoning for both decisions.
 
-**Step 2 — Artifact Detection**
-Scan the entire image for AI-generation artifacts. For each artifact found:
+**Step 2 — Artifact Detection (THOROUGH)**
+Scan the ENTIRE image carefully for AI-generation artifacts, including subtle ones. For each artifact found:
 - Type: melting, fusion, extra_limbs, missing_parts, structural_collapse, blur, texture_anomaly, perspective_distortion, text_gibberish, other.
-- Location and severity (0-5 scale: 0=none, 1=barely noticeable, 3=moderately severe, 5=catastrophic).
-- Brief reasoning. If no artifacts, output empty list.
+- Location and severity (0-5 scale: 0=none, 1=barely noticeable on close inspection, 2=noticeable but minor, 3=moderately severe, 4=severe structural failure, 5=catastrophic nonsensical region).
+- Brief reasoning.
+- Pay special attention to: subtle edge bleeding between subject and background, slight texture inconsistencies in skin/fur/feathers, minor perspective warping, faint ghost limbs, small areas of melting or fusion that are easy to overlook.
+- If no artifacts found after thorough inspection, output empty list.
 
 **Step 3 — Expert Selection**
 Select experts from ({expert_ids_str}) based on visible entities and artifact risks. Rules:

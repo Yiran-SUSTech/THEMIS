@@ -96,6 +96,47 @@ def resolve_image_path(image_dir: Path, img_id: str) -> Path | None:
     return None
 
 
+def compute_router_scores(plan: dict) -> dict:
+    checkpoint_verdicts = plan.get("checkpoint_verdicts", [])
+    artifact_observations = plan.get("artifact_observations", [])
+
+    testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
+    present = [cv for cv in testable if cv.get("is_present", False)]
+    untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
+    alignment_score = 5.0 * len(present) / len(testable) if testable else 0.0
+
+    if untestable:
+        untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * alignment_score
+        alignment_score -= untestable_penalty
+
+    if artifact_observations:
+        max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
+        severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
+        minor_count = len(artifact_observations) - severe_count
+        artifact_score = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+        artifact_score = max(0.0, artifact_score)
+    else:
+        artifact_score = 5.0
+
+    return {
+        "router_alignment_score": round(alignment_score, 2),
+        "router_artifact_score": round(artifact_score, 2),
+        "checkpoint_summary": {
+            "total": len(checkpoint_verdicts),
+            "testable": len(testable),
+            "present": len(present),
+            "absent": len(testable) - len(present),
+            "untestable": len(untestable),
+        },
+        "artifact_summary": {
+            "count": len(artifact_observations),
+            "max_severity": max((ao.get("severity", 0.0) for ao in artifact_observations), default=0.0),
+            "severe_count": sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0),
+            "minor_count": sum(1 for ao in artifact_observations if 0 < ao.get("severity", 0.0) < 2.0),
+        },
+    }
+
+
 def save_judge_feedback(
     judge_feedback_dir: Path,
     img_id: str,
@@ -239,6 +280,18 @@ def run_pipeline_for_image(
             current_plan = revised_plan
 
     current_plan["metadata"]["iteration_log"] = iteration_log
+
+    router_scores = compute_router_scores(current_plan)
+    current_plan["router_scores"] = router_scores
+
+    cs = router_scores["checkpoint_summary"]
+    a_s = router_scores["artifact_summary"]
+    print(f"\n  --- Router Assessment ---")
+    print(f"  Alignment: {router_scores['router_alignment_score']:.2f}/5.0 ({cs['present']}/{cs['testable']} passed, {cs['untestable']} untestable)")
+    if a_s["count"] > 0:
+        print(f"  Artifact:  {router_scores['router_artifact_score']:.2f}/5.0 ({a_s['count']} artifacts, max severity={a_s['max_severity']:.1f}, {a_s['severe_count']} severe, {a_s['minor_count']} minor)")
+    else:
+        print(f"  Artifact:  5.00/5.0 (no artifacts observed)")
 
     approved_save_path = approved_dir / f"approved_plan_{img_id}.json"
     with open(approved_save_path, "w", encoding="utf-8") as f:

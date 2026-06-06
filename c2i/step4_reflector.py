@@ -205,17 +205,26 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
 1. For alignment: expert classifier hard data is more reliable than Router's visual impression.
 2. For artifacts: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
 3. Structural defects outweigh aesthetic quality.
+4. Be critical — do NOT rubber-stamp the Router's assessment. Actively look for issues the Router may have missed or underestimated.
+5. When in doubt about an artifact, lean toward flagging it rather than ignoring it.
+
+**Scoring Guidelines:**
+- The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
+- Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+- A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+- Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
+- You may score higher or lower than the base scores if your judgment warrants it.
 
 **Your Task:**
-- Review the Router's checkpoint verdicts: agree or disagree with each, citing expert evidence if relevant.
-- Review the Router's artifact observations: agree or disagree with each severity, citing expert evidence if relevant.
+- Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
+- Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
 - Note any new artifacts found by experts that the Router missed.
 - Produce final alignment_score and artifact_score (0-5 continuous).
 
 **Output JSON:**
 {
-  "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning",
-  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts.",
+  "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning. Flag any checkpoints the Router was too lenient on.",
+  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
   "alignment_score": 0.0,
   "artifact_score": 0.0,
   "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
@@ -244,17 +253,23 @@ def build_reflector_prompt(
         # Compute base scores (for reference — Reflector may adjust)
         testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
         present = [cv for cv in testable if cv.get("is_present", False)]
+        untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
         base_alignment = 5.0 * len(present) / len(testable) if testable else 0.0
+
+        if untestable:
+            untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * base_alignment
+            base_alignment -= untestable_penalty
 
         if artifact_observations:
             max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
             severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
-            base_artifact = 5.0 - max_severity - 0.3 * severe_count
+            minor_count = len(artifact_observations) - severe_count
+            base_artifact = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
             base_artifact = max(0.0, base_artifact)
         else:
             base_artifact = 5.0
 
-        base_scores_text = f"Base Alignment: {base_alignment:.2f} ({len(present)}/{len(testable)} checkpoints passed) | Base Artifact: {base_artifact:.2f}"
+        base_scores_text = f"Formula Reference (starting point only, NOT your final score): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Artifact={base_artifact:.2f}"
 
         router_assessment = f"""
 **[Router's Assessment]**
@@ -381,12 +396,18 @@ def _build_reflector_user_prompt_session(
 
         testable = [cv for cv in checkpoint_verdicts if cv.get("is_testable", False)]
         present = [cv for cv in testable if cv.get("is_present", False)]
+        untestable = [cv for cv in checkpoint_verdicts if not cv.get("is_testable", False)]
         base_alignment = 5.0 * len(present) / len(testable) if testable else 0.0
+
+        if untestable:
+            untestable_penalty = 0.5 * len(untestable) / len(checkpoint_verdicts) * base_alignment
+            base_alignment -= untestable_penalty
 
         if artifact_observations:
             max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
             severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
-            base_artifact = 5.0 - max_severity - 0.3 * severe_count
+            minor_count = len(artifact_observations) - severe_count
+            base_artifact = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
             base_artifact = max(0.0, base_artifact)
         else:
             base_artifact = 5.0
@@ -395,7 +416,7 @@ def _build_reflector_user_prompt_session(
 **[Router's Assessment]**
 - Checkpoint Verdicts: {json.dumps(checkpoint_verdicts, indent=2, ensure_ascii=False)}
 - Artifact Observations: {json.dumps(artifact_observations, indent=2, ensure_ascii=False)}
-- Base Alignment: {base_alignment:.2f} | Base Artifact: {base_artifact:.2f}
+- Formula Reference (starting point only): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Artifact={base_artifact:.2f}
 """
 
     checkpoints_text = ""
