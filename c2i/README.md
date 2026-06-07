@@ -1,148 +1,148 @@
-# THEMIS C2I 评估系统 — 启动指南
+# THEMIS C2I Evaluation System — Getting Started
 
-## 概述
+## Overview
 
-THEMIS C2I 是一个 Agentic 图像质量评估系统，对 AI 生成的图片输出两个分数：
-- **Alignment Score (0-5)** — 图片是否符合目标类别
-- **Artifact Score (0-5)** — 画面质量（伪影、融化、结构崩坏等）
+THEMIS C2I is an agentic image quality evaluation system that produces two scores for AI-generated images:
+- **Alignment Score (0-5)** — Whether the image matches the target class
+- **Artifact Score (0-5)** — Visual quality (artifacts, melting, structural collapse, etc.)
 
-评估流水线分 4 步：
+The evaluation pipeline consists of 4 steps:
 
 ```
 Step 1 Router  →  Step 2 Judge  →  Step 3 Expert  →  Step 4 Reflector
- (VLM规划)        (VLM审核)       (本地GPU推理)      (VLM综合评分)
+ (VLM planning)   (VLM review)    (Local GPU inference)  (VLM final scoring)
 ```
 
-## 环境准备
+## Environment Setup
 
-### 1. 环境变量（必须）
+### 1. Environment Variables (Required)
 
 ```bash
 export DASHSCOPE_API_KEY="your-api-key-here"
-export MACA_PATH=/opt/maca   # MetaX GPU 服务器必须设置
+export MACA_PATH=/opt/maca   # Required on MetaX GPU servers
 ```
 
-建议写入 `~/.bashrc` 永久生效。
+Add these to `~/.bashrc` for persistence.
 
-### 2. 激活 Python 环境
+### 2. Activate Python Environment
 
 ```bash
 source /mnt/afs/zhengmingkai/miniconda3/envs/themis/bin/activate
-# 或
+# or
 conda activate themis
 ```
 
-### 3. 进入项目目录
+### 3. Navigate to Project Directory
 
 ```bash
 cd /mnt/afs/zhengmingkai/hhy/themis/THEMIS
 ```
 
-## 统一入口
+## Unified Entry Point
 
-所有评估任务通过 `c2i/run.py` 启动：
+All evaluation tasks are launched via `c2i/run.py`:
 
 ```bash
-python c2i/run.py --mode <模式> --step <步骤> [选项...]
+python c2i/run.py --mode <mode> --step <steps> [options...]
 ```
 
-## 三种执行模式
+## Execution Modes
 
-| 模式 | 适用场景 | 特点 |
-|------|----------|------|
-| `sync` | 调试/单图测试 | 串行执行，日志最清晰 |
-| `async` | 日常批量评估 | API 并发 + GPU 流水线重叠，**默认模式** |
-| `batch` | 大规模评估 (1000+图) | 批量 API 提交，成本约 50% 折扣，延迟分钟~小时级 |
+| Mode | Use Case | Characteristics |
+|------|----------|-----------------|
+| `sync` | Debugging / single-image testing | Sequential execution, clearest logs |
+| `async` | Daily batch evaluation | Concurrent API + GPU pipeline overlap, **default mode** |
+| `batch` | Large-scale evaluation (1000+ images) | Batch API submission, ~50% cost discount, minutes-to-hours latency |
 
-## 快速上手
+## Quick Start
 
-### 测试单张图（验证环境）
+### Test Single Image (Verify Environment)
 
 ```bash
 python c2i/run.py --mode sync --step 123 --image-id 000000
 ```
 
-### 跑 10 张图（异步模式，5 路 API 并发）
+### Run 10 Images (Async Mode, 5 Concurrent API Calls)
 
 ```bash
 python c2i/run.py --mode async --step 123 --limit 10 --api-concurrency 5
 ```
 
-### 全流程含 Reflector（Step 1-4）
+### Full Pipeline Including Reflector (Steps 1-4)
 
 ```bash
 python c2i/run.py --mode sync --step 1234 --limit 5 --session
 ```
 
-### 只跑 GPU 推理（已有 approved plans）
+### GPU Inference Only (With Existing Approved Plans)
 
 ```bash
 python c2i/run.py --mode async --step 3 --gpu-groups 1
 ```
 
-### 大规模 Batch 模式
+### Large-Scale Batch Mode
 
 ```bash
 python c2i/run.py --mode batch --step 12 --limit 1000 --poll-interval 30
-# batch 完成后，跑 GPU 层
+# After batch completes, run GPU layer
 python c2i/run.py --mode async --step 3 --gpu-groups 2
 ```
 
-## 完整参数列表
+## Full Parameter Reference
 
-### 核心参数
+### Core Parameters
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--mode` | `async` | 执行模式：`sync` / `async` / `batch` |
-| `--step` | `123` | 执行步骤：`1` / `2` / `12` / `3` / `4` / `123` / `1234` |
-| `--limit` | `0` (全部) | 最大处理图片数 |
-| `--image-id` | - | 只处理指定 ID 的单张图 |
-| `--max-iterations` | `2` | Router-Judge 最大迭代轮数 |
-| `--image-dir` | `test_images/` | 输入图片目录 |
-| `--class-ids` | `test_images/class_ids.txt` | 图片-类别映射文件 |
-| `--save-feedback` | `false` | 保存 Judge 反馈详情 |
-| `--session` | `false` | Step 4 使用 conversation session |
-| `--save-pose-viz` | `false` | 保存骨骼可视化图 |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--mode` | `async` | Execution mode: `sync` / `async` / `batch` |
+| `--step` | `123` | Steps to run: `1` / `2` / `12` / `3` / `4` / `123` / `1234` |
+| `--limit` | `0` (all) | Max number of images to process |
+| `--image-id` | - | Process a single image by ID |
+| `--max-iterations` | `2` | Max Router-Judge iteration rounds |
+| `--image-dir` | `test_images/` | Input image directory |
+| `--class-ids` | `test_images/class_ids.txt` | Image-to-class mapping file |
+| `--save-feedback` | `false` | Save Judge feedback details |
+| `--session` | `false` | Use conversation session for Reflector (Step 4) |
+| `--save-pose-viz` | `false` | Save pose visualization images |
 
-### GPU 参数
+### GPU Parameters
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--gpu-groups` | `1` | 并行 GPU 组数（2 = 同时跑两张图的专家） |
-| `--gpu-config` | - | 自定义 GPU 分配 JSON 文件路径 |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--gpu-groups` | `1` | Number of parallel GPU groups (2 = two images processed simultaneously) |
+| `--gpu-config` | - | Path to custom GPU allocation JSON file |
 
-### Async 模式参数
+### Async Mode Parameters
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--api-concurrency` | `5` | 最大 API 并发数 |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--api-concurrency` | `5` | Max concurrent API calls |
 
-### Batch 模式参数
+### Batch Mode Parameters
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--batch-dir` | `c2i/output/batch/` | Batch JSONL 文件存储目录 |
-| `--poll-interval` | `30` | 轮询 batch 状态间隔（秒） |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--batch-dir` | `c2i/output/batch/` | Directory for batch JSONL files |
+| `--poll-interval` | `30` | Seconds between batch status polls |
 
-## 输出文件结构
+## Output Directory Structure
 
 ```
 c2i/output/
-├── plans/              # Step 1 Router 生成的初始 plan
-├── approved_plans/     # Step 2 Judge 审批后的 plan
-├── judge_feedback/     # Judge 反馈详情（需 --save-feedback）
-├── expert_results/     # Step 3 专家推理结果
-├── final_reports/      # Step 4 Reflector 最终评分报告
-├── batch/              # Batch 模式的 JSONL 文件
-├── depth_maps/         # 深度图输出
-├── sam_masks/          # 分割掩码输出
-└── pose_visualizations/ # 骨骼可视化（需 --save-pose-viz）
+├── plans/              # Step 1 Router initial plans
+├── approved_plans/     # Step 2 Judge approved plans
+├── judge_feedback/     # Judge feedback details (requires --save-feedback)
+├── expert_results/     # Step 3 expert inference results
+├── final_reports/      # Step 4 Reflector final scoring reports
+├── batch/              # Batch mode JSONL files
+├── depth_maps/         # Depth map outputs
+├── sam_masks/          # Segmentation mask outputs
+└── pose_visualizations/ # Pose visualizations (requires --save-pose-viz)
 ```
 
-## 输入数据格式
+## Input Data Format
 
-### test_images/ 目录
+### test_images/ Directory
 
 ```
 test_images/
@@ -152,7 +152,7 @@ test_images/
 └── class_ids.txt
 ```
 
-### class_ids.txt 格式
+### class_ids.txt Format
 
 ```
 000000 0
@@ -161,50 +161,50 @@ test_images/
 ...
 ```
 
-每行：`<图片ID> <ImageNet类别ID>`
+Each line: `<image_id> <imagenet_class_id>`
 
-## 性能参考
+## Performance Reference
 
-| 配置 | 单图延迟 | 吞吐量 |
-|------|----------|--------|
-| sync, 全流程 | ~90s | 1 img/90s |
-| async, 5 并发, 1 GPU 组 | ~43s/img | 10 img/7min |
-| async, 10 并发, 2 GPU 组 | ~20s/img（预估） | - |
-| batch, Step 1+2 | 分钟级（异步） | 不受 QPS 限制 |
+| Configuration | Per-Image Latency | Throughput |
+|---------------|-------------------|------------|
+| sync, full pipeline | ~90s | 1 img/90s |
+| async, 5 concurrency, 1 GPU group | ~43s/img | 10 img/7min |
+| async, 10 concurrency, 2 GPU groups | ~20s/img (estimated) | - |
+| batch, Step 1+2 | minutes (async) | Not QPS-limited |
 
-## 代码结构
+## Code Structure
 
 ```
 c2i/
-├── run.py               # 统一入口
-├── common.py            # 共享工具函数、常量
-├── dispatch_sync.py     # 串行模式
-├── dispatch_async.py    # 异步流水线模式
-├── dispatch_batch.py    # Batch API 模式
-├── step1_router.py      # Router Agent（VLM 规划）
-├── step2_judge.py       # Judge Agent（VLM 审核）
-├── step3_execute.py     # Expert Manager（本地 GPU 推理）
-├── step4_reflector.py   # Reflector Agent（VLM 综合评分）
-└── conversation_session.py  # Session 管理
+├── run.py               # Unified entry point
+├── common.py            # Shared utilities and constants
+├── dispatch_sync.py     # Sequential mode
+├── dispatch_async.py    # Async pipeline mode
+├── dispatch_batch.py    # Batch API mode
+├── step1_router.py      # Router Agent (VLM planning)
+├── step2_judge.py       # Judge Agent (VLM review)
+├── step3_execute.py     # Expert Manager (local GPU inference)
+├── step4_reflector.py   # Reflector Agent (VLM final scoring)
+└── conversation_session.py  # Session management
 ```
 
-## 常见问题
+## FAQ
 
 ### Q: `TypeError: expected str, bytes or os.PathLike object, not NoneType`
 
-设置 `export MACA_PATH=/opt/maca`。这是 MetaX triton backend 需要的环境变量。
+Set `export MACA_PATH=/opt/maca`. This environment variable is required by the MetaX triton backend.
 
-### Q: DINO 加载很慢（100s+）
+### Q: DINO takes a long time to load (100s+)
 
-首次加载需要下载 bert-base-uncased tokenizer（约 440MB）。后续运行会使用缓存。
+The first load downloads the bert-base-uncased tokenizer (~440MB). Subsequent runs use the cache.
 
-### Q: 如何只重跑 Reflector？
+### Q: How to re-run only the Reflector?
 
 ```bash
 python c2i/run.py --mode sync --step 4 --session
 ```
 
-### Q: 如何查看单图的各专家耗时？
+### Q: How to check per-expert execution time for a single image?
 
 ```bash
 cat c2i/output/expert_results/expert_results_000000.json | python -m json.tool | grep execution_time_ms
