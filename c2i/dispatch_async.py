@@ -15,7 +15,7 @@ from openai import OpenAI
 
 from common import (
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
-    resolve_image_path, save_judge_feedback,
+    resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
 from step1_router import generate_plan, revise_plan, load_experts_registry
@@ -108,6 +108,9 @@ def _sync_router_judge(
                     json.dump(revised_plan, f, indent=4, ensure_ascii=False)
 
     current_plan["metadata"]["iteration_log"] = iteration_log
+
+    router_scores = compute_router_scores(current_plan)
+    current_plan["router_scores"] = router_scores
 
     approved_save_path = approved_dir / f"approved_plan_{img_id}.json"
     with open(approved_save_path, "w", encoding="utf-8") as f:

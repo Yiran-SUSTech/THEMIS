@@ -13,7 +13,7 @@ from openai import OpenAI
 
 from common import (
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
-    resolve_image_path, save_judge_feedback,
+    resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
 from step1_router import generate_plan, revise_plan, load_experts_registry
@@ -119,6 +119,21 @@ def _run_single_image(
 
     current_plan["metadata"]["iteration_log"] = iteration_log
 
+    router_scores = compute_router_scores(current_plan)
+    current_plan["router_scores"] = router_scores
+
+    cs = router_scores["checkpoint_summary"]
+    a_s = router_scores["artifact_summary"]
+    print(f"\n  --- Router Assessment ---")
+    print(f"  Alignment: {router_scores['router_alignment_score']:.2f}/5.0 "
+          f"({cs['present']}/{cs['testable']} passed, {cs['untestable']} untestable)")
+    if a_s["count"] > 0:
+        print(f"  Artifact:  {router_scores['router_artifact_score']:.2f}/5.0 "
+              f"({a_s['count']} artifacts, max severity={a_s['max_severity']:.1f}, "
+              f"{a_s['severe_count']} severe, {a_s['minor_count']} minor)")
+    else:
+        print(f"  Artifact:  5.00/5.0 (no artifacts observed)")
+
     approved_save_path = approved_dir / f"approved_plan_{img_id}.json"
     with open(approved_save_path, "w", encoding="utf-8") as f:
         json.dump(current_plan, f, indent=4, ensure_ascii=False)
@@ -138,17 +153,28 @@ def run_sync_pipeline(
     expert_results_dir: Path,
     expert_managers: list,
     step: str,
+    use_session: bool = False,
+    final_reports_dir: Path | None = None,
+    save_pose_viz: bool = False,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
-    stats = {"api_ok": 0, "api_fail": 0, "gpu_ok": 0, "gpu_fail": 0}
+    stats = {
+        "api_ok": 0, "api_fail": 0,
+        "gpu_ok": 0, "gpu_fail": 0,
+        "step4_ok": 0, "step4_fail": 0,
+    }
 
-    run_step12 = step in ("1", "2", "12", "123")
-    run_step3 = step in ("3", "123")
+    run_step12 = step in ("1", "2", "12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
 
-    # ── Step 1+2: Router + Judge ───────────────────────────────
-    if run_step12:
+    client = None
+    if run_step12 or run_step4:
         client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
 
+    expert_manager = expert_managers[0] if expert_managers else None
+
+    if run_step12 and client:
         for img_name, img_id, class_id, class_label in valid_images:
             img_path = resolve_image_path(image_dir, img_id)
             if img_path is None:
@@ -166,15 +192,12 @@ def run_sync_pipeline(
             else:
                 stats["api_fail"] += 1
 
-    # ── Step 3: GPU Execution ──────────────────────────────────
-    if run_step3:
-        if not expert_managers:
+    if run_step3 or run_step4:
+        if run_step3 and not expert_manager:
             print("[ERROR] No expert managers loaded for Step 3.")
             return stats
 
-        expert_manager = expert_managers[0]
         plans = load_approved_plans(approved_dir)
-
         if not plans:
             print("[ERROR] No approved plans found. Run Step 1+2 first.")
             return stats
@@ -183,20 +206,70 @@ def run_sync_pipeline(
             metadata = plan.get("metadata", {})
             image_path_raw = metadata.get("original_image", "")
             class_label = metadata.get("class_label", "")
+            class_id = metadata.get("class_id", 0)
 
             image_path = resolve_image_path_global(image_path_raw)
             if image_path is None:
                 stats["gpu_fail"] += 1
+                if run_step4:
+                    stats["step4_fail"] += 1
                 continue
 
+            image_id = os.path.splitext(os.path.basename(image_path))[0]
             print(f"\n[{idx}/{len(plans)}] {os.path.basename(image_path)}")
 
-            try:
-                bundle = execute_plan(plan, expert_manager, image_path, class_label)
-                save_testimony_bundle(bundle, expert_results_dir)
-                stats["gpu_ok"] += 1
-            except Exception as e:
-                print(f"  [FATAL] {type(e).__name__}: {e}")
-                stats["gpu_fail"] += 1
+            bundle = None
+            if run_step3:
+                try:
+                    bundle = execute_plan(
+                        plan, expert_manager, image_path, class_label,
+                        save_pose_viz=save_pose_viz,
+                    )
+                    save_testimony_bundle(bundle, expert_results_dir)
+                    stats["gpu_ok"] += 1
+                except Exception as e:
+                    print(f"  [FATAL] {type(e).__name__}: {e}")
+                    stats["gpu_fail"] += 1
+
+            if run_step4 and bundle is not None and client:
+                print(f"\n  [Step 4] Reflector evaluating {image_id}...")
+                try:
+                    from step4_reflector import run_reflector, save_final_report, print_final_summary
+                    from step1_router import get_taxonomy_info, get_structured_taxonomy_info
+
+                    reflector_session = None
+                    if use_session:
+                        from conversation_session import ConversationSession, build_reflector_only_system_content
+                        tax_info_r = get_taxonomy_info(class_id)
+                        struct_tax_info_r = get_structured_taxonomy_info(class_id)
+                        reflector_system = build_reflector_only_system_content(
+                            experts_registry_str, class_label, tax_info_r, struct_tax_info_r,
+                        )
+                        reflector_session = ConversationSession(reflector_system)
+
+                    report = run_reflector(
+                        client=client,
+                        image_path=image_path,
+                        class_id=class_id,
+                        class_label=class_label,
+                        expert_results=bundle,
+                        experts_registry_str=experts_registry_str,
+                        session=reflector_session,
+                        router_plan=plan,
+                    )
+                    if report is None:
+                        print(f"  [Step 4] FAILED - Reflector returned no valid response")
+                        stats["step4_fail"] += 1
+                    else:
+                        if final_reports_dir:
+                            final_reports_dir.mkdir(parents=True, exist_ok=True)
+                            save_final_report(report, final_reports_dir)
+                        print_final_summary(report)
+                        stats["step4_ok"] += 1
+                except Exception as e:
+                    print(f"  [Step 4] FATAL: {type(e).__name__}: {e}")
+                    stats["step4_fail"] += 1
+            elif run_step4 and bundle is None:
+                stats["step4_fail"] += 1
 
     return stats

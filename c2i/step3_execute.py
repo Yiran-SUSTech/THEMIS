@@ -178,7 +178,6 @@ class ExpertManager:
             self.load_errors[expert_id] = error_msg
             print(f"FAILED ({elapsed:.2f}s)")
             print(f"           {error_msg}")
-            traceback.print_exc()
             return False
 
     def _build_init_kwargs(self, expert_id: str, gpu_cfg: dict) -> dict:

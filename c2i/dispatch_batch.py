@@ -32,7 +32,7 @@ from common import (
     JUDGE_FEEDBACK_DIR, EXPERT_RESULTS_DIR, BATCH_DIR,
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     build_image_list, resolve_image_path, save_judge_feedback,
-    preload_expert_managers,
+    preload_expert_managers, compute_router_scores,
 )
 
 from step1_router import (
@@ -526,6 +526,9 @@ def run_batch_step12(
 
     # ── Save all approved plans ────────────────────────────────
     for img_id, plan in plans.items():
+        router_scores = compute_router_scores(plan)
+        plan["router_scores"] = router_scores
+
         approved_path = approved_dir / f"approved_plan_{img_id}.json"
         with open(approved_path, "w", encoding="utf-8") as f:
             json.dump(plan, f, indent=4, ensure_ascii=False)

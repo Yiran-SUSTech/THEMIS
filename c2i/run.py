@@ -66,8 +66,8 @@ Examples:
     )
     parser.add_argument(
         "--step", type=str, default="123",
-        choices=["1", "2", "12", "3", "123"],
-        help="Which steps to run (default: 123 = full pipeline)",
+        choices=["1", "2", "12", "3", "4", "123", "1234"],
+        help="Which steps to run (default: 123 = Router+Judge+Expert)",
     )
     parser.add_argument("--max-iterations", type=int, default=2,
                         help="Max Judge-Router iteration rounds (default: 2)")
@@ -79,6 +79,10 @@ Examples:
     parser.add_argument("--save-feedback", action="store_true", default=False)
     parser.add_argument("--limit", type=int, default=0, help="Max images to process (0=all)")
     parser.add_argument("--image-id", type=str, default="", help="Process single image by ID")
+    parser.add_argument("--session", action="store_true", default=False,
+                        help="Use conversation session for Reflector (Step 4)")
+    parser.add_argument("--save-pose-viz", action="store_true", default=False,
+                        help="Save pose visualization images")
 
     # ── GPU parameters ─────────────────────────────────────────
     parser.add_argument("--gpu-groups", type=int, default=1,
@@ -115,12 +119,13 @@ Examples:
         judge_feedback_dir.mkdir(parents=True, exist_ok=True)
 
     step = args.step
-    run_step12 = step in ("1", "2", "12", "123")
-    run_step3 = step in ("3", "123")
+    run_step12 = step in ("1", "2", "12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
 
     # ── Validate API key ───────────────────────────────────────
-    if run_step12 and not DASHSCOPE_API_KEY:
-        print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2.")
+    if (run_step12 or run_step4) and not DASHSCOPE_API_KEY:
+        print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2 and Step 4.")
         sys.exit(1)
 
     # ── Build image list ───────────────────────────────────────
@@ -164,6 +169,7 @@ Examples:
 
     if args.mode == "sync":
         from dispatch_sync import run_sync_pipeline
+        final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
         stats = run_sync_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -175,6 +181,9 @@ Examples:
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
             step=step,
+            use_session=args.session,
+            final_reports_dir=final_reports_dir,
+            save_pose_viz=args.save_pose_viz,
         )
 
     elif args.mode == "async":
