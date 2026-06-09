@@ -38,6 +38,7 @@ JUDGE_FEEDBACK_DIR = C2I_DIR / "output" / "judge_feedback"
 EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
 FINAL_REPORTS_DIR = C2I_DIR / "output" / "final_reports"
 BATCH_DIR = C2I_DIR / "output" / "batch"
+GPU_PRESETS_DIR = PROJECT_ROOT / "gpu_configs"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  API Configuration
@@ -245,14 +246,29 @@ def preload_expert_managers(
     num_groups: int,
     gpu_config_path: str | None,
     required_ids: list[str] | None = None,
+    gpu_preset: str | None = None,
 ) -> list:
-    """Pre-load ExpertManager instances for GPU execution."""
+    """Pre-load ExpertManager instances for GPU execution.
+
+    Priority: gpu_config_path > gpu_preset > num_groups (auto-split)
+    """
     from step3_execute import ExpertManager, DEFAULT_GPU_CONFIG, EXPERT_MODULE_MAP
 
     if gpu_config_path:
         with open(gpu_config_path, "r") as f:
             custom_config = json.load(f)
         group_configs = [custom_config]
+    elif gpu_preset:
+        preset_path = GPU_PRESETS_DIR / f"{gpu_preset}.json"
+        if not preset_path.exists():
+            print(f"[ERROR] GPU preset not found: {preset_path}")
+            print(f"  Available presets: {list(GPU_PRESETS_DIR.glob('*.json'))}")
+            sys.exit(1)
+        with open(preset_path, "r") as f:
+            preset_config = json.load(f)
+        # Remove metadata key
+        preset_config.pop("_description", None)
+        group_configs = [preset_config]
     else:
         group_configs = build_gpu_group_configs(num_groups, DEFAULT_GPU_CONFIG)
 

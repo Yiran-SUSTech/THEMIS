@@ -66,6 +66,15 @@ python c2i_faster/run.py --mode sync --step 123 --image-id 000000
 
 ```bash
 python c2i_faster/run.py --mode async --step 123 --limit 10 --api-concurrency 5
+
+# 2 卡环境 10路并发
+python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 2x_c500
+
+# 8 卡环境 10路并发
+python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 8x_c500
+
+# 自定义配置文件
+python c2i_faster/run.py --mode async --step 1234 --gpu-config my_config.json
 ```
 
 ### 全流程含 Reflector（Step 1-4）

@@ -45,16 +45,19 @@ def main():
         epilog="""
 Examples:
   # Serial mode, full pipeline, 10 images
-  python c2i/run.py --mode sync --step 123 --limit 10
+  python c2i_faster/run.py --mode sync --step 123 --limit 10
 
-  # Async mode, 5 API concurrency, 2 GPU groups
-  python c2i/run.py --mode async --step 123 --limit 100 --api-concurrency 5 --gpu-groups 2
+  # Async mode, 5 API concurrency, GPU preset for 2-card setup
+  python c2i_faster/run.py --mode async --step 1234 --limit 100 --api-concurrency 5 --gpu-preset 2x_c500
+
+  # Async mode, 8-card preset, full pipeline
+  python c2i_faster/run.py --mode async --step 1234 --limit 100 --api-concurrency 5 --gpu-preset 8x_c500
 
   # Batch mode, large scale, only Step 1+2
-  python c2i/run.py --mode batch --step 12 --limit 1000
+  python c2i_faster/run.py --mode batch --step 12 --limit 1000
 
-  # Step 3 only (GPU execution on existing approved plans)
-  python c2i/run.py --mode async --step 3 --gpu-groups 2
+  # Custom GPU config file
+  python c2i_faster/run.py --mode async --step 123 --gpu-config my_config.json
 """,
     )
 
@@ -89,6 +92,8 @@ Examples:
                         help="Number of parallel GPU groups (default: 1)")
     parser.add_argument("--gpu-config", type=str, default=None,
                         help="Path to custom GPU allocation JSON")
+    parser.add_argument("--gpu-preset", type=str, default=None,
+                        help="GPU preset name from gpu_configs/ (e.g. 2x_c500, 8x_c500)")
 
     # ── Async mode parameters ──────────────────────────────────
     parser.add_argument("--api-concurrency", type=int, default=5,
@@ -144,6 +149,7 @@ Examples:
         expert_managers = preload_expert_managers(
             num_groups=args.gpu_groups,
             gpu_config_path=args.gpu_config,
+            gpu_preset=args.gpu_preset,
         )
 
     # ── Load experts registry ──────────────────────────────────
@@ -161,7 +167,12 @@ Examples:
     if args.mode == "batch":
         print(f"  Poll interval:    {args.poll_interval}s")
     if run_step3:
-        print(f"  GPU groups:       {args.gpu_groups}")
+        if args.gpu_preset:
+            print(f"  GPU preset:       {args.gpu_preset}")
+        elif args.gpu_config:
+            print(f"  GPU config:       {args.gpu_config}")
+        else:
+            print(f"  GPU groups:       {args.gpu_groups}")
     print(f"{'='*60}\n")
 
     # ── Dispatch to mode ───────────────────────────────────────

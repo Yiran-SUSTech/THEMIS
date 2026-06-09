@@ -10,7 +10,8 @@ class QInsightDistortionAnalyzer:
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/models/Q-Insight/score_degradation",
                  device="cuda",
-                 num_gpus=1):
+                 num_gpus=1,
+                 max_memory=None):
         
         print(f"[Init] Loading Q-Insight VLM to memory (Device: {device}, GPUs: {num_gpus})...")
         self.device = device
@@ -28,10 +29,11 @@ class QInsightDistortionAnalyzer:
         )
         
         use_cuda = device.startswith("cuda")
-        max_memory = None
-        if use_cuda and num_gpus > 0:
-            # 每张卡限制 28GB，确保 device_map=auto 将模型均匀分布到多张卡
+        if max_memory is None and use_cuda and num_gpus > 0:
             max_memory = {i: "28GB" for i in range(num_gpus)}
+        elif max_memory and use_cuda:
+            # Convert string keys to int keys (JSON only supports string keys)
+            max_memory = {int(k): v for k, v in max_memory.items()}
         
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,

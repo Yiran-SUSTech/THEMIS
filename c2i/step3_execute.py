@@ -193,6 +193,8 @@ class ExpertManager:
         if expert_id == "perceptual_quality_auditor":
             kwargs["num_gpus"] = num_gpus
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
+            if "max_memory" in gpu_cfg:
+                kwargs["max_memory"] = gpu_cfg["max_memory"]
 
         if expert_id == "topology_boundary_auditor":
             kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")

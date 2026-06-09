@@ -193,6 +193,8 @@ class ExpertManager:
         if expert_id == "perceptual_quality_auditor":
             kwargs["num_gpus"] = num_gpus
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
+            if "max_memory" in gpu_cfg:
+                kwargs["max_memory"] = gpu_cfg["max_memory"]
 
         if expert_id == "open_vocabulary_detector":
             kwargs["model_path"] = str(PROJECT_ROOT / "new_models" / "groundingdino_sim.onnx")
