@@ -724,6 +724,12 @@ if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
-        # prevent_thread_lock 默认就是 False，但显式写出来可以强迫 Python 锁死主线程不退出
-        prevent_thread_lock=False  
+        prevent_thread_lock=False,
+        # 加上下面这一行，为 3 位标注员和自己设置专属账号密码
+        auth=[
+            ("admin", "AdminPassword3502"),
+            ("user1", "Annotater1"),
+            ("user2", "Annotater2"),
+            ("user3", "Annotater3")
+        ]
     )
