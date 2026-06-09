@@ -25,6 +25,7 @@ from step3_execute import (
     load_approved_plans, resolve_image_path as resolve_image_path_global,
     collect_required_expert_ids, EXPERT_MODULE_MAP,
 )
+from step4_reflector import run_reflector, save_final_report, print_final_summary
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -172,6 +173,7 @@ async def _gpu_worker(
     worker_id: int,
     stats: dict,
     done_event: asyncio.Event,
+    reflector_queue: asyncio.Queue | None = None,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -204,11 +206,93 @@ async def _gpu_worker(
                 stats["gpu_ok"] += 1
                 print(f"  [GPU-{worker_id}][{img_id}] Done "
                       f"({bundle['execution_summary']['total_execution_time_ms']:.0f}ms)")
+
+                if reflector_queue is not None:
+                    class_id = plan.get("metadata", {}).get("class_id", 0)
+                    await reflector_queue.put((
+                        img_id, str(resolved_path), class_id, class_label, bundle, plan,
+                    ))
             except Exception as e:
                 print(f"  [GPU-{worker_id}][{img_id}] FATAL: {type(e).__name__}: {e}")
                 stats["gpu_fail"] += 1
 
         plan_queue.task_done()
+
+
+def _sync_reflector(
+    client: OpenAI,
+    image_path: str,
+    img_id: str,
+    class_id: int,
+    class_label: str,
+    expert_results: dict,
+    experts_registry_str: str,
+    router_plan: dict,
+    final_reports_dir: Path,
+) -> dict | None:
+    """Synchronous Reflector for one image. Runs in thread pool."""
+    report = run_reflector(
+        client=client,
+        image_path=image_path,
+        class_id=class_id,
+        class_label=class_label,
+        expert_results=expert_results,
+        experts_registry_str=experts_registry_str,
+        router_plan=router_plan,
+    )
+    if report is None:
+        print(f"  [{img_id}] Reflector FAILED")
+        return None
+
+    save_final_report(report, final_reports_dir)
+    print_final_summary(report)
+    return report
+
+
+async def _reflector_worker(
+    reflector_queue: asyncio.Queue,
+    client: OpenAI,
+    experts_registry_str: str,
+    final_reports_dir: Path,
+    api_semaphore: asyncio.Semaphore,
+    stats: dict,
+    done_event: asyncio.Event,
+) -> None:
+    """Async worker: pull GPU results from reflector_queue, call Reflector API."""
+    loop = asyncio.get_event_loop()
+
+    while True:
+        try:
+            item = await asyncio.wait_for(reflector_queue.get(), timeout=2.0)
+        except asyncio.TimeoutError:
+            if done_event.is_set() and reflector_queue.empty():
+                break
+            continue
+
+        if item is None:
+            reflector_queue.task_done()
+            break
+
+        img_id, image_path, class_id, class_label, expert_results, router_plan = item
+
+        async with api_semaphore:
+            try:
+                report = await loop.run_in_executor(
+                    None,
+                    _sync_reflector,
+                    client, image_path, img_id, class_id, class_label,
+                    expert_results, experts_registry_str, router_plan,
+                    final_reports_dir,
+                )
+                if report is not None:
+                    stats["reflector_ok"] += 1
+                else:
+                    stats["reflector_fail"] += 1
+            except Exception as e:
+                print(f"  [{img_id}] Reflector worker error: {type(e).__name__}: {e}")
+                stats["reflector_fail"] += 1
+
+        reflector_queue.task_done()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -227,15 +311,23 @@ async def _run_full_pipeline(
     expert_results_dir: Path,
     expert_managers: list[ExpertManager],
     api_concurrency: int,
+    final_reports_dir: Path | None = None,
 ) -> dict:
-    stats = {"api_ok": 0, "api_fail": 0, "gpu_ok": 0, "gpu_fail": 0}
+    run_step4 = final_reports_dir is not None
+    stats = {
+        "api_ok": 0, "api_fail": 0,
+        "gpu_ok": 0, "gpu_fail": 0,
+        "reflector_ok": 0, "reflector_fail": 0,
+    }
 
     task_queue: asyncio.Queue = asyncio.Queue()
     plan_queue: asyncio.Queue = asyncio.Queue()
+    reflector_queue: asyncio.Queue | None = asyncio.Queue() if run_step4 else None
 
     api_semaphore = asyncio.Semaphore(api_concurrency)
     gpu_semaphore = asyncio.Semaphore(len(expert_managers))
-    done_event = asyncio.Event()
+    gpu_done_event = asyncio.Event()
+    reflector_done_event = asyncio.Event()
 
     for img_name, img_id, class_id, class_label in valid_images:
         image_path = resolve_image_path(image_dir, img_id)
@@ -260,18 +352,50 @@ async def _run_full_pipeline(
     gpu_tasks = [
         asyncio.create_task(_gpu_worker(
             plan_queue, em, expert_results_dir,
-            gpu_semaphore, i, stats, done_event,
+            gpu_semaphore, i, stats, gpu_done_event,
+            reflector_queue=reflector_queue,
         ))
         for i, em in enumerate(expert_managers)
     ]
 
+    reflector_tasks = []
+    if run_step4:
+        reflector_api_semaphore = asyncio.Semaphore(api_concurrency)
+        num_reflector_workers = min(api_concurrency, len(valid_images))
+        for _ in range(num_reflector_workers):
+            reflector_tasks.append(
+                asyncio.create_task(_reflector_worker(
+                    reflector_queue, client, experts_registry_str,
+                    final_reports_dir, reflector_api_semaphore,
+                    stats, reflector_done_event,
+                ))
+            )
+
+    # Wait for API workers to finish
     await asyncio.gather(*api_tasks)
-    done_event.set()
+    # Signal GPU workers that no more plans will arrive
+    gpu_done_event.set()
     await plan_queue.join()
 
+    # Send sentinel values to GPU workers
     for _ in gpu_tasks:
         await plan_queue.put(None)
     await asyncio.gather(*gpu_tasks)
+
+    if run_step4:
+        # Signal Reflector workers that no more items will arrive
+        reflector_done_event.set()
+        await reflector_queue.join()
+
+        # Send sentinel values to Reflector workers
+        for _ in reflector_tasks:
+            await reflector_queue.put(None)
+        await asyncio.gather(*reflector_tasks)
+
+    # Clean up stats (remove zero-value keys for cleaner output)
+    if not run_step4:
+        stats.pop("reflector_ok", None)
+        stats.pop("reflector_fail", None)
 
     return stats
 
@@ -369,6 +493,69 @@ async def run_step3_async(
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Step 4 Only (load from disk)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async def _run_step4_only(
+    valid_images: list[tuple],
+    image_dir: Path,
+    experts_registry_str: str,
+    expert_results_dir: Path,
+    approved_dir: Path,
+    final_reports_dir: Path,
+    api_concurrency: int,
+) -> dict:
+    """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
+    stats = {"reflector_ok": 0, "reflector_fail": 0}
+    client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+    loop = asyncio.get_event_loop()
+    api_semaphore = asyncio.Semaphore(api_concurrency)
+
+    async def process_one(img_name, img_id, class_id, class_label):
+        image_path = resolve_image_path(image_dir, img_id)
+        if image_path is None:
+            stats["reflector_fail"] += 1
+            return
+
+        # Load approved plan
+        plan_path = approved_dir / f"approved_plan_{img_id}.json"
+        if not plan_path.exists():
+            print(f"  [{img_id}] No approved plan found, skipping")
+            stats["reflector_fail"] += 1
+            return
+        with open(plan_path, "r", encoding="utf-8") as f:
+            plan = json.load(f)
+
+        # Load expert results bundle
+        bundle_path = expert_results_dir / f"expert_results_{img_id}.json"
+        if not bundle_path.exists():
+            print(f"  [{img_id}] No expert results found, skipping")
+            stats["reflector_fail"] += 1
+            return
+        with open(bundle_path, "r", encoding="utf-8") as f:
+            bundle = json.load(f)
+
+        async with api_semaphore:
+            report = await loop.run_in_executor(
+                None,
+                _sync_reflector,
+                client, str(image_path), img_id, class_id, class_label,
+                bundle, experts_registry_str, plan, final_reports_dir,
+            )
+            if report is not None:
+                stats["reflector_ok"] += 1
+            else:
+                stats["reflector_fail"] += 1
+
+    tasks = [
+        asyncio.create_task(process_one(n, iid, cid, cl))
+        for n, iid, cid, cl in valid_images
+    ]
+    await asyncio.gather(*tasks)
+    return stats
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Entry Point (called from run.py)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -384,13 +571,28 @@ def run_async_pipeline(
     expert_managers: list,
     api_concurrency: int,
     step: str,
+    final_reports_dir: Path | None = None,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
-    run_step12 = step in ("1", "2", "12", "123")
-    run_step3 = step in ("3", "123")
+    run_step12 = step in ("1", "2", "12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
+
+    # Step 4 alone: load expert results from disk and run Reflector
+    if run_step4 and not run_step12 and not run_step3:
+        return asyncio.run(_run_step4_only(
+            valid_images=valid_images,
+            image_dir=image_dir,
+            experts_registry_str=experts_registry_str,
+            expert_results_dir=expert_results_dir,
+            approved_dir=approved_dir,
+            final_reports_dir=final_reports_dir,
+            api_concurrency=api_concurrency,
+        ))
 
     if run_step12 and run_step3 and expert_managers:
         client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+        reports_dir = final_reports_dir if run_step4 else None
         return asyncio.run(_run_full_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -403,6 +605,7 @@ def run_async_pipeline(
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
             api_concurrency=api_concurrency,
+            final_reports_dir=reports_dir,
         ))
 
     elif run_step12 and not run_step3:

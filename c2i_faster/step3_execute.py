@@ -194,6 +194,10 @@ class ExpertManager:
             kwargs["num_gpus"] = num_gpus
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
 
+        if expert_id == "open_vocabulary_detector":
+            kwargs["model_path"] = str(PROJECT_ROOT / "new_models" / "groundingdino_sim.onnx")
+            kwargs["config_path"] = str(PROJECT_ROOT / "GroundingDINO" / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py")
+
         if expert_id == "topology_boundary_auditor":
             kwargs["model_dir"] = str(PROJECT_ROOT / "new_models" / "sam1_onnx" / "machine_learning_models")
             if expert_id in self.expert_output_dirs:

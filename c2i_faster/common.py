@@ -36,6 +36,7 @@ PLAN_DIR = C2I_DIR / "output" / "plans"
 APPROVED_DIR = C2I_DIR / "output" / "approved_plans"
 JUDGE_FEEDBACK_DIR = C2I_DIR / "output" / "judge_feedback"
 EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
+FINAL_REPORTS_DIR = C2I_DIR / "output" / "final_reports"
 BATCH_DIR = C2I_DIR / "output" / "batch"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
