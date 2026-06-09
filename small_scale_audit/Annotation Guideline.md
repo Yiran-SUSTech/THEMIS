@@ -16,6 +16,10 @@ For each attribute point in the checklist, annotators must label it with one of 
 - **🔴 Missing (Violated)**: The attribute **is not generated, generated incorrectly, or heavily replaced** in the region where it should normally appear.
 - **⚪ N/A (Not Applicable)**: Due to the image's **shooting angle, close-up composition, or foreground occlusions**, the body part/component where the attribute belongs does not enter the frame at all, making it objectively impossible to evaluate.
 
+Ignore the specific length and weight. If a description involves specific lengths and weights, annotators should simply ignore them and only focus on whether other attributes exist. If only the length and weight are available, the annotator should directly mark it as N/A.
+
+If annotators encounter repeated attribute points, they should select N/A for the second and subsequent encounters.
+
 ### 📐 Alignment Score Automatic Calculation Formula:
 
 The system will automatically calculate the true alignment ratio based on the annotator's input by eliminating the Not Applicable (N/A) items:
@@ -32,7 +36,7 @@ $$\text{Alignment Score} = 5 \times \frac{\text{\\# Checked}}{\text{\\# Total} -
 
 ***
 
-## ❌ Dimension 2 · Qualitative Artifact Judgment
+## ❌ Dimension 2 · Qualitative Authentication Judgment
 
 **Core Definition**: Evaluate whether the image contains structural collapse, violations of physical laws, or visual distortions unique to AI generation. **At this stage, completely ignore whether the object category is correct or not. Focus solely on "the physical plausibility of this image as a realistic photograph or coherent graphic".**
 
@@ -51,13 +55,15 @@ Annotators please select a score directly based on the following **qualitative m
 - **0 - Total Chaos**:
   The frame completely degenerates into a colorful noise, meaningless lines of flesh/structures, or unrecognizable pixels with no identifiable shape definitions.
 
+If annotators are unsure about the severity of the artifacts, they should refer to the previous judgments and the results of nearby images.
+
 ***
 
 ## 📊 Total Score Calculation & Multiplier Effect
 
 The system will automatically calculate the product of the two dimensions using the following formula:
 
-$$\text{Total Score} = \text{Alignment Score} \times \text{Artifact Score}$$
+$$\text{Total Score} = \text{Alignment Score} \times \text{Authentication Score}$$
 
 > **Total Score Range**: 0.0 to 25.0 points.
 > Annotators must keep these two dimensions **completely decoupled (judged independently)**. The system will automatically penalize low-quality images through the multiplier effect.

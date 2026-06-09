@@ -612,6 +612,7 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
 
                     # --- 右侧：Dimension 1 (Attribute) ---
                     with gr.Column(scale=6):
+                        gr.Markdown("### 📏 维度一 · 语义对齐客观核对 (Alignment Audit)")
                         gr.Markdown("### 📏 Dimension 1: Fine-Grained Attribute Alignment")
                         
                         with gr.Accordion("💡 Dimension 1: Attribute Tri-State Guide", open=True):
@@ -619,6 +620,8 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
                             * **🟢 Checked**: Perfectly present, matches description.
                             * **🔴 Missing**: Missing or heavily violated in its corresponding region.
                             * **⚪ N/A**: Out of frame due to extreme close-up/cropping.
+                            * 忽略具体的长度、重量。如果一条描述中，涉及到了具体的长度、重量，标注员请直接忽略，只关注其他属性是否存在；如果只有长度、重量，标注员请直接标注为 N/A。
+                            * 如果发现有内容重复的判断点，请在第二次以及之后遇到的时候选择N/A。
                             """)
                         
                         gr.Markdown("### � Fine-Grained Attribute Checklists (Clean View)")
@@ -638,9 +641,10 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
                     
                     # --- 中间：Dimension 2 (Artifact) ---
                     with gr.Column(scale=3):
-                        gr.Markdown("### 🎨 Dimension 2: Artifact Quality Assessment")
+                        gr.Markdown("### 🎨 维度二 · 物理真实性定性判定 (Authentication Score)")
+                        gr.Markdown("### 🎨 Dimension 2: Authentication Quality Assessment")
                         
-                        with gr.Accordion("💡 Dimension 2: Artifact Slider Quick Guide", open=True):
+                        with gr.Accordion("💡 Dimension 2: Authentication Slider Quick Guide", open=True):
                             gr.Markdown("""
                             * **5 (Flawless)**: Photographic quality, zero physical distortion.
                             * **4 (Minor)**: Tiny AI traces, framework entirely intact.
@@ -648,10 +652,12 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
                             * **2 (Severe)**: Misplaced components, heavily deformed details.
                             * **1 (Collapse)**: Massive structural melting. Useless AI failure.
                             * **0 (Chaos)**: Pure pixel/structural noise.
+                            * 如果标注员不太确定伪影、物理错误等情况的严重程度，可以参考之前的判断和附近图片的结果。
+                            * 针对模糊，如果标注员自行判断模糊是否由AI生成，是否影响画面结构。
                             """)
                         
-                        gr.Markdown("### 🎯 Artifact Score")
-                        artifact_disp = gr.Slider(minimum=0, maximum=5, step=1, value=5, label="Artifact Score (Manual)")
+                        gr.Markdown("### 🎯 Authentication Score")
+                        artifact_disp = gr.Slider(minimum=0, maximum=5, step=1, value=5, label="Authentication Score (Manual)")
 
     # ==========================================
     # 4. 高级事件链流转
@@ -714,4 +720,5 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, theme=custom_theme)
+    # demo.launch(server_name="127.0.0.1", server_port=7860, theme=custom_theme)
+    demo.launch(server_name="0.0.0.0", server_port=7860, theme=custom_theme)
