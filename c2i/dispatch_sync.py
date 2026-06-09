@@ -16,7 +16,13 @@ from common import (
     resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
-from step1_router import generate_plan, revise_plan, load_experts_registry
+from step1_router import (
+    generate_plan,
+    revise_plan,
+    load_experts_registry,
+    get_taxonomy_info,
+    get_structured_taxonomy_info,
+)
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager, execute_plan, save_testimony_bundle,
@@ -36,6 +42,7 @@ def _run_single_image(
     plan_dir: Path,
     approved_dir: Path,
     judge_feedback_dir: Path | None,
+    session=None,
 ) -> dict | None:
     """Run Router+Judge loop for a single image (synchronous)."""
     print(f"\n{'#'*60}")
@@ -45,6 +52,7 @@ def _run_single_image(
     print(f"\n  [Step 1] Router generating initial plan...")
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
+        session=session,
     )
     if current_plan is None:
         print(f"  [Step 1] FAILED - Router could not generate plan\n")
@@ -66,6 +74,7 @@ def _run_single_image(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
+            session=session,
         )
 
         if judge_result is None:
@@ -112,6 +121,7 @@ def _run_single_image(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
+                session=session,
             )
 
             if revised_plan is not None:
@@ -182,10 +192,23 @@ def run_sync_pipeline(
                 stats["api_fail"] += 1
                 continue
 
+            session = None
+            if use_session:
+                from conversation_session import ConversationSession, build_combined_system_content
+
+                tax_info = get_taxonomy_info(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
+                system_content = build_combined_system_content(
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
+                )
+                session = ConversationSession(system_content)
+                print(f"  [SESSION] Created conversation session for {img_id}")
+
             plan = _run_single_image(
                 client, str(img_path), img_id, class_id, class_label,
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
+                session=session,
             )
             if plan is not None:
                 stats["api_ok"] += 1
@@ -235,7 +258,6 @@ def run_sync_pipeline(
                 print(f"\n  [Step 4] Reflector evaluating {image_id}...")
                 try:
                     from step4_reflector import run_reflector, save_final_report, print_final_summary
-                    from step1_router import get_taxonomy_info, get_structured_taxonomy_info
 
                     reflector_session = None
                     if use_session:

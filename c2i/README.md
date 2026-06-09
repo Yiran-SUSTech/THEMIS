@@ -102,7 +102,7 @@ python c2i/run.py --mode async --step 3 --gpu-groups 2
 | `--image-dir` | `test_images/` | Input image directory |
 | `--class-ids` | `test_images/class_ids.txt` | Image-to-class mapping file |
 | `--save-feedback` | `false` | Save Judge feedback details |
-| `--session` | `false` | Use conversation session for Reflector (Step 4) |
+| `--session` | `false` | Use conversation sessions for Router/Judge and Reflector in sync mode |
 | `--save-pose-viz` | `false` | Save pose visualization images |
 
 ### GPU Parameters

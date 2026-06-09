@@ -100,7 +100,7 @@ python c2i/run.py --mode async --step 3 --gpu-groups 2
 | `--image-dir` | `test_images/` | 输入图片目录 |
 | `--class-ids` | `test_images/class_ids.txt` | 图片-类别映射文件 |
 | `--save-feedback` | `false` | 保存 Judge 反馈详情 |
-| `--session` | `false` | Step 4 使用 conversation session |
+| `--session` | `false` | sync 模式下 Router/Judge 和 Reflector 使用 conversation session |
 | `--save-pose-viz` | `false` | 保存骨骼可视化图 |
 
 ### GPU 参数

@@ -80,7 +80,7 @@ Examples:
     parser.add_argument("--limit", type=int, default=0, help="Max images to process (0=all)")
     parser.add_argument("--image-id", type=str, default="", help="Process single image by ID")
     parser.add_argument("--session", action="store_true", default=False,
-                        help="Use conversation session for Reflector (Step 4)")
+                        help="Use conversation sessions for Router/Judge and Reflector in sync mode")
     parser.add_argument("--save-pose-viz", action="store_true", default=False,
                         help="Save pose visualization images")
 
