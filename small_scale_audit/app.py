@@ -728,8 +728,8 @@ if __name__ == "__main__":
         # 加上下面这一行，为 3 位标注员和自己设置专属账号密码
         auth=[
             ("admin", "AdminPassword3502"),
-            ("user1", "Annotater1"),
-            ("user2", "Annotater2"),
-            ("user3", "Annotater3")
+            ("Annotater1", "I am Annotater1*"),
+            ("Annotater2", "I am Annotater2*"),
+            ("Annotater3", "I am Annotater3*")
         ]
     )
