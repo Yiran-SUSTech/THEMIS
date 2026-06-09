@@ -721,4 +721,9 @@ with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=cust
 
 if __name__ == "__main__":
     # demo.launch(server_name="127.0.0.1", server_port=7860, theme=custom_theme)
-    demo.launch(server_name="0.0.0.0", server_port=7860, theme=custom_theme)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        # prevent_thread_lock 默认就是 False，但显式写出来可以强迫 Python 锁死主线程不退出
+        prevent_thread_lock=False  
+    )
