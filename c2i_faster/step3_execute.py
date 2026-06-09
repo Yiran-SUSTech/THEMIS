@@ -80,8 +80,8 @@ EXPERT_MODULE_MAP = {
 }
 
 DEFAULT_GPU_CONFIG = {
-    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 1},    # Q-Insight → GPU 0
-    "animal_pose_auditor":        {"device": "cuda:1", "num_gpus": 1},  # ViTPose → GPU 1
+    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 2},    # Q-Insight → GPU 0+1 (needs ~50GB)
+    "animal_pose_auditor":        {"device": "cuda:2", "num_gpus": 1},  # ViTPose → GPU 2
     "geometric_depth_auditor":    {"device": "maca:1", "num_gpus": 1},  # Depth → MACA 1
     "fine_grained_classifier":    {"device": "maca:1", "num_gpus": 1},  # EVA-02 → MACA 1
     "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},

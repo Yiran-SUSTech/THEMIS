@@ -61,7 +61,7 @@ def build_gpu_group_configs(num_groups: int, base_config: dict) -> list[dict]:
         offset = g * 4
         maca_offset = g * 2
         config = {
-            "perceptual_quality_auditor": {"device": f"cuda:{offset}", "num_gpus": 1},
+            "perceptual_quality_auditor": {"device": f"cuda:{offset}", "num_gpus": 2},
             "animal_pose_auditor": {"device": f"cuda:{offset + 2}", "num_gpus": 1},
             "geometric_depth_auditor": {"device": f"maca:{maca_offset}", "num_gpus": 1},
             "fine_grained_classifier": {"device": f"maca:{maca_offset + 1}", "num_gpus": 1},
