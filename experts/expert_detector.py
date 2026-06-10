@@ -12,6 +12,9 @@ from groundingdino.models import build_model
 from groundingdino.util.slconfig import SLConfig
 
 class OpenVocabularyDetector:
+    # ONNX model was exported with fixed text length of 256
+    MAX_TEXT_LEN = 256
+
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/weights/groundingdino.onnx",
                  config_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"):
@@ -50,6 +53,25 @@ class OpenVocabularyDetector:
         
         B, N = input_ids.shape
         text_token_mask = torch.ones((B, N, N), dtype=torch.bool).numpy()
+
+        # Pad text inputs to MAX_TEXT_LEN (required by ONNX model)
+        L = self.MAX_TEXT_LEN
+        if N < L:
+            pad_len = L - N
+            input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
+            position_ids = np.concatenate([position_ids, np.arange(N, L).reshape(1, -1)], axis=1)
+            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            # Expand text_token_mask to LxL
+            full_mask = np.zeros((B, L, L), dtype=bool)
+            full_mask[:, :N, :N] = text_token_mask
+            text_token_mask = full_mask
+        elif N > L:
+            input_ids = input_ids[:, :L]
+            attention_mask = attention_mask[:, :L]
+            position_ids = position_ids[:, :L]
+            token_type_ids = token_type_ids[:, :L]
+            text_token_mask = text_token_mask[:, :L, :L]
 
         onnx_inputs = {
             "img": img_data, "input_ids": input_ids, "attention_mask": attention_mask,
