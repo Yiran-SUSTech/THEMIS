@@ -83,7 +83,7 @@ Examples:
     parser.add_argument("--limit", type=int, default=0, help="Max images to process (0=all)")
     parser.add_argument("--image-id", type=str, default="", help="Process single image by ID")
     parser.add_argument("--session", action="store_true", default=False,
-                        help="Use conversation session for Reflector (Step 4)")
+                        help="Use conversation session mode (Router+Judge+Reflector share context)")
     parser.add_argument("--save-pose-viz", action="store_true", default=False,
                         help="Save pose visualization images")
 
@@ -164,6 +164,8 @@ Examples:
     print(f"  Images:           {len(valid_images)}")
     if args.mode == "async":
         print(f"  API concurrency:  {args.api_concurrency}")
+    if args.session:
+        print(f"  Session mode:     ON (shared conversation context)")
     if args.mode == "batch":
         print(f"  Poll interval:    {args.poll_interval}s")
     if run_step3:
@@ -213,6 +215,7 @@ Examples:
             api_concurrency=args.api_concurrency,
             step=step,
             final_reports_dir=final_reports_dir,
+            use_session=args.session,
         )
 
     elif args.mode == "batch":

@@ -67,8 +67,11 @@ python c2i_faster/run.py --mode sync --step 123 --image-id 000000
 ```bash
 python c2i_faster/run.py --mode async --step 123 --limit 10 --api-concurrency 5
 
-# 2 卡环境 10路并发
+# 2 卡环境 10路并发 无 Session 模式
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 2x_c500
+
+# 2 卡环境 10路并发 Session 模式（共享对话上下文）
+python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 2x_c500 --session
 
 # 8 卡环境 10路并发
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 8x_c500

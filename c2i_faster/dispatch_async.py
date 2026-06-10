@@ -18,7 +18,10 @@ from common import (
     resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
-from step1_router import generate_plan, revise_plan, load_experts_registry
+from step1_router import (
+    generate_plan, revise_plan, load_experts_registry,
+    get_taxonomy_info, get_structured_taxonomy_info,
+)
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager, execute_plan, save_testimony_bundle,
@@ -26,6 +29,10 @@ from step3_execute import (
     collect_required_expert_ids, EXPERT_MODULE_MAP,
 )
 from step4_reflector import run_reflector, save_final_report, print_final_summary
+from conversation_session import (
+    ConversationSession, build_combined_system_content,
+    build_reflector_only_system_content,
+)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -43,10 +50,12 @@ def _sync_router_judge(
     plan_dir: Path,
     approved_dir: Path,
     judge_feedback_dir: Path | None,
+    session: ConversationSession | None = None,
 ) -> dict | None:
     """Synchronous Router+Judge for one image. Runs in thread pool."""
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
+        session=session,
     )
     if current_plan is None:
         print(f"  [{img_id}] Router FAILED")
@@ -63,6 +72,7 @@ def _sync_router_judge(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
+            session=session,
         )
 
         if judge_result is None:
@@ -100,6 +110,7 @@ def _sync_router_judge(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
+                session=session,
             )
 
             if revised_plan is not None:
@@ -132,6 +143,7 @@ async def _api_worker(
     judge_feedback_dir: Path | None,
     api_semaphore: asyncio.Semaphore,
     stats: dict,
+    use_session: bool = False,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -145,16 +157,27 @@ async def _api_worker(
 
         async with api_semaphore:
             try:
+                session = None
+                if use_session:
+                    tax_info = get_taxonomy_info(class_id)
+                    struct_tax_info = get_structured_taxonomy_info(class_id)
+                    system_content = build_combined_system_content(
+                        experts_registry_str, class_label, tax_info, struct_tax_info,
+                    )
+                    session = ConversationSession(system_content)
+                    print(f"  [SESSION] Created for {img_id}")
+
                 plan = await loop.run_in_executor(
                     None,
                     _sync_router_judge,
                     client, image_path, img_id, class_id, class_label,
                     experts_registry_str, max_iterations,
                     plan_dir, approved_dir, judge_feedback_dir,
+                    session,
                 )
 
                 if plan is not None:
-                    await plan_queue.put((img_id, image_path, class_label, plan))
+                    await plan_queue.put((img_id, image_path, class_label, plan, session))
                     stats["api_ok"] += 1
                 else:
                     stats["api_fail"] += 1
@@ -189,7 +212,12 @@ async def _gpu_worker(
             plan_queue.task_done()
             break
 
-        img_id, image_path, class_label, plan = item
+        # Unpack: with or without session (5-tuple vs 4-tuple)
+        if len(item) == 5:
+            img_id, image_path, class_label, plan, session = item
+        else:
+            img_id, image_path, class_label, plan = item
+            session = None
 
         async with gpu_semaphore:
             try:
@@ -210,7 +238,8 @@ async def _gpu_worker(
                 if reflector_queue is not None:
                     class_id = plan.get("metadata", {}).get("class_id", 0)
                     await reflector_queue.put((
-                        img_id, str(resolved_path), class_id, class_label, bundle, plan,
+                        img_id, str(resolved_path), class_id, class_label,
+                        bundle, plan, session,
                     ))
             except Exception as e:
                 print(f"  [GPU-{worker_id}][{img_id}] FATAL: {type(e).__name__}: {e}")
@@ -229,6 +258,7 @@ def _sync_reflector(
     experts_registry_str: str,
     router_plan: dict,
     final_reports_dir: Path,
+    session: ConversationSession | None = None,
 ) -> dict | None:
     """Synchronous Reflector for one image. Runs in thread pool."""
     report = run_reflector(
@@ -239,6 +269,7 @@ def _sync_reflector(
         expert_results=expert_results,
         experts_registry_str=experts_registry_str,
         router_plan=router_plan,
+        session=session,
     )
     if report is None:
         print(f"  [{img_id}] Reflector FAILED")
@@ -257,6 +288,7 @@ async def _reflector_worker(
     api_semaphore: asyncio.Semaphore,
     stats: dict,
     done_event: asyncio.Event,
+    use_session: bool = False,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -273,7 +305,23 @@ async def _reflector_worker(
             reflector_queue.task_done()
             break
 
-        img_id, image_path, class_id, class_label, expert_results, router_plan = item
+        # Unpack: with or without session (7-tuple vs 6-tuple)
+        if len(item) == 7:
+            img_id, image_path, class_id, class_label, expert_results, router_plan, session = item
+        else:
+            img_id, image_path, class_id, class_label, expert_results, router_plan = item
+            session = None
+
+        # If session mode but no session from upstream (e.g. Step 4 only),
+        # create a reflector-only session
+        if use_session and session is None:
+            tax_info = get_taxonomy_info(class_id)
+            struct_tax_info = get_structured_taxonomy_info(class_id)
+            system_content = build_reflector_only_system_content(
+                experts_registry_str, class_label, tax_info, struct_tax_info,
+            )
+            session = ConversationSession(system_content)
+            print(f"  [SESSION] Reflector-only session created for {img_id}")
 
         async with api_semaphore:
             try:
@@ -282,7 +330,7 @@ async def _reflector_worker(
                     _sync_reflector,
                     client, image_path, img_id, class_id, class_label,
                     expert_results, experts_registry_str, router_plan,
-                    final_reports_dir,
+                    final_reports_dir, session,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -312,6 +360,7 @@ async def _run_full_pipeline(
     expert_managers: list[ExpertManager],
     api_concurrency: int,
     final_reports_dir: Path | None = None,
+    use_session: bool = False,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -344,7 +393,7 @@ async def _run_full_pipeline(
         asyncio.create_task(_api_worker(
             task_queue, plan_queue, client, experts_registry_str,
             max_iterations, plan_dir, approved_dir, judge_feedback_dir,
-            api_semaphore, stats,
+            api_semaphore, stats, use_session,
         ))
         for _ in range(num_api_workers)
     ]
@@ -364,12 +413,12 @@ async def _run_full_pipeline(
         num_reflector_workers = min(api_concurrency, len(valid_images))
         for _ in range(num_reflector_workers):
             reflector_tasks.append(
-                asyncio.create_task(_reflector_worker(
-                    reflector_queue, client, experts_registry_str,
-                    final_reports_dir, reflector_api_semaphore,
-                    stats, reflector_done_event,
-                ))
-            )
+            asyncio.create_task(_reflector_worker(
+                reflector_queue, client, experts_registry_str,
+                final_reports_dir, reflector_api_semaphore,
+                stats, reflector_done_event, use_session,
+            ))
+        )
 
     # Wait for API workers to finish
     await asyncio.gather(*api_tasks)
@@ -410,6 +459,7 @@ async def _run_step12_only(
     approved_dir: Path,
     judge_feedback_dir: Path | None,
     api_concurrency: int,
+    use_session: bool = False,
 ) -> dict:
     stats = {"api_ok": 0, "api_fail": 0}
     api_semaphore = asyncio.Semaphore(api_concurrency)
@@ -421,6 +471,16 @@ async def _run_step12_only(
             stats["api_fail"] += 1
             return
 
+        session = None
+        if use_session:
+            tax_info = get_taxonomy_info(class_id)
+            struct_tax_info = get_structured_taxonomy_info(class_id)
+            system_content = build_combined_system_content(
+                experts_registry_str, class_label, tax_info, struct_tax_info,
+            )
+            session = ConversationSession(system_content)
+            print(f"  [SESSION] Created for {img_id}")
+
         async with api_semaphore:
             plan = await loop.run_in_executor(
                 None,
@@ -428,6 +488,7 @@ async def _run_step12_only(
                 client, str(image_path), img_id, class_id, class_label,
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
+                session,
             )
             if plan is not None:
                 stats["api_ok"] += 1
@@ -504,6 +565,7 @@ async def _run_step4_only(
     approved_dir: Path,
     final_reports_dir: Path,
     api_concurrency: int,
+    use_session: bool = False,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
     stats = {"reflector_ok": 0, "reflector_fail": 0}
@@ -535,12 +597,24 @@ async def _run_step4_only(
         with open(bundle_path, "r", encoding="utf-8") as f:
             bundle = json.load(f)
 
+        # Create session if needed (reflector-only, since no Router/Judge context)
+        session = None
+        if use_session:
+            tax_info = get_taxonomy_info(class_id)
+            struct_tax_info = get_structured_taxonomy_info(class_id)
+            system_content = build_reflector_only_system_content(
+                experts_registry_str, class_label, tax_info, struct_tax_info,
+            )
+            session = ConversationSession(system_content)
+            print(f"  [SESSION] Reflector-only session created for {img_id}")
+
         async with api_semaphore:
             report = await loop.run_in_executor(
                 None,
                 _sync_reflector,
                 client, str(image_path), img_id, class_id, class_label,
                 bundle, experts_registry_str, plan, final_reports_dir,
+                session,
             )
             if report is not None:
                 stats["reflector_ok"] += 1
@@ -572,6 +646,7 @@ def run_async_pipeline(
     api_concurrency: int,
     step: str,
     final_reports_dir: Path | None = None,
+    use_session: bool = False,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     run_step12 = step in ("1", "2", "12", "123", "1234")
@@ -588,6 +663,7 @@ def run_async_pipeline(
             approved_dir=approved_dir,
             final_reports_dir=final_reports_dir,
             api_concurrency=api_concurrency,
+            use_session=use_session,
         ))
 
     if run_step12 and run_step3 and expert_managers:
@@ -606,6 +682,7 @@ def run_async_pipeline(
             expert_managers=expert_managers,
             api_concurrency=api_concurrency,
             final_reports_dir=reports_dir,
+            use_session=use_session,
         ))
 
     elif run_step12 and not run_step3:
@@ -620,6 +697,7 @@ def run_async_pipeline(
             approved_dir=approved_dir,
             judge_feedback_dir=judge_feedback_dir,
             api_concurrency=api_concurrency,
+            use_session=use_session,
         ))
 
     elif run_step3 and not run_step12:
