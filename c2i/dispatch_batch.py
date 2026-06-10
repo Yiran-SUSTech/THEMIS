@@ -543,10 +543,17 @@ def run_batch_step3(
     expert_managers: list,
     image_id_filter: str = "",
     limit: int = 0,
+    run_step4: bool = False,
+    experts_registry_str: str = "",
+    final_reports_dir: "Path | None" = None,
 ) -> dict:
-    """Run Step 3 (GPU execution) on approved plans from batch."""
+    """Run Step 3 (GPU execution) on approved plans from batch. Optionally Step 4."""
     from dispatch_async import run_step3_async
     import asyncio
+
+    client = None
+    if run_step4:
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
 
     stats = asyncio.run(run_step3_async(
         approved_dir=approved_dir,
@@ -554,7 +561,59 @@ def run_batch_step3(
         expert_managers=expert_managers,
         image_id_filter=image_id_filter,
         limit=limit,
+        run_step4=run_step4,
+        client=client,
+        experts_registry_str=experts_registry_str,
+        final_reports_dir=final_reports_dir,
     ))
+    return stats
+
+
+def run_batch_step4_only(
+    expert_results_dir: Path,
+    approved_dir: Path,
+    experts_registry_str: str,
+    final_reports_dir: "Path | None" = None,
+) -> dict:
+    """Run Step 4 only on existing expert results."""
+    from common import run_step4_for_bundle
+    from step3_execute import load_approved_plans
+
+    client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+    stats = {"step4_ok": 0, "step4_fail": 0}
+
+    # Load expert result bundles
+    bundle_files = sorted(expert_results_dir.glob("expert_results_*.json"))
+    plans = load_approved_plans(approved_dir)
+    plan_map = {}
+    for plan in plans:
+        img_path = plan.get("metadata", {}).get("original_image", "")
+        img_id = Path(img_path).stem if img_path else ""
+        if img_id:
+            plan_map[img_id] = plan
+
+    for bf in bundle_files:
+        with open(bf, "r", encoding="utf-8") as f:
+            bundle = json.load(f)
+
+        image_id = bundle.get("image_id", "")
+        image_path = bundle.get("image_path", "")
+        class_id = bundle.get("class_id", 0)
+        class_label = bundle.get("class_label", "")
+        plan = plan_map.get(image_id, {})
+
+        print(f"  [Step 4] Reflector evaluating {image_id}...")
+        report = run_step4_for_bundle(
+            client, image_path, class_id, class_label,
+            bundle, experts_registry_str, plan, final_reports_dir,
+        )
+
+        if report is not None:
+            stats["step4_ok"] += 1
+        else:
+            stats["step4_fail"] += 1
+            print(f"  [Step 4] FAILED for {image_id}")
+
     return stats
 
 
@@ -571,12 +630,14 @@ def run_batch_pipeline(
     expert_managers: list | None,
     poll_interval: int,
     step: str,
+    final_reports_dir: "Path | None" = None,
 ) -> dict:
     """Full batch pipeline orchestration."""
     stats = {}
 
-    run_step12 = step in ("12", "123")
-    run_step3 = step in ("3", "123")
+    run_step12 = step in ("12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
 
     if run_step12:
         step12_stats = run_batch_step12(
@@ -602,7 +663,20 @@ def run_batch_pipeline(
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
             limit=0,
+            run_step4=run_step4,
+            experts_registry_str=experts_registry_str,
+            final_reports_dir=final_reports_dir,
         )
         stats.update(step3_stats)
+
+    elif run_step4 and not run_step3:
+        # Step 4 only (on existing expert results)
+        step4_stats = run_batch_step4_only(
+            expert_results_dir=expert_results_dir,
+            approved_dir=approved_dir,
+            experts_registry_str=experts_registry_str,
+            final_reports_dir=final_reports_dir,
+        )
+        stats.update(step4_stats)
 
     return stats

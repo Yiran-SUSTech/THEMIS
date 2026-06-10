@@ -274,3 +274,45 @@ def preload_expert_managers(
     print(f"{'='*60}")
 
     return expert_managers
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Step 4 Reflector Helper
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def run_step4_for_bundle(
+    client,
+    image_path: str,
+    class_id: int,
+    class_label: str,
+    bundle: dict,
+    experts_registry_str: str,
+    plan: dict,
+    final_reports_dir: Path | None = None,
+) -> dict | None:
+    """Run Step 4 (Reflector) for a single expert testimony bundle.
+
+    Shared by sync, async, and batch modes.
+    Returns the final report dict, or None on failure.
+    """
+    from step4_reflector import run_reflector, save_final_report, print_final_summary
+
+    report = run_reflector(
+        client=client,
+        image_path=image_path,
+        class_id=class_id,
+        class_label=class_label,
+        expert_results=bundle,
+        experts_registry_str=experts_registry_str,
+        router_plan=plan,
+    )
+
+    if report is None:
+        return None
+
+    if final_reports_dir:
+        final_reports_dir.mkdir(parents=True, exist_ok=True)
+        save_final_report(report, final_reports_dir)
+
+    print_final_summary(report)
+    return report

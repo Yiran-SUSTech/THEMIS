@@ -16,6 +16,7 @@ from openai import OpenAI
 from common import (
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     resolve_image_path, save_judge_feedback, compute_router_scores,
+    run_step4_for_bundle,
 )
 
 from step1_router import generate_plan, revise_plan, load_experts_registry
@@ -172,6 +173,10 @@ async def _gpu_worker(
     worker_id: int,
     stats: dict,
     done_event: asyncio.Event,
+    run_step4: bool = False,
+    client: "OpenAI | None" = None,
+    experts_registry_str: str = "",
+    final_reports_dir: "Path | None" = None,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -204,6 +209,22 @@ async def _gpu_worker(
                 stats["gpu_ok"] += 1
                 print(f"  [GPU-{worker_id}][{img_id}] Done "
                       f"({bundle['execution_summary']['total_execution_time_ms']:.0f}ms)")
+
+                # Step 4: Reflector
+                if run_step4 and client is not None and bundle is not None:
+                    class_id = plan.get("metadata", {}).get("class_id", 0)
+                    report = await loop.run_in_executor(
+                        None,
+                        run_step4_for_bundle,
+                        client, resolved_path, class_id, class_label,
+                        bundle, experts_registry_str, plan, final_reports_dir,
+                    )
+                    if report is not None:
+                        stats["step4_ok"] = stats.get("step4_ok", 0) + 1
+                    else:
+                        stats["step4_fail"] = stats.get("step4_fail", 0) + 1
+                        print(f"  [GPU-{worker_id}][{img_id}] Step 4 FAILED")
+
             except Exception as e:
                 print(f"  [GPU-{worker_id}][{img_id}] FATAL: {type(e).__name__}: {e}")
                 stats["gpu_fail"] += 1
@@ -227,8 +248,13 @@ async def _run_full_pipeline(
     expert_results_dir: Path,
     expert_managers: list[ExpertManager],
     api_concurrency: int,
+    run_step4: bool = False,
+    final_reports_dir: "Path | None" = None,
 ) -> dict:
     stats = {"api_ok": 0, "api_fail": 0, "gpu_ok": 0, "gpu_fail": 0}
+    if run_step4:
+        stats["step4_ok"] = 0
+        stats["step4_fail"] = 0
 
     task_queue: asyncio.Queue = asyncio.Queue()
     plan_queue: asyncio.Queue = asyncio.Queue()
@@ -261,6 +287,10 @@ async def _run_full_pipeline(
         asyncio.create_task(_gpu_worker(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, done_event,
+            run_step4=run_step4,
+            client=client,
+            experts_registry_str=experts_registry_str,
+            final_reports_dir=final_reports_dir,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -324,9 +354,16 @@ async def run_step3_async(
     expert_managers: list,
     image_id_filter: str = "",
     limit: int = 0,
+    run_step4: bool = False,
+    client: "OpenAI | None" = None,
+    experts_registry_str: str = "",
+    final_reports_dir: "Path | None" = None,
 ) -> dict:
     """Run Step 3 with parallel GPU groups. Public API for batch mode too."""
     stats = {"gpu_ok": 0, "gpu_fail": 0}
+    if run_step4:
+        stats["step4_ok"] = 0
+        stats["step4_fail"] = 0
 
     plans = load_approved_plans(approved_dir)
     if image_id_filter:
@@ -355,6 +392,10 @@ async def run_step3_async(
         asyncio.create_task(_gpu_worker(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, done_event,
+            run_step4=run_step4,
+            client=client,
+            experts_registry_str=experts_registry_str,
+            final_reports_dir=final_reports_dir,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -384,10 +425,12 @@ def run_async_pipeline(
     expert_managers: list,
     api_concurrency: int,
     step: str,
+    final_reports_dir: "Path | None" = None,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
-    run_step12 = step in ("1", "2", "12", "123")
-    run_step3 = step in ("3", "123")
+    run_step12 = step in ("1", "2", "12", "123", "1234")
+    run_step3 = step in ("3", "123", "1234")
+    run_step4 = step in ("4", "1234")
 
     if run_step12 and run_step3 and expert_managers:
         client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
@@ -403,6 +446,8 @@ def run_async_pipeline(
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
             api_concurrency=api_concurrency,
+            run_step4=run_step4,
+            final_reports_dir=final_reports_dir,
         ))
 
     elif run_step12 and not run_step3:
@@ -423,10 +468,19 @@ def run_async_pipeline(
         if not expert_managers:
             print("[ERROR] No expert managers for Step 3.")
             return {"gpu_ok": 0, "gpu_fail": 0}
+
+        client = None
+        if run_step4:
+            client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+
         return asyncio.run(run_step3_async(
             approved_dir=approved_dir,
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
+            run_step4=run_step4,
+            client=client,
+            experts_registry_str=experts_registry_str,
+            final_reports_dir=final_reports_dir,
         ))
 
     return {}

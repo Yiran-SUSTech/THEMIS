@@ -200,6 +200,7 @@ Examples:
             expert_managers=expert_managers,
             api_concurrency=args.api_concurrency,
             step=step,
+            final_reports_dir=final_reports_dir,
         )
 
     elif args.mode == "batch":
@@ -217,6 +218,7 @@ Examples:
             expert_managers=expert_managers if expert_managers else None,
             poll_interval=args.poll_interval,
             step=step,
+            final_reports_dir=final_reports_dir,
         )
 
     # ── Summary ────────────────────────────────────────────────
