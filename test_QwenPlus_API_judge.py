@@ -3,18 +3,19 @@ import json
 from openai import OpenAI
 from datetime import datetime
 
-# 1. 初始化客户端
-client = OpenAI(
-    api_key="sk-9165cc69015b4a12ab542fb5edc20612",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
-
 # --- 配置区 ---
 plan_file_path = "evaluation_plans_output/plan_000052.json"
 taxonomy_json_path = "taxonomy_enriched.json"
 output_judge_dir = "judge_reports_output"
 os.makedirs(output_judge_dir, exist_ok=True)
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 # --------------
+
+# 1. 初始化客户端
+client = OpenAI(
+    api_key=DASHSCOPE_API_KEY,
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+)
 
 # 2. 工具函数：加载数据
 def load_json(file_path):

@@ -29,11 +29,6 @@ def get_taxonomy_description(file_path, target_label):
     except Exception as e:
         return f"Error loading taxonomy: {e}"
 
-# 4. 初始化客户端
-client = OpenAI(
-    api_key="sk-9165cc69015b4a12ab542fb5edc20612",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
 
 # --- 配置区 ---
 image_path = "test_images_GPT-XL-c2i_XL/000052.png"
@@ -43,6 +38,14 @@ class_label = "bald eagle"
 # 新增：保存路径配置
 output_plan_dir = "evaluation_plans_output" 
 os.makedirs(output_plan_dir, exist_ok=True) # 如果文件夹不存在则创建
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
+
+# 1. 初始化客户端
+client = OpenAI(
+    api_key=DASHSCOPE_API_KEY,
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+)
+
 # --------------
 
 # 准备数据
