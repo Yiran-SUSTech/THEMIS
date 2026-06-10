@@ -6,26 +6,50 @@
     "class_id": 7,
     "class_label": "cock",
     "plan_reference": "approved_plan_000015",
-    "execution_timestamp": "2026-06-10 19:12:53",
+    "execution_timestamp": "2026-06-10 19:44:03",
     "focus_areas": [
-        "Head and facial features (comb, wattles, beak)",
-        "Plumage details (hackle, saddle, tail feathers)",
-        "Leg and foot anatomy (spur, toe arrangement)",
-        "Overall species identification (cock vs. pheasant)",
-        "Spatial grounding and foreground-background separation"
+        "Species identification (domestic cock vs pheasant) - critical mismatch",
+        "Tail feather structure and fusion artifacts",
+        "Background texture consistency and AI patterns",
+        "Bird-ground spatial relationship"
     ],
-    "custom_prompts_for_reflector": "The image appears to be a pheasant rather than a domestic cock. The Router should have flagged this species mismatch more strongly. The checkpoint verdicts correctly note the absence of key cock features (comb, wattles, hackle feathers), but the image_class is still labeled as 'cock'. The artifact observations are minimal; the legs/feet area needs closer inspection for structural issues. The fine_grained_classifier is critical here to confirm the species. The geometric_depth_auditor should be used to check for potential background/subject bleeding, which is common in AI-generated wildlife images.",
-    "image_description": "A male pheasant (cock) standing in a grassy field. The bird has a dark body with iridescent plumage, a long tail, a red face with a white neck ring, and is walking on the ground.",
+    "custom_prompts_for_reflector": "The image is a Ring-necked Pheasant, not a domestic cock. This is a fundamental class mismatch. The fine_grained_classifier must confirm this. Checkpoints for comb, wattles, hackle feathers, and saddle feathers are false due to species difference. The tail feather fusion is severe (severity 3.5). The background shows AI texture anomalies. The alignment score should be heavily penalized for class mismatch. The artifact score should reflect the tail fusion and background issues.",
+    "image_description": "A male Ring-necked Pheasant (Phasianus colchicus) standing in a grassy field. The bird has a dark body with iridescent plumage, a long tail, a red face with a white neck ring, and is walking on the ground. The image is labeled as 'cock' but visually depicts a pheasant.",
     "expert_testimonies": [
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "cock",
+            "weight": 0.15,
+            "reason": "To check for spatial inconsistencies between the bird and the ground, addressing the perspective distortion artifact.",
+            "status": "success",
+            "execution_time_ms": 89.84,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/depth_maps/000015_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 20.9387,
+                    "mean_value": 7.8723,
+                    "std_deviation": 6.4819
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "500x375"
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "cock",
-            "weight": 0.4,
-            "reason": "To verify if the image is actually a domestic cock or another bird species like a pheasant.",
+            "weight": 0.5,
+            "reason": "Primary expert to confirm species mismatch. The image is likely a pheasant, not a cock. This is critical for alignment scoring.",
             "status": "success",
-            "execution_time_ms": 221.61,
+            "execution_time_ms": 213.79,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -53,39 +77,14 @@
             "traceback": null
         },
         {
-            "expert_id": "geometric_depth_auditor",
-            "internal_expert_id": "monocular_depth_estimator",
-            "model_name": "Depth_Anything_V1_FP16_MACA",
-            "target_subject": "cock",
-            "weight": 0.2,
-            "reason": "To verify spatial grounding and check for subtle foreground-background bleeding, especially around the legs and tail.",
-            "status": "success",
-            "execution_time_ms": 172.69,
-            "evidence": {
-                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/depth_maps/000015_depth.png",
-                "depth_statistics": {
-                    "min_value": 0.0,
-                    "max_value": 20.9387,
-                    "mean_value": 7.8723,
-                    "std_deviation": 6.4819
-                }
-            },
-            "raw_metrics": {
-                "input_resolution": "518x518",
-                "output_resolution": "500x375"
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "animal_pose_auditor",
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
             "target_subject": "cock",
             "weight": 0.2,
-            "reason": "To audit the anatomical correctness of the bird's pose and limb structure.",
+            "reason": "To audit the biological structure and limb positioning of the bird, checking for anatomical correctness.",
             "status": "success",
-            "execution_time_ms": 1699.71,
+            "execution_time_ms": 832.58,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -236,10 +235,10 @@
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "cock",
-            "weight": 0.2,
-            "reason": "To check for boundary sharpness and topological connectivity of the bird's body parts.",
+            "weight": 0.15,
+            "reason": "To verify the bird is a single continuous entity without floating parts or blurred edges, especially around the tail.",
             "status": "success",
-            "execution_time_ms": 2212.13,
+            "execution_time_ms": 1808.59,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/sam_masks/000015_mask.png",
                 "mask_confidence_score": 0.9746,
@@ -251,32 +250,13 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "cock",
-            "weight": 0.2,
-            "reason": "To assess overall image quality and detect any subtle artifacts.",
-            "status": "success",
-            "execution_time_ms": 6336.98,
-            "evidence": {
-                "thinking_trajectory": "The image appears to have a moderate contrast, which enhances the colors but doesn't necessarily introduce distortion. There is no visible pixelation, noise, or blur, suggesting that the image isn’t compressed or blurred. The contrast is more pronounced for the bird than the background, but this could be intentional for emphasis. There’s no significant over-darkening or under-lighting.",
-                "distortion_class": "darken",
-                "severity_level": "sllight",
-                "severity_score": 0.0
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 5,
-        "successful_experts": 5,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 6350.39,
+        "total_execution_time_ms": 1820.37,
         "failed_expert_ids": []
     }
 }
