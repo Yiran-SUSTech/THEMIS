@@ -6,50 +6,41 @@
     "class_id": 7,
     "class_label": "cock",
     "plan_reference": "approved_plan_000015",
-    "execution_timestamp": "2026-06-10 19:44:03",
+    "execution_timestamp": "2026-06-10 22:32:35",
     "focus_areas": [
-        "Species identification (domestic cock vs pheasant) - critical mismatch",
-        "Tail feather structure and fusion artifacts",
-        "Background texture consistency and AI patterns",
-        "Bird-ground spatial relationship"
+        "Species identification (cock vs pheasant) - PRIMARY",
+        "Head features (comb, wattles vs pheasant facial skin)",
+        "Neck plumage (hackle ruff vs white neck ring)",
+        "Tail feather structure and length",
+        "Leg and foot anatomy",
+        "Feather texture and structural integrity"
     ],
-    "custom_prompts_for_reflector": "The image is a Ring-necked Pheasant, not a domestic cock. This is a fundamental class mismatch. The fine_grained_classifier must confirm this. Checkpoints for comb, wattles, hackle feathers, and saddle feathers are false due to species difference. The tail feather fusion is severe (severity 3.5). The background shows AI texture anomalies. The alignment score should be heavily penalized for class mismatch. The artifact score should reflect the tail fusion and background issues.",
-    "image_description": "A male Ring-necked Pheasant (Phasianus colchicus) standing in a grassy field. The bird has a dark body with iridescent plumage, a long tail, a red face with a white neck ring, and is walking on the ground. The image is labeled as 'cock' but visually depicts a pheasant.",
+    "custom_prompts_for_reflector": "CRITICAL: The image depicts a Ring-necked Pheasant, not a domestic cock. This is a severe alignment failure. The fine_grained_classifier must confirm this species mismatch. Most cock-specific checkpoints (comb, wattles, hackle ruff) are absent because the subject is a different species. Focus on confirming pheasant identity and evaluating any generation artifacts in the pheasant anatomy. The white neck ring is a key pheasant feature not in the cock taxonomy. Leg structure and tail length are also inconsistent with domestic cocks.",
+    "image_description": "A male Ring-necked Pheasant (Phasianus colchicus) standing in a grassy field. The bird has a dark body with iridescent plumage, a very long tail, red facial skin, a white neck ring, and a greenish head. The background is a blurred field of dry grass with some green shoots.",
     "expert_testimonies": [
         {
-            "expert_id": "geometric_depth_auditor",
-            "internal_expert_id": "monocular_depth_estimator",
-            "model_name": "Depth_Anything_V1_FP16_MACA",
-            "target_subject": "cock",
-            "weight": 0.15,
-            "reason": "To check for spatial inconsistencies between the bird and the ground, addressing the perspective distortion artifact.",
-            "status": "success",
-            "execution_time_ms": 89.84,
-            "evidence": {
-                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/depth_maps/000015_depth.png",
-                "depth_statistics": {
-                    "min_value": 0.0,
-                    "max_value": 20.9387,
-                    "mean_value": 7.8723,
-                    "std_deviation": 6.4819
-                }
-            },
-            "raw_metrics": {
-                "input_resolution": "518x518",
-                "output_resolution": "500x375"
-            },
-            "error": null,
-            "traceback": null
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "unknown",
+            "target_subject": "pheasant",
+            "weight": 0.2,
+            "reason": "To confirm the subject is a pheasant and provide bounding box priors for further analysis.",
+            "status": "failed",
+            "execution_time_ms": 19.84,
+            "evidence": {},
+            "raw_metrics": {},
+            "error": "InvalidArgument: [ONNXRuntimeError] : 2 : INVALID_ARGUMENT : Got invalid dimensions for input: token_type_ids for the following indices\n index: 1 Got: 6 Expected: 256\n Please fix either the inputs or the model.",
+            "traceback": "Traceback (most recent call last):\n  File \"/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/step3_execute.py\", line 264, in _invoke_expert_audit\n    result = expert_instance.audit(img_bgr, query_text=target_subject, threshold=0.3)\n  File \"/mnt/afs/zhengmingkai/zyr/THEMIS/experts/expert_detector.py\", line 74, in audit\n    logits, boxes = self.session.run([\"logits\", \"boxes\"], onnx_inputs)\n  File \"/mnt/afs/zhengmingkai/zyr/themis_evn/lib/python3.10/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py\", line 209, in run\n    return self._sess.run(output_names, input_feed, run_options)\nonnxruntime.capi.onnxruntime_pybind11_state.InvalidArgument: [ONNXRuntimeError] : 2 : INVALID_ARGUMENT : Got invalid dimensions for input: token_type_ids for the following indices\n index: 1 Got: 6 Expected: 256\n Please fix either the inputs or the model.\n"
         },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "cock",
-            "weight": 0.5,
-            "reason": "Primary expert to confirm species mismatch. The image is likely a pheasant, not a cock. This is critical for alignment scoring.",
+            "weight": 0.55,
+            "reason": "To verify if the image actually represents a domestic cock or another bird species like a pheasant. Critical due to species mismatch.",
             "status": "success",
-            "execution_time_ms": 213.79,
+            "execution_time_ms": 220.8,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -81,10 +72,10 @@
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
             "target_subject": "cock",
-            "weight": 0.2,
-            "reason": "To audit the biological structure and limb positioning of the bird, checking for anatomical correctness.",
+            "weight": 0.1,
+            "reason": "To audit the biological structural correctness of the bird's pose and anatomy, though results may be skewed by species mismatch.",
             "status": "success",
-            "execution_time_ms": 832.58,
+            "execution_time_ms": 1311.34,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -235,10 +226,10 @@
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "cock",
-            "weight": 0.15,
-            "reason": "To verify the bird is a single continuous entity without floating parts or blurred edges, especially around the tail.",
+            "weight": 0.05,
+            "reason": "To verify the bird is a single continuous entity without floating parts or blurred edges.",
             "status": "success",
-            "execution_time_ms": 1808.59,
+            "execution_time_ms": 1925.07,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/sam_masks/000015_mask.png",
                 "mask_confidence_score": 0.9746,
@@ -250,13 +241,34 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "cock",
+            "weight": 0.1,
+            "reason": "To analyze fine-grained image degradations and structural artifacts.",
+            "status": "success",
+            "execution_time_ms": 6009.04,
+            "evidence": {
+                "thinking_trajectory": "The image appears to have a slightly darkened filter applied that could be categorized as \"darken\". The contrast between the bird's vibrant colors and the background is pronounced, but there isn't no visible noise or compression, nor is the image blurry.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
+        "total_experts_planned": 5,
         "successful_experts": 4,
-        "failed_experts": 0,
-        "total_execution_time_ms": 1820.37,
-        "failed_expert_ids": []
+        "failed_experts": 1,
+        "total_execution_time_ms": 6054.6,
+        "failed_expert_ids": [
+            "open_vocabulary_detector"
+        ]
     }
 }
