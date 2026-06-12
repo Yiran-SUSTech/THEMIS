@@ -57,18 +57,36 @@ class OpenVocabularyDetector:
             input_ids, specical_tokens,
         )
 
-        # 🚀 【动态化重构】：完全摒弃固定 256 长度的 Padding 逻辑
-        # 1. 获取当前文本通过 Tokenizer 后的真实长度 N
+        # 🚀 【回归静态 256 对齐，但修正 Padding 逻辑】
+        L = self.MAX_TEXT_LEN
         N = input_ids.shape[1]
-        
-        # 2. 像老分支一样，根据真实长度 N 动态生成严格递增的 position_ids
         B = input_ids.shape[0]
-        position_ids = np.arange(N, dtype=np.int64).reshape(B, N)
-        
-        # 3. 动态截取 text_self_attention_masks 到真实长度 [B, N, N]
-        text_self_attention_masks = text_self_attention_masks[:, :N, :N]
 
-        # 4. 组装输入，所有张量的最后一维全部保持真实的动态长度 N
+        if N < L:
+            pad_len = L - N
+            # 1. 正常的文本特征 Padding
+            input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
+            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            
+            # 2. 🔥【核心修正 1】：不要用 0 填充位置索引！
+            # 强行让 position_ids 变成 0 到 255 的严格递增序列，防止 GatherElements 查表越界或冲突
+            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
+            
+            # 3. 🔥【核心修正 2】：二维自注意力掩码矩阵的 Padding
+            # 创建 [B, 256, 256] 的全 False 矩阵，只将前 [B, N, N] 的真实文本交互部分填入
+            full_mask = np.zeros((B, L, L), dtype=bool)
+            full_mask[:, :N, :N] = text_self_attention_masks[:, :N, :N]
+            text_self_attention_masks = full_mask
+        else:
+            # 如果文本刚好等于或超过 256，进行截断对齐
+            input_ids = input_ids[:, :L]
+            attention_mask = attention_mask[:, :L]
+            token_type_ids = token_type_ids[:, :L]
+            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
+            text_self_attention_masks = text_self_attention_masks[:, :L, :L]
+
+        # 4. 组装输入，确保所有输入的最后一维（或后两维）都是严格的 256
         onnx_inputs = {
             "img": img_data, 
             "input_ids": input_ids, 
