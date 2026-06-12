@@ -3,32 +3,28 @@ import os
 import numpy as np
 import onnxruntime as ort
 import cv2
+import torch  # 用来调用原生的 generate_masks_with_special_tokens_and_transfer_map
 from PIL import Image
 from torchvision.transforms import functional as TVF
 
+# 1. 统一用老分支的路径，确保机制一致
 sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO")
 from groundingdino.models import build_model
 from groundingdino.util.slconfig import SLConfig
-
-# Reference tokenizer from GroundingDINO ONNX runtime
-sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO-onnxrun/python")
-from clip_tokenizer import FullTokenizer, tokenize as gdino_tokenize, generate_masks_with_special_tokens_and_transfer_map
-
-_VOCAB_PATH = "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO-onnxrun/python/vocab.txt"
+from groundingdino.util.get_tokenlizer import get_tokenlizer  # 引入老分支的官方Tokenizer加载器
+from groundingdino.models.GroundingDINO.bertwarper import generate_masks_with_special_tokens_and_transfer_map
 
 class OpenVocabularyDetector:
-    # ONNX model was exported with fixed text length of 256
-    MAX_TEXT_LEN = 256
-
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/weights/groundingdino.onnx",
-                 config_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py",
-                 vocab_path=_VOCAB_PATH):
+                 config_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"):
         print(f"[Init] Loading Grounding DINO ONNX Model...")
         providers = ['CPUExecutionProvider']
         self.session = ort.InferenceSession(model_path, providers=providers)
-        self.tokenizer = FullTokenizer(vocab_file=vocab_path)
-        self.specical_texts = ["[CLS]", "[SEP]", ".", "?"]
+        
+        # 🚀【核心修正】：改回老分支官方的 bert-base-uncased Tokenizer
+        self.tokenizer = get_tokenlizer("bert-base-uncased")
+        self.specical_tokens = self.tokenizer.convert_tokens_to_ids(["[CLS]", "[SEP]", ".", "?"])
 
     def _preprocess(self, img_bgr):
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -39,9 +35,6 @@ class OpenVocabularyDetector:
         return t_img.unsqueeze(0).numpy()
 
     def audit(self, img_bgr, query_text, threshold=0.3):
-        """
-        开放域检测证据提取接口：只提取物体边界，不判断数量和重叠
-        """
         orig_h, orig_w, _ = img_bgr.shape
         img_data = self._preprocess(img_bgr)
         
@@ -49,59 +42,35 @@ class OpenVocabularyDetector:
         if not caption.endswith("."):
             caption += " ."
 
-        # Use the same tokenization as the reference GroundingDINO ONNX implementation
-        input_ids, token_type_ids, attention_mask, specical_tokens = gdino_tokenize(
-            self.tokenizer, caption, self.specical_texts, context_length=self.MAX_TEXT_LEN,
-        )
-        text_self_attention_masks, position_ids = generate_masks_with_special_tokens_and_transfer_map(
-            input_ids, specical_tokens,
-        )
+        # 🚀【恢复老分支纯正的动态 Token 提取】
+        tokenized = self.tokenizer(caption, padding="longest", return_tensors="pt")
+        
+        with torch.no_grad():
+            (
+                text_self_attention_masks,
+                position_ids,
+                _,
+            ) = generate_masks_with_special_tokens_and_transfer_map(
+                tokenized, self.specical_tokens, self.tokenizer
+            )
 
-        # 🚀 【工业级静态 256 稳健对齐】
-        L = self.MAX_TEXT_LEN
-        N = input_ids.shape[1]
-        B = input_ids.shape[0]
-
-        if N < L:
-            pad_len = L - N
-            # 1. 基础特征补零
-            input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
-            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            
-            # 2. 位置编码严格递增
-            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
-            
-            # 3. 🔥【致命修复】：重新构造 text_token_mask
-            # 很多导出的 GroundingDINO ONNX 模型在计算 text_token_mask 时，
-            # 哪怕是 Padding 区域，在自注意力层里执行 Gather 算子也必须能连通。
-            # 这里先创建一个全为 True 的 [B, L, L] 矩阵（或者单位阵），然后把真实文本的 mask 嵌进去。
-            # 最稳妥的做法：Padding 区域全部允许互相可见（全 True），交给模型的 attention_mask 去做最后的业务隔离。
-            full_mask = np.ones((B, L, L), dtype=bool)
-            full_mask[:, :N, :N] = text_self_attention_masks[:, :N, :N]
-            text_self_attention_masks = full_mask
-        else:
-            input_ids = input_ids[:, :L]
-            attention_mask = attention_mask[:, :L]
-            token_type_ids = token_type_ids[:, :L]
-            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
-            text_self_attention_masks = text_self_attention_masks[:, :L, :L]
-
-        # 4. 组装最终输入
+        # 🚀【纯动态轴组装】转化为 NumPy 喂给 ONNX，完全不要任何 256 Padding 逻辑
         onnx_inputs = {
             "img": img_data, 
-            "input_ids": input_ids, 
-            "attention_mask": attention_mask,
-            "position_ids": position_ids, 
-            "token_type_ids": token_type_ids,
-            "text_token_mask": text_self_attention_masks,
+            "input_ids": tokenized["input_ids"].cpu().numpy().astype(np.int64), 
+            "attention_mask": tokenized["attention_mask"].cpu().numpy().astype(bool),
+            "position_ids": position_ids.cpu().numpy().astype(np.int64), 
+            "token_type_ids": tokenized["token_type_ids"].cpu().numpy().astype(np.int64),
+            "text_token_mask": text_self_attention_masks.cpu().numpy().astype(bool),
         }
 
+        # 推理并解析
         logits, boxes = self.session.run(["logits", "boxes"], onnx_inputs)
         probs = 1 / (1 + np.exp(-logits))[0]  # sigmoid
         boxes_fixed = boxes[0]
 
-        N = input_ids.shape[1]
+        # 过滤与后处理逻辑（保持与你代码一致）
+        N = onnx_inputs["input_ids"].shape[1]
         max_scores = probs[:, :N].max(axis=-1)
         max_indices = probs[:, :N].argmax(axis=-1)
         keep_idx = max_scores > threshold
