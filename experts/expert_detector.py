@@ -57,36 +57,37 @@ class OpenVocabularyDetector:
             input_ids, specical_tokens,
         )
 
-        # 🚀 【回归静态 256 对齐，但修正 Padding 逻辑】
+        # 🚀 【工业级静态 256 稳健对齐】
         L = self.MAX_TEXT_LEN
         N = input_ids.shape[1]
         B = input_ids.shape[0]
 
         if N < L:
             pad_len = L - N
-            # 1. 正常的文本特征 Padding
+            # 1. 基础特征补零
             input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
             attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
             token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
             
-            # 2. 🔥【核心修正 1】：不要用 0 填充位置索引！
-            # 强行让 position_ids 变成 0 到 255 的严格递增序列，防止 GatherElements 查表越界或冲突
+            # 2. 位置编码严格递增
             position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
             
-            # 3. 🔥【核心修正 2】：二维自注意力掩码矩阵的 Padding
-            # 创建 [B, 256, 256] 的全 False 矩阵，只将前 [B, N, N] 的真实文本交互部分填入
-            full_mask = np.zeros((B, L, L), dtype=bool)
+            # 3. 🔥【致命修复】：重新构造 text_token_mask
+            # 很多导出的 GroundingDINO ONNX 模型在计算 text_token_mask 时，
+            # 哪怕是 Padding 区域，在自注意力层里执行 Gather 算子也必须能连通。
+            # 这里先创建一个全为 True 的 [B, L, L] 矩阵（或者单位阵），然后把真实文本的 mask 嵌进去。
+            # 最稳妥的做法：Padding 区域全部允许互相可见（全 True），交给模型的 attention_mask 去做最后的业务隔离。
+            full_mask = np.ones((B, L, L), dtype=bool)
             full_mask[:, :N, :N] = text_self_attention_masks[:, :N, :N]
             text_self_attention_masks = full_mask
         else:
-            # 如果文本刚好等于或超过 256，进行截断对齐
             input_ids = input_ids[:, :L]
             attention_mask = attention_mask[:, :L]
             token_type_ids = token_type_ids[:, :L]
             position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
             text_self_attention_masks = text_self_attention_masks[:, :L, :L]
 
-        # 4. 组装输入，确保所有输入的最后一维（或后两维）都是严格的 256
+        # 4. 组装最终输入
         onnx_inputs = {
             "img": img_data, 
             "input_ids": input_ids, 
