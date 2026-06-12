@@ -7,13 +7,12 @@ import torch
 from PIL import Image
 from torchvision.transforms import functional as TVF
 
-# 引入老分支的官方路径和工具，确保词表和 Mask 逻辑百分之百对齐
+# 引入官方工具
 sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO")
 from groundingdino.util.get_tokenlizer import get_tokenlizer
 from groundingdino.models.GroundingDINO.bertwarper import generate_masks_with_special_tokens_and_transfer_map
 
 class OpenVocabularyDetector:
-    # 明确死守 256 静态维度
     MAX_TEXT_LEN = 256
 
     def __init__(self, 
@@ -23,7 +22,7 @@ class OpenVocabularyDetector:
         providers = ['CPUExecutionProvider']
         self.session = ort.InferenceSession(model_path, providers=providers)
         
-        # 使用官方 BERT 词表，确保 hammerhead shark 的 Token ID 正确
+        # 直接拿官方 Tokenizer（完全替代了拉起庞大 tmp_model 的作用，更轻量）
         self.tokenizer = get_tokenlizer("bert-base-uncased")
         self.specical_tokens = self.tokenizer.convert_tokens_to_ids(["[CLS]", "[SEP]", ".", "?"])
 
@@ -43,68 +42,45 @@ class OpenVocabularyDetector:
         if not caption.endswith("."):
             caption += " ."
 
-        # 1. 拿到动态长度的原始 Token
-        tokenized = self.tokenizer(caption, padding="longest", return_tensors="pt")
+        # 🚀 终极修复：启用 native padding！强行让 Tokenizer 吐出完美的 256 长度张量
+        tokenized = self.tokenizer(
+            caption, 
+            padding="max_length", 
+            max_length=self.MAX_TEXT_LEN, 
+            truncation=True,
+            return_tensors="pt"
+        )
         
+        # 直接塞给官方掩码生成器，它会自动处理好 256 长度的各种 Mask 和 position_ids 映射
         with torch.no_grad():
             (
                 text_self_attention_masks,
-                _,  # 弃用动态生成的 position_ids
+                position_ids,
                 _,
             ) = generate_masks_with_special_tokens_and_transfer_map(
                 tokenized, self.specical_tokens, self.tokenizer
             )
 
-        # 转换为 NumPy
-        input_ids_raw = tokenized["input_ids"].cpu().numpy().astype(np.int64)
-        attention_mask_raw = tokenized["attention_mask"].cpu().numpy().astype(bool)
-        token_type_ids_raw = tokenized["token_type_ids"].cpu().numpy().astype(np.int64)
-        text_mask_raw = text_self_attention_masks.cpu().numpy().astype(bool)
-
-        L = self.MAX_TEXT_LEN
-        B = input_ids_raw.shape[0]
-        N = input_ids_raw.shape[1]
-
-        # 2. 严格执行 256 静态裁剪或对齐
-        if N < L:
-            pad_len = L - N
-            input_ids = np.concatenate([input_ids_raw, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            # attention_mask 告诉模型后面那一截是 Padding
-            attention_mask = np.concatenate([attention_mask_raw, np.zeros((B, pad_len), dtype=bool)], axis=1)
-            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            
-            # 🔥 核心修正 1：position_ids 必须是一个严格单调递增到 255 的标准序列
-            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
-            
-            # 🔥 核心修正 2：text_token_mask 的 Padding 区域必须初始化为全 True
-            # 确保 ONNX 内部 GatherElements 算子前向传导时不产生越界负数/无限值，隔离交给 attention_mask
-            text_token_mask = np.ones((B, L, L), dtype=bool)
-            text_token_mask[:, :N, :N] = text_mask_raw[:, :N, :N]
-        else:
-            input_ids = input_ids_raw[:, :L]
-            attention_mask = attention_mask_raw[:, :L]
-            token_type_ids = token_type_ids[:, :L]
-            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
-            text_token_mask = text_mask_raw[:, :L, :L]
-
-        # 3. 组装输入，确保每一项的最后一维都是 256
+        # 毫无中间商赚差价，直接转 NumPy 喂给 ONNX（所有维度天然对齐 256）
         onnx_inputs = {
             "img": img_data, 
-            "input_ids": input_ids, 
-            "attention_mask": attention_mask,
-            "position_ids": position_ids, 
-            "token_type_ids": token_type_ids,
-            "text_token_mask": text_token_mask,
+            "input_ids": tokenized["input_ids"].cpu().numpy().astype(np.int64), 
+            "attention_mask": tokenized["attention_mask"].cpu().numpy().astype(bool),
+            "position_ids": position_ids.cpu().numpy().astype(np.int64), 
+            "token_type_ids": tokenized["token_type_ids"].cpu().numpy().astype(np.int64),
+            "text_token_mask": text_self_attention_masks.cpu().numpy().astype(bool),
         }
 
-        # 4. 运行推理
         logits, boxes = self.session.run(["logits", "boxes"], onnx_inputs)
         probs = 1 / (1 + np.exp(-logits))[0]  # sigmoid
         boxes_fixed = boxes[0]
 
-        # 5. 后处理逻辑
-        max_scores = probs[:, :N].max(axis=-1)
-        max_indices = probs[:, :N].argmax(axis=-1)
+        # 🚀 后处理修正：虽然输入是 256 维，但我们提取结果时只看真实 Token 长度
+        # 通过 attention_mask.sum() 获取当前文本真实的 Token 数量，避免把 Padding 当成目标提取
+        valid_token_len = int(tokenized["attention_mask"][0].sum().item())
+        
+        max_scores = probs[:, :valid_token_len].max(axis=-1)
+        max_indices = probs[:, :valid_token_len].argmax(axis=-1)
         keep_idx = max_scores > threshold
         
         filtered_scores = max_scores[keep_idx]
