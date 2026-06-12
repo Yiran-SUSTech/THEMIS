@@ -57,33 +57,24 @@ class OpenVocabularyDetector:
             input_ids, specical_tokens,
         )
 
-        # Truncate if text exceeds max length (same as reference)
-        L = self.MAX_TEXT_LEN
-        if text_self_attention_masks.shape[1] > L:
-            text_self_attention_masks = text_self_attention_masks[:, :L, :L]
-            position_ids = position_ids[:, :L]
-            input_ids = input_ids[:, :L]
-            attention_mask = attention_mask[:, :L]
-            token_type_ids = token_type_ids[:, :L]
-
-        # Pad to MAX_TEXT_LEN (ONNX model requires fixed text dimension)
+        # 🚀 【动态化重构】：完全摒弃固定 256 长度的 Padding 逻辑
+        # 1. 获取当前文本通过 Tokenizer 后的真实长度 N
         N = input_ids.shape[1]
-        if N < L:
-            B = input_ids.shape[0]
-            pad_len = L - N
-            input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
-            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            # Pad position_ids: use 0 for padding positions (same as [CLS]/[SEP] convention)
-            position_ids = np.concatenate([position_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
-            # Pad text_self_attention_masks: padding positions attend to nothing
-            full_mask = np.zeros((B, L, L), dtype=bool)
-            full_mask[:, :N, :N] = text_self_attention_masks
-            text_self_attention_masks = full_mask
+        
+        # 2. 像老分支一样，根据真实长度 N 动态生成严格递增的 position_ids
+        B = input_ids.shape[0]
+        position_ids = np.arange(N, dtype=np.int64).reshape(B, N)
+        
+        # 3. 动态截取 text_self_attention_masks 到真实长度 [B, N, N]
+        text_self_attention_masks = text_self_attention_masks[:, :N, :N]
 
+        # 4. 组装输入，所有张量的最后一维全部保持真实的动态长度 N
         onnx_inputs = {
-            "img": img_data, "input_ids": input_ids, "attention_mask": attention_mask,
-            "position_ids": position_ids, "token_type_ids": token_type_ids,
+            "img": img_data, 
+            "input_ids": input_ids, 
+            "attention_mask": attention_mask,
+            "position_ids": position_ids, 
+            "token_type_ids": token_type_ids,
             "text_token_mask": text_self_attention_masks,
         }
 
