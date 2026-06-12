@@ -3,26 +3,27 @@ import os
 import numpy as np
 import onnxruntime as ort
 import cv2
-import torch  # 用来调用原生的 generate_masks_with_special_tokens_and_transfer_map
+import torch
 from PIL import Image
 from torchvision.transforms import functional as TVF
 
-# 1. 统一用老分支的路径，确保机制一致
+# 引入老分支的官方路径和工具，确保词表和 Mask 逻辑百分之百对齐
 sys.path.insert(0, "/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO")
-from groundingdino.models import build_model
-from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.get_tokenlizer import get_tokenlizer  # 引入老分支的官方Tokenizer加载器
+from groundingdino.util.get_tokenlizer import get_tokenlizer
 from groundingdino.models.GroundingDINO.bertwarper import generate_masks_with_special_tokens_and_transfer_map
 
 class OpenVocabularyDetector:
+    # 明确死守 256 静态维度
+    MAX_TEXT_LEN = 256
+
     def __init__(self, 
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/weights/groundingdino.onnx",
                  config_path="/mnt/afs/zhengmingkai/zyr/THEMIS/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"):
-        print(f"[Init] Loading Grounding DINO ONNX Model...")
+        print(f"[Init] Loading Grounding DINO ONNX Model (Static 256)...")
         providers = ['CPUExecutionProvider']
         self.session = ort.InferenceSession(model_path, providers=providers)
         
-        # 🚀【核心修正】：改回老分支官方的 bert-base-uncased Tokenizer
+        # 使用官方 BERT 词表，确保 hammerhead shark 的 Token ID 正确
         self.tokenizer = get_tokenlizer("bert-base-uncased")
         self.specical_tokens = self.tokenizer.convert_tokens_to_ids(["[CLS]", "[SEP]", ".", "?"])
 
@@ -42,35 +43,66 @@ class OpenVocabularyDetector:
         if not caption.endswith("."):
             caption += " ."
 
-        # 🚀【恢复老分支纯正的动态 Token 提取】
+        # 1. 拿到动态长度的原始 Token
         tokenized = self.tokenizer(caption, padding="longest", return_tensors="pt")
         
         with torch.no_grad():
             (
                 text_self_attention_masks,
-                position_ids,
+                _,  # 弃用动态生成的 position_ids
                 _,
             ) = generate_masks_with_special_tokens_and_transfer_map(
                 tokenized, self.specical_tokens, self.tokenizer
             )
 
-        # 🚀【纯动态轴组装】转化为 NumPy 喂给 ONNX，完全不要任何 256 Padding 逻辑
+        # 转换为 NumPy
+        input_ids_raw = tokenized["input_ids"].cpu().numpy().astype(np.int64)
+        attention_mask_raw = tokenized["attention_mask"].cpu().numpy().astype(bool)
+        token_type_ids_raw = tokenized["token_type_ids"].cpu().numpy().astype(np.int64)
+        text_mask_raw = text_self_attention_masks.cpu().numpy().astype(bool)
+
+        L = self.MAX_TEXT_LEN
+        B = input_ids_raw.shape[0]
+        N = input_ids_raw.shape[1]
+
+        # 2. 严格执行 256 静态裁剪或对齐
+        if N < L:
+            pad_len = L - N
+            input_ids = np.concatenate([input_ids_raw, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            # attention_mask 告诉模型后面那一截是 Padding
+            attention_mask = np.concatenate([attention_mask_raw, np.zeros((B, pad_len), dtype=bool)], axis=1)
+            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            
+            # 🔥 核心修正 1：position_ids 必须是一个严格单调递增到 255 的标准序列
+            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
+            
+            # 🔥 核心修正 2：text_token_mask 的 Padding 区域必须初始化为全 True
+            # 确保 ONNX 内部 GatherElements 算子前向传导时不产生越界负数/无限值，隔离交给 attention_mask
+            text_token_mask = np.ones((B, L, L), dtype=bool)
+            text_token_mask[:, :N, :N] = text_mask_raw[:, :N, :N]
+        else:
+            input_ids = input_ids_raw[:, :L]
+            attention_mask = attention_mask_raw[:, :L]
+            token_type_ids = token_type_ids[:, :L]
+            position_ids = np.arange(L, dtype=np.int64).reshape(B, L)
+            text_token_mask = text_mask_raw[:, :L, :L]
+
+        # 3. 组装输入，确保每一项的最后一维都是 256
         onnx_inputs = {
             "img": img_data, 
-            "input_ids": tokenized["input_ids"].cpu().numpy().astype(np.int64), 
-            "attention_mask": tokenized["attention_mask"].cpu().numpy().astype(bool),
-            "position_ids": position_ids.cpu().numpy().astype(np.int64), 
-            "token_type_ids": tokenized["token_type_ids"].cpu().numpy().astype(np.int64),
-            "text_token_mask": text_self_attention_masks.cpu().numpy().astype(bool),
+            "input_ids": input_ids, 
+            "attention_mask": attention_mask,
+            "position_ids": position_ids, 
+            "token_type_ids": token_type_ids,
+            "text_token_mask": text_token_mask,
         }
 
-        # 推理并解析
+        # 4. 运行推理
         logits, boxes = self.session.run(["logits", "boxes"], onnx_inputs)
         probs = 1 / (1 + np.exp(-logits))[0]  # sigmoid
         boxes_fixed = boxes[0]
 
-        # 过滤与后处理逻辑（保持与你代码一致）
-        N = onnx_inputs["input_ids"].shape[1]
+        # 5. 后处理逻辑
         max_scores = probs[:, :N].max(axis=-1)
         max_indices = probs[:, :N].argmax(axis=-1)
         keep_idx = max_scores > threshold
