@@ -58,12 +58,28 @@ class OpenVocabularyDetector:
         )
 
         # Truncate if text exceeds max length (same as reference)
-        if text_self_attention_masks.shape[1] > self.MAX_TEXT_LEN:
-            text_self_attention_masks = text_self_attention_masks[:, :self.MAX_TEXT_LEN, :self.MAX_TEXT_LEN]
-            position_ids = position_ids[:, :self.MAX_TEXT_LEN]
-            input_ids = input_ids[:, :self.MAX_TEXT_LEN]
-            attention_mask = attention_mask[:, :self.MAX_TEXT_LEN]
-            token_type_ids = token_type_ids[:, :self.MAX_TEXT_LEN]
+        L = self.MAX_TEXT_LEN
+        if text_self_attention_masks.shape[1] > L:
+            text_self_attention_masks = text_self_attention_masks[:, :L, :L]
+            position_ids = position_ids[:, :L]
+            input_ids = input_ids[:, :L]
+            attention_mask = attention_mask[:, :L]
+            token_type_ids = token_type_ids[:, :L]
+
+        # Pad to MAX_TEXT_LEN (ONNX model requires fixed text dimension)
+        N = input_ids.shape[1]
+        if N < L:
+            B = input_ids.shape[0]
+            pad_len = L - N
+            input_ids = np.concatenate([input_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            attention_mask = np.concatenate([attention_mask, np.zeros((B, pad_len), dtype=bool)], axis=1)
+            token_type_ids = np.concatenate([token_type_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            # Pad position_ids: use 0 for padding positions (same as [CLS]/[SEP] convention)
+            position_ids = np.concatenate([position_ids, np.zeros((B, pad_len), dtype=np.int64)], axis=1)
+            # Pad text_self_attention_masks: padding positions attend to nothing
+            full_mask = np.zeros((B, L, L), dtype=bool)
+            full_mask[:, :N, :N] = text_self_attention_masks
+            text_self_attention_masks = full_mask
 
         onnx_inputs = {
             "img": img_data, "input_ids": input_ids, "attention_mask": attention_mask,
