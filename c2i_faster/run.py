@@ -145,8 +145,10 @@ Examples:
 
     # ── Pre-load expert managers if needed ─────────────────────
     expert_managers = []
+    shared_cpu_manager = None
+    cpu_semaphore = None
     if run_step3:
-        expert_managers = preload_expert_managers(
+        expert_managers, shared_cpu_manager, cpu_semaphore = preload_expert_managers(
             num_groups=args.gpu_groups,
             gpu_config_path=args.gpu_config,
             gpu_preset=args.gpu_preset,
@@ -216,6 +218,7 @@ Examples:
             step=step,
             final_reports_dir=final_reports_dir,
             use_session=args.session,
+            cpu_semaphore=cpu_semaphore,
         )
 
     elif args.mode == "batch":
@@ -253,6 +256,8 @@ Examples:
     # Cleanup
     for em in expert_managers:
         em.cleanup()
+    if shared_cpu_manager is not None:
+        shared_cpu_manager.cleanup()
 
 
 if __name__ == "__main__":

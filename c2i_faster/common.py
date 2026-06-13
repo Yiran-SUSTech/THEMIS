@@ -66,9 +66,11 @@ def build_gpu_group_configs(num_groups: int, base_config: dict) -> list[dict]:
             "animal_pose_auditor": {"device": f"cuda:{offset + 2}", "num_gpus": 1},
             "geometric_depth_auditor": {"device": f"maca:{maca_offset}", "num_gpus": 1},
             "fine_grained_classifier": {"device": f"maca:{maca_offset + 1}", "num_gpus": 1},
+cpu_config = {
             "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
             "topology_boundary_auditor": {"device": "cpu", "num_gpus": 0},
             "image_text_auditor": {"device": "cpu", "num_gpus": 0},
+            "animal_pose_auditor": {"device": "cpu", "num_gpus": 0},
         }
         group_configs.append(config)
 
@@ -247,21 +249,25 @@ def preload_expert_managers(
     gpu_config_path: str | None,
     required_ids: list[str] | None = None,
     gpu_preset: str | None = None,
-) -> list:
+    onnx_threads: int = 2,
+) -> tuple:
     """Pre-load ExpertManager instances for GPU execution.
 
     Priority: gpu_config_path > gpu_preset > num_groups (auto-split)
 
-    Preset format supports two styles:
-      - Multi-group: {"groups": [config0, config1, ...]}  → one ExpertManager per group
-      - Single-group: {expert_id: {...}, ...}              → one ExpertManager total
+    Returns:
+        (expert_managers, shared_cpu_manager, cpu_semaphore)
+        - expert_managers: list of ExpertManager for GPU groups
+        - shared_cpu_manager: ExpertManager with CPU-only experts (shared across groups)
+        - cpu_semaphore: threading.Semaphore to limit concurrent CPU expert calls
     """
-    from step3_execute import ExpertManager, DEFAULT_GPU_CONFIG, EXPERT_MODULE_MAP
+    from step3_execute import ExpertManager, DEFAULT_GPU_CONFIG, EXPERT_MODULE_MAP, CPU_EXPERT_IDS, _limit_onnx_threads
+
+    _limit_onnx_threads(num_threads=onnx_threads)
 
     if gpu_config_path:
         with open(gpu_config_path, "r") as f:
             custom_config = json.load(f)
-        # Support both formats
         if "groups" in custom_config:
             group_configs = custom_config["groups"]
         else:
@@ -275,7 +281,6 @@ def preload_expert_managers(
             sys.exit(1)
         with open(preset_path, "r") as f:
             preset_config = json.load(f)
-        # Support both formats
         if "groups" in preset_config:
             group_configs = preset_config["groups"]
         else:
@@ -287,6 +292,29 @@ def preload_expert_managers(
     if required_ids is None:
         required_ids = list(EXPERT_MODULE_MAP.keys())
 
+    has_multiple_groups = len(group_configs) > 1
+
+    shared_cpu_manager = None
+    cpu_semaphore = None
+
+    if has_multiple_groups:
+        print(f"\n{'='*60}")
+        print(f"  Loading SHARED CPU expert pool (1 copy for all groups)")
+        print(f"{'='*60}")
+        cpu_config = {
+            "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
+            "topology_boundary_auditor": {"device": "cpu", "num_gpus": 0},
+            "image_text_auditor": {"device": "cpu", "num_gpus": 0},
+        }
+        shared_cpu_manager = ExpertManager(gpu_config=cpu_config)
+        cpu_ids_to_load = [eid for eid in required_ids if eid in CPU_EXPERT_IDS]
+        if cpu_ids_to_load:
+            shared_cpu_manager.load_all(cpu_ids_to_load)
+
+        import threading
+        cpu_semaphore = threading.Semaphore(2)
+        print(f"  CPU expert concurrency limit: 2")
+
     print(f"\n{'='*60}")
     print(f"  Pre-loading {len(group_configs)} GPU group(s)")
     print(f"{'='*60}")
@@ -294,12 +322,22 @@ def preload_expert_managers(
     expert_managers = []
     for g, cfg in enumerate(group_configs):
         print(f"\n  --- GPU Group {g} ---")
-        em = ExpertManager(gpu_config=cfg)
-        em.load_all(required_ids)
+
+        if has_multiple_groups:
+            gpu_only_ids = [eid for eid in required_ids if eid not in CPU_EXPERT_IDS]
+            filtered_cfg = {k: v for k, v in cfg.items() if k not in CPU_EXPERT_IDS}
+        else:
+            gpu_only_ids = required_ids
+            filtered_cfg = cfg
+
+        em = ExpertManager(gpu_config=filtered_cfg, shared_cpu_manager=shared_cpu_manager)
+        em.load_all(gpu_only_ids)
         expert_managers.append(em)
 
     total_loaded = sum(len(em.loaded_experts) for em in expert_managers)
+    if shared_cpu_manager:
+        total_loaded += len(shared_cpu_manager.loaded_experts)
     print(f"\n  Total expert instances loaded: {total_loaded}")
     print(f"{'='*60}")
 
-    return expert_managers
+    return expert_managers, shared_cpu_manager, cpu_semaphore

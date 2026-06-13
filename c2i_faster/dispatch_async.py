@@ -197,6 +197,7 @@ async def _gpu_worker(
     stats: dict,
     done_event: asyncio.Event,
     reflector_queue: asyncio.Queue | None = None,
+    cpu_semaphore: object | None = None,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -227,6 +228,7 @@ async def _gpu_worker(
 
                 bundle = await loop.run_in_executor(
                     None, execute_plan, plan, expert_manager, resolved_path, class_label,
+                    False, cpu_semaphore,
                 )
                 await loop.run_in_executor(
                     None, save_testimony_bundle, bundle, expert_results_dir,
@@ -361,6 +363,7 @@ async def _run_full_pipeline(
     api_concurrency: int,
     final_reports_dir: Path | None = None,
     use_session: bool = False,
+    cpu_semaphore: object | None = None,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -403,6 +406,7 @@ async def _run_full_pipeline(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, gpu_done_event,
             reflector_queue=reflector_queue,
+            cpu_semaphore=cpu_semaphore,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -509,6 +513,7 @@ async def run_step3_async(
     expert_managers: list,
     image_id_filter: str = "",
     limit: int = 0,
+    cpu_semaphore: object | None = None,
 ) -> dict:
     """Run Step 3 with parallel GPU groups. Public API for batch mode too."""
     stats = {"gpu_ok": 0, "gpu_fail": 0}
@@ -540,6 +545,7 @@ async def run_step3_async(
         asyncio.create_task(_gpu_worker(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, done_event,
+            cpu_semaphore=cpu_semaphore,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -647,6 +653,7 @@ def run_async_pipeline(
     step: str,
     final_reports_dir: Path | None = None,
     use_session: bool = False,
+    cpu_semaphore: object | None = None,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     run_step12 = step in ("1", "2", "12", "123", "1234")
@@ -683,6 +690,7 @@ def run_async_pipeline(
             api_concurrency=api_concurrency,
             final_reports_dir=reports_dir,
             use_session=use_session,
+            cpu_semaphore=cpu_semaphore,
         ))
 
     elif run_step12 and not run_step3:
@@ -708,6 +716,7 @@ def run_async_pipeline(
             approved_dir=approved_dir,
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
+            cpu_semaphore=cpu_semaphore,
         ))
 
     return {}

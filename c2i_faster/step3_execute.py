@@ -17,6 +17,7 @@ import time
 import cv2
 import traceback
 import importlib
+import threading
 import numpy as np
 from pathlib import Path
 from datetime import datetime
@@ -89,9 +90,41 @@ DEFAULT_GPU_CONFIG = {
     "image_text_auditor": {"device": "cpu", "num_gpus": 0},
 }
 
+CPU_EXPERT_IDS = {
+    "open_vocabulary_detector",
+    "topology_boundary_auditor",
+    "image_text_auditor",
+}
+
 EXPERT_DEPENDENCIES = {
     "topology_boundary_auditor": ["open_vocabulary_detector"],
 }
+
+CPU_EXPERT_IDS = {
+    "open_vocabulary_detector",
+    "topology_boundary_auditor",
+    "image_text_auditor",
+    "animal_pose_auditor",
+}
+
+
+def _limit_onnx_threads(num_threads: int = 2) -> None:
+    """Set ONNX Runtime global thread pool size to avoid CPU contention.
+
+    When multiple ONNX sessions run concurrently (e.g. in multi-group mode),
+    each session defaults to using ALL CPU cores, causing severe contention.
+    Call this once at startup to cap the per-session thread count.
+    """
+    try:
+        import onnxruntime as ort
+        ort.set_default_logger_severity(3)
+        sess_opts = ort.SessionOptions()
+        sess_opts.intra_op_num_threads = num_threads
+        sess_opts.inter_op_num_threads = 1
+        ort.set_default_session_options(sess_opts)
+        print(f"  [ONNX] Thread limit set: intra_op={num_threads}, inter_op=1")
+    except Exception as e:
+        print(f"  [ONNX] Failed to set thread limit: {e}")
 
 
 class NumpySafeEncoder(json.JSONEncoder):
@@ -110,14 +143,19 @@ class ExpertManager:
 
     At system startup, loads each expert model onto its designated GPU.
     Experts that are too large can occupy multiple GPUs (configured via gpu_config).
+
+    If a shared_cpu_manager is set, CPU experts not loaded in this manager
+    will be resolved from the shared pool instead.
     """
 
-    def __init__(self, gpu_config: dict | None = None, expert_output_dirs: dict | None = None):
+    def __init__(self, gpu_config: dict | None = None, expert_output_dirs: dict | None = None,
+                 shared_cpu_manager: 'ExpertManager | None' = None):
         self.gpu_config = gpu_config or dict(DEFAULT_GPU_CONFIG)
         self.expert_output_dirs = expert_output_dirs or {}
         self.loaded_experts: dict = {}
         self.load_errors: dict = {}
         self._load_times: dict = {}
+        self.shared_cpu_manager = shared_cpu_manager
 
     def load_all(self, expert_ids: list[str] | None = None) -> None:
         ids_to_load = expert_ids or list(EXPERT_MODULE_MAP.keys())
@@ -217,10 +255,19 @@ class ExpertManager:
         return kwargs
 
     def get_expert(self, expert_id: str):
-        return self.loaded_experts.get(expert_id)
+        instance = self.loaded_experts.get(expert_id)
+        if instance is not None:
+            return instance
+        if self.shared_cpu_manager is not None and expert_id in CPU_EXPERT_IDS:
+            return self.shared_cpu_manager.get_expert(expert_id)
+        return None
 
     def is_loaded(self, expert_id: str) -> bool:
-        return expert_id in self.loaded_experts
+        if expert_id in self.loaded_experts:
+            return True
+        if self.shared_cpu_manager is not None and expert_id in CPU_EXPERT_IDS:
+            return self.shared_cpu_manager.is_loaded(expert_id)
+        return False
 
     def get_loaded_ids(self) -> list[str]:
         return list(self.loaded_experts.keys())
@@ -344,6 +391,7 @@ def execute_plan(
     image_path: str,
     class_label: str,
     save_pose_viz: bool = False,
+    cpu_semaphore: threading.Semaphore | None = None,
 ) -> dict:
     """Execute an approved plan by orchestrating the selected experts.
 
@@ -399,11 +447,17 @@ def execute_plan(
         target = detector_entry.get("target_subject", "")
 
         if instance is not None:
-            print(f"  [Phase 1] Running {eid} #{det_idx+1} (query: '{target}')...")
-            detector_result = _invoke_expert_audit(
-                instance, eid, img_bgr, image_path, class_label,
-                target,
-            )
+            if cpu_semaphore is not None:
+                cpu_semaphore.acquire()
+            try:
+                print(f"  [Phase 1] Running {eid} #{det_idx+1} (query: '{target}')...")
+                detector_result = _invoke_expert_audit(
+                    instance, eid, img_bgr, image_path, class_label,
+                    target,
+                )
+            finally:
+                if cpu_semaphore is not None:
+                    cpu_semaphore.release()
 
             if detector_result.get("status") != "failed":
                 detected_objects = detector_result.get("evidence", {}).get("detected_objects", [])
@@ -444,26 +498,35 @@ def execute_plan(
 
         def _run_entry(entry: dict, idx: int) -> dict:
             eid = entry["expert_name"]
-            instance = expert_manager.get_expert(eid)
+            is_cpu_expert = eid in CPU_EXPERT_IDS
+            sem_ctx = cpu_semaphore if (is_cpu_expert and cpu_semaphore is not None) else None
 
-            if instance is None:
-                return _make_failed_testimony(eid, entry, "Expert model not loaded")
+            if sem_ctx is not None:
+                sem_ctx.acquire()
+            try:
+                instance = expert_manager.get_expert(eid)
 
-            box = None
-            if eid == "topology_boundary_auditor":
-                target = entry.get("target_subject", "")
-                box = hint_box_map.get(target)
-                if box is None and hint_box_map:
-                    box = next(iter(hint_box_map.values()))
+                if instance is None:
+                    return _make_failed_testimony(eid, entry, "Expert model not loaded")
 
-            pose_viz = entry_pose_viz.get(idx)
+                box = None
+                if eid == "topology_boundary_auditor":
+                    target = entry.get("target_subject", "")
+                    box = hint_box_map.get(target)
+                    if box is None and hint_box_map:
+                        box = next(iter(hint_box_map.values()))
 
-            result = _invoke_expert_audit(
-                instance, eid, img_bgr, image_path, class_label,
-                entry["target_subject"], hint_box=box,
-                save_pose_viz=save_pose_viz, pose_viz_path=pose_viz,
-            )
-            return _wrap_testimony(eid, entry, result)
+                pose_viz = entry_pose_viz.get(idx)
+
+                result = _invoke_expert_audit(
+                    instance, eid, img_bgr, image_path, class_label,
+                    entry["target_subject"], hint_box=box,
+                    save_pose_viz=save_pose_viz, pose_viz_path=pose_viz,
+                )
+                return _wrap_testimony(eid, entry, result)
+            finally:
+                if sem_ctx is not None:
+                    sem_ctx.release()
 
         max_workers = min(len(remaining_entries), 4)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
