@@ -66,11 +66,9 @@ def build_gpu_group_configs(num_groups: int, base_config: dict) -> list[dict]:
             "animal_pose_auditor": {"device": f"cuda:{offset + 2}", "num_gpus": 1},
             "geometric_depth_auditor": {"device": f"maca:{maca_offset}", "num_gpus": 1},
             "fine_grained_classifier": {"device": f"maca:{maca_offset + 1}", "num_gpus": 1},
-cpu_config = {
             "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
             "topology_boundary_auditor": {"device": "cpu", "num_gpus": 0},
             "image_text_auditor": {"device": "cpu", "num_gpus": 0},
-            "animal_pose_auditor": {"device": "cpu", "num_gpus": 0},
         }
         group_configs.append(config)
 
