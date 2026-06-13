@@ -251,13 +251,22 @@ def preload_expert_managers(
     """Pre-load ExpertManager instances for GPU execution.
 
     Priority: gpu_config_path > gpu_preset > num_groups (auto-split)
+
+    Preset format supports two styles:
+      - Multi-group: {"groups": [config0, config1, ...]}  → one ExpertManager per group
+      - Single-group: {expert_id: {...}, ...}              → one ExpertManager total
     """
     from step3_execute import ExpertManager, DEFAULT_GPU_CONFIG, EXPERT_MODULE_MAP
 
     if gpu_config_path:
         with open(gpu_config_path, "r") as f:
             custom_config = json.load(f)
-        group_configs = [custom_config]
+        # Support both formats
+        if "groups" in custom_config:
+            group_configs = custom_config["groups"]
+        else:
+            custom_config.pop("_description", None)
+            group_configs = [custom_config]
     elif gpu_preset:
         preset_path = GPU_PRESETS_DIR / f"{gpu_preset}.json"
         if not preset_path.exists():
@@ -266,9 +275,12 @@ def preload_expert_managers(
             sys.exit(1)
         with open(preset_path, "r") as f:
             preset_config = json.load(f)
-        # Remove metadata key
-        preset_config.pop("_description", None)
-        group_configs = [preset_config]
+        # Support both formats
+        if "groups" in preset_config:
+            group_configs = preset_config["groups"]
+        else:
+            preset_config.pop("_description", None)
+            group_configs = [preset_config]
     else:
         group_configs = build_gpu_group_configs(num_groups, DEFAULT_GPU_CONFIG)
 
