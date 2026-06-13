@@ -314,11 +314,10 @@ def preload_expert_managers(
         print(f"  CPU expert concurrency limit: 2")
 
     print(f"\n{'='*60}")
-    print(f"  Pre-loading {len(group_configs)} GPU group(s)")
+    print(f"  Pre-loading {len(group_configs)} GPU group(s) in PARALLEL")
     print(f"{'='*60}")
 
-    expert_managers = []
-    for g, cfg in enumerate(group_configs):
+    def _load_group(g: int, cfg: dict) -> ExpertManager:
         print(f"\n  --- GPU Group {g} ---")
 
         if has_multiple_groups:
@@ -330,7 +329,19 @@ def preload_expert_managers(
 
         em = ExpertManager(gpu_config=filtered_cfg, shared_cpu_manager=shared_cpu_manager)
         em.load_all(gpu_only_ids)
-        expert_managers.append(em)
+        return em
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    expert_managers = [None] * len(group_configs)
+    with ThreadPoolExecutor(max_workers=len(group_configs)) as pool:
+        futures = {
+            pool.submit(_load_group, g, cfg): g
+            for g, cfg in enumerate(group_configs)
+        }
+        for future in as_completed(futures):
+            g = futures[future]
+            expert_managers[g] = future.result()
 
     total_loaded = sum(len(em.loaded_experts) for em in expert_managers)
     if shared_cpu_manager:

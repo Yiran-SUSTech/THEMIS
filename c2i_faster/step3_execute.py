@@ -164,8 +164,18 @@ class ExpertManager:
         print(f"  ExpertManager: Loading {len(ids_to_load)} expert models")
         print(f"{'=' * 60}")
 
-        for eid in ids_to_load:
-            self.load_expert(eid)
+        if len(ids_to_load) <= 1:
+            for eid in ids_to_load:
+                self.load_expert(eid)
+        else:
+            with ThreadPoolExecutor(max_workers=len(ids_to_load)) as pool:
+                futures = {pool.submit(self.load_expert, eid): eid for eid in ids_to_load}
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        eid = futures[future]
+                        self.load_errors[eid] = f"Thread error: {e}"
 
         success = len(self.loaded_experts)
         failed = len(self.load_errors)
