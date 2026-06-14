@@ -1,0 +1,186 @@
+[
+  {
+    "expert_id": "animal_pose_auditor",
+    "model_name": "RTMLib_YOLO_ViTPose",
+    "task_type": "pose_estimation",
+    "specialty": "animal_anatomy_integrity",
+    "description": "Detects 17 keypoints for animals/humans to audit biological structural correctness.",
+    "topology_map": {
+      "0-2": "Face (Nose, Eyes)",
+      "3-4": "Torso (Neck, Tail-root)",
+      "5-10": "Front Limbs (Shoulder, Elbow, Wrist)",
+      "11-16": "Hind Limbs (Hip, Knee, Ankle)"
+    },
+    "diagnostic_criteria": {
+      "Melting": "Score < 0.25 AND local joint clusters overlap spatially.",
+      "Missing": "Detected subject count is correct but keypoint score < 0.15.",
+      "Distortion": "Abnormal limb-to-body length ratio OR joint angles exceeding biological limits (e.g., >180° for elbows).",
+      "Low_Confidence_Artifact_Zone": "Any keypoint with confidence < 0.5 indicates the model is uncertain about that body part. This uncertainty strongly correlates with AI-generated artifacts: melting, fusion, extra/missing limbs, or anatomical hallucination in that region. Each low-confidence keypoint is a potential artifact marker.",
+      "Confidence_Ratio_Warning": "If >= 25% of all keypoints have confidence < 0.5 (low_confidence_ratio >= 0.25), the subject likely has widespread structural defects. If >= 40%, severe artifact failure is almost certain. The artifact_risk_level field provides this assessment directly: HIGH (>=40%), MEDIUM (>=25%), LOW (>=15%), MINIMAL (<15%)."
+    },
+    "applicable_scenes": [
+      "structural_distortion_check",
+      "missing_limbs_detection",
+      "joint_melting_analysis"
+    ],
+    "best_for": "Auditing if AI-generated subjects have complete limbs and valid biological structures."
+  },
+
+  {
+    "expert_id": "geometric_depth_auditor",
+    "model_name": "DepthAnythingV1",
+    "task_type": "depth_estimation",
+    "specialty": "3D_spatial_consistency",
+    "description": "Generates relative depth maps to expose geometric melting, spatial grounding errors, and foreground-background bleeding.",
+    "output_format": {
+      "type": "grayscale_intensity_map",
+      "encoding": "0-255 (255=Near, 0=Far)"
+    },
+    "diagnostic_criteria": {
+      "Melting_Bleeding": "Gradients at object boundaries are smooth rather than discrete, indicating the subject is 'fused' into the background.",
+      "Grounding_Failure": "Lack of sharp depth discontinuity at the contact point between an object and the ground (the 'sliding' or 'melting butter' effect).",
+      "Spatial_Warping": "Planar surfaces (walls, floors) exhibit irregular depth fluctuations, indicating a lack of structural rigidity in the AI generation.",
+      "Depth_Inversion": "Background elements appear brighter (closer) than foreground elements, violating basic perspective laws."
+    },
+    "applicable_scenes": [
+      "architectural_rigidity_check",
+      "subject_background_separation_audit",
+      "spatial_grounding_verification",
+      "perspective_distortion_analysis"
+    ],
+    "best_for": "Auditing if the scene has a valid 3D structure and if rigid objects are physically separated from their environment."
+  },
+
+  {
+    "expert_id": "topology_boundary_auditor",
+    "model_name": "SAM1",
+    "task_type": "instance_segmentation",
+    "specialty": "physical_boundary_integrity",
+    "description": "Segments specific object instances to audit topological connectivity and boundary sharpness.",
+    "input_requirements": "Requires prompts (bounding boxes or points) usually provided by a detection expert.",
+    "output_features": {
+      "mask_area": "Pixel count of the segmented region.",
+      "connectivity_count": "Number of disjoint components (islands) within a single prompted object.",
+      "boundary_smoothness": "Gradient variance along the mask edge."
+    },
+    "diagnostic_criteria": {
+      "Topological_Fragmentation": "Number of disconnected components > 1 for a single semantic entity (e.g., a floating hand).",
+      "Boundary_Melting": "High boundary variance or overlap with background mask (using SAM's confidence score < 0.85).",
+      "Ghosting_Artifacts": "Existence of small 'pixel islands' near the main body with low connectivity."
+    },
+    "applicable_scenes": [
+      "boundary_blur_detection",
+      "limb_fragmentation_check",
+      "background_foreground_fusion_analysis"
+    ],
+    "best_for": "Verifying if an object is a single, continuous physical entity without floating parts or blurred edges."
+  },
+
+  {
+    "expert_id": "open_vocabulary_detector",
+    "model_name": "Grounding DINO",
+    "task_type": "object_detection",
+    "specialty": "semantic_spatial_localization",
+    "description": "A SOTA open-vocabulary detector that links text prompts to image regions. Essential for multi-object counting and providing bounding box (BBox) priors for segmentation experts.",
+    "output_features": {
+      "bounding_boxes": "[x_min, y_min, x_max, y_max] absolute pixel coordinates mapped back to original image resolution.",
+      "confidence_score": "Probability score (0.0 to 1.0) of the presence of the specified entity.",
+      "text_label": "The specific matched word or phrase string extracted from the text prompt (e.g., 'hussar', 'monkey')."
+    },
+    "diagnostic_criteria": {
+      "Missing_Entity": "Detection score < 0.3 for a required class label from the prompt/taxonomy.",
+      "Counting_Error": "The number of detected BBoxes does not match the quantity specified in the prompt.",
+      "Spatial_Confusion": "Detected BBoxes for distinct entities overlap excessively, indicating potential 'fusion' artifacts."
+    },
+    "applicable_scenes": [
+      "multi_object_counting",
+      "spatial_relation_verification",
+      "region_of_interest_localization",
+      "text_to_entity_alignment_check"
+    ],
+    "best_for": "The primary 'Bridge' expert. It identifies 'WHERE' the subjects are, serving as the necessary precursor for SAM-based boundary auditing."
+  },
+
+  {
+    "expert_id": "fine_grained_classifier",
+    "model_name": "EVA-02",
+    "task_type": "image_classification",
+    "specialty": "subspecies_level_alignment",
+    "description": "High-performance vision transformer (ViT) pre-trained on ImageNet-21K/1K. Excels at identifying fine-grained categories (e.g., distinguishing specific monkey species).",
+    "output_features": {
+      "top_k_labels": "List of the top 5 most likely ImageNet classes.",
+      "logits_distribution": "Certainty of the classification.",
+      "feature_embeddings": "High-dimensional representation of image semantics."
+    },
+    "diagnostic_criteria": {
+      "Category_Mismatch": "The target class label is not present in the Top-5 predictions.",
+      "Low_Certainty": "Top-1 probability < 0.4, indicating a generic or ambiguous generation that lacks specific species features.",
+      "Visual_Hallucination": "The classifier predicts a completely unrelated class (e.g., predicting 'spider' for a 'monkey' due to limb artifacts)."
+    },
+    "applicable_scenes": [
+      "c2i_identity_verification",
+      "species_accuracy_check",
+      "semantic_drift_analysis",
+      "initial_quality_screening"
+    ],
+    "best_for": "The 'High-Speed Sieve'. It verifies if the generated image actually represents the intended Class Label at a professional taxonomical level."
+  },
+
+  {
+    "expert_id": "perceptual_quality_auditor",
+    "model_name": "ByteDance_Q_Insight_7B",
+    "task_type": "perceptual_quality_assessment",
+    "specialty": "artifact_and_distortion_diagnosis",
+    "description": "A CoT-enabled Multimodal-VLM trained specifically to analyze fine-grained image degradations and structural artifacts with step-by-step reasoning.",
+    "output_format": {
+      "reasoning_trajectory": "String encapsulated inside <think></think> tags.",
+      "structured_verdict": "JSON inside <answer></answer> tags with 'distortion_class' and 'severity'."
+    },
+    "diagnostic_criteria": {
+      "Noise": "Detects high-frequency graininess, salt-and-pepper artifacts, or sensor-like noise in textures.",
+      "Compression": "Identifies blockiness, mosquito noise, and JPEG pixelation artifacts, especially around high-contrast edges.",
+      "Blur": "Detects motion blur, out-of-focus blur, or characteristic AI over-smoothing (waxy textures).",
+      "Darken": "Audits severe underexposure, clipping in shadows, or unnatural lighting drops."
+    },
+    "severity_scale": {
+      "slight": 0.2,
+      "moderate": 0.4,
+      "obvious": 0.6,
+      "serious": 0.8,
+      "catastrophic": 1.0
+    },
+    "applicable_scenes": [
+      "general_image_quality_screening",
+      "texture_blur_analysis",
+      "compression_artifact_detection",
+      "global_illumination_audit"
+    ],
+    "best_for": "Acting as a high-level holistic quality filter to quickly catch standard graphics-level distortions before heavy downstream geometric/anatomical audits."
+  },
+
+  {
+    "expert_id": "image_text_auditor",
+    "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
+    "task_type": "text_detection_and_recognition",
+    "specialty": "text_legibility_and_alignment",
+    "description": "Extracts text boxes, recognized strings, and character-level confidence scores using PP-OCRv3 ONNX pipeline to audit visual text quality.",
+    "output_fields": {
+      "boxes": "Coordinates of detected text regions (N, 4, 2)",
+      "txts": "Recognized textual content for each region (Tuple of strings)",
+      "scores": "Confidence scores representing text legibility and model certainty (Tuple of floats)"
+    },
+    "diagnostic_criteria": {
+      "Text_Melting_or_Gibberish": "Detected bounding box exists BUT recognition score < 0.65, indicating deformed strokes or unreadable textures.",
+      "Watermark_Pollution": "Extracted text contains platform signatures (e.g., 'gettyimages', 'istock', 'shutterstock', 'adobe stock', or camera metadata strings).",
+      "Text_Alignment_Failure": "The user prompt explicitly requests rendering text 'X', but 'X' has a high Levenshtein/Edit Distance from the extracted 'txts', or 'boxes' is empty."
+    },
+    "applicable_scenes": [
+      "text_melting_analysis",
+      "gibberish_detection",
+      "copyright_watermark_check",
+      "text_rendering_alignment_eval"
+    ],
+    "best_for": "Auditing if AI-generated images contain unreadable text artifacts, unauthorized stock watermarks, or fail to accurately render texts specified in the prompt."
+  }
+
+]
