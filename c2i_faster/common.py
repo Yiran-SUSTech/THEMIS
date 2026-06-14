@@ -310,8 +310,9 @@ def preload_expert_managers(
             shared_cpu_manager.load_all(cpu_ids_to_load)
 
         import threading
-        cpu_semaphore = threading.Semaphore(2)
-        print(f"  CPU expert concurrency limit: 2")
+        cpu_concurrency = min(len(group_configs), 4) if has_multiple_groups else 2
+        cpu_semaphore = threading.Semaphore(cpu_concurrency)
+        print(f"  CPU expert concurrency limit: {cpu_concurrency}")
 
     HEAVY_EXPERT_IDS = {"perceptual_quality_auditor"}
 

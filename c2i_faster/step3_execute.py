@@ -274,6 +274,8 @@ class ExpertManager:
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
             if "max_memory" in gpu_cfg:
                 kwargs["max_memory"] = gpu_cfg["max_memory"]
+            if "attn_implementation" in gpu_cfg:
+                kwargs["attn_implementation"] = gpu_cfg["attn_implementation"]
 
         if expert_id == "open_vocabulary_detector":
             kwargs["model_path"] = str(PROJECT_ROOT / "new_models" / "groundingdino_sim.onnx")
