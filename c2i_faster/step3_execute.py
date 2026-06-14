@@ -157,6 +157,10 @@ class ExpertManager:
         self._load_times: dict = {}
         self.shared_cpu_manager = shared_cpu_manager
 
+    HEAVY_EXPERT_IDS = {"perceptual_quality_auditor"}
+    MAX_LOAD_RETRIES = 2
+    RETRY_DELAY_SECONDS = 5
+
     def load_all(self, expert_ids: list[str] | None = None) -> None:
         ids_to_load = expert_ids or list(EXPERT_MODULE_MAP.keys())
 
@@ -176,6 +180,25 @@ class ExpertManager:
                     except Exception as e:
                         eid = futures[future]
                         self.load_errors[eid] = f"Thread error: {e}"
+
+        failed_ids = list(self.load_errors.keys())
+        if failed_ids:
+            for attempt in range(1, self.MAX_LOAD_RETRIES + 1):
+                retry_ids = [eid for eid in failed_ids if eid not in self.loaded_experts]
+                if not retry_ids:
+                    break
+                print(f"\n  [RETRY] Attempt {attempt}/{self.MAX_LOAD_RETRIES} for: {retry_ids}")
+                for eid in retry_ids:
+                    self.load_errors.pop(eid, None)
+                time.sleep(self.RETRY_DELAY_SECONDS)
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                for eid in retry_ids:
+                    self.load_expert(eid)
 
         success = len(self.loaded_experts)
         failed = len(self.load_errors)
@@ -207,6 +230,14 @@ class ExpertManager:
 
         start = time.time()
         try:
+            if expert_id in self.HEAVY_EXPERT_IDS:
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+
             module = importlib.import_module(config["module"])
             cls = getattr(module, config["class_name"])
 

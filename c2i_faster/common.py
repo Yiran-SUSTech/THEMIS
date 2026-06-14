@@ -313,11 +313,17 @@ def preload_expert_managers(
         cpu_semaphore = threading.Semaphore(2)
         print(f"  CPU expert concurrency limit: 2")
 
-    print(f"\n{'='*60}")
-    print(f"  Pre-loading {len(group_configs)} GPU group(s) in PARALLEL")
-    print(f"{'='*60}")
+    HEAVY_EXPERT_IDS = {"perceptual_quality_auditor"}
 
-    def _load_group(g: int, cfg: dict) -> ExpertManager:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            print(f"  [GPU] torch.cuda.empty_cache() called")
+    except Exception:
+        pass
+
+    def _create_group_manager(g: int, cfg: dict) -> ExpertManager:
         print(f"\n  --- GPU Group {g} ---")
 
         if has_multiple_groups:
@@ -328,20 +334,59 @@ def preload_expert_managers(
             filtered_cfg = cfg
 
         em = ExpertManager(gpu_config=filtered_cfg, shared_cpu_manager=shared_cpu_manager)
-        em.load_all(gpu_only_ids)
-        return em
-
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+        return em, gpu_only_ids
 
     expert_managers = [None] * len(group_configs)
-    with ThreadPoolExecutor(max_workers=len(group_configs)) as pool:
-        futures = {
-            pool.submit(_load_group, g, cfg): g
-            for g, cfg in enumerate(group_configs)
-        }
-        for future in as_completed(futures):
-            g = futures[future]
-            expert_managers[g] = future.result()
+
+    if has_multiple_groups and len(group_configs) > 1:
+        heavy_ids = [eid for eid in required_ids if eid in HEAVY_EXPERT_IDS and eid not in CPU_EXPERT_IDS]
+        light_ids = [eid for eid in required_ids if eid not in CPU_EXPERT_IDS and eid not in HEAVY_EXPERT_IDS]
+
+        print(f"\n{'='*60}")
+        print(f"  Pre-loading {len(group_configs)} GPU group(s)")
+        print(f"  Strategy: SEQUENTIAL heavy models, then PARALLEL light models")
+        print(f"{'='*60}")
+
+        for g, cfg in enumerate(group_configs):
+            em, gpu_only_ids = _create_group_manager(g, cfg)
+            expert_managers[g] = em
+
+        if heavy_ids:
+            print(f"\n  [Phase 1] Loading heavy models SEQUENTIALLY: {heavy_ids}")
+            for g, em in enumerate(expert_managers):
+                em.load_all(heavy_ids)
+
+        if light_ids:
+            print(f"\n  [Phase 2] Loading light models in PARALLEL: {light_ids}")
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            with ThreadPoolExecutor(max_workers=len(expert_managers)) as pool:
+                futures = {pool.submit(em.load_all, light_ids): g for g, em in enumerate(expert_managers)}
+                for future in as_completed(futures):
+                    g = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"  [Group {g}] Light model loading error: {e}")
+    else:
+        print(f"\n{'='*60}")
+        print(f"  Pre-loading {len(group_configs)} GPU group(s) in PARALLEL")
+        print(f"{'='*60}")
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _load_group(g: int, cfg: dict) -> ExpertManager:
+            em, gpu_only_ids = _create_group_manager(g, cfg)
+            em.load_all(gpu_only_ids)
+            return em
+
+        with ThreadPoolExecutor(max_workers=len(group_configs)) as pool:
+            futures = {
+                pool.submit(_load_group, g, cfg): g
+                for g, cfg in enumerate(group_configs)
+            }
+            for future in as_completed(futures):
+                g = futures[future]
+                expert_managers[g] = future.result()
 
     total_loaded = sum(len(em.loaded_experts) for em in expert_managers)
     if shared_cpu_manager:

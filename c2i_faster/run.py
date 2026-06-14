@@ -251,6 +251,20 @@ Examples:
     if len(valid_images) > 0 and total_elapsed > 0:
         throughput = len(valid_images) / total_elapsed
         print(f"  Throughput:       {throughput:.2f} img/s ({1/throughput:.1f} s/img)")
+
+    if run_step3 and expert_managers:
+        all_failed = set()
+        for g, em in enumerate(expert_managers):
+            if em.load_errors:
+                all_failed.update(em.load_errors.keys())
+        if shared_cpu_manager and shared_cpu_manager.load_errors:
+            all_failed.update(shared_cpu_manager.load_errors.keys())
+        if all_failed:
+            print(f"\n  ⚠ WARNING: {len(all_failed)} expert(s) FAILED to load: {sorted(all_failed)}")
+            print(f"    Results for these experts will be missing from all images!")
+        else:
+            print(f"\n  ✓ All expert models loaded successfully")
+
     print(f"{'='*60}")
 
     # Cleanup
