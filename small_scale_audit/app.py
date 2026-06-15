@@ -1,6 +1,19 @@
 import os
 import json
+import argparse
+import pandas as pd
 import gradio as gr
+
+# ==========================================
+# 0. 命令行参数解析（recheck 模式）
+# ==========================================
+parser = argparse.ArgumentParser(description="Fine-Grained Visual Audit System")
+parser.add_argument("--recheck_file_path", type=str, default=None,
+                    help="Path to CSV file listing images that need re-annotation")
+cmd_args, _ = parser.parse_known_args()
+
+RECHECK_MODE = cmd_args.recheck_file_path is not None
+RECHECK_FILE_PATH = cmd_args.recheck_file_path
 
 # ==========================================
 # 1. 路径配置与核心数据加载
@@ -16,9 +29,10 @@ EN_GUIDE_PATH = os.path.join(BASE_DIR, "Annotation Guideline.md")
 image_to_class = {}
 class_to_taxonomy = {}
 raw_img_list = [] 
+recheck_img_list = []  # recheck模式下需要重新标注的图片列表
 
 def init_data():
-    global image_to_class, class_to_taxonomy, raw_img_list
+    global image_to_class, class_to_taxonomy, raw_img_list, recheck_img_list
     if os.path.exists(CLASS_ID_FILE):
         with open(CLASS_ID_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -56,6 +70,28 @@ def init_data():
         else:
             # 如果没有 class_ids.txt，则按文件名排序
             raw_img_list = sorted([f for f in os.listdir(IMAGE_DIR) if f.endswith(('.png', '.jpg', '.jpeg'))])
+
+    # 加载 recheck 图片列表
+    if RECHECK_MODE and RECHECK_FILE_PATH and os.path.exists(RECHECK_FILE_PATH):
+        recheck_df = pd.read_csv(RECHECK_FILE_PATH)
+        recheck_names = recheck_df.iloc[:, 0].astype(str).tolist()
+        # 确保文件名格式一致（可能带或不带扩展名）
+        recheck_set = set()
+        for name in recheck_names:
+            if '.' in name:
+                recheck_set.add(name)
+            else:
+                for ext in ['.png', '.jpg', '.jpeg']:
+                    candidate = f"{name}{ext}"
+                    if candidate in set(raw_img_list):
+                        recheck_set.add(candidate)
+                        break
+        # 保持 raw_img_list 中的顺序
+        recheck_img_list = [img for img in raw_img_list if img in recheck_set]
+        print(f"[Recheck Mode] Loaded {len(recheck_img_list)} images from: {RECHECK_FILE_PATH}")
+    else:
+        if RECHECK_MODE:
+            print(f"[Recheck Mode] WARNING: File not found: {RECHECK_FILE_PATH}")
 
 init_data()
 
@@ -98,11 +134,23 @@ def save_to_user_database(annotator_id, img_name, single_record):
 
 def build_dropdown_choices(user_db):
     choices = []
-    for img in raw_img_list:
-        if img in user_db:
-            choices.append((f"√ {img}", img)) 
+    display_list = recheck_img_list if RECHECK_MODE else raw_img_list
+    for img in display_list:
+        if RECHECK_MODE:
+            # recheck模式：已修改的用 $，未修改的用 √（有旧标注）或无标记
+            if img in user_db:
+                record = user_db[img]
+                if record.get("rechecked", False):
+                    choices.append((f"√ {img}$", img))  # 已重新标注
+                else:
+                    choices.append((f"√ {img}", img))    # 有旧标注但未重新标注
+            else:
+                choices.append((img, img))
         else:
-            choices.append((img, img))
+            if img in user_db:
+                choices.append((f"√ {img}", img)) 
+            else:
+                choices.append((img, img))
     return choices
 
 # ==========================================
@@ -205,7 +253,8 @@ def save_annotation(img_name, class_name, align_s, artifact_s, total_s, veto, an
             "artifact_score": float(artifact_s),   
             "total_score": float(total_s)
         },
-        "fine_grained_details": details
+        "fine_grained_details": details,
+        "rechecked": True if RECHECK_MODE else False
     }
     
     save_to_user_database(annotator_id, img_name, single_record)
@@ -213,12 +262,20 @@ def save_annotation(img_name, class_name, align_s, artifact_s, total_s, veto, an
     updated_db = load_user_database(annotator_id)
     new_choices = build_dropdown_choices(updated_db)
     
-    # 体验增强：保存后自动探寻下一张未标注的图，无缝推进流水线
+    # 体验增强：保存后自动探寻下一张未标注/未重新标注的图
+    search_list = recheck_img_list if RECHECK_MODE else raw_img_list
     next_img = img_name
-    for img in raw_img_list:
-        if img not in updated_db:
-            next_img = img
-            break
+    if RECHECK_MODE:
+        # recheck模式：找下一张未重新标注的图
+        for img in search_list:
+            if img not in updated_db or not updated_db[img].get("rechecked", False):
+                next_img = img
+                break
+    else:
+        for img in search_list:
+            if img not in updated_db:
+                next_img = img
+                break
     
     return gr.update(value=f"💾 Saved {img_name} successfully!"), gr.update(choices=new_choices, value=next_img)
 
@@ -234,17 +291,29 @@ def start_session(total_users, current_user):
         return [gr.update() for _ in range(7)] + [f"⚠️ Invalid ID. Must be 1 ~ {total_users}", "None", 5, "No", 0.0, 0.0] + [gr.update() for _ in range(30)]
         
     user_db = load_user_database(current_user)
-    completed_imgs = list(user_db.keys())
     
-    target_img = raw_img_list[0] if raw_img_list else None
-    for img in raw_img_list:
-        if img not in completed_imgs:
-            target_img = img
-            break
-    if not target_img and raw_img_list:
-        target_img = raw_img_list[-1]
+    search_list = recheck_img_list if RECHECK_MODE else raw_img_list
+    
+    if RECHECK_MODE:
+        # recheck模式：找第一张未重新标注的图
+        target_img = search_list[0] if search_list else None
+        for img in search_list:
+            if img not in user_db or not user_db[img].get("rechecked", False):
+                target_img = img
+                break
+        rechecked_count = sum(1 for img in search_list if img in user_db and user_db[img].get("rechecked", False))
+        progress_status = f"👋 **Welcome Back User {int(current_user)}! [Recheck Mode]** Re-annotated {rechecked_count}/{len(search_list)} images. Resuming from YOUR exclusive checkpoint."
+    else:
+        completed_imgs = list(user_db.keys())
+        target_img = search_list[0] if search_list else None
+        for img in search_list:
+            if img not in completed_imgs:
+                target_img = img
+                break
+        if not target_img and search_list:
+            target_img = search_list[-1]
+        progress_status = f"👋 **Welcome Back User {int(current_user)}!** Audited {len(completed_imgs)}/{len(search_list)} images. Resuming from YOUR exclusive checkpoint."
             
-    progress_status = f"👋 **Welcome Back User {int(current_user)}!** Audited {len(completed_imgs)}/{len(raw_img_list)} images. Resuming from YOUR exclusive checkpoint."
     dropdown_choices = build_dropdown_choices(user_db)
     
     cls_name, meta, art_v, veto_v, al_v, tot_v, *slots = load_image_ui_state(target_img, current_user)
@@ -542,7 +611,10 @@ custom_js = """
 """
 
 with gr.Blocks(title="Fine-Grained Visual Audit System", css=custom_css, js=custom_js) as demo:
-    gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台")
+    if RECHECK_MODE:
+        gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台 — 🔄 复核修改模式")
+    else:
+        gr.Markdown("# 📋 ImageNet-1k 细粒度视觉审计平台")
     
     raw_img_holder = gr.Textbox(visible=False, value="")
     
