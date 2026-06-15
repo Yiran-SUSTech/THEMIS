@@ -30,8 +30,9 @@ def get_taxonomy_description(file_path, target_label):
         return f"Error loading taxonomy: {e}"
 
 # 4. 初始化客户端
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 client = OpenAI(
-    api_key="sk-b3f4209a88814328aef5edc425e3af0e",
+    api_key=DASHSCOPE_API_KEY,
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

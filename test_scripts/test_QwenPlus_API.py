@@ -8,8 +8,9 @@ def encode_image(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 # 2. 初始化客户端
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 client = OpenAI(
-    api_key="sk-9165cc69015b4a12ab542fb5edc20612",
+    api_key=DASHSCOPE_API_KEY,
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

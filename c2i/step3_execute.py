@@ -80,8 +80,8 @@ EXPERT_MODULE_MAP = {
 }
 
 DEFAULT_GPU_CONFIG = {
-    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 1},    # Q-Insight → GPU 0
-    "animal_pose_auditor":        {"device": "cuda:1", "num_gpus": 1},  # ViTPose → GPU 1
+    "perceptual_quality_auditor": {"device": "cuda", "num_gpus": 2},    # Q-Insight → GPU 0+1 (needs ~50GB)
+    "animal_pose_auditor":        {"device": "cuda:2", "num_gpus": 1},  # ViTPose → GPU 2
     "geometric_depth_auditor":    {"device": "maca:1", "num_gpus": 1},  # Depth → MACA 1
     "fine_grained_classifier":    {"device": "maca:1", "num_gpus": 1},  # EVA-02 → MACA 1
     "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
@@ -193,6 +193,8 @@ class ExpertManager:
         if expert_id == "perceptual_quality_auditor":
             kwargs["num_gpus"] = num_gpus
             kwargs["model_path"] = str(PROJECT_ROOT / "models" / "Q-Insight" / "score_degradation")
+            if "max_memory" in gpu_cfg:
+                kwargs["max_memory"] = gpu_cfg["max_memory"]
 
         if expert_id == "open_vocabulary_detector":
             kwargs["model_path"] = str(PROJECT_ROOT / "new_models" / "groundingdino_sim.onnx")
