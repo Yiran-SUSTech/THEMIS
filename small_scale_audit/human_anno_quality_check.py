@@ -48,10 +48,10 @@ def main():
     # 综合分歧：alignment和artifact都分歧大的图片
     align_mask = df["alignment_max-min"] >= 2.0
     artifact_mask = df["artifact_max-min"] >= 2.0
-    both_mask = align_mask & artifact_mask
+    both_mask = align_mask | artifact_mask
 
     print(f"\n{'='*60}")
-    print(f"  alignment AND artifact 都分歧大 (max-min >= 2.0)")
+    print(f"  alignment OR artifact 分歧大 (max-min >= 2.0)")
     print(f"{'='*60}")
     print(f"\n  共 {both_mask.sum()} 张图片")
 
@@ -60,7 +60,9 @@ def main():
                                      "User_1_alignment", "User_2_alignment", "User_3_alignment",
                                      "User_1_artifact", "User_2_artifact", "User_3_artifact",
                                      "alignment_max-min", "artifact_max-min"]].copy()
-        subset = subset.sort_values("alignment_max-min", ascending=False)
+        subset["image_idx"] = subset["image_name"].str.extract(r"(\d+)").astype(int)
+        subset = subset.sort_values("image_idx")
+        subset = subset.drop(columns=["image_idx"])
         out_path = os.path.join(OUTPUT_DIR, "disagreement_both_maxmin_ge_2.csv")
         subset.to_csv(out_path, index=False, encoding="utf-8-sig")
         print(f"  已保存到: {out_path}")
