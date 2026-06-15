@@ -73,6 +73,9 @@ python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 1
 # 2 卡环境 10路并发 Session 模式（共享对话上下文）
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 2x_c500 --session
 
+# 8 卡环境 20路并发 Session 模式（共享对话上下文） 
+python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 20 --gpu-preset 8x_c500_fast --session
+
 # 8 卡环境 10路并发
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 8x_c500
 
