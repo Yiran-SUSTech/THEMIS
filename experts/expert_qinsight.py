@@ -11,7 +11,8 @@ class QInsightDistortionAnalyzer:
                  model_path="/mnt/afs/zhengmingkai/zyr/THEMIS/models/Q-Insight/score_degradation",
                  device="cuda",
                  num_gpus=1,
-                 max_memory=None):
+                 max_memory=None,
+                 attn_implementation=None):
         
         print(f"[Init] Loading Q-Insight VLM to memory (Device: {device}, GPUs: {num_gpus})...")
         self.device = device
@@ -32,8 +33,11 @@ class QInsightDistortionAnalyzer:
         if max_memory is None and use_cuda and num_gpus > 0:
             max_memory = {i: "28GB" for i in range(num_gpus)}
         elif max_memory and use_cuda:
-            # Convert string keys to int keys (JSON only supports string keys)
             max_memory = {int(k): v for k, v in max_memory.items()}
+
+        if attn_implementation is None:
+            attn_implementation = self._detect_best_attn_implementation(use_cuda)
+        print(f"  [Q-Insight] Using attn_implementation={attn_implementation}")
         
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
@@ -42,7 +46,7 @@ class QInsightDistortionAnalyzer:
             torch_dtype=torch.bfloat16 if use_cuda else torch.float32,
             device_map="auto" if use_cuda else None,
             max_memory=max_memory,
-            attn_implementation="eager"
+            attn_implementation=attn_implementation
         )
         if not use_cuda:
             self.model = self.model.to("cpu")
@@ -70,6 +74,18 @@ class QInsightDistortionAnalyzer:
             "slight": 0.2, "moderate": 0.4, "obvious": 0.6, 
             "serious": 0.8, "catastrophic": 1.0, "null": 0.0
         }
+
+    @staticmethod
+    def _detect_best_attn_implementation(use_cuda: bool) -> str:
+        if not use_cuda:
+            return "eager"
+        try:
+            import torch
+            if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
+                return "sdpa"
+        except Exception:
+            pass
+        return "eager"
 
     def _parse_output(self, text: str) -> dict:
         """解析并切分 Qwen 的思维链条与最终结果"""
@@ -136,18 +152,14 @@ class QInsightDistortionAnalyzer:
                 text=[text], images=[image], padding=True, return_tensors="pt"
             )
             
-        # 数据移至模型同一张卡
         model_device = next(self.model.parameters()).device
         inputs = {k: v.to(model_device) if torch.is_tensor(v) else v for k, v in inputs.items()}
         
-        with torch.no_grad():
+        with torch.inference_mode():
             generated_ids = self.model.generate(
                 **inputs,
-                do_sample=True,
-                temperature=0.7,
-                top_k=50,
-                top_p=0.95,
-                max_new_tokens=512,
+                do_sample=False,
+                max_new_tokens=256,
                 use_cache=True,
             )
             
