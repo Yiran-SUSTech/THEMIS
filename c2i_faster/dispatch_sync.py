@@ -36,6 +36,7 @@ def _run_single_image(
     plan_dir: Path,
     approved_dir: Path,
     judge_feedback_dir: Path | None,
+    api_retry: int = 0,
 ) -> dict | None:
     """Run Router+Judge loop for a single image (synchronous)."""
     print(f"\n{'#'*60}")
@@ -45,6 +46,7 @@ def _run_single_image(
     print(f"\n  [Step 1] Router generating initial plan...")
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
+        api_retry=api_retry,
     )
     if current_plan is None:
         print(f"  [Step 1] FAILED - Router could not generate plan\n")
@@ -66,6 +68,7 @@ def _run_single_image(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
+            api_retry=api_retry,
         )
 
         if judge_result is None:
@@ -112,6 +115,7 @@ def _run_single_image(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
+                api_retry=api_retry,
             )
 
             if revised_plan is not None:
@@ -159,6 +163,7 @@ def run_sync_pipeline(
     ref_enable: bool = False,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -189,6 +194,7 @@ def run_sync_pipeline(
                 client, str(img_path), img_id, class_id, class_label,
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
+                api_retry=api_retry,
             )
             if plan is not None:
                 stats["api_ok"] += 1
@@ -248,7 +254,7 @@ def run_sync_pipeline(
                         reflector_system = build_reflector_only_system_content(
                             experts_registry_str, class_label, tax_info_r, struct_tax_info_r,
                         )
-                        reflector_session = ConversationSession(reflector_system)
+                        reflector_session = ConversationSession(reflector_system, api_retry=api_retry)
 
                     ref_images = None
                     if ref_enable:
@@ -268,6 +274,7 @@ def run_sync_pipeline(
                         router_plan=plan,
                         ref_images=ref_images,
                         enable_checklist=enable_checklist,
+                        api_retry=api_retry,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")

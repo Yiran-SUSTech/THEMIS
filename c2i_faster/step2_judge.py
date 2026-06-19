@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 from openai import OpenAI
+from common import api_call_with_retry
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -56,6 +57,8 @@ def clean_json_response(raw_text: str) -> str:
 
 
 def parse_json_safely(raw_text: str) -> dict | None:
+    if raw_text is None or raw_text.strip() == "":
+        return None
     cleaned = clean_json_response(raw_text)
     try:
         return json.loads(cleaned)
@@ -161,6 +164,7 @@ def review_plan(
     plan: dict,
     experts_registry_str: str,
     session=None,
+    api_retry: int = 0,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -172,9 +176,17 @@ def review_plan(
         prompt = _build_judge_user_prompt_session(plan, class_label, taxonomy_info)
         user_content = [{"type": "text", "text": prompt}]
         session.add_user(user_content)
-        raw_content, completion = session.call_api(
-            client, JUDGE_MODEL, response_format={"type": "json_object"},
-        )
+        try:
+            raw_content, completion = session.call_api(
+                client, JUDGE_MODEL, response_format={"type": "json_object"},
+                label="Judge",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Judge API call failed: {type(e).__name__}: {e}")
+            return None
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Judge returned empty content")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Judge returned unparseable JSON: {raw_content[:200]}")
@@ -203,7 +215,8 @@ def review_plan(
     }
 
     try:
-        completion = client.chat.completions.create(
+        completion = api_call_with_retry(
+            client.chat.completions.create,
             model=JUDGE_MODEL,
             messages=[
                 system_message,
@@ -222,9 +235,14 @@ def review_plan(
             ],
             response_format={"type": "json_object"},
             temperature=0,
+            max_retries=api_retry,
+            label="Judge",
         )
         cost_time = time.time() - start_time
         raw_content = completion.choices[0].message.content
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Judge returned empty content (content is {'None' if raw_content is None else 'empty string'})")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Judge returned unparseable JSON: {raw_content[:200]}")
@@ -242,5 +260,5 @@ def review_plan(
 
         return result
     except Exception as e:
-        print(f"  [ERROR] Judge API call failed: {e}")
+        print(f"  [ERROR] Judge API call failed: {type(e).__name__}: {e}")
         return None

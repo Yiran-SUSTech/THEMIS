@@ -51,11 +51,12 @@ def _sync_router_judge(
     approved_dir: Path,
     judge_feedback_dir: Path | None,
     session: ConversationSession | None = None,
+    api_retry: int = 0,
 ) -> dict | None:
     """Synchronous Router+Judge for one image. Runs in thread pool."""
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
-        session=session,
+        session=session, api_retry=api_retry,
     )
     if current_plan is None:
         print(f"  [{img_id}] Router FAILED")
@@ -72,7 +73,7 @@ def _sync_router_judge(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
-            session=session,
+            session=session, api_retry=api_retry,
         )
 
         if judge_result is None:
@@ -110,7 +111,7 @@ def _sync_router_judge(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
-                session=session,
+                session=session, api_retry=api_retry,
             )
 
             if revised_plan is not None:
@@ -144,6 +145,7 @@ async def _api_worker(
     api_semaphore: asyncio.Semaphore,
     stats: dict,
     use_session: bool = False,
+    api_retry: int = 0,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -164,7 +166,7 @@ async def _api_worker(
                     system_content = build_combined_system_content(
                         experts_registry_str, class_label, tax_info, struct_tax_info,
                     )
-                    session = ConversationSession(system_content)
+                    session = ConversationSession(system_content, api_retry=api_retry)
                     print(f"  [SESSION] Created for {img_id}")
 
                 plan = await loop.run_in_executor(
@@ -173,7 +175,7 @@ async def _api_worker(
                     client, image_path, img_id, class_id, class_label,
                     experts_registry_str, max_iterations,
                     plan_dir, approved_dir, judge_feedback_dir,
-                    session,
+                    session, api_retry,
                 )
 
                 if plan is not None:
@@ -265,6 +267,7 @@ def _sync_reflector(
     image_dir: Path | None = None,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> dict | None:
     """Synchronous Reflector for one image. Runs in thread pool."""
     ref_images = None
@@ -284,6 +287,7 @@ def _sync_reflector(
         session=session,
         ref_images=ref_images,
         enable_checklist=enable_checklist,
+        api_retry=api_retry,
     )
     if report is None:
         print(f"  [{img_id}] Reflector FAILED")
@@ -311,6 +315,7 @@ async def _reflector_worker(
     image_dir: Path | None = None,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -342,7 +347,7 @@ async def _reflector_worker(
             system_content = build_reflector_only_system_content(
                 experts_registry_str, class_label, tax_info, struct_tax_info,
             )
-            session = ConversationSession(system_content)
+            session = ConversationSession(system_content, api_retry=api_retry)
             print(f"  [SESSION] Reflector-only session created for {img_id}")
 
         async with api_semaphore:
@@ -353,7 +358,7 @@ async def _reflector_worker(
                     client, image_path, img_id, class_id, class_label,
                     expert_results, experts_registry_str, router_plan,
                     final_reports_dir, session, ref_enable, image_dir,
-                    enable_checklist, checklist_dir,
+                    enable_checklist, checklist_dir, api_retry,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -388,6 +393,7 @@ async def _run_full_pipeline(
     ref_enable: bool = False,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -420,7 +426,7 @@ async def _run_full_pipeline(
         asyncio.create_task(_api_worker(
             task_queue, plan_queue, client, experts_registry_str,
             max_iterations, plan_dir, approved_dir, judge_feedback_dir,
-            api_semaphore, stats, use_session,
+            api_semaphore, stats, use_session, api_retry,
         ))
         for _ in range(num_api_workers)
     ]
@@ -446,7 +452,7 @@ async def _run_full_pipeline(
                 final_reports_dir, reflector_api_semaphore,
                 stats, reflector_done_event, use_session,
                 ref_enable, image_dir,
-                enable_checklist, checklist_dir,
+                enable_checklist, checklist_dir, api_retry,
             ))
         )
 
@@ -601,6 +607,7 @@ async def _run_step4_only(
     ref_enable: bool = False,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
     stats = {"reflector_ok": 0, "reflector_fail": 0}
@@ -640,7 +647,7 @@ async def _run_step4_only(
             system_content = build_reflector_only_system_content(
                 experts_registry_str, class_label, tax_info, struct_tax_info,
             )
-            session = ConversationSession(system_content)
+            session = ConversationSession(system_content, api_retry=api_retry)
             print(f"  [SESSION] Reflector-only session created for {img_id}")
 
         async with api_semaphore:
@@ -650,7 +657,7 @@ async def _run_step4_only(
                 client, str(image_path), img_id, class_id, class_label,
                 bundle, experts_registry_str, plan, final_reports_dir,
                 session, ref_enable, image_dir,
-                enable_checklist, checklist_dir,
+                enable_checklist, checklist_dir, api_retry,
             )
             if report is not None:
                 stats["reflector_ok"] += 1
@@ -687,6 +694,7 @@ def run_async_pipeline(
     ref_enable: bool = False,
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
+    api_retry: int = 0,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     run_step12 = step in ("1", "2", "12", "123", "1234")
@@ -707,6 +715,7 @@ def run_async_pipeline(
             ref_enable=ref_enable,
             enable_checklist=enable_checklist,
             checklist_dir=checklist_dir,
+            api_retry=api_retry,
         ))
 
     if run_step12 and run_step3 and expert_managers:
@@ -730,6 +739,7 @@ def run_async_pipeline(
             ref_enable=ref_enable,
             enable_checklist=enable_checklist,
             checklist_dir=checklist_dir,
+            api_retry=api_retry,
         ))
 
     elif run_step12 and not run_step3:

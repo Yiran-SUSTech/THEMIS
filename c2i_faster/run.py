@@ -102,6 +102,8 @@ Examples:
     # ── Async mode parameters ──────────────────────────────────
     parser.add_argument("--api-concurrency", type=int, default=5,
                         help="[async] Max concurrent API calls (default: 5)")
+    parser.add_argument("--api-retry", type=int, default=0,
+                        help="Number of API call retries on failure (default: 0, no retry)")
 
     # ── Batch mode parameters ──────────────────────────────────
     parser.add_argument("--batch-dir", type=str, default=str(BATCH_DIR),
@@ -211,6 +213,7 @@ Examples:
             ref_enable=args.ref_enable,
             enable_checklist=args.enable_checklist,
             checklist_dir=checklist_dir,
+            api_retry=args.api_retry,
         )
 
     elif args.mode == "async":
@@ -235,6 +238,7 @@ Examples:
             ref_enable=args.ref_enable,
             enable_checklist=args.enable_checklist,
             checklist_dir=checklist_dir,
+            api_retry=args.api_retry,
         )
 
     elif args.mode == "batch":

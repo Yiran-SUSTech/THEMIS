@@ -10,24 +10,39 @@ from step1_router import (
     get_structured_taxonomy_info,
 )
 from step4_reflector import _REFLECTOR_SYSTEM_TEMPLATE
+from common import api_call_with_retry
 
 
 class ConversationSession:
-    def __init__(self, system_content):
+    def __init__(self, system_content, api_retry=0):
         if isinstance(system_content, list):
             self.messages = [{"role": "system", "content": system_content}]
         else:
             self.messages = [{"role": "system", "content": system_content}]
+        self.api_retry = api_retry
 
     def add_user(self, content):
         self.messages.append({"role": "user", "content": content})
 
-    def call_api(self, client, model, temperature=0, response_format=None):
+    def call_api(self, client, model, temperature=0, response_format=None, label="Session"):
         kwargs = {"model": model, "messages": self.messages, "temperature": temperature}
         if response_format:
             kwargs["response_format"] = response_format
-        completion = client.chat.completions.create(**kwargs)
+        try:
+            completion = api_call_with_retry(
+                client.chat.completions.create,
+                max_retries=self.api_retry,
+                label=label,
+                **kwargs,
+            )
+        except Exception as e:
+            print(f"  [ERROR] {label} API call failed: {type(e).__name__}: {e}")
+            raise
         raw = completion.choices[0].message.content
+        if raw is None or raw.strip() == "":
+            print(f"  [ERROR] {label} API returned empty content (content is {'None' if raw is None else 'empty string'})")
+            self.messages.append({"role": "assistant", "content": raw or ""})
+            return raw, completion
         self.messages.append({"role": "assistant", "content": raw})
         return raw, completion
 

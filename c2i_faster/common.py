@@ -47,6 +47,46 @@ GPU_PRESETS_DIR = PROJECT_ROOT / "gpu_configs"
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  API Retry Utility
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Default retry count (can be overridden via --api-retry)
+DEFAULT_API_RETRY = 0
+
+
+def api_call_with_retry(func, *args, max_retries=0, retry_delay=2.0, label="API", **kwargs):
+    """Call an API function with automatic retry on failure.
+
+    Args:
+        func: The API call function (e.g., client.chat.completions.create).
+        *args: Positional arguments to pass to func.
+        max_retries: Number of retries after the first failure (0 = no retry).
+        retry_delay: Base delay in seconds between retries (doubles each retry).
+        label: Label for log messages (e.g., "Router", "Judge", "Reflector").
+        **kwargs: Keyword arguments to pass to func.
+
+    Returns:
+        The return value of func on success.
+
+    Raises:
+        The last exception if all retries are exhausted.
+    """
+    last_exception = None
+    for attempt in range(max_retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            if attempt < max_retries:
+                delay = retry_delay * (2 ** attempt)
+                print(f"  [RETRY] {label} API call failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                print(f"  [RETRY] Retrying in {delay:.1f}s...")
+                time.sleep(delay)
+            else:
+                print(f"  [RETRY] {label} API call failed after {max_retries + 1} attempt(s): {e}")
+    raise last_exception
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  GPU Group Configuration

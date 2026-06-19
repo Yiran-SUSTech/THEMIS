@@ -6,6 +6,7 @@ import base64
 import time
 from pathlib import Path
 from openai import OpenAI
+from common import api_call_with_retry
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -286,6 +287,8 @@ def clean_json_response(raw_text: str) -> str:
 
 
 def parse_json_safely(raw_text: str) -> dict | None:
+    if raw_text is None or raw_text.strip() == "":
+        return None
     cleaned = clean_json_response(raw_text)
     try:
         return json.loads(cleaned)
@@ -733,6 +736,7 @@ def run_reflector(
     router_plan: dict | None = None,
     ref_images: list[dict] | None = None,
     enable_checklist: bool = False,
+    api_retry: int = 0,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -773,11 +777,19 @@ def run_reflector(
             _append_ref_images_to_content(user_content, ref_images)
 
         session.add_user(user_content)
-        raw_content, completion = session.call_api(
-            client, REFLECTOR_MODEL, response_format={"type": "json_object"},
-        )
+        try:
+            raw_content, completion = session.call_api(
+                client, REFLECTOR_MODEL, response_format={"type": "json_object"},
+                label="Reflector",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Reflector API call failed: {type(e).__name__}: {e}")
+            return None
         cost_time = time.time() - start_time
 
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Reflector returned empty content")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
@@ -852,7 +864,8 @@ def run_reflector(
     }
 
     try:
-        completion = client.chat.completions.create(
+        completion = api_call_with_retry(
+            client.chat.completions.create,
             model=REFLECTOR_MODEL,
             messages=[
                 system_message,
@@ -860,10 +873,15 @@ def run_reflector(
             ],
             response_format={"type": "json_object"},
             temperature=0,
+            max_retries=api_retry,
+            label="Reflector",
         )
         raw_content = completion.choices[0].message.content
         cost_time = time.time() - start_time
 
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Reflector returned empty content (content is {'None' if raw_content is None else 'empty string'})")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
@@ -888,7 +906,7 @@ def run_reflector(
 
     except Exception as e:
         cost_time = time.time() - start_time
-        print(f"  [ERROR] Reflector API call failed: {e}")
+        print(f"  [ERROR] Reflector API call failed: {type(e).__name__}: {e}")
         return None
 
 

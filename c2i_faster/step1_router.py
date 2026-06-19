@@ -6,6 +6,7 @@ import base64
 import time
 from pathlib import Path
 from openai import OpenAI
+from common import api_call_with_retry
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -98,6 +99,8 @@ def clean_json_response(raw_text: str) -> str:
 
 
 def parse_json_safely(raw_text: str) -> dict | None:
+    if raw_text is None or raw_text.strip() == "":
+        return None
     cleaned = clean_json_response(raw_text)
     try:
         return json.loads(cleaned)
@@ -371,6 +374,7 @@ def _call_router_api(
     system_msg: str,
     registry_summary: str = "",
     formatted_instructions: str = "",
+    api_retry: int = 0,
 ) -> dict | None:
     if registry_summary:
         system_message = _build_cached_system_message(
@@ -380,7 +384,8 @@ def _call_router_api(
         system_message = {"role": "system", "content": system_msg}
 
     try:
-        completion = client.chat.completions.create(
+        completion = api_call_with_retry(
+            client.chat.completions.create,
             model=ROUTER_MODEL,
             messages=[
                 system_message,
@@ -399,8 +404,13 @@ def _call_router_api(
             ],
             response_format={"type": "json_object"},
             temperature=0,
+            max_retries=api_retry,
+            label="Router",
         )
         raw_content = completion.choices[0].message.content
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Router returned empty content (content is {'None' if raw_content is None else 'empty string'})")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
@@ -415,7 +425,7 @@ def _call_router_api(
 
         return result
     except Exception as e:
-        print(f"  [ERROR] Router API call failed: {e}")
+        print(f"  [ERROR] Router API call failed: {type(e).__name__}: {e}")
         return None
 
 
@@ -426,6 +436,7 @@ def generate_plan(
     class_label: str,
     experts_registry_str: str,
     session=None,
+    api_retry: int = 0,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -446,9 +457,17 @@ def generate_plan(
             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
         ]
         session.add_user(user_content)
-        raw_content, completion = session.call_api(
-            client, ROUTER_MODEL, response_format={"type": "json_object"},
-        )
+        try:
+            raw_content, completion = session.call_api(
+                client, ROUTER_MODEL, response_format={"type": "json_object"},
+                label="Router",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Router API call failed: {type(e).__name__}: {e}")
+            return None
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Router returned empty content")
+            return None
         plan = parse_json_safely(raw_content)
         if plan is None:
             print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
@@ -466,6 +485,7 @@ def generate_plan(
             client, base64_image, prompt, system_msg,
             registry_summary=registry_summary,
             formatted_instructions=formatted_instructions,
+            api_retry=api_retry,
         )
 
     cost_time = time.time() - start_time
@@ -493,6 +513,7 @@ def revise_plan(
     previous_plan: dict,
     feedback_history: list[dict],
     session=None,
+    api_retry: int = 0,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -513,9 +534,17 @@ def revise_plan(
             {"type": "text", "text": prompt},
         ]
         session.add_user(user_content)
-        raw_content, completion = session.call_api(
-            client, ROUTER_MODEL, response_format={"type": "json_object"},
-        )
+        try:
+            raw_content, completion = session.call_api(
+                client, ROUTER_MODEL, response_format={"type": "json_object"},
+                label="Router",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Router API call failed: {type(e).__name__}: {e}")
+            return None
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Router returned empty content")
+            return None
         plan = parse_json_safely(raw_content)
         if plan is None:
             print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
@@ -537,6 +566,7 @@ def revise_plan(
             client, base64_image, prompt, system_msg,
             registry_summary=registry_summary,
             formatted_instructions=formatted_instructions,
+            api_retry=api_retry,
         )
 
     cost_time = time.time() - start_time
