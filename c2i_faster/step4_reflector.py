@@ -875,6 +875,7 @@ def run_reflector(
             temperature=0,
             max_retries=api_retry,
             label="Reflector",
+            extra_body={"enable_thinking": False},
         )
         raw_content = completion.choices[0].message.content
         cost_time = time.time() - start_time
@@ -882,11 +883,16 @@ def run_reflector(
         usage = getattr(completion, "usage", None)
 
         if raw_content is None or raw_content.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
             usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
             print(f"  [ERROR] Reflector returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
-            msg = completion.choices[0].message
-            print(f"  [DEBUG] Reflector full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
-            return None
+            if reasoning:
+                print(f"  [WARN] Reflector reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
+                raw_content = reasoning
+            else:
+                msg = completion.choices[0].message
+                print(f"  [DEBUG] Reflector full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
