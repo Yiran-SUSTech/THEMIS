@@ -28,7 +28,7 @@ from step3_execute import (
     load_approved_plans, resolve_image_path as resolve_image_path_global,
     collect_required_expert_ids, EXPERT_MODULE_MAP,
 )
-from step4_reflector import run_reflector, save_final_report, print_final_summary
+from step4_reflector import run_reflector, save_final_report, print_final_summary, select_reference_images, build_checklist_annotation, save_checklist_annotation
 from conversation_session import (
     ConversationSession, build_combined_system_content,
     build_reflector_only_system_content,
@@ -261,8 +261,18 @@ def _sync_reflector(
     router_plan: dict,
     final_reports_dir: Path,
     session: ConversationSession | None = None,
+    ref_enable: bool = False,
+    image_dir: Path | None = None,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> dict | None:
     """Synchronous Reflector for one image. Runs in thread pool."""
+    ref_images = None
+    if ref_enable and image_dir is not None:
+        exclude_name = os.path.basename(image_path)
+        ref_images = select_reference_images(
+            class_id, Path(image_dir), exclude_image_name=exclude_name,
+        )
     report = run_reflector(
         client=client,
         image_path=image_path,
@@ -272,12 +282,18 @@ def _sync_reflector(
         experts_registry_str=experts_registry_str,
         router_plan=router_plan,
         session=session,
+        ref_images=ref_images,
+        enable_checklist=enable_checklist,
     )
     if report is None:
         print(f"  [{img_id}] Reflector FAILED")
         return None
 
     save_final_report(report, final_reports_dir)
+    if enable_checklist and checklist_dir is not None:
+        image_name = os.path.basename(image_path)
+        annotation = build_checklist_annotation(report, class_id, class_label, image_name)
+        save_checklist_annotation(annotation, checklist_dir)
     print_final_summary(report)
     return report
 
@@ -291,6 +307,10 @@ async def _reflector_worker(
     stats: dict,
     done_event: asyncio.Event,
     use_session: bool = False,
+    ref_enable: bool = False,
+    image_dir: Path | None = None,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -332,7 +352,8 @@ async def _reflector_worker(
                     _sync_reflector,
                     client, image_path, img_id, class_id, class_label,
                     expert_results, experts_registry_str, router_plan,
-                    final_reports_dir, session,
+                    final_reports_dir, session, ref_enable, image_dir,
+                    enable_checklist, checklist_dir,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -364,6 +385,9 @@ async def _run_full_pipeline(
     final_reports_dir: Path | None = None,
     use_session: bool = False,
     cpu_semaphore: object | None = None,
+    ref_enable: bool = False,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -421,6 +445,8 @@ async def _run_full_pipeline(
                 reflector_queue, client, experts_registry_str,
                 final_reports_dir, reflector_api_semaphore,
                 stats, reflector_done_event, use_session,
+                ref_enable, image_dir,
+                enable_checklist, checklist_dir,
             ))
         )
 
@@ -572,6 +598,9 @@ async def _run_step4_only(
     final_reports_dir: Path,
     api_concurrency: int,
     use_session: bool = False,
+    ref_enable: bool = False,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
     stats = {"reflector_ok": 0, "reflector_fail": 0}
@@ -620,7 +649,8 @@ async def _run_step4_only(
                 _sync_reflector,
                 client, str(image_path), img_id, class_id, class_label,
                 bundle, experts_registry_str, plan, final_reports_dir,
-                session,
+                session, ref_enable, image_dir,
+                enable_checklist, checklist_dir,
             )
             if report is not None:
                 stats["reflector_ok"] += 1
@@ -654,6 +684,9 @@ def run_async_pipeline(
     final_reports_dir: Path | None = None,
     use_session: bool = False,
     cpu_semaphore: object | None = None,
+    ref_enable: bool = False,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     run_step12 = step in ("1", "2", "12", "123", "1234")
@@ -671,6 +704,9 @@ def run_async_pipeline(
             final_reports_dir=final_reports_dir,
             api_concurrency=api_concurrency,
             use_session=use_session,
+            ref_enable=ref_enable,
+            enable_checklist=enable_checklist,
+            checklist_dir=checklist_dir,
         ))
 
     if run_step12 and run_step3 and expert_managers:
@@ -691,6 +727,9 @@ def run_async_pipeline(
             final_reports_dir=reports_dir,
             use_session=use_session,
             cpu_semaphore=cpu_semaphore,
+            ref_enable=ref_enable,
+            enable_checklist=enable_checklist,
+            checklist_dir=checklist_dir,
         ))
 
     elif run_step12 and not run_step3:

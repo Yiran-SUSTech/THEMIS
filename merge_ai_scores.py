@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 REPORTS_DIR = os.path.join(os.path.dirname(__file__), "c2i_faster", "output", "final_reports")
-EXCEL_PATH = os.path.join(os.path.dirname(__file__), "small_scale_audit", "output_results", "aggregated_scores.xlsx")
+EXCEL_PATH = os.path.join(os.path.dirname(__file__), "small_scale_audit_recorrect", "output_results", "aggregated_scores.xlsx")
 
 # 读取 Excel
 df = pd.read_excel(EXCEL_PATH)

@@ -86,6 +86,10 @@ Examples:
                         help="Use conversation session mode (Router+Judge+Reflector share context)")
     parser.add_argument("--save-pose-viz", action="store_true", default=False,
                         help="Save pose visualization images")
+    parser.add_argument("--ref-enable", action="store_true", default=False,
+                        help="Enable 3 human-annotated reference images for Reflector anchoring (default: False)")
+    parser.add_argument("--enable-checklist", action="store_true", default=False,
+                        help="Enable checklist annotation output (fine_grained_details + veto_activated) matching human annotation format (default: False)")
 
     # ── GPU parameters ─────────────────────────────────────────
     parser.add_argument("--gpu-groups", type=int, default=1,
@@ -168,6 +172,10 @@ Examples:
         print(f"  API concurrency:  {args.api_concurrency}")
     if args.session:
         print(f"  Session mode:     ON (shared conversation context)")
+    if args.ref_enable:
+        print(f"  Reflector refs:   ON (3 human-annotated reference images)")
+    if args.enable_checklist:
+        print(f"  Checklist output: ON (human-annotation-style fine_grained_details)")
     if args.mode == "batch":
         print(f"  Poll interval:    {args.poll_interval}s")
     if run_step3:
@@ -185,6 +193,7 @@ Examples:
     if args.mode == "sync":
         from dispatch_sync import run_sync_pipeline
         final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
+        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
         stats = run_sync_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -199,11 +208,15 @@ Examples:
             use_session=args.session,
             final_reports_dir=final_reports_dir,
             save_pose_viz=args.save_pose_viz,
+            ref_enable=args.ref_enable,
+            enable_checklist=args.enable_checklist,
+            checklist_dir=checklist_dir,
         )
 
     elif args.mode == "async":
         from dispatch_async import run_async_pipeline
         final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
+        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
         stats = run_async_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -219,6 +232,9 @@ Examples:
             final_reports_dir=final_reports_dir,
             use_session=args.session,
             cpu_semaphore=cpu_semaphore,
+            ref_enable=args.ref_enable,
+            enable_checklist=args.enable_checklist,
+            checklist_dir=checklist_dir,
         )
 
     elif args.mode == "batch":

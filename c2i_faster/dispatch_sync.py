@@ -156,6 +156,9 @@ def run_sync_pipeline(
     use_session: bool = False,
     final_reports_dir: Path | None = None,
     save_pose_viz: bool = False,
+    ref_enable: bool = False,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -234,7 +237,7 @@ def run_sync_pipeline(
             if run_step4 and bundle is not None and client:
                 print(f"\n  [Step 4] Reflector evaluating {image_id}...")
                 try:
-                    from step4_reflector import run_reflector, save_final_report, print_final_summary
+                    from step4_reflector import run_reflector, save_final_report, print_final_summary, select_reference_images, build_checklist_annotation, save_checklist_annotation
                     from step1_router import get_taxonomy_info, get_structured_taxonomy_info
 
                     reflector_session = None
@@ -247,6 +250,13 @@ def run_sync_pipeline(
                         )
                         reflector_session = ConversationSession(reflector_system)
 
+                    ref_images = None
+                    if ref_enable:
+                        exclude_name = os.path.basename(str(image_path))
+                        ref_images = select_reference_images(
+                            class_id, image_dir, exclude_image_name=exclude_name,
+                        )
+
                     report = run_reflector(
                         client=client,
                         image_path=image_path,
@@ -256,6 +266,8 @@ def run_sync_pipeline(
                         experts_registry_str=experts_registry_str,
                         session=reflector_session,
                         router_plan=plan,
+                        ref_images=ref_images,
+                        enable_checklist=enable_checklist,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
@@ -264,6 +276,10 @@ def run_sync_pipeline(
                         if final_reports_dir:
                             final_reports_dir.mkdir(parents=True, exist_ok=True)
                             save_final_report(report, final_reports_dir)
+                        if enable_checklist and checklist_dir is not None:
+                            image_name = os.path.basename(str(image_path))
+                            annotation = build_checklist_annotation(report, class_id, class_label, image_name)
+                            save_checklist_annotation(annotation, checklist_dir)
                         print_final_summary(report)
                         stats["step4_ok"] += 1
                 except Exception as e:
