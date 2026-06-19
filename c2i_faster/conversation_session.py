@@ -39,8 +39,11 @@ class ConversationSession:
             print(f"  [ERROR] {label} API call failed: {type(e).__name__}: {e}")
             raise
         raw = completion.choices[0].message.content
+        finish_reason = getattr(completion.choices[0], "finish_reason", "unknown")
+        usage = getattr(completion, "usage", None)
         if raw is None or raw.strip() == "":
-            print(f"  [ERROR] {label} API returned empty content (content is {'None' if raw is None else 'empty string'})")
+            usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
+            print(f"  [ERROR] {label} API returned empty content (content is {'None' if raw is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
             self.messages.append({"role": "assistant", "content": raw or ""})
             return raw, completion
         self.messages.append({"role": "assistant", "content": raw})
