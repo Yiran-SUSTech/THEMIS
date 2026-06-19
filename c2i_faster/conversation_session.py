@@ -44,6 +44,8 @@ class ConversationSession:
         if raw is None or raw.strip() == "":
             usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
             print(f"  [ERROR] {label} API returned empty content (content is {'None' if raw is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
+            msg = completion.choices[0].message
+            print(f"  [DEBUG] {label} full message object: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
             self.messages.append({"role": "assistant", "content": raw or ""})
             return raw, completion
         self.messages.append({"role": "assistant", "content": raw})
