@@ -982,10 +982,33 @@ def build_checklist_annotation(
     """Build a human-annotation-style record from the reflector report.
 
     Output format matches small_scale_audit_recorrect/output_results/User_*_final_annotations.json
+
+    Scoring rules (mimicking human annotators):
+    - alignment_score: 5 * Checked / (Checked + Missing), rounded to 2 decimals
+    - artifact_score: integer 0-5, derived from the reflector's artifact_score
+      but quantized to the nearest integer to mimic human discrete scoring
     """
-    alignment_score = float(report.get("alignment_score", 0.0))
-    artifact_score = float(report.get("artifact_score", 0.0))
-    total_score = round(alignment_score * artifact_score, 2)
+    fine_grained = report.get("fine_grained_details", {})
+    checked_count = 0
+    missing_count = 0
+    for category_items in fine_grained.values():
+        if not isinstance(category_items, dict):
+            continue
+        for status in category_items.values():
+            if status == "\U0001f7e2 Checked":
+                checked_count += 1
+            elif status == "\U0001f534 Missing":
+                missing_count += 1
+
+    if checked_count + missing_count > 0:
+        checklist_alignment = round(5.0 * checked_count / (checked_count + missing_count), 2)
+    else:
+        checklist_alignment = 0.0
+
+    reflector_artifact = float(report.get("artifact_score", 0.0))
+    checklist_artifact = min(5, max(0, round(reflector_artifact)))
+
+    total_score = round(checklist_alignment * checklist_artifact, 2)
 
     return {
         "image_name": image_name,
@@ -993,11 +1016,11 @@ def build_checklist_annotation(
         "class_name": class_label,
         "veto_activated": bool(report.get("veto_activated", False)),
         "scores": {
-            "alignment_score": alignment_score,
-            "artifact_score": artifact_score,
+            "alignment_score": checklist_alignment,
+            "artifact_score": checklist_artifact,
             "total_score": total_score,
         },
-        "fine_grained_details": report.get("fine_grained_details", {}),
+        "fine_grained_details": fine_grained,
     }
 
 
