@@ -403,7 +403,7 @@ def _call_router_api(
                 },
             ],
             response_format={"type": "json_object"},
-            temperature=0,
+            temperature=0.5,
             max_retries=api_retry,
             label="Router",
             extra_body={"enable_thinking": False},

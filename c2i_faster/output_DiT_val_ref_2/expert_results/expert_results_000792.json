@@ -1,0 +1,127 @@
+{
+    "bundle_id": "expert_results_000792",
+    "image_id": "000792",
+    "image_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/test_images/000792.png",
+    "image_resolution": "256x256",
+    "class_id": 836,
+    "class_label": "sunglass",
+    "plan_reference": "approved_plan_000792",
+    "execution_timestamp": "2026-06-20 21:22:26",
+    "focus_areas": [
+        "Semantic Mismatch: Quantify the deviation between the image content (sunglasses) and the Taxonomy Prior (burning glass).",
+        "Structural Integrity: Verify physical contact and separation between the glasses temple and the human ear using depth analysis.",
+        "Texture Realism: Assess skin texture for AI-induced smoothness or waxy artifacts.",
+        "Boundary Sharpness: Check for edge bleeding between the dark glasses frame and the skin/hair."
+    ],
+    "custom_prompts_for_reflector": "CRITICAL SEMANTIC CONFLICT: The provided Taxonomy Prior Knowledge describes a 'burning glass' (magnifying lens), but the Image Class Label is 'sunglass' and the image clearly shows wearable eyewear. \n\n1. ALIGNMENT SCORING: Since the image fails ALL taxonomy checkpoints due to being a different object class entirely, the Alignment Score should reflect this total mismatch (likely near 0.0) unless the Reflector decides to override the flawed taxonomy with the visual reality. Please clarify if the penalty is for 'Bad Generation' or 'Wrong Class'.\n\n2. ARTIFACT SCORING: Focus heavily on the 'geometric_depth_auditor' results for the ear-glasses junction. If the depth map shows fusion, the Artifact Score should be penalized significantly (severity ~3.5-4.0). If the depth is correct, downgrade the severity to 1.5-2.0 (shadow/occlusion).\n\n3. EXPERT WEIGHTING: Prioritize the classifier to confirm the 'Wrong Class' hypothesis and the depth auditor to resolve the structural ambiguity.",
+    "image_description": "A close-up, side-profile view of a person wearing dark sunglasses. The image focuses on the temple arm of the glasses resting against the person's ear and the side of their head. The background is blurred, showing what appears to be a dark shirt or fabric.",
+    "expert_testimonies": [
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "glasses_temple_and_ear",
+            "weight": 0.35,
+            "reason": "To generate a depth map and verify if the glasses temple is physically separate from the ear or if there is a spatial grounding error/fusion.",
+            "status": "success",
+            "execution_time_ms": 62.3,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/depth_maps/000792_depth.png",
+                "depth_statistics": {
+                    "min_value": 3.8993,
+                    "max_value": 25.5242,
+                    "mean_value": 16.7082,
+                    "std_deviation": 6.2918
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "object_in_image",
+            "weight": 0.35,
+            "reason": "To definitively classify the object as 'sunglasses' vs 'magnifying_glass' to resolve the semantic conflict with the taxonomy prior.",
+            "status": "success",
+            "execution_time_ms": 166.57,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 615,
+                        "label_name": "knee pad",
+                        "logit_score": 5.78
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 638,
+                        "label_name": "maillot",
+                        "logit_score": 4.42
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 796,
+                        "label_name": "ski mask",
+                        "logit_score": 3.85
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "glasses_frame",
+            "weight": 0.15,
+            "reason": "To audit the boundary sharpness of the glasses frame against the skin, checking for edge bleeding or melting artifacts.",
+            "status": "success",
+            "execution_time_ms": 491.08,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_faster/output/sam_masks/000792_mask.png",
+                "mask_confidence_score": 0.9767,
+                "prompt_point_used": [
+                    128,
+                    128
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "skin_texture",
+            "weight": 0.15,
+            "reason": "To evaluate the realism of the skin texture and confirm if the 'waxy' appearance is an AI artifact or lighting effect.",
+            "status": "success",
+            "execution_time_ms": 86025.97,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be slightly pixelated or compressed, but there are no clear signs of noise, blur, or darkening. The image seems to have a slight pixelation, which could indicate a low-resolution source or a file that has been compressed. The overall image quality looks clear enough to identify the subject and their actions.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
+    "execution_summary": {
+        "total_experts_planned": 4,
+        "successful_experts": 4,
+        "failed_experts": 0,
+        "total_execution_time_ms": 86058.12,
+        "failed_expert_ids": []
+    }
+}
