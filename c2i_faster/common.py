@@ -55,6 +55,41 @@ DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_API_RETRY = 0
 
 
+def _is_retryable_error(e: Exception) -> bool:
+    """Determine if an API error is worth retrying.
+
+    Non-retryable errors (will always fail with same input):
+    - HTTP 400 with content filter / data inspection failures
+    - HTTP 401/403 (auth errors)
+    - HTTP 422 (invalid request format)
+
+    Retryable errors (transient, may succeed on retry):
+    - HTTP 429 (rate limit)
+    - HTTP 500/502/503 (server errors)
+    - Network timeouts / connection errors
+    """
+    error_str = str(e).lower()
+    status_code = getattr(getattr(e, "response", None), "status_code", None)
+    if status_code is not None:
+        if status_code in (400, 401, 403, 422):
+            return False
+    non_retryable_keywords = [
+        "datainspectionfailed",
+        "data inspection failed",
+        "content_filter",
+        "content filter",
+        "inappropriate content",
+        "invalid_api_key",
+        "invalid x-api-key",
+        "authentication",
+        "invalid request",
+    ]
+    for kw in non_retryable_keywords:
+        if kw in error_str:
+            return False
+    return True
+
+
 def api_call_with_retry(func, *args, max_retries=0, retry_delay=2.0, label="API", **kwargs):
     """Call an API function with automatic retry on failure.
 
@@ -78,6 +113,9 @@ def api_call_with_retry(func, *args, max_retries=0, retry_delay=2.0, label="API"
             return func(*args, **kwargs)
         except Exception as e:
             last_exception = e
+            if not _is_retryable_error(e):
+                print(f"  [SKIP-RETRY] {label} non-retryable error: {e}")
+                raise
             if attempt < max_retries:
                 delay = retry_delay * (2 ** attempt)
                 print(f"  [RETRY] {label} API call failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
