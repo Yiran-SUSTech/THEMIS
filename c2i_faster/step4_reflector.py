@@ -872,7 +872,7 @@ def run_reflector(
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
-            temperature=0,
+            temperature=0.5,
             max_retries=api_retry,
             label="Reflector",
             extra_body={"enable_thinking": False},
