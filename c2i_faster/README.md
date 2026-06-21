@@ -76,8 +76,11 @@ python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 1
 # 8 卡环境 20路并发 Session 模式（共享对话上下文） 
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 20 --gpu-preset 8x_c500_fast --session
 
-# 8 卡环境 10路并发
-python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 10 --gpu-preset 8x_c500
+# 8 卡环境 20路并发 Session 模式（共享对话上下文） 使用参考图片 生成checklist API访问失败再重试2次
+python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 20 --gpu-preset 8x_c500_fast --session --enable-checklist --ref-enable --api-retry 2
+
+# 消融实验：无专家模式（仅 Router 直接打分，无 Judge/Expert/Reflector）
+python c2i_faster/run.py --mode async --without-expert --limit 40 --api-concurrency 20 --api-retry 2
 
 # 自定义配置文件
 python c2i_faster/run.py --mode async --step 1234 --gpu-config my_config.json
@@ -119,6 +122,7 @@ python c2i_faster/run.py --mode async --step 3 --gpu-groups 2
 | `--save-feedback` | `false` | 保存 Judge 反馈详情 |
 | `--session` | `false` | Step 4 使用 conversation session |
 | `--save-pose-viz` | `false` | 保存骨骼可视化图 |
+| `--without-expert` | `false` | 消融模式：仅 Router 直接打分，跳过 Judge/Expert/Reflector |
 
 ### GPU 参数
 
@@ -149,6 +153,7 @@ c2i_faster/output/
 ├── judge_feedback/     # Judge 反馈详情（需 --save-feedback）
 ├── expert_results/     # Step 3 专家推理结果
 ├── final_reports/      # Step 4 Reflector 最终评分报告
+├── without_expert_reports/  # --without-expert 模式下 Router 直接打分报告
 ├── batch/              # Batch 模式的 JSONL 文件
 ├── depth_maps/         # 深度图输出
 ├── sam_masks/          # 分割掩码输出
@@ -202,6 +207,68 @@ c2i_faster/
 ├── step4_reflector.py   # Reflector Agent（VLM 综合评分）
 └── conversation_session.py  # Session 管理
 ```
+
+## 消融实验：无专家模式（--without-expert）
+
+为验证系统中加入专家证据能使测评结果更贴近人类打分，提供 `--without-expert` 消融模式。
+
+### 工作原理
+
+在该模式下，系统**跳过** Judge、Expert、Reflector 三个环节，仅保留 Router：
+- Router 接收待测评图片 + 类别 + taxonomy info checklist
+- Router 直接完成 Step 1（checkpoint 验证）+ Step 2（artifact 检测）+ Step 3（直接打分）
+- 输出 `alignment_score` 和 `artifact_score`（0-5 连续分数）
+
+Router 的 prompt 与正常模式保持高度一致（Step 1 和 Step 2 完全相同），仅将 Step 3 从"选择专家"替换为"直接打分"，确保消融对比的公平性。
+
+### 使用示例
+
+```bash
+# 40 张图，20 路 API 并发，仅 Router 直接打分
+python c2i_faster/run.py --mode async --without-expert --limit 40 --api-concurrency 20 --api-retry 2
+
+# Session 模式（共享对话上下文）
+python c2i_faster/run.py --mode async --without-expert --limit 40 --api-concurrency 20 --session --api-retry 2
+
+# 串行模式（调试用）
+python c2i_faster/run.py --mode sync --without-expert --limit 5
+```
+
+### 输出
+
+报告保存在 `c2i_faster/output/without_expert_reports/` 目录下，每张图一个 JSON 文件：
+
+```json
+{
+  "image_description": "...",
+  "image_class": "golden retriever",
+  "checkpoint_verdicts": [...],
+  "artifact_observations": [...],
+  "alignment_score": 4.32,
+  "artifact_score": 3.85,
+  "alignment_reasoning": "...",
+  "artifact_reasoning": "...",
+  "metadata": {
+    "original_image": "...",
+    "class_id": 207,
+    "class_label": "golden retriever",
+    "router_cost_seconds": 3.21,
+    "mode": "without_expert"
+  }
+}
+```
+
+### 与正常模式对比
+
+| 维度 | 正常模式 | 无专家模式 |
+|------|----------|------------|
+| Router | 生成 plan | 直接打分 |
+| Judge | 审核 plan | 跳过 |
+| Expert | 本地 GPU 推理 | 跳过 |
+| Reflector | 综合评分 | 跳过 |
+| 输出目录 | `final_reports/` | `without_expert_reports/` |
+| GPU 需求 | 需要 | 不需要 |
+| 单图成本 | 高（多次 API + GPU） | 低（单次 API） |
 
 ## 常见问题
 

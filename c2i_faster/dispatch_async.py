@@ -21,6 +21,7 @@ from common import (
 from step1_router import (
     generate_plan, revise_plan, load_experts_registry,
     get_taxonomy_info, get_structured_taxonomy_info,
+    generate_direct_score, save_direct_score_report,
 )
 from step2_judge import review_plan
 from step3_execute import (
@@ -673,6 +674,77 @@ async def _run_step4_only(
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Without-Expert Mode (Router-only direct scoring, ablation)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async def _run_without_expert_async(
+    valid_images: list[tuple],
+    image_dir: Path,
+    client: OpenAI,
+    experts_registry_str: str,
+    output_dir: Path,
+    api_concurrency: int,
+    use_session: bool = False,
+    api_retry: int = 0,
+) -> dict:
+    """Run router-only direct scoring without experts, judge, or reflector.
+
+    Used in --without-expert ablation mode. Concurrently sends each image and its
+    taxonomy checklist to the router, which directly outputs alignment_score and
+    artifact_score.
+    """
+    stats = {"router_ok": 0, "router_fail": 0}
+    api_semaphore = asyncio.Semaphore(api_concurrency)
+    loop = asyncio.get_event_loop()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    async def process_one(img_name, img_id, class_id, class_label):
+        image_path = resolve_image_path(image_dir, img_id)
+        if image_path is None:
+            print(f"  [{img_id}] Image not found")
+            stats["router_fail"] += 1
+            return
+
+        session = None
+        if use_session:
+            tax_info = get_taxonomy_info(class_id)
+            struct_tax_info = get_structured_taxonomy_info(class_id)
+            from conversation_session import build_direct_score_system_content
+            system_content = build_direct_score_system_content(
+                experts_registry_str, class_label, tax_info, struct_tax_info,
+            )
+            from conversation_session import ConversationSession
+            session = ConversationSession(system_content, api_retry=api_retry)
+
+        async with api_semaphore:
+            try:
+                result = await loop.run_in_executor(
+                    None,
+                    generate_direct_score,
+                    client, str(image_path), img_id, class_id, class_label,
+                    experts_registry_str, session, api_retry,
+                )
+                if result is not None:
+                    save_direct_score_report(result, output_dir)
+                    stats["router_ok"] += 1
+                    al = result.get("alignment_score", 0.0)
+                    ar = result.get("artifact_score", 0.0)
+                    print(f"  [{img_id}] DirectScore: alignment={al:.2f} artifact={ar:.2f}")
+                else:
+                    stats["router_fail"] += 1
+            except Exception as e:
+                print(f"  [{img_id}] DirectScore worker error: {type(e).__name__}: {e}")
+                stats["router_fail"] += 1
+
+    tasks = [
+        asyncio.create_task(process_one(n, iid, cid, cl))
+        for n, iid, cid, cl in valid_images
+    ]
+    await asyncio.gather(*tasks)
+    return stats
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Entry Point (called from run.py)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -695,8 +767,25 @@ def run_async_pipeline(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    without_expert: bool = False,
+    without_expert_dir: Path | None = None,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
+    # Without-expert ablation mode: router-only direct scoring
+    if without_expert:
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+        output_dir = without_expert_dir if without_expert_dir is not None else Path("output/without_expert_reports")
+        return asyncio.run(_run_without_expert_async(
+            valid_images=valid_images,
+            image_dir=image_dir,
+            client=client,
+            experts_registry_str=experts_registry_str,
+            output_dir=output_dir,
+            api_concurrency=api_concurrency,
+            use_session=use_session,
+            api_retry=api_retry,
+        ))
+
     run_step12 = step in ("1", "2", "12", "123", "1234")
     run_step3 = step in ("3", "123", "1234")
     run_step4 = step in ("4", "1234")

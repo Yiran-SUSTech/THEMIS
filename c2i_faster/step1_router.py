@@ -596,3 +596,201 @@ def revise_plan(
     }
 
     return plan
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Direct Scoring Mode (--without-expert ablation)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_ROUTER_DIRECT_SCORE_INSTRUCTIONS = """You are a Router Agent for AI-generated image evaluation. Follow these steps in order and output a single JSON object.
+
+**Step 1 — Checkpoint Verification (STRICT)**
+You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
+- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). When in doubt, mark as testable and give your best judgment.
+- If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
+- Brief reasoning for both decisions.
+
+**Step 2 — Artifact Detection (THOROUGH)**
+Scan the ENTIRE image carefully for AI-generation artifacts, including subtle ones. For each artifact found:
+- Type: melting, fusion, extra_limbs, missing_parts, structural_collapse, blur, texture_anomaly, perspective_distortion, text_gibberish, other.
+- Location and severity (0-5 scale: 0=none, 1=barely noticeable on close inspection, 2=noticeable but minor, 3=moderately severe, 4=severe structural failure, 5=catastrophic nonsensical region).
+- Brief reasoning.
+- Pay special attention to: subtle edge bleeding between subject and background, slight texture inconsistencies in skin/fur/feathers, minor perspective warping, faint ghost limbs, small areas of melting or fusion that are easy to overlook.
+- If no artifacts found after thorough inspection, output empty list.
+
+**Step 3 — Direct Scoring**
+Based on your checkpoint verdicts and artifact observations above, produce final scores directly:
+- `alignment_score` (0.0-5.0 continuous): How well does the image match the target class? 5.0 = perfect class conformance (all testable checkpoints present), 0.0 = completely wrong class. Be critical — partial matches should score in the middle range. Multiple checkpoint failures compound.
+- `artifact_score` (0.0-5.0 continuous): How artifact-free is the image? 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Consider both the severity and count of artifacts. Multiple minor artifacts compound.
+- Scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+- A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+- Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
+
+**Output JSON schema:**
+{{
+  "image_description": "Brief description of all visible entities and their roles",
+  "image_class": "ImageNet class label",
+  "checkpoint_verdicts": [{{"checkpoint": "str", "category": "str", "is_testable": bool, "is_present": bool, "reasoning": "str"}}],
+  "artifact_observations": [{{"artifact_type": "str", "location": "str", "severity": float, "reasoning": "str"}}],
+  "alignment_score": 0.0,
+  "artifact_score": 0.0,
+  "alignment_reasoning": "Concise: how many checkpoints passed/testable, key mismatches, overall class conformance",
+  "artifact_reasoning": "Concise: artifacts found + severities, overall quality assessment"
+}}"""
+
+
+def build_direct_score_prompt(
+    class_label: str,
+    taxonomy_info: dict | None,
+    experts_registry_str: str,
+    structured_taxonomy_info: dict | None = None,
+) -> str:
+    """Build user prompt for direct-scoring mode (without experts)."""
+    variable_context, _, _ = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
+
+    return f"""Analyze the provided image AND its class category, then evaluate the image following the Strategic Instructions provided in the system context.
+
+**[Input Data]**
+{variable_context}"""
+
+
+def generate_direct_score(
+    client: OpenAI,
+    image_path: str,
+    class_id: int,
+    class_label: str,
+    experts_registry_str: str,
+    session=None,
+    api_retry: int = 0,
+) -> dict | None:
+    """Generate direct alignment and artifact scores without expert models.
+
+    Used in --without-expert ablation mode. The router directly scores the image
+    based on checkpoint verdicts and artifact observations, without invoking experts,
+    judge, or reflector. The prompt is kept as similar as possible to the normal
+    router prompt (Steps 1 and 2 are identical), with Step 3 replaced by direct
+    scoring instead of expert selection.
+    """
+    taxonomy_info = get_taxonomy_info(class_id)
+    if taxonomy_info is None:
+        print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
+
+    structured_taxonomy_info = get_structured_taxonomy_info(class_id)
+    if structured_taxonomy_info is None:
+        print(f"  [WARN] No structured taxonomy info for class_id={class_id}, proceeding without diagnostic checkpoints.")
+
+    base64_image = encode_image(image_path)
+    prompt = build_direct_score_prompt(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
+
+    start_time = time.time()
+
+    if session is not None:
+        user_content = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
+        ]
+        session.add_user(user_content)
+        try:
+            raw_content, completion = session.call_api(
+                client, ROUTER_MODEL, response_format={"type": "json_object"},
+                label="Router-DirectScore",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Router DirectScore API call failed: {type(e).__name__}: {e}")
+            return None
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Router DirectScore returned empty content")
+            return None
+        result = parse_json_safely(raw_content)
+        if result is None:
+            print(f"  [ERROR] Router DirectScore returned unparseable JSON: {raw_content[:200]}")
+    else:
+        _, expert_ids_str, registry_summary = _build_context_block(
+            class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+        )
+        formatted_instructions = _ROUTER_DIRECT_SCORE_INSTRUCTIONS
+        system_msg = (
+            "You are a highly logical Router Agent for image auditing. "
+            "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
+            "Output JSON only."
+        )
+        result = _call_router_api(
+            client, base64_image, prompt, system_msg,
+            registry_summary=registry_summary,
+            formatted_instructions=formatted_instructions,
+            api_retry=api_retry,
+        )
+
+    cost_time = time.time() - start_time
+
+    if result is None:
+        return None
+
+    # Clamp scores to [0, 5]
+    alignment_score = result.get("alignment_score", 0.0)
+    artifact_score = result.get("artifact_score", 0.0)
+    try:
+        alignment_score = max(0.0, min(5.0, float(alignment_score)))
+        artifact_score = max(0.0, min(5.0, float(artifact_score)))
+    except (TypeError, ValueError):
+        alignment_score = 0.0
+        artifact_score = 0.0
+    result["alignment_score"] = round(alignment_score, 2)
+    result["artifact_score"] = round(artifact_score, 2)
+
+    result["metadata"] = {
+        "original_image": image_path,
+        "class_id": class_id,
+        "class_label": class_label,
+        "router_cost_seconds": round(cost_time, 2),
+        "mode": "without_expert",
+    }
+
+    return result
+
+
+def save_direct_score_report(
+    report: dict,
+    output_dir,
+) -> str:
+    """Save a direct-score report (without-expert mode) as a JSON file."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata = report.get("metadata", {})
+    image_id = "unknown"
+    original_image = metadata.get("original_image", "")
+    if original_image:
+        image_id = Path(original_image).stem
+
+    filename = f"direct_score_{image_id}.json"
+    filepath = output_dir / filename
+
+    safe_report = _sanitize_report(report)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(safe_report, f, indent=4, ensure_ascii=False)
+
+    return str(filepath)
+
+
+def _sanitize_report(obj):
+    """Recursively sanitize numpy types in a report for JSON serialization."""
+    try:
+        import numpy as np
+    except ImportError:
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_report(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_report(v) for v in obj]
+    elif isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, (np.floating,)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj

@@ -37,6 +37,7 @@ APPROVED_DIR = C2I_DIR / "output" / "approved_plans"
 JUDGE_FEEDBACK_DIR = C2I_DIR / "output" / "judge_feedback"
 EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
 FINAL_REPORTS_DIR = C2I_DIR / "output" / "final_reports"
+WITHOUT_EXPERT_REPORTS_DIR = C2I_DIR / "output" / "without_expert_reports"
 BATCH_DIR = C2I_DIR / "output" / "batch"
 GPU_PRESETS_DIR = PROJECT_ROOT / "gpu_configs"
 
