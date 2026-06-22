@@ -3,6 +3,7 @@ from openai import OpenAI
 
 from step1_router import (
     _COMMON_ROUTER_INSTRUCTIONS,
+    _ROUTER_DIRECT_SCORE_INSTRUCTIONS,
     extract_expert_ids,
     build_router_registry_summary,
     _build_context_block,
@@ -126,6 +127,38 @@ def build_reflector_only_system_content(
     combined_text = (
         f"{_REFLECTOR_SYSTEM_TEMPLATE}\n\n"
         f"## Expert Registry (Available Tools)\n{registry_summary}"
+    )
+
+    return [
+        {
+            "type": "text",
+            "text": combined_text,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+def build_direct_score_system_content(
+    experts_registry_str: str,
+    class_label: str,
+    taxonomy_info: dict | None,
+    structured_taxonomy_info: dict | None = None,
+) -> list[dict]:
+    """Build system content for the without-expert direct-scoring session.
+
+    Uses the same Router role and registry context as the normal mode, but replaces
+    the expert-selection instructions with direct-scoring instructions.
+    """
+    _, _, registry_summary = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
+
+    combined_text = (
+        "You are a highly logical Router Agent for image auditing. "
+        "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
+        "Output JSON only.\n\n"
+        f"{_ROUTER_DIRECT_SCORE_INSTRUCTIONS}\n\n"
+        f"## Expert Registry (Reference Only — NOT used in this mode)\n{registry_summary}"
     )
 
     return [

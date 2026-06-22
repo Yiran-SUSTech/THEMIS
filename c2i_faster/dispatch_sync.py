@@ -16,7 +16,7 @@ from common import (
     resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
-from step1_router import generate_plan, revise_plan, load_experts_registry
+from step1_router import generate_plan, revise_plan, load_experts_registry, generate_direct_score, save_direct_score_report
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager, execute_plan, save_testimony_bundle,
@@ -164,6 +164,8 @@ def run_sync_pipeline(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    without_expert: bool = False,
+    without_expert_dir: Path | None = None,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -171,6 +173,50 @@ def run_sync_pipeline(
         "gpu_ok": 0, "gpu_fail": 0,
         "step4_ok": 0, "step4_fail": 0,
     }
+
+    # Without-expert ablation mode: router-only direct scoring
+    if without_expert:
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+        output_dir = without_expert_dir if without_expert_dir is not None else Path("output/without_expert_reports")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        stats = {"router_ok": 0, "router_fail": 0}
+
+        for img_name, img_id, class_id, class_label in valid_images:
+            img_path = resolve_image_path(image_dir, img_id)
+            if img_path is None:
+                print(f"[WARN] Image not found: {img_id}")
+                stats["router_fail"] += 1
+                continue
+
+            print(f"\n{'#'*60}")
+            print(f"  [Without-Expert] Image: {img_id} | Class: {class_label}")
+            print(f"{'#'*60}")
+
+            session = None
+            if use_session:
+                from step1_router import get_taxonomy_info, get_structured_taxonomy_info
+                from conversation_session import build_direct_score_system_content, ConversationSession
+                tax_info = get_taxonomy_info(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
+                system_content = build_direct_score_system_content(
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
+                )
+                session = ConversationSession(system_content, api_retry=api_retry)
+
+            result = generate_direct_score(
+                client, str(img_path), img_id, class_id, class_label,
+                experts_registry_str, session, api_retry,
+            )
+            if result is not None:
+                save_direct_score_report(result, output_dir)
+                stats["router_ok"] += 1
+                al = result.get("alignment_score", 0.0)
+                ar = result.get("artifact_score", 0.0)
+                print(f"  [{img_id}] DirectScore: alignment={al:.2f} artifact={ar:.2f}")
+            else:
+                stats["router_fail"] += 1
+
+        return stats
 
     run_step12 = step in ("1", "2", "12", "123", "1234")
     run_step3 = step in ("3", "123", "1234")
