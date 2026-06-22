@@ -19,6 +19,7 @@ SOURCE_GROUPS = {
     "DiT_val_ref": ["DiT_val_ref_1", "DiT_val_ref_2", "DiT_val_ref_3"],
     "Checklist_ref": ["Checklist_ref_1", "Checklist_ref_2", "Checklist_ref_3"],
     "DiT_val_temmp5": ["DiT_val_temmp5_1", "Checklist_temmp5_1"],
+    "Without_expert": ["Without_expert_1"],
     "Human": ["User_1", "User_2", "User_3"],
 }
 
@@ -80,6 +81,30 @@ SOURCES = {
         "type": "human",
         "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_3_final_annotations.json"),
     },
+    "User_4": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_4_final_annotations.json"),
+    },
+    "User_5": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_5_final_annotations.json"),
+    },
+    "User_55": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_55_final_annotations.json"),
+    },
+    "User_6": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_6_final_annotations.json"),
+    },
+    "User_7": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_7_final_annotations.json"),
+    },
+    "User_8": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_8_final_annotations.json"),
+    },
     "DiT_val_temmp5_1": {
         "type": "final_report",
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_temmp5_1", "final_reports"),
@@ -89,6 +114,11 @@ SOURCES = {
         "type": "checklist",
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_temmp5_1", "checklist_annotations"),
         "prefix": "checklist_",
+    },
+    "Without_expert_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_without_expert_1", "without_expert_reports"),
+        "prefix": "direct_score_",
     },
 }
 
