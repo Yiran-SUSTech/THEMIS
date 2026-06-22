@@ -721,7 +721,7 @@ async def _run_without_expert_async(
                 result = await loop.run_in_executor(
                     None,
                     generate_direct_score,
-                    client, str(image_path), img_id, class_id, class_label,
+                    client, str(image_path), class_id, class_label,
                     experts_registry_str, session, api_retry,
                 )
                 if result is not None:

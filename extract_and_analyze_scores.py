@@ -18,6 +18,7 @@ SOURCE_GROUPS = {
     "DiT_val (no-ref)": ["DiT_val_1", "DiT_val_2", "DiT_val_3"],
     "DiT_val_ref": ["DiT_val_ref_1", "DiT_val_ref_2", "DiT_val_ref_3"],
     "Checklist_ref": ["Checklist_ref_1", "Checklist_ref_2", "Checklist_ref_3"],
+    "DiT_val_temmp5": ["DiT_val_temmp5_1", "Checklist_temmp5_1"],
     "Human": ["User_1", "User_2", "User_3"],
 }
 
@@ -78,6 +79,16 @@ SOURCES = {
     "User_3": {
         "type": "human",
         "path": os.path.join(BASE_DIR, "small_scale_audit_recorrect", "output_results", "User_3_final_annotations.json"),
+    },
+    "DiT_val_temmp5_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_temmp5_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Checklist_temmp5_1": {
+        "type": "checklist",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_temmp5_1", "checklist_annotations"),
+        "prefix": "checklist_",
     },
 }
 
@@ -205,7 +216,10 @@ def plot_distributions(df, output_dir):
     sources = sorted(df["source"].unique())
 
     for score_col, score_label in [("alignment_score", "Alignment Score"), ("artifact_score", "Artifact Score")]:
-        fig, axes = plt.subplots(3, 4, figsize=(24, 15))
+        n_src = len(sources)
+        n_cols = 4
+        n_rows = (n_src + n_cols - 1) // n_cols
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
         fig.suptitle(f"{score_label} Distribution by Source", fontsize=18, fontweight="bold")
         axes_flat = axes.flatten()
         for i, src in enumerate(sources):
