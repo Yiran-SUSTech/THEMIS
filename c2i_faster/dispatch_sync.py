@@ -16,7 +16,7 @@ from common import (
     resolve_image_path, save_judge_feedback, compute_router_scores,
 )
 
-from step1_router import generate_plan, revise_plan, load_experts_registry
+from step1_router import generate_plan, revise_plan, load_experts_registry, generate_direct_score, save_direct_score_report
 from step2_judge import review_plan
 from step3_execute import (
     ExpertManager, execute_plan, save_testimony_bundle,
@@ -36,6 +36,7 @@ def _run_single_image(
     plan_dir: Path,
     approved_dir: Path,
     judge_feedback_dir: Path | None,
+    api_retry: int = 0,
 ) -> dict | None:
     """Run Router+Judge loop for a single image (synchronous)."""
     print(f"\n{'#'*60}")
@@ -45,6 +46,7 @@ def _run_single_image(
     print(f"\n  [Step 1] Router generating initial plan...")
     current_plan = generate_plan(
         client, image_path, class_id, class_label, experts_registry_str,
+        api_retry=api_retry,
     )
     if current_plan is None:
         print(f"  [Step 1] FAILED - Router could not generate plan\n")
@@ -66,6 +68,7 @@ def _run_single_image(
         judge_result = review_plan(
             client, image_path, class_id, class_label,
             current_plan, experts_registry_str,
+            api_retry=api_retry,
         )
 
         if judge_result is None:
@@ -112,6 +115,7 @@ def _run_single_image(
             revised_plan = revise_plan(
                 client, image_path, class_id, class_label,
                 experts_registry_str, current_plan, feedback_history,
+                api_retry=api_retry,
             )
 
             if revised_plan is not None:
@@ -156,6 +160,12 @@ def run_sync_pipeline(
     use_session: bool = False,
     final_reports_dir: Path | None = None,
     save_pose_viz: bool = False,
+    ref_enable: bool = False,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
+    api_retry: int = 0,
+    without_expert: bool = False,
+    without_expert_dir: Path | None = None,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -163,6 +173,50 @@ def run_sync_pipeline(
         "gpu_ok": 0, "gpu_fail": 0,
         "step4_ok": 0, "step4_fail": 0,
     }
+
+    # Without-expert ablation mode: router-only direct scoring
+    if without_expert:
+        client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
+        output_dir = without_expert_dir if without_expert_dir is not None else Path("output/without_expert_reports")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        stats = {"router_ok": 0, "router_fail": 0}
+
+        for img_name, img_id, class_id, class_label in valid_images:
+            img_path = resolve_image_path(image_dir, img_id)
+            if img_path is None:
+                print(f"[WARN] Image not found: {img_id}")
+                stats["router_fail"] += 1
+                continue
+
+            print(f"\n{'#'*60}")
+            print(f"  [Without-Expert] Image: {img_id} | Class: {class_label}")
+            print(f"{'#'*60}")
+
+            session = None
+            if use_session:
+                from step1_router import get_taxonomy_info, get_structured_taxonomy_info
+                from conversation_session import build_direct_score_system_content, ConversationSession
+                tax_info = get_taxonomy_info(class_id)
+                struct_tax_info = get_structured_taxonomy_info(class_id)
+                system_content = build_direct_score_system_content(
+                    experts_registry_str, class_label, tax_info, struct_tax_info,
+                )
+                session = ConversationSession(system_content, api_retry=api_retry)
+
+            result = generate_direct_score(
+                client, str(img_path), img_id, class_id, class_label,
+                experts_registry_str, session, api_retry,
+            )
+            if result is not None:
+                save_direct_score_report(result, output_dir)
+                stats["router_ok"] += 1
+                al = result.get("alignment_score", 0.0)
+                ar = result.get("artifact_score", 0.0)
+                print(f"  [{img_id}] DirectScore: alignment={al:.2f} artifact={ar:.2f}")
+            else:
+                stats["router_fail"] += 1
+
+        return stats
 
     run_step12 = step in ("1", "2", "12", "123", "1234")
     run_step3 = step in ("3", "123", "1234")
@@ -186,6 +240,7 @@ def run_sync_pipeline(
                 client, str(img_path), img_id, class_id, class_label,
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
+                api_retry=api_retry,
             )
             if plan is not None:
                 stats["api_ok"] += 1
@@ -234,7 +289,7 @@ def run_sync_pipeline(
             if run_step4 and bundle is not None and client:
                 print(f"\n  [Step 4] Reflector evaluating {image_id}...")
                 try:
-                    from step4_reflector import run_reflector, save_final_report, print_final_summary
+                    from step4_reflector import run_reflector, save_final_report, print_final_summary, select_reference_images, build_checklist_annotation, save_checklist_annotation
                     from step1_router import get_taxonomy_info, get_structured_taxonomy_info
 
                     reflector_session = None
@@ -245,7 +300,14 @@ def run_sync_pipeline(
                         reflector_system = build_reflector_only_system_content(
                             experts_registry_str, class_label, tax_info_r, struct_tax_info_r,
                         )
-                        reflector_session = ConversationSession(reflector_system)
+                        reflector_session = ConversationSession(reflector_system, api_retry=api_retry)
+
+                    ref_images = None
+                    if ref_enable:
+                        exclude_name = os.path.basename(str(image_path))
+                        ref_images = select_reference_images(
+                            class_id, image_dir, exclude_image_name=exclude_name,
+                        )
 
                     report = run_reflector(
                         client=client,
@@ -256,6 +318,9 @@ def run_sync_pipeline(
                         experts_registry_str=experts_registry_str,
                         session=reflector_session,
                         router_plan=plan,
+                        ref_images=ref_images,
+                        enable_checklist=enable_checklist,
+                        api_retry=api_retry,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
@@ -264,6 +329,10 @@ def run_sync_pipeline(
                         if final_reports_dir:
                             final_reports_dir.mkdir(parents=True, exist_ok=True)
                             save_final_report(report, final_reports_dir)
+                        if enable_checklist and checklist_dir is not None:
+                            image_name = os.path.basename(str(image_path))
+                            annotation = build_checklist_annotation(report, class_id, class_label, image_name)
+                            save_checklist_annotation(annotation, checklist_dir)
                         print_final_summary(report)
                         stats["step4_ok"] += 1
                 except Exception as e:

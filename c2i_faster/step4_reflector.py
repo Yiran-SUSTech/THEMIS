@@ -6,15 +6,18 @@ import base64
 import time
 from pathlib import Path
 from openai import OpenAI
+from common import api_call_with_retry
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+C2I_DIR = Path(__file__).resolve().parent
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
+REF_ANNOTATIONS_JSON = C2I_DIR / "ref_annotations.json"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -53,6 +56,225 @@ def get_structured_taxonomy_info(class_id: int) -> dict | None:
     return None
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Reference Image Selection (for Reflector anchoring)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_REF_ANNOTATIONS_CACHE: dict | None = None
+_SUPER_CATEGORY_CACHE: dict[int, str | None] = {}
+
+# Artifact score segment boundaries (0-5 scale split into thirds)
+_REF_LOW_MID_BOUNDARY = 5.0 / 3.0    # ~1.667
+_REF_MID_HIGH_BOUNDARY = 10.0 / 3.0  # ~3.333
+
+
+def _get_super_category_for_class(class_id: int) -> str | None:
+    """Look up the super_category for a given class_id from taxonomy_info_structural."""
+    if class_id in _SUPER_CATEGORY_CACHE:
+        return _SUPER_CATEGORY_CACHE[class_id]
+
+    batch_num = class_id // 10
+    batch_file = TAXONOMY_STRUCTURAL_DIR / f"taxonomy_enriched_Batch_{batch_num}_structured.json"
+    super_cat: str | None = None
+    if batch_file.exists():
+        try:
+            with open(batch_file, "r", encoding="utf-8") as f:
+                items = json.load(f)
+            for item in items:
+                if item.get("class_id") == class_id:
+                    super_cat = item.get("super_category")
+                    break
+        except (json.JSONDecodeError, OSError):
+            super_cat = None
+
+    _SUPER_CATEGORY_CACHE[class_id] = super_cat
+    return super_cat
+
+
+def _load_ref_annotations() -> dict:
+    """Load ref_annotations.json (cached at module level)."""
+    global _REF_ANNOTATIONS_CACHE
+    if _REF_ANNOTATIONS_CACHE is not None:
+        return _REF_ANNOTATIONS_CACHE
+    if not REF_ANNOTATIONS_JSON.exists():
+        print(f"  [WARN] ref_annotations.json not found: {REF_ANNOTATIONS_JSON}")
+        _REF_ANNOTATIONS_CACHE = {}
+        return _REF_ANNOTATIONS_CACHE
+    try:
+        with open(REF_ANNOTATIONS_JSON, "r", encoding="utf-8") as f:
+            _REF_ANNOTATIONS_CACHE = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"  [WARN] Failed to load ref_annotations.json: {e}")
+        _REF_ANNOTATIONS_CACHE = {}
+    return _REF_ANNOTATIONS_CACHE
+
+
+def select_reference_images(
+    class_id: int,
+    image_dir: Path,
+    exclude_image_name: str | None = None,
+    num_refs: int = 3,
+) -> list[dict]:
+    """Select reference images for the Reflector.
+
+    Selection rules:
+      1. Same super_category as the evaluated image's class.
+      2. Cover low/mid/high artifact_score segments for calibration.
+      3. Exclude the image being evaluated.
+      4. Image file must exist in image_dir.
+
+    Returns a list of dicts with keys:
+      image_name, image_path, class_id, class_name,
+      alignment_score, artifact_score, super_category, segment
+    """
+    target_super_cat = _get_super_category_for_class(class_id)
+    if target_super_cat is None:
+        print(f"  [WARN] No super_category found for class_id={class_id}, skipping reference images.")
+        return []
+
+    annotations = _load_ref_annotations()
+    if not annotations:
+        return []
+
+    image_dir = Path(image_dir)
+    candidates: list[dict] = []
+
+    for img_name, ann in annotations.items():
+        if exclude_image_name and img_name == exclude_image_name:
+            continue
+
+        ann_class_id = ann.get("class_id")
+        if ann_class_id is None:
+            continue
+        ann_super_cat = _get_super_category_for_class(ann_class_id)
+        if ann_super_cat != target_super_cat:
+            continue
+
+        img_path = image_dir / img_name
+        if not img_path.exists():
+            continue
+
+        scores = ann.get("scores", {})
+        artifact_score = scores.get("artifact_score")
+        alignment_score = scores.get("alignment_score")
+        if artifact_score is None:
+            continue
+
+        try:
+            artifact_score = float(artifact_score)
+            alignment_score = float(alignment_score) if alignment_score is not None else None
+        except (TypeError, ValueError):
+            continue
+
+        if artifact_score < _REF_LOW_MID_BOUNDARY:
+            segment = "low"
+        elif artifact_score < _REF_MID_HIGH_BOUNDARY:
+            segment = "mid"
+        else:
+            segment = "high"
+
+        candidates.append({
+            "image_name": img_name,
+            "image_path": str(img_path),
+            "class_id": ann_class_id,
+            "class_name": ann.get("class_name", ""),
+            "alignment_score": alignment_score,
+            "artifact_score": artifact_score,
+            "super_category": ann_super_cat,
+            "segment": segment,
+        })
+
+    if not candidates:
+        print(f"  [WARN] No reference candidates found for super_category={target_super_cat}")
+        return []
+
+    low_group = [c for c in candidates if c["segment"] == "low"]
+    mid_group = [c for c in candidates if c["segment"] == "mid"]
+    high_group = [c for c in candidates if c["segment"] == "high"]
+
+    def _pick_representative(group: list[dict], low: float, high: float) -> dict | None:
+        if not group:
+            return None
+        midpoint = (low + high) / 2.0
+        return min(group, key=lambda c: abs(c["artifact_score"] - midpoint))
+
+    selected: list[dict] = []
+    for group, lo, hi in (
+        (low_group, 0.0, _REF_LOW_MID_BOUNDARY),
+        (mid_group, _REF_LOW_MID_BOUNDARY, _REF_MID_HIGH_BOUNDARY),
+        (high_group, _REF_MID_HIGH_BOUNDARY, 5.0),
+    ):
+        rep = _pick_representative(group, lo, hi)
+        if rep is not None:
+            selected.append(rep)
+
+    # If fewer than num_refs, fill from remaining candidates
+    if len(selected) < num_refs:
+        selected_names = {s["image_name"] for s in selected}
+        remaining = [c for c in candidates if c["image_name"] not in selected_names]
+        remaining.sort(key=lambda c: abs(c["artifact_score"] - 2.5))
+        for c in remaining:
+            if len(selected) >= num_refs:
+                break
+            selected.append(c)
+
+    return selected[:num_refs]
+
+
+def _build_ref_images_text(ref_images: list[dict]) -> str:
+    """Build a text description of the reference images for the Reflector prompt."""
+    if not ref_images:
+        return ""
+
+    lines = [
+        "**[Human-Annotated Reference Images]**",
+        "Below are reference images with human annotations. Use them as anchors to calibrate your scoring.",
+        "Higher artifact_score = fewer artifacts (better image quality).",
+        "Higher alignment_score = better class conformance.",
+        "",
+    ]
+    for i, ref in enumerate(ref_images, 1):
+        al = ref["alignment_score"] if ref["alignment_score"] is not None else "N/A"
+        al_str = f"{al:.2f}" if isinstance(al, float) else str(al)
+        lines.append(
+            f"Reference {i} [{ref['segment']}]: {ref['image_name']} | "
+            f"class={ref['class_name']} | alignment_score={al_str} | "
+            f"artifact_score={ref['artifact_score']:.2f}"
+        )
+    lines.append("")
+    lines.append(
+        "Compare the target image against these references. If the target has similar quality "
+        "to a reference, assign a similar score. This ensures your scores are calibrated to "
+        "human judgment and remain stable across images."
+    )
+    return "\n".join(lines)
+
+
+def _append_ref_images_to_content(
+    user_content: list[dict],
+    ref_images: list[dict],
+) -> None:
+    """Append base64-encoded reference images to the API request content."""
+    for ref in ref_images:
+        try:
+            ref_b64 = encode_image(ref["image_path"])
+            al = ref["alignment_score"]
+            al_str = f"{al:.2f}" if isinstance(al, float) else str(al)
+            user_content.append({
+                "type": "text",
+                "text": (
+                    f"[Reference Image: {ref['image_name']} | "
+                    f"alignment={al_str} | artifact={ref['artifact_score']:.2f}]"
+                ),
+            })
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{ref_b64}"},
+            })
+        except Exception as e:
+            print(f"  [WARN] Failed to encode reference image {ref['image_path']}: {e}")
+
+
 def clean_json_response(raw_text: str) -> str:
     text = raw_text.strip()
     if text.startswith("```json"):
@@ -65,6 +287,8 @@ def clean_json_response(raw_text: str) -> str:
 
 
 def parse_json_safely(raw_text: str) -> dict | None:
+    if raw_text is None or raw_text.strip() == "":
+        return None
     cleaned = clean_json_response(raw_text)
     try:
         return json.loads(cleaned)
@@ -230,6 +454,71 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
   "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
   "artifact_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
   "key_defects": ["string"]
+}"""
+
+
+# Checklist instructions appended to user prompt in session mode
+_CHECKLIST_SESSION_INSTRUCTIONS = """
+**[Checklist Annotation Required]**
+In addition to your normal evaluation, you MUST also produce:
+1. `fine_grained_details`: For EACH checkpoint under EACH category in the Diagnostic Checkpoints above, assign a status:
+   - "🟢 Checked" (present and correct)
+   - "🔴 Missing" (absent, malformed, or incorrect)
+   - "⚪ N/A" (cannot be evaluated)
+   Use the EXACT checkpoint description strings as keys. Cover EVERY checkpoint — no omissions.
+2. `veto_activated`: true if catastrophic structural failure makes evaluation impossible, else false.
+"""
+_REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation system. Review the Router's assessment and expert evidence, then produce the final evaluation. Output JSON only, no markdown.
+
+**Core Principles:**
+1. For alignment: expert classifier hard data is more reliable than Router's visual impression.
+2. For artifacts: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
+3. Structural defects outweigh aesthetic quality.
+4. Be critical — do NOT rubber-stamp the Router's assessment. Actively look for issues the Router may have missed or underestimated.
+5. When in doubt about an artifact, lean toward flagging it rather than ignoring it.
+
+**Scoring Guidelines:**
+- The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
+- Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+- A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+- Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
+- You may score higher or lower than the base scores if your judgment warrants it.
+
+**Your Task:**
+- Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
+- Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
+- Note any new artifacts found by experts that the Router missed.
+- Produce final alignment_score and artifact_score (0-5 continuous).
+
+**Checklist Annotation (fine_grained_details):**
+- You MUST produce a `fine_grained_details` object that mirrors the Diagnostic Checkpoints structure.
+- For EACH checkpoint description listed under each category, assign one of three status values:
+  - "🟢 Checked" — the feature is clearly present and correctly rendered in the image.
+  - "🔴 Missing" — the feature is absent, malformed, or incorrect.
+  - "⚪ N/A" — the feature cannot be evaluated (e.g., not visible, occluded, or genuinely inapplicable to this view).
+- Use the EXACT checkpoint description strings from the Diagnostic Checkpoints as keys. Do NOT rephrase or invent new keys.
+- Your checklist must cover EVERY checkpoint from EVERY category in the Diagnostic Checkpoints — no omissions.
+- Base your status on your own holistic judgment, informed by the Router's verdicts and expert evidence, but do not blindly copy the Router.
+
+**Veto Mechanism (veto_activated):**
+- Set `veto_activated` to true if the image has catastrophic structural failure (e.g., complete structural collapse, severe melting making the subject unrecognizable, or multiple major anatomical errors) that makes meaningful evaluation impossible.
+- Otherwise set it to false.
+
+**Output JSON:**
+{
+  "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning. Flag any checkpoints the Router was too lenient on.",
+  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
+  "alignment_score": 0.0,
+  "artifact_score": 0.0,
+  "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
+  "artifact_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
+  "key_defects": ["string"],
+  "veto_activated": false,
+  "fine_grained_details": {
+    "Category_Name": {
+      "Exact checkpoint description string from diagnostic_checkpoints": "🟢 Checked"
+    }
+  }
 }"""
 
 
@@ -445,6 +734,9 @@ def run_reflector(
     experts_registry_str: str,
     session=None,
     router_plan: dict | None = None,
+    ref_images: list[dict] | None = None,
+    enable_checklist: bool = False,
+    api_retry: int = 0,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -456,6 +748,8 @@ def run_reflector(
 
     base64_image = encode_image(image_path)
 
+    ref_images_text = _build_ref_images_text(ref_images) if ref_images else ""
+
     start_time = time.time()
 
     if session is not None:
@@ -463,6 +757,10 @@ def run_reflector(
             class_label, taxonomy_info, expert_results_str,
             router_plan, structured_taxonomy_info,
         )
+        if enable_checklist:
+            prompt = prompt + "\n\n" + _CHECKLIST_SESSION_INSTRUCTIONS
+        if ref_images_text:
+            prompt = prompt + "\n\n" + ref_images_text
         user_content = [{"type": "text", "text": prompt}]
 
         aux_images = _collect_auxiliary_images(expert_results)
@@ -475,12 +773,23 @@ def run_reflector(
             except Exception as e:
                 print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
 
+        if ref_images:
+            _append_ref_images_to_content(user_content, ref_images)
+
         session.add_user(user_content)
-        raw_content, completion = session.call_api(
-            client, REFLECTOR_MODEL, response_format={"type": "json_object"},
-        )
+        try:
+            raw_content, completion = session.call_api(
+                client, REFLECTOR_MODEL, response_format={"type": "json_object"},
+                label="Reflector",
+            )
+        except Exception as e:
+            print(f"  [ERROR] Reflector API call failed: {type(e).__name__}: {e}")
+            return None
         cost_time = time.time() - start_time
 
+        if raw_content is None or raw_content.strip() == "":
+            print(f"  [ERROR] Reflector returned empty content")
+            return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
@@ -492,16 +801,23 @@ def run_reflector(
             "class_label": class_label,
             "taxonomy_available": taxonomy_info is not None,
             "auxiliary_images_included": [Path(p).name for p in _collect_auxiliary_images(expert_results)],
+            "ref_images_enabled": bool(ref_images),
+            "ref_images_included": [r["image_name"] for r in ref_images] if ref_images else [],
+            "checklist_enabled": enable_checklist,
             "reflector_cost_seconds": round(cost_time, 2),
             "session_turn_count": session.turn_count,
         }
         result = _calibrate_scores(result, expert_results, router_plan)
+        if enable_checklist:
+            result = _normalize_checklist_output(result, structured_taxonomy_info)
         return result
 
     prompt = build_reflector_prompt(
         class_label, taxonomy_info, expert_results_str,
         router_plan, structured_taxonomy_info,
     )
+    if ref_images_text:
+        prompt = prompt + "\n\n" + ref_images_text
 
     user_content = [
         {"type": "text", "text": prompt},
@@ -531,7 +847,10 @@ def run_reflector(
         except Exception as e:
             print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
 
-    system_msg = _REFLECTOR_SYSTEM_TEMPLATE
+    if ref_images:
+        _append_ref_images_to_content(user_content, ref_images)
+
+    system_msg = _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE if enable_checklist else _REFLECTOR_SYSTEM_TEMPLATE
 
     system_message = {
         "role": "system",
@@ -545,18 +864,35 @@ def run_reflector(
     }
 
     try:
-        completion = client.chat.completions.create(
+        completion = api_call_with_retry(
+            client.chat.completions.create,
             model=REFLECTOR_MODEL,
             messages=[
                 system_message,
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
-            temperature=0,
+            temperature=0.5,
+            max_retries=api_retry,
+            label="Reflector",
+            extra_body={"enable_thinking": False},
         )
         raw_content = completion.choices[0].message.content
         cost_time = time.time() - start_time
+        finish_reason = getattr(completion.choices[0], "finish_reason", "unknown")
+        usage = getattr(completion, "usage", None)
 
+        if raw_content is None or raw_content.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+            usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
+            print(f"  [ERROR] Reflector returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
+            if reasoning:
+                print(f"  [WARN] Reflector reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
+                raw_content = reasoning
+            else:
+                msg = completion.choices[0].message
+                print(f"  [DEBUG] Reflector full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                return None
         result = parse_json_safely(raw_content)
         if result is None:
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
@@ -568,16 +904,148 @@ def run_reflector(
             "class_label": class_label,
             "taxonomy_available": taxonomy_info is not None,
             "auxiliary_images_included": [Path(p).name for p in aux_images],
+            "ref_images_enabled": bool(ref_images),
+            "ref_images_included": [r["image_name"] for r in ref_images] if ref_images else [],
+            "checklist_enabled": enable_checklist,
             "reflector_cost_seconds": round(cost_time, 2),
         }
         result = _calibrate_scores(result, expert_results, router_plan)
+        if enable_checklist:
+            result = _normalize_checklist_output(result, structured_taxonomy_info)
 
         return result
 
     except Exception as e:
         cost_time = time.time() - start_time
-        print(f"  [ERROR] Reflector API call failed: {e}")
+        print(f"  [ERROR] Reflector API call failed: {type(e).__name__}: {e}")
         return None
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Checklist Report Normalization & Saving
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_VALID_CHECKLIST_STATUSES = {"🟢 Checked", "🔴 Missing", "⚪ N/A"}
+
+
+def _normalize_checklist_output(
+    result: dict,
+    structured_taxonomy_info: dict | None,
+) -> dict:
+    """Normalize the reflector's fine_grained_details to match the human annotation format.
+
+    Ensures every checkpoint from diagnostic_checkpoints is present with a valid status.
+    Fills missing entries with "⚪ N/A" and validates status values.
+    """
+    if structured_taxonomy_info is None:
+        return result
+
+    diagnostic_checkpoints = structured_taxonomy_info.get("diagnostic_checkpoints", {})
+    if not diagnostic_checkpoints:
+        return result
+
+    raw_fine = result.get("fine_grained_details", {})
+    normalized_fine: dict[str, dict[str, str]] = {}
+
+    for category, checkpoint_list in diagnostic_checkpoints.items():
+        normalized_fine[category] = {}
+        raw_category = raw_fine.get(category, {}) if isinstance(raw_fine, dict) else {}
+
+        for checkpoint_desc in checkpoint_list:
+            status = raw_category.get(checkpoint_desc, "⚪ N/A")
+            if status not in _VALID_CHECKLIST_STATUSES:
+                # Try to coerce common variants
+                status_lower = str(status).lower().strip()
+                if "checked" in status_lower or "present" in status_lower or status_lower == "🟢":
+                    status = "🟢 Checked"
+                elif "missing" in status_lower or "absent" in status_lower or status_lower == "🔴":
+                    status = "🔴 Missing"
+                else:
+                    status = "⚪ N/A"
+            normalized_fine[category][checkpoint_desc] = status
+
+    result["fine_grained_details"] = normalized_fine
+
+    if "veto_activated" not in result:
+        result["veto_activated"] = False
+    result["veto_activated"] = bool(result["veto_activated"])
+
+    return result
+
+
+def build_checklist_annotation(
+    report: dict,
+    class_id: int,
+    class_label: str,
+    image_name: str,
+) -> dict:
+    """Build a human-annotation-style record from the reflector report.
+
+    Output format matches small_scale_audit_recorrect/output_results/User_*_final_annotations.json
+
+    Scoring rules (mimicking human annotators):
+    - alignment_score: 5 * Checked / (Checked + Missing), rounded to 2 decimals
+    - artifact_score: integer 0-5, derived from the reflector's artifact_score
+      but quantized to the nearest integer to mimic human discrete scoring
+    """
+    fine_grained = report.get("fine_grained_details", {})
+    checked_count = 0
+    missing_count = 0
+    for category_items in fine_grained.values():
+        if not isinstance(category_items, dict):
+            continue
+        for status in category_items.values():
+            if status == "\U0001f7e2 Checked":
+                checked_count += 1
+            elif status == "\U0001f534 Missing":
+                missing_count += 1
+
+    if checked_count + missing_count > 0:
+        checklist_alignment = round(5.0 * checked_count / (checked_count + missing_count), 2)
+    else:
+        checklist_alignment = 0.0
+
+    reflector_artifact = float(report.get("artifact_score", 0.0))
+    checklist_artifact = min(5, max(0, round(reflector_artifact)))
+
+    total_score = round(checklist_alignment * checklist_artifact, 2)
+
+    return {
+        "image_name": image_name,
+        "class_id": class_id,
+        "class_name": class_label,
+        "veto_activated": bool(report.get("veto_activated", False)),
+        "scores": {
+            "alignment_score": checklist_alignment,
+            "artifact_score": checklist_artifact,
+            "total_score": total_score,
+        },
+        "fine_grained_details": fine_grained,
+    }
+
+
+def save_checklist_annotation(
+    annotation: dict,
+    output_dir: str | Path | None = None,
+) -> str:
+    """Save a single image's checklist annotation as a JSON file."""
+    if output_dir is None:
+        output_dir = Path(__file__).resolve().parent / "output" / "checklist_annotations"
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    image_name = annotation.get("image_name", "unknown")
+    image_id = os.path.splitext(image_name)[0]
+    filename = f"checklist_{image_id}.json"
+    filepath = output_dir / filename
+
+    safe_annotation = _sanitize_evidence(annotation)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(safe_annotation, f, indent=4, ensure_ascii=False)
+
+    print(f"  [SAVED] {filename}")
+    return str(filepath)
 
 
 def save_final_report(

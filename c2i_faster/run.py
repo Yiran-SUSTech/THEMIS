@@ -31,6 +31,7 @@ if str(C2I_DIR) not in sys.path:
 from common import (
     IMAGE_DIR, CLASS_IDS_TXT, EXPERTS_REGISTRY_JSON,
     PLAN_DIR, APPROVED_DIR, JUDGE_FEEDBACK_DIR, EXPERT_RESULTS_DIR, BATCH_DIR,
+    WITHOUT_EXPERT_REPORTS_DIR,
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     build_image_list, preload_expert_managers,
 )
@@ -86,6 +87,12 @@ Examples:
                         help="Use conversation session mode (Router+Judge+Reflector share context)")
     parser.add_argument("--save-pose-viz", action="store_true", default=False,
                         help="Save pose visualization images")
+    parser.add_argument("--ref-enable", action="store_true", default=False,
+                        help="Enable 3 human-annotated reference images for Reflector anchoring (default: False)")
+    parser.add_argument("--enable-checklist", action="store_true", default=False,
+                        help="Enable checklist annotation output (fine_grained_details + veto_activated) matching human annotation format (default: False)")
+    parser.add_argument("--without-expert", action="store_true", default=False,
+                        help="Ablation mode: router-only direct scoring, no experts/judge/reflector (default: False)")
 
     # ── GPU parameters ─────────────────────────────────────────
     parser.add_argument("--gpu-groups", type=int, default=1,
@@ -98,6 +105,8 @@ Examples:
     # ── Async mode parameters ──────────────────────────────────
     parser.add_argument("--api-concurrency", type=int, default=5,
                         help="[async] Max concurrent API calls (default: 5)")
+    parser.add_argument("--api-retry", type=int, default=0,
+                        help="Number of API call retries on failure (default: 0, no retry)")
 
     # ── Batch mode parameters ──────────────────────────────────
     parser.add_argument("--batch-dir", type=str, default=str(BATCH_DIR),
@@ -129,7 +138,12 @@ Examples:
     run_step4 = step in ("4", "1234")
 
     # ── Validate API key ───────────────────────────────────────
-    if (run_step12 or run_step4) and not DASHSCOPE_API_KEY:
+    # In without-expert mode, only the router API is used (no judge/reflector)
+    if args.without_expert:
+        if not DASHSCOPE_API_KEY:
+            print("[ERROR] DASHSCOPE_API_KEY not set. Required for Router direct scoring.")
+            sys.exit(1)
+    elif (run_step12 or run_step4) and not DASHSCOPE_API_KEY:
         print("[ERROR] DASHSCOPE_API_KEY not set. Required for Step 1+2 and Step 4.")
         sys.exit(1)
 
@@ -139,15 +153,16 @@ Examples:
         image_id_filter=args.image_id, limit=args.limit,
     )
 
-    if not valid_images and run_step12:
+    if not valid_images and (run_step12 or args.without_expert):
         print("[ERROR] No valid images found.")
         sys.exit(1)
 
     # ── Pre-load expert managers if needed ─────────────────────
+    # Skip expert loading entirely in without-expert mode
     expert_managers = []
     shared_cpu_manager = None
     cpu_semaphore = None
-    if run_step3:
+    if run_step3 and not args.without_expert:
         expert_managers, shared_cpu_manager, cpu_semaphore = preload_expert_managers(
             num_groups=args.gpu_groups,
             gpu_config_path=args.gpu_config,
@@ -162,15 +177,22 @@ Examples:
     print(f"\n{'='*60}")
     print(f"  THEMIS C2I Dispatcher")
     print(f"  Mode:             {args.mode}")
-    print(f"  Step:             {step}")
+    if args.without_expert:
+        print(f"  Step:             without-expert (router-only direct scoring)")
+    else:
+        print(f"  Step:             {step}")
     print(f"  Images:           {len(valid_images)}")
     if args.mode == "async":
         print(f"  API concurrency:  {args.api_concurrency}")
     if args.session:
         print(f"  Session mode:     ON (shared conversation context)")
+    if args.ref_enable and not args.without_expert:
+        print(f"  Reflector refs:   ON (3 human-annotated reference images)")
+    if args.enable_checklist and not args.without_expert:
+        print(f"  Checklist output: ON (human-annotation-style fine_grained_details)")
     if args.mode == "batch":
         print(f"  Poll interval:    {args.poll_interval}s")
-    if run_step3:
+    if run_step3 and not args.without_expert:
         if args.gpu_preset:
             print(f"  GPU preset:       {args.gpu_preset}")
         elif args.gpu_config:
@@ -185,6 +207,7 @@ Examples:
     if args.mode == "sync":
         from dispatch_sync import run_sync_pipeline
         final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
+        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
         stats = run_sync_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -199,11 +222,18 @@ Examples:
             use_session=args.session,
             final_reports_dir=final_reports_dir,
             save_pose_viz=args.save_pose_viz,
+            ref_enable=args.ref_enable,
+            enable_checklist=args.enable_checklist,
+            checklist_dir=checklist_dir,
+            api_retry=args.api_retry,
+            without_expert=args.without_expert,
+            without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
         )
 
     elif args.mode == "async":
         from dispatch_async import run_async_pipeline
         final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
+        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
         stats = run_async_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -219,6 +249,12 @@ Examples:
             final_reports_dir=final_reports_dir,
             use_session=args.session,
             cpu_semaphore=cpu_semaphore,
+            ref_enable=args.ref_enable,
+            enable_checklist=args.enable_checklist,
+            checklist_dir=checklist_dir,
+            api_retry=args.api_retry,
+            without_expert=args.without_expert,
+            without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
         )
 
     elif args.mode == "batch":

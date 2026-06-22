@@ -3,6 +3,7 @@ from openai import OpenAI
 
 from step1_router import (
     _COMMON_ROUTER_INSTRUCTIONS,
+    _ROUTER_DIRECT_SCORE_INSTRUCTIONS,
     extract_expert_ids,
     build_router_registry_summary,
     _build_context_block,
@@ -10,24 +11,50 @@ from step1_router import (
     get_structured_taxonomy_info,
 )
 from step4_reflector import _REFLECTOR_SYSTEM_TEMPLATE
+from common import api_call_with_retry
 
 
 class ConversationSession:
-    def __init__(self, system_content):
+    def __init__(self, system_content, api_retry=0):
         if isinstance(system_content, list):
             self.messages = [{"role": "system", "content": system_content}]
         else:
             self.messages = [{"role": "system", "content": system_content}]
+        self.api_retry = api_retry
 
     def add_user(self, content):
         self.messages.append({"role": "user", "content": content})
 
-    def call_api(self, client, model, temperature=0, response_format=None):
+    def call_api(self, client, model, temperature=0, response_format=None, label="Session"):
         kwargs = {"model": model, "messages": self.messages, "temperature": temperature}
         if response_format:
             kwargs["response_format"] = response_format
-        completion = client.chat.completions.create(**kwargs)
+        kwargs["extra_body"] = {"enable_thinking": False}
+        try:
+            completion = api_call_with_retry(
+                client.chat.completions.create,
+                max_retries=self.api_retry,
+                label=label,
+                **kwargs,
+            )
+        except Exception as e:
+            print(f"  [ERROR] {label} API call failed: {type(e).__name__}: {e}")
+            raise
         raw = completion.choices[0].message.content
+        finish_reason = getattr(completion.choices[0], "finish_reason", "unknown")
+        usage = getattr(completion, "usage", None)
+        if raw is None or raw.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+            usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
+            print(f"  [ERROR] {label} API returned empty content (content is {'None' if raw is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
+            if reasoning:
+                print(f"  [WARN] {label} reasoning_content found ({len(reasoning)} chars), attempting to extract JSON from it")
+                raw = reasoning
+            else:
+                msg = completion.choices[0].message
+                print(f"  [DEBUG] {label} full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                self.messages.append({"role": "assistant", "content": raw or ""})
+                return raw, completion
         self.messages.append({"role": "assistant", "content": raw})
         return raw, completion
 
@@ -100,6 +127,38 @@ def build_reflector_only_system_content(
     combined_text = (
         f"{_REFLECTOR_SYSTEM_TEMPLATE}\n\n"
         f"## Expert Registry (Available Tools)\n{registry_summary}"
+    )
+
+    return [
+        {
+            "type": "text",
+            "text": combined_text,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+def build_direct_score_system_content(
+    experts_registry_str: str,
+    class_label: str,
+    taxonomy_info: dict | None,
+    structured_taxonomy_info: dict | None = None,
+) -> list[dict]:
+    """Build system content for the without-expert direct-scoring session.
+
+    Uses the same Router role and registry context as the normal mode, but replaces
+    the expert-selection instructions with direct-scoring instructions.
+    """
+    _, _, registry_summary = _build_context_block(
+        class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
+    )
+
+    combined_text = (
+        "You are a highly logical Router Agent for image auditing. "
+        "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
+        "Output JSON only.\n\n"
+        f"{_ROUTER_DIRECT_SCORE_INSTRUCTIONS}\n\n"
+        f"## Expert Registry (Reference Only — NOT used in this mode)\n{registry_summary}"
     )
 
     return [
