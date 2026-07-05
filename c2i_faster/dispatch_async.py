@@ -269,6 +269,7 @@ def _sync_reflector(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    pose_hard_cap: bool = False,
 ) -> dict | None:
     """Synchronous Reflector for one image. Runs in thread pool."""
     ref_images = None
@@ -289,6 +290,7 @@ def _sync_reflector(
         ref_images=ref_images,
         enable_checklist=enable_checklist,
         api_retry=api_retry,
+        pose_hard_cap=pose_hard_cap,
     )
     if report is None:
         print(f"  [{img_id}] Reflector FAILED")
@@ -317,6 +319,7 @@ async def _reflector_worker(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    pose_hard_cap: bool = False,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -360,6 +363,7 @@ async def _reflector_worker(
                     expert_results, experts_registry_str, router_plan,
                     final_reports_dir, session, ref_enable, image_dir,
                     enable_checklist, checklist_dir, api_retry,
+                    pose_hard_cap,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -395,6 +399,7 @@ async def _run_full_pipeline(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    pose_hard_cap: bool = False,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -454,6 +459,7 @@ async def _run_full_pipeline(
                 stats, reflector_done_event, use_session,
                 ref_enable, image_dir,
                 enable_checklist, checklist_dir, api_retry,
+                pose_hard_cap=pose_hard_cap,
             ))
         )
 
@@ -609,6 +615,7 @@ async def _run_step4_only(
     enable_checklist: bool = False,
     checklist_dir: Path | None = None,
     api_retry: int = 0,
+    pose_hard_cap: bool = False,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
     stats = {"reflector_ok": 0, "reflector_fail": 0}
@@ -659,6 +666,7 @@ async def _run_step4_only(
                 bundle, experts_registry_str, plan, final_reports_dir,
                 session, ref_enable, image_dir,
                 enable_checklist, checklist_dir, api_retry,
+                pose_hard_cap,
             )
             if report is not None:
                 stats["reflector_ok"] += 1
@@ -769,6 +777,7 @@ def run_async_pipeline(
     api_retry: int = 0,
     without_expert: bool = False,
     without_expert_dir: Path | None = None,
+    pose_hard_cap: bool = False,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     # Without-expert ablation mode: router-only direct scoring
@@ -805,6 +814,7 @@ def run_async_pipeline(
             enable_checklist=enable_checklist,
             checklist_dir=checklist_dir,
             api_retry=api_retry,
+            pose_hard_cap=pose_hard_cap,
         ))
 
     if run_step12 and run_step3 and expert_managers:
@@ -829,6 +839,7 @@ def run_async_pipeline(
             enable_checklist=enable_checklist,
             checklist_dir=checklist_dir,
             api_retry=api_retry,
+            pose_hard_cap=pose_hard_cap,
         ))
 
     elif run_step12 and not run_step3:

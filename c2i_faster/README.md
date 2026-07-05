@@ -77,10 +77,17 @@ python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 1
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 20 --gpu-preset 8x_c500_fast --session
 
 # 8 卡环境 20路并发 Session 模式（共享对话上下文） 使用参考图片 生成checklist API访问失败再重试2次
+# 不启用 pose 硬封顶，Reflector 根据自身视觉判断打分
 python c2i_faster/run.py --mode async --step 1234 --limit 40 --api-concurrency 20 --gpu-preset 8x_c500_fast --session --enable-checklist --ref-enable --api-retry 2
 
 # 消融实验：无专家模式（仅 Router 直接打分，无 Judge/Expert/Reflector）
 python c2i_faster/run.py --mode async --without-expert --limit 40 --api-concurrency 20 --api-retry 2
+
+# 消融实验：启用硬封顶
+python c2i_faster/run.py --mode async --step 1234 --limit 40 \
+  --api-concurrency 20 --gpu-preset 8x_c500_fast \
+  --session --enable-checklist --ref-enable --api-retry 2 \
+  --pose-hard-cap
 
 # 自定义配置文件
 python c2i_faster/run.py --mode async --step 1234 --gpu-config my_config.json

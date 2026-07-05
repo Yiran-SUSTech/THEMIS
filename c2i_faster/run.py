@@ -93,6 +93,8 @@ Examples:
                         help="Enable checklist annotation output (fine_grained_details + veto_activated) matching human annotation format (default: False)")
     parser.add_argument("--without-expert", action="store_true", default=False,
                         help="Ablation mode: router-only direct scoring, no experts/judge/reflector (default: False)")
+    parser.add_argument("--pose-hard-cap", action="store_true", default=False,
+                        help="Enable hard caps on artifact_score based on pose low-confidence analysis (disabled by default due to domain-shift concerns)")
 
     # ── GPU parameters ─────────────────────────────────────────
     parser.add_argument("--gpu-groups", type=int, default=1,
@@ -228,6 +230,7 @@ Examples:
             api_retry=args.api_retry,
             without_expert=args.without_expert,
             without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
+            pose_hard_cap=args.pose_hard_cap,
         )
 
     elif args.mode == "async":
@@ -255,6 +258,7 @@ Examples:
             api_retry=args.api_retry,
             without_expert=args.without_expert,
             without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
+            pose_hard_cap=args.pose_hard_cap,
         )
 
     elif args.mode == "batch":
@@ -272,6 +276,7 @@ Examples:
             expert_managers=expert_managers if expert_managers else None,
             poll_interval=args.poll_interval,
             step=step,
+            pose_hard_cap=args.pose_hard_cap,
         )
 
     # ── Summary ────────────────────────────────────────────────

@@ -166,6 +166,7 @@ def run_sync_pipeline(
     api_retry: int = 0,
     without_expert: bool = False,
     without_expert_dir: Path | None = None,
+    pose_hard_cap: bool = False,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -321,6 +322,7 @@ def run_sync_pipeline(
                         ref_images=ref_images,
                         enable_checklist=enable_checklist,
                         api_retry=api_retry,
+                        pose_hard_cap=pose_hard_cap,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")

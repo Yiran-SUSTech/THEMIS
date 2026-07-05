@@ -88,16 +88,16 @@ class AnimalPoseEstimator:
 
         if low_conf_ratio >= 0.4:
             risk_level = "HIGH"
-            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — widespread structural uncertainty, likely severe artifacts."
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — widespread low-confidence detections. May indicate structural anomalies OR domain-shift effects from AI-generated imagery; requires visual confirmation."
         elif low_conf_ratio >= 0.25:
             risk_level = "MEDIUM"
-            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — notable uncertainty in {', '.join(risk_zones)}, probable artifact zones."
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — notable uncertainty in {', '.join(risk_zones)}. May reflect structural issues, occlusion, or domain mismatch; verify visually."
         elif low_conf_ratio >= 0.15:
             risk_level = "LOW"
-            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — minor uncertainty in {', '.join(risk_zones)}."
+            risk_reason = f"{low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — minor uncertainty in {', '.join(risk_zones)}. Likely normal variance or minor imaging artifacts."
         else:
             risk_level = "MINIMAL"
-            risk_reason = f"Only {low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — structural integrity appears sound."
+            risk_reason = f"Only {low_conf_ratio:.0%} of keypoints below {LOW_CONFIDENCE_THRESHOLD} confidence — keypoint detections are generally confident. Structural integrity appears sound."
 
         return {
             "low_confidence_threshold": LOW_CONFIDENCE_THRESHOLD,

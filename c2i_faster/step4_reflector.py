@@ -439,6 +439,15 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
 - Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
 - You may score higher or lower than the base scores if your judgment warrants it.
 
+**Pose Evidence Interpretation:**
+- The animal_pose_auditor (ViTPose) is trained on real animal photographs. When evaluating AI-generated images, its keypoint confidence scores may be artificially low due to domain shift (different texture, style, and edge statistics).
+- Treat low-confidence keypoints as a WEAK signal, NOT definitive evidence of artifacts. Only use this signal when:
+  1. You VISUALLY confirm structural anomalies in the same region as low-confidence keypoints, OR
+  2. Keypoint count is physically impossible (e.g., more than 4 legs, asymmetric distribution), OR
+  3. Low confidence coincides with clear visual artifacts (melting, fusion, structural collapse).
+- Ignore low-confidence keypoints if they could be explained by: subject too small, rare pose, occlusion, or normal variance in AI-generated imagery.
+- High-confidence keypoints are a STRONG signal: if most keypoints have high confidence AND you don't see visual artifacts, the image likely has good structural integrity.
+
 **Your Task:**
 - Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
 - Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
@@ -483,6 +492,15 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
 - Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
 - You may score higher or lower than the base scores if your judgment warrants it.
+
+**Pose Evidence Interpretation:**
+- The animal_pose_auditor (ViTPose) is trained on real animal photographs. When evaluating AI-generated images, its keypoint confidence scores may be artificially low due to domain shift (different texture, style, and edge statistics).
+- Treat low-confidence keypoints as a WEAK signal, NOT definitive evidence of artifacts. Only use this signal when:
+  1. You VISUALLY confirm structural anomalies in the same region as low-confidence keypoints, OR
+  2. Keypoint count is physically impossible (e.g., more than 4 legs, asymmetric distribution), OR
+  3. Low confidence coincides with clear visual artifacts (melting, fusion, structural collapse).
+- Ignore low-confidence keypoints if they could be explained by: subject too small, rare pose, occlusion, or normal variance in AI-generated imagery.
+- High-confidence keypoints are a STRONG signal: if most keypoints have high confidence AND you don't see visual artifacts, the image likely has good structural integrity.
 
 **Your Task:**
 - Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
@@ -590,9 +608,15 @@ def _calibrate_scores(
     result: dict,
     expert_results: dict,
     router_plan: dict | None = None,
+    pose_hard_cap: bool = False,
 ) -> dict:
     """Post-process Reflector output with hard rules that cannot be violated.
-    These rules were previously in the prompt but are now enforced in code for reliability."""
+    These rules were previously in the prompt but are now enforced in code for reliability.
+
+    Args:
+        pose_hard_cap: If True, apply hard caps to artifact_score based on pose low-confidence analysis.
+                       If False (default), skip pose-based artifact caps to avoid domain-shift bias.
+    """
     alignment_score = result.get("alignment_score", 0.0)
     artifact_score = result.get("artifact_score", 0.0)
     adjustments = []
@@ -620,7 +644,8 @@ def _calibrate_scores(
                 break
 
     # --- Artifact calibration based on pose low-confidence ---
-    if expert_results:
+    # Only apply when pose_hard_cap is True (disabled by default due to domain-shift concerns)
+    if pose_hard_cap and expert_results:
         for t in expert_results.get("expert_testimonies", []):
             if t.get("expert_id") == "animal_pose_auditor" and t.get("status") == "success":
                 evidence = t.get("evidence", {})
@@ -737,6 +762,7 @@ def run_reflector(
     ref_images: list[dict] | None = None,
     enable_checklist: bool = False,
     api_retry: int = 0,
+    pose_hard_cap: bool = False,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -807,7 +833,7 @@ def run_reflector(
             "reflector_cost_seconds": round(cost_time, 2),
             "session_turn_count": session.turn_count,
         }
-        result = _calibrate_scores(result, expert_results, router_plan)
+        result = _calibrate_scores(result, expert_results, router_plan, pose_hard_cap=pose_hard_cap)
         if enable_checklist:
             result = _normalize_checklist_output(result, structured_taxonomy_info)
         return result
@@ -909,7 +935,7 @@ def run_reflector(
             "checklist_enabled": enable_checklist,
             "reflector_cost_seconds": round(cost_time, 2),
         }
-        result = _calibrate_scores(result, expert_results, router_plan)
+        result = _calibrate_scores(result, expert_results, router_plan, pose_hard_cap=pose_hard_cap)
         if enable_checklist:
             result = _normalize_checklist_output(result, structured_taxonomy_info)
 
