@@ -76,7 +76,8 @@ Examples:
     parser.add_argument("--max-iterations", type=int, default=2,
                         help="Max Judge-Router iteration rounds (default: 2)")
     parser.add_argument("--image-dir", type=str, default=str(IMAGE_DIR))
-    parser.add_argument("--class-ids", type=str, default=str(CLASS_IDS_TXT))
+    parser.add_argument("--class-ids", type=str, default=None,
+                        help="Path to class_ids.txt. If None, defaults to <image-dir>/class_ids.txt")
     parser.add_argument("--plan-dir", type=str, default=str(PLAN_DIR))
     parser.add_argument("--approved-dir", type=str, default=str(APPROVED_DIR))
     parser.add_argument("--expert-results-dir", type=str, default=str(EXPERT_RESULTS_DIR))
@@ -120,6 +121,9 @@ Examples:
 
     # ── Resolve paths ──────────────────────────────────────────
     image_dir = Path(args.image_dir)
+    # If --class-ids not specified, fall back to <image-dir>/class_ids.txt
+    if args.class_ids is None:
+        args.class_ids = str(image_dir / "class_ids.txt")
     plan_dir = Path(args.plan_dir)
     approved_dir = Path(args.approved_dir)
     expert_results_dir = Path(args.expert_results_dir)
