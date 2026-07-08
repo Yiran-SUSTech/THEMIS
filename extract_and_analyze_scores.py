@@ -21,6 +21,8 @@ SOURCE_GROUPS = {
     "DiT_val_temmp5": ["DiT_val_temmp5_1", "Checklist_temmp5_1"],
     "Without_expert": ["Without_expert_1"],
     "Human": ["User_1", "User_2", "User_3"],
+    "Sys_IMF_ref": ["Sys_IMF_ref_1", "Sys_IMF_ref_2", "Sys_IMF_ref_3"],
+    "Human_IMF": ["User_IMF_1", "User_IMF_2", "User_IMF_3"],
 }
 
 SOURCES = {
@@ -120,6 +122,33 @@ SOURCES = {
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_without_expert_1", "without_expert_reports"),
         "prefix": "direct_score_",
     },
+    "User_IMF_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_IMF_ref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_IMF_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_IMF_ref_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_1_final_annotations.json"),
+    },
+    "User_IMF_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_2_final_annotations.json"),
+    },
+    "Sys_IMF_ref_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_3_final_annotations.json"),
+    },
 }
 
 
@@ -202,9 +231,11 @@ def extract_human_scores(json_path):
     return results
 
 
-def collect_all_scores():
+def collect_all_scores(source_filter=None):
     all_data = {}
     for source_name, cfg in SOURCES.items():
+        if source_filter is not None and source_name not in source_filter:
+            continue
         print(f"Extracting: {source_name} ...")
         if cfg["type"] == "final_report":
             scores = extract_final_report_scores(cfg["path"], cfg["prefix"])
@@ -798,7 +829,7 @@ def main():
     print(f"Selected sources: {sorted(selected_source_names)}")
     print(f"Output dir: {output_dir}")
 
-    all_data = collect_all_scores()
+    all_data = collect_all_scores(selected_source_names)
     df_full = build_dataframe(all_data)
 
     df = df_full[df_full["source"].isin(selected_source_names)].copy()

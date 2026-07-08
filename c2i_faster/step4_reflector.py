@@ -1056,7 +1056,7 @@ def save_checklist_annotation(
 ) -> str:
     """Save a single image's checklist annotation as a JSON file."""
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "output" / "checklist_annotations"
+        output_dir = Path(__file__).resolve().parent / os.environ.get("C2I_OUTPUT_DIR_NAME", "output") / "checklist_annotations"
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1079,7 +1079,7 @@ def save_final_report(
     output_dir: str | Path | None = None,
 ) -> str:
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "output" / "final_reports"
+        output_dir = Path(__file__).resolve().parent / os.environ.get("C2I_OUTPUT_DIR_NAME", "output") / "final_reports"
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

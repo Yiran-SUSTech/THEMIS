@@ -45,10 +45,11 @@ CLASS_IDS_TXT = IMAGE_DIR / "class_ids.txt"
 IMAGENET_CLASSES_JSON = PROJECT_ROOT / "imagenet_classes.json"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
 
-PLAN_DIR = C2I_DIR / "output" / "plans"
-APPROVED_DIR = C2I_DIR / "output" / "approved_plans"
-JUDGE_FEEDBACK_DIR = C2I_DIR / "output" / "judge_feedback"
-EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
+OUTPUT_DIR = C2I_DIR / os.environ.get("C2I_OUTPUT_DIR_NAME", "output")
+PLAN_DIR = OUTPUT_DIR / "plans"
+APPROVED_DIR = OUTPUT_DIR / "approved_plans"
+JUDGE_FEEDBACK_DIR = OUTPUT_DIR / "judge_feedback"
+EXPERT_RESULTS_DIR = OUTPUT_DIR / "expert_results"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"

@@ -28,10 +28,23 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(C2I_DIR) not in sys.path:
     sys.path.insert(0, str(C2I_DIR))
 
+# Pre-scan --output-dir from argv so common.py picks it up at import time
+# (common.py derives all output subdirs from C2I_OUTPUT_DIR_NAME env var).
+def _early_parse_output_dir():
+    for idx, tok in enumerate(sys.argv):
+        if tok == "--output-dir" and idx + 1 < len(sys.argv):
+            os.environ["C2I_OUTPUT_DIR_NAME"] = sys.argv[idx + 1]
+            return
+        if tok.startswith("--output-dir="):
+            os.environ["C2I_OUTPUT_DIR_NAME"] = tok.split("=", 1)[1]
+            return
+
+_early_parse_output_dir()
+
 from common import (
     IMAGE_DIR, CLASS_IDS_TXT, EXPERTS_REGISTRY_JSON,
     PLAN_DIR, APPROVED_DIR, JUDGE_FEEDBACK_DIR, EXPERT_RESULTS_DIR, BATCH_DIR,
-    WITHOUT_EXPERT_REPORTS_DIR,
+    WITHOUT_EXPERT_REPORTS_DIR, OUTPUT_DIR,
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     build_image_list, preload_expert_managers,
 )
@@ -76,6 +89,10 @@ Examples:
     parser.add_argument("--max-iterations", type=int, default=2,
                         help="Max Judge-Router iteration rounds (default: 2)")
     parser.add_argument("--image-dir", type=str, default=str(IMAGE_DIR))
+    parser.add_argument("--output-dir", type=str, default="output",
+                        help="输出目录名(相对 c2i_faster/)或绝对路径 (默认: output)。"
+                             "所有 plans/approved_plans/expert_results/final_reports/"
+                             "checklist_annotations/sam_masks/depth_maps 等均写入此目录下。")
     parser.add_argument("--class-ids", type=str, default=None,
                         help="Path to class_ids.txt. If None, defaults to <image-dir>/class_ids.txt")
     parser.add_argument("--plan-dir", type=str, default=str(PLAN_DIR))
@@ -183,6 +200,7 @@ Examples:
     print(f"\n{'='*60}")
     print(f"  THEMIS C2I Dispatcher")
     print(f"  Mode:             {args.mode}")
+    print(f"  Output dir:       {OUTPUT_DIR}")
     if args.without_expert:
         print(f"  Step:             without-expert (router-only direct scoring)")
     else:
@@ -212,8 +230,8 @@ Examples:
 
     if args.mode == "sync":
         from dispatch_sync import run_sync_pipeline
-        final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
-        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
+        final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
+        checklist_dir = OUTPUT_DIR / "checklist_annotations" if args.enable_checklist else None
         stats = run_sync_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,
@@ -239,8 +257,8 @@ Examples:
 
     elif args.mode == "async":
         from dispatch_async import run_async_pipeline
-        final_reports_dir = C2I_DIR / "output" / "final_reports" if run_step4 else None
-        checklist_dir = C2I_DIR / "output" / "checklist_annotations" if args.enable_checklist else None
+        final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
+        checklist_dir = OUTPUT_DIR / "checklist_annotations" if args.enable_checklist else None
         stats = run_async_pipeline(
             valid_images=valid_images,
             image_dir=image_dir,

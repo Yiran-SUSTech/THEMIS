@@ -32,13 +32,16 @@ CLASS_IDS_TXT = IMAGE_DIR / "class_ids.txt"
 IMAGENET_CLASSES_JSON = PROJECT_ROOT / "imagenet_classes.json"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
 
-PLAN_DIR = C2I_DIR / "output" / "plans"
-APPROVED_DIR = C2I_DIR / "output" / "approved_plans"
-JUDGE_FEEDBACK_DIR = C2I_DIR / "output" / "judge_feedback"
-EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
-FINAL_REPORTS_DIR = C2I_DIR / "output" / "final_reports"
-WITHOUT_EXPERT_REPORTS_DIR = C2I_DIR / "output" / "without_expert_reports"
-BATCH_DIR = C2I_DIR / "output" / "batch"
+# Output root: override via C2I_OUTPUT_DIR_NAME env var (set by run.py --output-dir).
+# All output subdirectories derive from this single source of truth.
+OUTPUT_DIR = C2I_DIR / os.environ.get("C2I_OUTPUT_DIR_NAME", "output")
+PLAN_DIR = OUTPUT_DIR / "plans"
+APPROVED_DIR = OUTPUT_DIR / "approved_plans"
+JUDGE_FEEDBACK_DIR = OUTPUT_DIR / "judge_feedback"
+EXPERT_RESULTS_DIR = OUTPUT_DIR / "expert_results"
+FINAL_REPORTS_DIR = OUTPUT_DIR / "final_reports"
+WITHOUT_EXPERT_REPORTS_DIR = OUTPUT_DIR / "without_expert_reports"
+BATCH_DIR = OUTPUT_DIR / "batch"
 GPU_PRESETS_DIR = PROJECT_ROOT / "gpu_configs"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

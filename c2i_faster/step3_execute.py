@@ -32,8 +32,9 @@ C2I_DIR = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-EXPERT_RESULTS_DIR = C2I_DIR / "output" / "expert_results"
-APPROVED_PLANS_DIR = C2I_DIR / "output" / "approved_plans"
+OUTPUT_DIR = C2I_DIR / os.environ.get("C2I_OUTPUT_DIR_NAME", "output")
+EXPERT_RESULTS_DIR = OUTPUT_DIR / "expert_results"
+APPROVED_PLANS_DIR = OUTPUT_DIR / "approved_plans"
 
 EXPERT_MODULE_MAP = {
     "animal_pose_auditor": {
@@ -286,12 +287,12 @@ class ExpertManager:
             if expert_id in self.expert_output_dirs:
                 kwargs["output_dir"] = str(self.expert_output_dirs[expert_id])
             else:
-                kwargs["output_dir"] = str(C2I_DIR / "output" / "sam_masks")
+                kwargs["output_dir"] = str(OUTPUT_DIR / "sam_masks")
         elif expert_id == "geometric_depth_auditor":
             if expert_id in self.expert_output_dirs:
                 kwargs["output_dir"] = str(self.expert_output_dirs[expert_id])
             else:
-                kwargs["output_dir"] = str(C2I_DIR / "output" / "depth_maps")
+                kwargs["output_dir"] = str(OUTPUT_DIR / "depth_maps")
         elif expert_id == "image_text_auditor":
             kwargs["det_model_path"] = str(PROJECT_ROOT / "models" / "Multilingual_PP-OCRv3_det_infer.onnx")
 
@@ -531,7 +532,7 @@ def execute_plan(
             eid = entry["expert_name"]
             pose_viz = None
             if save_pose_viz and eid == "animal_pose_auditor":
-                pose_viz_dir = C2I_DIR / "output" / "pose_visualizations"
+                pose_viz_dir = OUTPUT_DIR / "pose_visualizations"
                 count = pose_viz_count.get(eid, 0)
                 pose_viz_count[eid] = count + 1
                 target_slug = entry.get("target_subject", "subject").replace(" ", "_")[:20]
