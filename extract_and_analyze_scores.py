@@ -23,6 +23,13 @@ SOURCE_GROUPS = {
     "Human": ["User_1", "User_2", "User_3"],
     "Sys_IMF_ref": ["Sys_IMF_ref_1", "Sys_IMF_ref_2", "Sys_IMF_ref_3"],
     "Human_IMF": ["User_IMF_1", "User_IMF_2", "User_IMF_3"],
+    "Sys_DiT": ["Sys_DiT_1", "Sys_DiT_2", "Sys_DiT_3"],
+    "Sys_DiT_ref": ["Sys_DiT_ref_1", "Sys_DiT_ref_2", "Sys_DiT_ref_3"],
+    "Human_DiT": ["User_DiT_1", "User_DiT_2", "User_DiT_3"],
+    "Sys_VAR_ref": ["Sys_VAR_ref_1", "Sys_VAR_ref_2", "Sys_VAR_ref_3"],
+    "Human_VAR": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
+    "Sys_JiTfdloss_ref": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
+    "Human_JiTfdloss": ["User_JiTfdloss_1", "User_JiTfdloss_2", "User_JiTfdloss_3"],
 }
 
 SOURCES = {
@@ -122,32 +129,128 @@ SOURCES = {
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_val_without_expert_1", "without_expert_reports"),
         "prefix": "direct_score_",
     },
-    "User_IMF_3": {
+    "Sys_IMF_ref_1": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_1", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_cap_1", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_IMF_ref_2": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_2", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_cap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_IMF_ref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_cap_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "User_IMF_1": {
-        "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMF_ref_nocap_3", "final_reports"),
-        "prefix": "final_evaluation_report_",
-    },
-    "Sys_IMF_ref_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_1_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_1_final_annotations.json"),
     },
     "User_IMF_2": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_2_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_2_final_annotations.json"),
     },
-    "Sys_IMF_ref_3": {
+    "User_IMF_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_IMF_3_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_3_final_annotations.json"),
+    },
+    "Sys_DiT_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_ref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_ref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_ref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_DiT_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_1_final_annotations.json"),
+    },
+    "User_DiT_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_2_final_annotations.json"),
+    },
+    "User_DiT_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_3_final_annotations.json"),
+    },
+    "Sys_VAR_ref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24", "User_1_final_annotations.json"),
+    },
+    "User_VAR_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24", "User_2_final_annotations.json"),
+    },
+    "User_VAR_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24", "User_3_final_annotations.json"),
+    },
+    "Sys_JiTfdloss_ref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_JiTfdloss_ref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_JiTfdloss_ref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_JiTfdloss_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_1_final_annotations.json"),
+    },
+    "User_JiTfdloss_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_2_final_annotations.json"),
+    },
+    "User_JiTfdloss_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_3_final_annotations.json"),
     },
 }
 
@@ -272,29 +375,47 @@ def save_csv(df, output_path):
     print(f"CSV saved to: {output_path}")
 
 
-def plot_distributions(df, output_dir):
+def plot_distributions(df, output_dir, groups=None):
     os.makedirs(output_dir, exist_ok=True)
     sources = sorted(df["source"].unique())
 
+    # Build group -> sources mapping (only for sources present in df)
+    if groups:
+        group_sources = {}
+        for gname, src_list in groups.items():
+            present = [s for s in src_list if s in df["source"].unique()]
+            if present:
+                group_sources[gname] = present
+        # Fallback: if no group info applies, treat all as one group
+        if not group_sources:
+            group_sources = {"All": sources}
+    else:
+        group_sources = {"All": sources}
+
     for score_col, score_label in [("alignment_score", "Alignment Score"), ("artifact_score", "Artifact Score")]:
-        n_src = len(sources)
-        n_cols = 4
-        n_rows = (n_src + n_cols - 1) // n_cols
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
+        group_names = list(group_sources.keys())
+        n_groups = len(group_names)
+        n_cols = max(len(srcs) for srcs in group_sources.values()) if group_sources else 1
+        n_rows = n_groups
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows), squeeze=False)
         fig.suptitle(f"{score_label} Distribution by Source", fontsize=18, fontweight="bold")
-        axes_flat = axes.flatten()
-        for i, src in enumerate(sources):
-            ax = axes_flat[i]
-            vals = df[df["source"] == src][score_col].dropna().values
-            if len(vals) == 0:
-                ax.set_title(f"{src}\n(no data)")
-                continue
-            ax.hist(vals, bins=20, edgecolor="black", alpha=0.7, color="steelblue")
-            ax.set_title(f"{src}\nn={len(vals)}, mean={np.mean(vals):.2f}, std={np.std(vals):.2f}", fontsize=9)
-            ax.set_xlabel(score_label)
-            ax.set_ylabel("Count")
-        for j in range(len(sources), len(axes_flat)):
-            axes_flat[j].set_visible(False)
+
+        for row_idx, gname in enumerate(group_names):
+            src_list = group_sources[gname]
+            for col_idx, src in enumerate(src_list):
+                ax = axes[row_idx, col_idx]
+                vals = df[df["source"] == src][score_col].dropna().values
+                if len(vals) == 0:
+                    ax.set_title(f"{src}\n(no data)")
+                    continue
+                ax.hist(vals, bins=20, edgecolor="black", alpha=0.7, color="steelblue")
+                ax.set_title(f"{src}\nn={len(vals)}, mean={np.mean(vals):.2f}, std={np.std(vals):.2f}", fontsize=9)
+                ax.set_xlabel(score_label)
+                ax.set_ylabel("Count")
+            # Hide unused subplots in this row
+            for col_idx in range(len(src_list), n_cols):
+                axes[row_idx, col_idx].set_visible(False)
+
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         fig.savefig(os.path.join(output_dir, f"distribution_{score_col}.png"), dpi=150)
         plt.close(fig)
@@ -843,7 +964,7 @@ def main():
     print(f"Sources: {sorted(df['source'].unique())}")
     print()
 
-    plot_distributions(df, output_dir)
+    plot_distributions(df, output_dir, groups=selected_groups)
     corr_df = compute_correlations(df, output_dir)
     stability_df = compute_stability(df, output_dir, groups=selected_groups)
 
