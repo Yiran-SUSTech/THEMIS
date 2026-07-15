@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 from scipy import stats
+from scipy.stats import rankdata
 from collections import defaultdict
 
 matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
@@ -30,6 +31,20 @@ SOURCE_GROUPS = {
     "Human_VAR": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
     "Sys_JiTfdloss_ref": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
     "Human_JiTfdloss": ["User_JiTfdloss_1", "User_JiTfdloss_2", "User_JiTfdloss_3"],
+    "Sys_IMFfdloss_ref": ["Sys_IMFfdloss_ref_1", "Sys_IMFfdloss_ref_2", "Sys_IMFfdloss_ref_3"],
+    "Human_IMFfdloss": ["User_IMFfdloss_1", "User_IMFfdloss_2", "User_IMFfdloss_3"],
+    "Sys_VAR_ref_500": ["Sys_VAR_ref_500_1", "Sys_VAR_ref_500_2", "Sys_VAR_ref_500_3"],
+    "Human_VAR_500": ["User_VAR_500_1", "User_VAR_500_2", "User_VAR_500_3"],
+    "Sys_VAR_ref_600": ["Sys_VAR_ref_600_1", "Sys_VAR_ref_600_2", "Sys_VAR_ref_600_3"],
+    "Human_VAR_600": ["User_VAR_600_1", "User_VAR_600_2", "User_VAR_600_3"],
+    "Sys_VAR_ref_800": ["Sys_VAR_ref_800_1", "Sys_VAR_ref_800_2", "Sys_VAR_ref_800_3"],
+    "Human_VAR_800": ["User_VAR_800_1", "User_VAR_800_2", "User_VAR_800_3"],
+    "Sys_VAR_ref_400": ["Sys_VAR_ref_400_1", "Sys_VAR_ref_400_2", "Sys_VAR_ref_400_3"],
+    "Human_VAR_400": ["User_VAR_400_1", "User_VAR_400_2", "User_VAR_400_3"],
+    "Sys_VAR_ref_200": ["Sys_VAR_ref_200_1", "Sys_VAR_ref_200_2", "Sys_VAR_ref_200_3"],
+    "Human_VAR_200": ["User_VAR_200_1", "User_VAR_200_2", "User_VAR_200_3"],
+    "Sys_Val_ref_500": ["Sys_Val_ref_500_1", "Sys_Val_ref_500_2", "Sys_Val_ref_500_3"],
+    "Human_Val_500": ["User_Val_500_1", "User_Val_500_2", "User_Val_500_3"],
 }
 
 SOURCES = {
@@ -173,17 +188,17 @@ SOURCES = {
     },
     "Sys_DiT_ref_1": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_1", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_cap_1", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_DiT_ref_2": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_2", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_cap_2", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_DiT_ref_3": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_3", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_ref_cap_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "User_DiT_1": {
@@ -252,6 +267,201 @@ SOURCES = {
         "type": "human",
         "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_3_final_annotations.json"),
     },
+    "Sys_IMFfdloss_ref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_IMFfdloss_ref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_IMFfdloss_ref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_IMFfdloss_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_1_final_annotations.json"),
+    },
+    "User_IMFfdloss_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_2_final_annotations.json"),
+    },
+    "User_IMFfdloss_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_3_final_annotations.json"),
+    },
+
+    "Sys_VAR_ref_500_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_500_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_500_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_500_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_500_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_500_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_500_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-500", "User_1_final_annotations.json"),
+    },
+    "User_VAR_500_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-500", "User_2_final_annotations.json"),
+    },
+    "User_VAR_500_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-500", "User_3_final_annotations.json"),
+    },
+
+    "Sys_VAR_ref_600_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_600_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_600_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_600_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_600_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_600_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_600_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-600", "User_1_final_annotations.json"),
+    },
+    "User_VAR_600_2": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-600", "User_2_final_annotations.json"),
+    },
+    "User_VAR_600_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-600", "User_3_final_annotations.json"),
+    },
+    
+    "Sys_VAR_ref_800_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_800_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_800_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_800_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_800_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_800_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_800_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-800", "User_1_final_annotations.json"),
+    },
+    "User_VAR_800_2": { 
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-800", "User_2_final_annotations.json"),
+    },
+    "User_VAR_800_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-800", "User_3_final_annotations.json"),
+    },
+
+    "Sys_VAR_ref_400_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_400_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_400_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_400_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_400_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_400_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_400_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-400", "User_1_final_annotations.json"),
+    },
+    "User_VAR_400_2": { 
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-400", "User_2_final_annotations.json"),
+    },
+    "User_VAR_400_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-400", "User_3_final_annotations.json"),
+    },
+
+    "Sys_VAR_ref_200_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_200_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_200_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_200_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_ref_200_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_ref_cap_200_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_VAR_200_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-200", "User_1_final_annotations.json"),
+    },
+    "User_VAR_200_2": {     
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-200", "User_2_final_annotations.json"),
+    },
+    "User_VAR_200_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_VAR-ds24-200", "User_3_final_annotations.json"),
+    },
+
+    "Sys_Val_ref_500_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_val_ref_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_Val_ref_500_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_val_ref_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_Val_ref_500_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_val_ref_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "User_Val_500_1": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_val", "User_1_final_annotations.json"),
+    },
+    "User_Val_500_2": {     
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_val", "User_2_final_annotations.json"),
+    },
+    "User_Val_500_3": {
+        "type": "human",
+        "path": os.path.join(BASE_DIR, "human_anno_val", "User_3_final_annotations.json"),
+    },
 }
 
 
@@ -275,7 +485,14 @@ def extract_final_report_scores(dir_path, prefix):
             align = data.get("alignment_score")
             artifact = data.get("artifact_score")
             if align is not None and artifact is not None:
-                results[idx] = {"alignment_score": float(align), "artifact_score": float(artifact)}
+                class_id = data.get("class_id")
+                if class_id is None:
+                    class_id = data.get("metadata", {}).get("class_id")
+                results[idx] = {
+                    "alignment_score": float(align),
+                    "artifact_score": float(artifact),
+                    "class_id": class_id,
+                }
         except Exception as e:
             print(f"[WARN] Failed to read {fpath}: {e}")
     return results
@@ -302,7 +519,14 @@ def extract_checklist_scores(dir_path, prefix):
             align = scores.get("alignment_score")
             artifact = scores.get("artifact_score")
             if align is not None and artifact is not None:
-                results[idx] = {"alignment_score": float(align), "artifact_score": float(artifact)}
+                class_id = data.get("class_id")
+                if class_id is None:
+                    class_id = data.get("metadata", {}).get("class_id")
+                results[idx] = {
+                    "alignment_score": float(align),
+                    "artifact_score": float(artifact),
+                    "class_id": class_id,
+                }
         except Exception as e:
             print(f"[WARN] Failed to read {fpath}: {e}")
     return results
@@ -330,7 +554,12 @@ def extract_human_scores(json_path):
         align = scores.get("alignment_score")
         artifact = scores.get("artifact_score")
         if align is not None and artifact is not None:
-            results[idx] = {"alignment_score": float(align), "artifact_score": float(artifact)}
+            class_id = val.get("class_id")
+            results[idx] = {
+                "alignment_score": float(align),
+                "artifact_score": float(artifact),
+                "class_id": class_id,
+            }
     return results
 
 
@@ -365,6 +594,7 @@ def build_dataframe(all_data):
                 "source": source_name,
                 "alignment_score": sc["alignment_score"],
                 "artifact_score": sc["artifact_score"],
+                "class_id": sc.get("class_id"),
             })
     df = pd.DataFrame(rows)
     return df
@@ -916,6 +1146,524 @@ def analyze_system_vs_human(df, output_dir, groups=None):
     return bias_df, dist_df
 
 
+def compute_auc(y_true, y_score):
+    """Compute ROC AUC using rank-based formula.
+
+    AUC = P(score(positive) > score(negative))
+    Equivalent to sklearn.metrics.roc_auc_score for binary labels.
+
+    Returns: (auc, n_positive, n_negative)
+    """
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+
+    n_pos = int(np.sum(y_true == 1))
+    n_neg = int(np.sum(y_true == 0))
+
+    if n_pos == 0 or n_neg == 0:
+        return np.nan, n_pos, n_neg
+
+    ranks = rankdata(y_score)
+    sum_ranks_pos = np.sum(ranks[y_true == 1])
+    auc = (sum_ranks_pos - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+
+    return auc, n_pos, n_neg
+
+
+def compute_roc_curve(y_true, y_score):
+    """Compute ROC curve points (FPR, TPR).
+
+    FPR = FP / N, TPR = TP / P.
+    返回从 (0,0) 到 (1,1) 的曲线点, 用于绘制 ROC 曲线。
+
+    Returns: (fpr_array, tpr_array)
+    """
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+
+    n_pos = int(np.sum(y_true == 1))
+    n_neg = int(np.sum(y_true == 0))
+
+    if n_pos == 0 or n_neg == 0:
+        return np.array([]), np.array([])
+
+    # 按预测分数降序排列
+    order = np.argsort(-y_score, kind="stable")
+    y_true_sorted = y_true[order]
+
+    # 累积 TP 和 FP
+    tp_cum = np.cumsum(y_true_sorted == 1)
+    fp_cum = np.cumsum(y_true_sorted == 0)
+
+    tpr = tp_cum / n_pos
+    fpr = fp_cum / n_neg
+
+    # 前置 (0, 0), 后置 (1, 1) 确保曲线完整
+    tpr = np.concatenate([[0], tpr, [1]])
+    fpr = np.concatenate([[0], fpr, [1]])
+
+    return fpr, tpr
+
+
+def compute_auc_between_groups(df, output_dir, groups=None):
+    """计算系统组和人工组之间的 ROC AUC。
+
+    对每个 (sys_source, human_source) 对:
+    - 用 human score 的中位数作为阈值, 创建二分类标签 (>= median 为正)
+    - 用 system score 作为预测值, 计算 ROC AUC
+
+    AUC 解释: 系统将人类评为"高质量"的图片排在"低质量"图片之前的概率。
+    AUC=0.5 表示随机, AUC=1.0 表示完美区分。
+
+    同时计算 group 级别的聚合 AUC (多次运行取均值 vs 多人标注取均值)。
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    if groups is None:
+        groups = SOURCE_GROUPS
+
+    human_group_names = [g for g in groups if "Human" in g or "User" in g]
+    system_group_names = [g for g in groups if g not in human_group_names]
+
+    if not human_group_names or not system_group_names:
+        print("[INFO] No human+system pair found, skipping AUC analysis.")
+        return pd.DataFrame()
+
+    results = []
+    # 存储 ROC 曲线数据: key=(aggregation, score_col), value=[(fpr, tpr, auc, label), ...]
+    roc_curves = {}
+
+    # 1. 逐对 (individual source vs individual source)
+    for score_col in ["alignment_score", "artifact_score"]:
+        for sys_g in system_group_names:
+            for human_g in human_group_names:
+                for sys_src in groups[sys_g]:
+                    for human_src in groups[human_g]:
+                        sys_data = df[df["source"] == sys_src].set_index("image_id")[score_col]
+                        human_data = df[df["source"] == human_src].set_index("image_id")[score_col]
+
+                        common_idx = sys_data.index.intersection(human_data.index)
+                        common = pd.DataFrame({
+                            "sys": sys_data.loc[common_idx],
+                            "human": human_data.loc[common_idx]
+                        }).dropna()
+
+                        if len(common) < 5:
+                            continue
+
+                        threshold = common["human"].median()
+                        y_true = (common["human"] >= threshold).astype(int).values
+                        y_score = common["sys"].values
+
+                        auc, n_pos, n_neg = compute_auc(y_true, y_score)
+
+                        # 同步计算 ROC 曲线
+                        fpr, tpr = compute_roc_curve(y_true, y_score)
+                        roc_curves.setdefault(("individual", score_col), []).append(
+                            (fpr, tpr, auc, f"{sys_src} vs {human_src}")
+                        )
+
+                        results.append({
+                            "score_type": score_col,
+                            "sys_group": sys_g,
+                            "human_group": human_g,
+                            "sys_source": sys_src,
+                            "human_source": human_src,
+                            "aggregation": "individual",
+                            "n_common": len(common),
+                            "threshold": round(threshold, 4),
+                            "n_positive": n_pos,
+                            "n_negative": n_neg,
+                            "auc": round(auc, 4) if not np.isnan(auc) else "N/A",
+                        })
+
+    # 2. 聚合 (group avg vs group avg)
+    for score_col in ["alignment_score", "artifact_score"]:
+        for sys_g in system_group_names:
+            for human_g in human_group_names:
+                sys_pivot = df[df["source"].isin(groups[sys_g])].pivot_table(
+                    index="image_id", columns="source", values=score_col)
+                human_pivot = df[df["source"].isin(groups[human_g])].pivot_table(
+                    index="image_id", columns="source", values=score_col)
+
+                sys_mean = sys_pivot.mean(axis=1)
+                human_mean = human_pivot.mean(axis=1)
+
+                common_idx = sys_mean.index.intersection(human_mean.index)
+                common = pd.DataFrame({
+                    "sys": sys_mean.loc[common_idx],
+                    "human": human_mean.loc[common_idx]
+                }).dropna()
+
+                if len(common) < 5:
+                    continue
+
+                threshold = common["human"].median()
+                y_true = (common["human"] >= threshold).astype(int).values
+                y_score = common["sys"].values
+
+                auc, n_pos, n_neg = compute_auc(y_true, y_score)
+
+                # 同步计算 ROC 曲线
+                fpr, tpr = compute_roc_curve(y_true, y_score)
+                roc_curves.setdefault(("group_avg", score_col), []).append(
+                    (fpr, tpr, auc, f"{sys_g} vs {human_g}")
+                )
+
+                results.append({
+                    "score_type": score_col,
+                    "sys_group": sys_g,
+                    "human_group": human_g,
+                    "sys_source": f"{sys_g} (avg)",
+                    "human_source": f"{human_g} (avg)",
+                    "aggregation": "group_avg",
+                    "n_common": len(common),
+                    "threshold": round(threshold, 4),
+                    "n_positive": n_pos,
+                    "n_negative": n_neg,
+                    "auc": round(auc, 4) if not np.isnan(auc) else "N/A",
+                })
+
+    auc_df = pd.DataFrame(results)
+    if auc_df.empty:
+        print("[INFO] No AUC results (insufficient data)")
+        return auc_df
+
+    auc_csv = os.path.join(output_dir, "auc_results.csv")
+    try:
+        auc_df.to_csv(auc_csv, index=False, encoding="utf-8-sig")
+        print(f"AUC results saved to: {auc_csv}")
+    except PermissionError:
+        print(f"[WARN] Permission denied: {auc_csv} (file open in Excel?), skip CSV save, continue plotting")
+
+    # 3. 画图: 逐对 AUC 柱状图
+    for score_col in ["alignment_score", "artifact_score"]:
+        sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "individual")].copy()
+        if sub.empty:
+            continue
+
+        sub["pair"] = sub["sys_source"] + " vs " + sub["human_source"]
+        sub["auc_num"] = pd.to_numeric(sub["auc"], errors="coerce")
+
+        fig, ax = plt.subplots(figsize=(max(10, len(sub) * 0.6), 6))
+        x = np.arange(len(sub))
+        auc_vals = sub["auc_num"].fillna(0).values
+        colors = ["steelblue" if v >= 0.7 else "coral" if v >= 0.5 else "gray" for v in auc_vals]
+
+        bars = ax.bar(x, auc_vals, color=colors, alpha=0.8, edgecolor="black", width=0.6)
+        ax.axhline(y=0.5, color="red", linestyle="--", alpha=0.5, label="Random (AUC=0.5)")
+        ax.set_xticks(x)
+        ax.set_xticklabels(sub["pair"], rotation=45, ha="right", fontsize=8)
+        ax.set_ylabel("AUC")
+        ax.set_ylim(0, 1.05)
+        ax.set_title(f"AUC: {score_col} (threshold = human median)\n"
+                     f"AUC = P(sys ranks good image above bad image)", fontweight="bold")
+
+        for bar, val in zip(bars, sub["auc"]):
+            if val != "N/A":
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+                        f"{val:.3f}", ha="center", va="bottom", fontsize=7)
+
+        ax.legend(fontsize=8)
+        plt.tight_layout()
+        fig.savefig(os.path.join(output_dir, f"auc_individual_{score_col}.png"), dpi=150)
+        plt.close(fig)
+        print(f"Saved: auc_individual_{score_col}.png")
+
+    # 4. 画图: 聚合 AUC 柱状图
+    for score_col in ["alignment_score", "artifact_score"]:
+        sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "group_avg")].copy()
+        if sub.empty:
+            continue
+
+        sub["pair"] = sub["sys_group"] + " vs " + sub["human_group"]
+        sub["auc_num"] = pd.to_numeric(sub["auc"], errors="coerce")
+
+        fig, ax = plt.subplots(figsize=(max(8, len(sub) * 1.2), 6))
+        x = np.arange(len(sub))
+        auc_vals = sub["auc_num"].fillna(0).values
+        colors = ["steelblue" if v >= 0.7 else "coral" if v >= 0.5 else "gray" for v in auc_vals]
+
+        bars = ax.bar(x, auc_vals, color=colors, alpha=0.8, edgecolor="black", width=0.5)
+        ax.axhline(y=0.5, color="red", linestyle="--", alpha=0.5, label="Random (AUC=0.5)")
+        ax.set_xticks(x)
+        ax.set_xticklabels(sub["pair"], rotation=15, ha="right", fontsize=9)
+        ax.set_ylabel("AUC")
+        ax.set_ylim(0, 1.05)
+        ax.set_title(f"AUC (group avg): {score_col}\n"
+                     f"System avg vs Human avg, threshold = human median", fontweight="bold")
+
+        for bar, val in zip(bars, sub["auc"]):
+            if val != "N/A":
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+                        f"{val:.3f}", ha="center", va="bottom", fontsize=9)
+
+        ax.legend(fontsize=8)
+        plt.tight_layout()
+        fig.savefig(os.path.join(output_dir, f"auc_group_avg_{score_col}.png"), dpi=150)
+        plt.close(fig)
+        print(f"Saved: auc_group_avg_{score_col}.png")
+
+    # 5. 画图: heatmap (sys_source × human_source)
+    for score_col in ["alignment_score", "artifact_score"]:
+        sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "individual")].copy()
+        if sub.empty:
+            continue
+
+        sub["auc_num"] = pd.to_numeric(sub["auc"], errors="coerce")
+        pivot = sub.pivot_table(index="sys_source", columns="human_source", values="auc_num")
+
+        fig, ax = plt.subplots(figsize=(max(6, len(pivot.columns) * 1.2),
+                                        max(5, len(pivot.index) * 0.8)))
+        im = ax.imshow(pivot.values, cmap="RdYlGn", vmin=0.3, vmax=1.0, aspect="auto")
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_yticks(range(len(pivot.index)))
+        ax.set_xticklabels(pivot.columns, rotation=45, ha="right", fontsize=8)
+        ax.set_yticklabels(pivot.index, fontsize=8)
+
+        for ii in range(len(pivot.index)):
+            for jj in range(len(pivot.columns)):
+                val = pivot.values[ii, jj]
+                if not np.isnan(val):
+                    ax.text(jj, ii, f"{val:.3f}", ha="center", va="center", fontsize=8,
+                            color="white" if val > 0.85 or val < 0.45 else "black")
+
+        plt.colorbar(im, ax=ax, label="AUC")
+        ax.set_title(f"AUC Heatmap: {score_col}", fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        fig.savefig(os.path.join(output_dir, f"auc_heatmap_{score_col}.png"), dpi=150)
+        plt.close(fig)
+        print(f"Saved: auc_heatmap_{score_col}.png")
+
+    # 6. 画图: ROC 曲线 (individual, 每个 pair 一个子图)
+    for score_col in ["alignment_score", "artifact_score"]:
+        curves = roc_curves.get(("individual", score_col), [])
+        if not curves:
+            continue
+
+        n_curves = len(curves)
+        n_cols = min(3, n_curves)
+        n_rows = (n_curves + n_cols - 1) // n_cols
+
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4.5 * n_rows),
+                                 squeeze=False)
+
+        for idx, (fpr, tpr, auc_val, label) in enumerate(curves):
+            ax = axes[idx // n_cols][idx % n_cols]
+            if len(fpr) == 0:
+                ax.set_title(f"{label}\n(insufficient data)", fontsize=8)
+                ax.set_visible(True)
+                continue
+
+            ax.plot(fpr, tpr, color="steelblue", linewidth=2,
+                    label=f"AUC = {auc_val:.4f}")
+            ax.fill_between(fpr, tpr, alpha=0.2, color="steelblue")
+            ax.plot([0, 1], [0, 1], "r--", alpha=0.5, label="Random (AUC=0.5)")
+            ax.set_xlabel("False Positive Rate (FPR)", fontsize=9)
+            ax.set_ylabel("True Positive Rate (TPR)", fontsize=9)
+            ax.set_title(label, fontsize=9)
+            ax.set_xlim(-0.01, 1.01)
+            ax.set_ylim(-0.01, 1.01)
+            ax.legend(loc="lower right", fontsize=7)
+            ax.set_aspect("equal")
+
+        # 隐藏多余子图
+        for idx in range(n_curves, n_rows * n_cols):
+            axes[idx // n_cols][idx % n_cols].set_visible(False)
+
+        fig.suptitle(f"ROC Curves: {score_col} (individual)\n"
+                     f"Threshold = human median, AUC = area under curve",
+                     fontsize=12, fontweight="bold")
+        plt.tight_layout()
+        fig.savefig(os.path.join(output_dir, f"roc_curve_individual_{score_col}.png"), dpi=150)
+        plt.close(fig)
+        print(f"Saved: roc_curve_individual_{score_col}.png")
+
+    # 7. 画图: ROC 曲线 (group_avg, 所有 pair 叠加在一张图)
+    for score_col in ["alignment_score", "artifact_score"]:
+        curves = roc_curves.get(("group_avg", score_col), [])
+        if not curves:
+            continue
+
+        fig, ax = plt.subplots(figsize=(7, 6))
+
+        for fpr, tpr, auc_val, label in curves:
+            if len(fpr) == 0:
+                continue
+            ax.plot(fpr, tpr, linewidth=2, label=f"{label} (AUC={auc_val:.4f})")
+            ax.fill_between(fpr, tpr, alpha=0.15)
+
+        ax.plot([0, 1], [0, 1], "r--", alpha=0.5, label="Random (AUC=0.5)")
+        ax.set_xlabel("False Positive Rate (FPR)", fontsize=11)
+        ax.set_ylabel("True Positive Rate (TPR)", fontsize=11)
+        ax.set_title(f"ROC Curve: {score_col} (group avg)\n"
+                     f"AUC = area under the curve", fontweight="bold")
+        ax.set_xlim(-0.01, 1.01)
+        ax.set_ylim(-0.01, 1.01)
+        ax.legend(loc="lower right", fontsize=9)
+        ax.set_aspect("equal")
+
+        plt.tight_layout()
+        fig.savefig(os.path.join(output_dir, f"roc_curve_group_avg_{score_col}.png"), dpi=150)
+        plt.close(fig)
+        print(f"Saved: roc_curve_group_avg_{score_col}.png")
+
+    return auc_df
+
+
+def compute_composite_and_class_stats(df, output_dir, groups=None):
+    """计算 composite score 和按类统计量。
+
+    1. Per-image 归一化 (a=align/5, r=artifact/5), 计算:
+       - 乘积 composite: a * r
+       - 调和平均 composite: 2*a*r / (a + r)
+    2. 按 (source, class_id) 算 alignment/artifact/composite 的均值, 再跨类取 macro-average
+    3. 按类算 P(alignment >= s, artifact >= t), 类间平均后画 25%/50%/75% 等高线
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    if groups is None:
+        groups = SOURCE_GROUPS
+
+    # ---- 1. Per-image 归一化 + composite ----
+    df = df.copy()
+    df["alignment_norm"] = df["alignment_score"] / 5.0
+    df["artifact_norm"] = df["artifact_score"] / 5.0
+    df["composite_product"] = df["alignment_norm"] * df["artifact_norm"]
+    sum_ar = df["alignment_norm"] + df["artifact_norm"]
+    df["composite_harmonic"] = np.where(
+        sum_ar > 0,
+        2 * df["alignment_norm"] * df["artifact_norm"] / sum_ar.replace(0, np.nan),
+        0.0,
+    )
+
+    # 保存 per-image 归一化分数
+    norm_csv = os.path.join(output_dir, "per_image_normalized_scores.csv")
+    df.to_csv(norm_csv, index=False, encoding="utf-8-sig")
+    print(f"Per-image normalized scores saved to: {norm_csv}")
+
+    # ---- 2. 按类均值 + 跨类 macro-average ----
+    score_cols = ["alignment_norm", "artifact_norm", "composite_product", "composite_harmonic"]
+
+    has_class = df["class_id"].notna().any()
+    if not has_class:
+        print("[WARN] No class_id found in data, skipping per-class stats and contour plot")
+        return pd.DataFrame()
+
+    df_valid = df[df["class_id"].notna()].copy()
+
+    # 按 (source, class_id) 算均值
+    class_means = df_valid.groupby(["source", "class_id"])[score_cols].mean().reset_index()
+    class_means_csv = os.path.join(output_dir, "per_class_means.csv")
+    class_means.to_csv(class_means_csv, index=False, encoding="utf-8-sig")
+    print(f"Per-class means saved to: {class_means_csv}")
+
+    # 跨类 macro-average (每个 source)
+    cross_class_avg = class_means.groupby("source")[score_cols].mean().reset_index()
+    cross_class_avg_csv = os.path.join(output_dir, "cross_class_macro_avg.csv")
+    cross_class_avg.to_csv(cross_class_avg_csv, index=False, encoding="utf-8-sig")
+    print(f"Cross-class macro-average saved to: {cross_class_avg_csv}")
+
+    # 打印
+    print("\n=== Cross-class Macro Average ===")
+    print(cross_class_avg.to_string(index=False))
+
+    # ---- 3. P(alignment >= s, artifact >= t) 等高线图 ----
+    grid_res = 51
+    thresholds = np.linspace(0, 1, grid_res)
+
+    # 为每个 group 计算类平均联合概率曲面
+    group_surfaces = {}
+    for group_name, src_list in groups.items():
+        present_sources = [s for s in src_list if s in df_valid["source"].unique()]
+        if not present_sources:
+            continue
+
+        group_df = df_valid[df_valid["source"].isin(present_sources)]
+
+        # Per-image group average (across sources within group)
+        pivot_a = group_df.pivot_table(index="image_id", columns="source", values="alignment_norm")
+        pivot_r = group_df.pivot_table(index="image_id", columns="source", values="artifact_norm")
+        pivot_cls = group_df.groupby("image_id")["class_id"].first()
+
+        a_avg = pivot_a.mean(axis=1).dropna()
+        r_avg = pivot_r.mean(axis=1).dropna()
+        common_idx = a_avg.index.intersection(r_avg.index).intersection(pivot_cls.index)
+
+        a_avg = a_avg.loc[common_idx]
+        r_avg = r_avg.loc[common_idx]
+        cls_series = pivot_cls.loc[common_idx]
+
+        unique_classes = sorted(cls_series.unique())
+        if len(unique_classes) == 0:
+            continue
+
+        # 累加各类的联合概率
+        prob = np.zeros((grid_res, grid_res))  # prob[i, j] = P(a >= S[i] AND r >= T[j])
+        for cls in unique_classes:
+            cls_mask = cls_series == cls
+            a_cls = a_avg[cls_mask].values
+            r_cls = r_avg[cls_mask].values
+            n_cls = len(a_cls)
+            if n_cls == 0:
+                continue
+
+            # 矩阵乘法加速: prob_cls[i, j] = count(a >= S[i] AND r >= T[j]) / n_cls
+            a_ge = (a_cls[None, :] >= thresholds[:, None]).astype(float)  # (grid, n)
+            r_ge = (r_cls[None, :] >= thresholds[:, None]).astype(float)  # (grid, n)
+            prob_cls = (a_ge @ r_ge.T) / n_cls  # (grid, grid)
+            prob += prob_cls
+
+        prob /= len(unique_classes)
+        group_surfaces[group_name] = prob
+
+    if not group_surfaces:
+        print("[WARN] No group surfaces computed, skipping contour plot")
+        return cross_class_avg
+
+    # 画等高线图: 所有 group 的 25%/50%/75% 等高线在同一张图
+    colors = plt.cm.tab10(np.linspace(0, 1, max(len(group_surfaces), 1)))
+    contour_levels = [0.25, 0.50, 0.75]
+    line_styles = ["-", "--", ":"]
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+    for (gname, prob), color in zip(group_surfaces.items(), colors):
+        for level, ls in zip(contour_levels, line_styles):
+            cs = ax.contour(
+                thresholds, thresholds, prob.T,
+                levels=[level], colors=[color], linestyles=ls, linewidths=2,
+            )
+            # 标注等高线
+            try:
+                ax.clabel(cs, fmt={level: f"{gname} {level:.0%}"}, fontsize=6, inline=True)
+            except Exception:
+                pass
+
+    # 图例 (手动, 按 group)
+    from matplotlib.lines import Line2D
+    legend_handles = []
+    for (gname, _), color in zip(group_surfaces.items(), colors):
+        legend_handles.append(Line2D([0], [0], color=color, linewidth=2, label=gname))
+    # 线型说明
+    for level, ls in zip(contour_levels, line_styles):
+        legend_handles.append(Line2D([0], [0], color="gray", linewidth=2, linestyle=ls,
+                                     label=f"P = {level:.0%}"))
+    ax.legend(handles=legend_handles, loc="upper right", fontsize=8)
+
+    ax.set_xlabel("Alignment threshold (normalized)", fontsize=11)
+    ax.set_ylabel("Artifact threshold (normalized)", fontsize=11)
+    ax.set_title("Joint Probability P(alignment >= s, artifact >= t)\n"
+                 "(class-averaged, per group)", fontweight="bold")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect("equal")
+    plt.tight_layout()
+    contour_path = os.path.join(output_dir, "joint_probability_contour.png")
+    fig.savefig(contour_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: joint_probability_contour.png")
+
+    return cross_class_avg
+
+
 def main():
     parser = argparse.ArgumentParser(description="Extract and analyze evaluation scores")
     parser.add_argument(
@@ -973,10 +1721,14 @@ def main():
 
     if human_group_names and system_group_names:
         bias_df, dist_df = analyze_system_vs_human(df, output_dir, groups=selected_groups)
+        auc_df = compute_auc_between_groups(df, output_dir, groups=selected_groups)
     else:
         print("[INFO] Skipping system_vs_human analysis (need both human and system groups).")
         bias_df = pd.DataFrame()
         dist_df = pd.DataFrame()
+        auc_df = pd.DataFrame()
+
+    composite_df = compute_composite_and_class_stats(df, output_dir, groups=selected_groups)
 
     print("\n=== Summary ===")
     print(f"\nCSV file: {csv_path}")
@@ -984,6 +1736,8 @@ def main():
     print(f"\nStability:\n{stability_df.to_string(index=False)}")
     if not bias_df.empty:
         print(f"\nSystem vs Human Bias:\n{bias_df.to_string(index=False)}")
+    if not auc_df.empty:
+        print(f"\nAUC Results:\n{auc_df.to_string(index=False)}")
     if not dist_df.empty:
         print(f"\nDistribution Stats:\n{dist_df.to_string(index=False)}")
     print(f"\nAll outputs saved to: {output_dir}")
