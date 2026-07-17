@@ -45,6 +45,7 @@ SOURCE_GROUPS = {
     "Human_VAR_200": ["User_VAR_200_1", "User_VAR_200_2", "User_VAR_200_3"],
     "Sys_Val_ref_500": ["Sys_Val_ref_500_1", "Sys_Val_ref_500_2", "Sys_Val_ref_500_3"],
     "Human_Val_500": ["User_Val_500_1", "User_Val_500_2", "User_Val_500_3"],
+    "Sys_DiT_noexpert": ["Sys_DiT_noexpert_1", "Sys_DiT_noexpert_2", "Sys_DiT_noexpert_3"],
 }
 
 SOURCES = {
@@ -462,6 +463,22 @@ SOURCES = {
         "type": "human",
         "path": os.path.join(BASE_DIR, "human_anno_val", "User_3_final_annotations.json"),
     },
+
+    "Sys_DiT_noexpert_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noexpert_1", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
+    "Sys_DiT_noexpert_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noexpert_2", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
+    "Sys_DiT_noexpert_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noexpert_3", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
 }
 
 
@@ -661,7 +678,7 @@ def plot_distributions(df, output_dir, groups=None):
                 data_for_box.append(vals)
                 labels_for_box.append(src)
         if data_for_box:
-            bp = ax.boxplot(data_for_box, labels=labels_for_box, patch_artist=True)
+            bp = ax.boxplot(data_for_box, tick_labels=labels_for_box, patch_artist=True)
             colors = plt.cm.Set3(np.linspace(0, 1, len(data_for_box)))
             for patch, color in zip(bp["boxes"], colors):
                 patch.set_facecolor(color)
@@ -1076,7 +1093,7 @@ def analyze_system_vs_human(df, output_dir, groups=None):
             data_for_box.append(series.dropna().values)
             labels_for_box.append(name)
 
-        bp = ax.boxplot(data_for_box, labels=labels_for_box, patch_artist=True)
+        bp = ax.boxplot(data_for_box, tick_labels=labels_for_box, patch_artist=True)
         colors = plt.cm.Set2(np.linspace(0, 1, len(data_for_box)))
         for patch, color in zip(bp["boxes"], colors):
             patch.set_facecolor(color)
@@ -1552,12 +1569,16 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
 
     # 按 (source, class_id) 算均值
     class_means = df_valid.groupby(["source", "class_id"])[score_cols].mean().reset_index()
+    # 保留 2 位小数
+    class_means[score_cols] = class_means[score_cols].round(2)
     class_means_csv = os.path.join(output_dir, "per_class_means.csv")
     class_means.to_csv(class_means_csv, index=False, encoding="utf-8-sig")
     print(f"Per-class means saved to: {class_means_csv}")
 
     # 跨类 macro-average (每个 source)
     cross_class_avg = class_means.groupby("source")[score_cols].mean().reset_index()
+    # 保留 2 位小数
+    cross_class_avg[score_cols] = cross_class_avg[score_cols].round(2)
     cross_class_avg_csv = os.path.join(output_dir, "cross_class_macro_avg.csv")
     cross_class_avg.to_csv(cross_class_avg_csv, index=False, encoding="utf-8-sig")
     print(f"Cross-class macro-average saved to: {cross_class_avg_csv}")
@@ -1565,6 +1586,59 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
     # 打印
     print("\n=== Cross-class Macro Average ===")
     print(cross_class_avg.to_string(index=False))
+
+    # ---- 2.5 Per-image 折线图: 每张图的 4 个归一化指标 ----
+    sources_list = sorted(df_valid["source"].unique())
+    n_sources = len(sources_list)
+    n_cols = min(3, n_sources)
+    n_rows = (n_sources + n_cols - 1) // n_cols
+
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(7 * n_cols, 4 * n_rows), squeeze=False)
+    fig.suptitle("Per-image Normalized Scores\n"
+                 "(alignment_norm, artifact_norm, composite_product, composite_harmonic)",
+                 fontsize=13, fontweight="bold")
+
+    score_colors = {
+        "alignment_norm": "steelblue",
+        "artifact_norm": "coral",
+        "composite_product": "seagreen",
+        "composite_harmonic": "purple",
+    }
+    score_labels = {
+        "alignment_norm": "alignment_norm",
+        "artifact_norm": "artifact_norm",
+        "composite_product": "composite_product",
+        "composite_harmonic": "composite_harmonic",
+    }
+
+    for idx, src in enumerate(sources_list):
+        ax = axes[idx // n_cols][idx % n_cols]
+        src_df = df_valid[df_valid["source"] == src].sort_values("image_id")
+        x = src_df["image_id"].values
+        for col in score_cols:
+            ax.plot(x, src_df[col].values, linewidth=0.7, alpha=0.8,
+                    label=score_labels[col], color=score_colors[col])
+
+        ax.set_title(f"{src}  (n={len(src_df)} images)", fontsize=10)
+        ax.set_xlabel("Image ID", fontsize=9)
+        ax.set_ylabel("Score (normalized)", fontsize=9)
+        ax.set_ylim(-0.05, 1.05)
+        ax.legend(fontsize=7, loc="lower left")
+        # y 轴刻度保留 2 位小数
+        ax.yaxis.set_major_formatter(
+            plt.FuncFormatter(lambda v, p: f"{v:.2f}"))
+        ax.grid(alpha=0.3)
+
+    # 隐藏多余子图
+    for idx in range(n_sources, n_rows * n_cols):
+        axes[idx // n_cols][idx % n_cols].set_visible(False)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.94])
+    line_path = os.path.join(output_dir, "per_image_scores_lineplot.png")
+    fig.savefig(line_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: per_image_scores_lineplot.png")
 
     # ---- 3. P(alignment >= s, artifact >= t) 等高线图 ----
     grid_res = 51
