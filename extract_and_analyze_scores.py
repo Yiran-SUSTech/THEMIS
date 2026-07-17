@@ -46,6 +46,7 @@ SOURCE_GROUPS = {
     "Sys_Val_ref_500": ["Sys_Val_ref_500_1", "Sys_Val_ref_500_2", "Sys_Val_ref_500_3"],
     "Human_Val_500": ["User_Val_500_1", "User_Val_500_2", "User_Val_500_3"],
     "Sys_DiT_noexpert": ["Sys_DiT_noexpert_1", "Sys_DiT_noexpert_2", "Sys_DiT_noexpert_3"],
+    "Sys_DiT_noref": ["Sys_DiT_noref_1", "Sys_DiT_noref_2", "Sys_DiT_noref_3"],
 }
 
 SOURCES = {
@@ -162,15 +163,15 @@ SOURCES = {
     },
     "User_IMF_1": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_1_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2-500", "User_1_final_annotations.json"),
     },
     "User_IMF_2": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_2_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2-500", "User_2_final_annotations.json"),
     },
     "User_IMF_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2", "User_3_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL2-500", "User_3_final_annotations.json"),
     },
     "Sys_DiT_1": {
         "type": "final_report",
@@ -204,15 +205,15 @@ SOURCES = {
     },
     "User_DiT_1": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_1_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2-500", "User_1_final_annotations.json"),
     },
     "User_DiT_2": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_2_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2-500", "User_2_final_annotations.json"),
     },
     "User_DiT_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2", "User_3_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_DiT-XL2-500", "User_3_final_annotations.json"),
     },
     "Sys_VAR_ref_1": {
         "type": "final_report",
@@ -243,57 +244,57 @@ SOURCES = {
     },
     "Sys_JiTfdloss_ref_1": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_1", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_500_1", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_JiTfdloss_ref_2": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_2", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_500_2", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_JiTfdloss_ref_3": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_3", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_JiT_FDloss_ref_cap_500_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "User_JiTfdloss_1": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_1_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss-500", "User_1_final_annotations.json"),
     },
     "User_JiTfdloss_2": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_2_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss-500", "User_2_final_annotations.json"),
     },
     "User_JiTfdloss_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss", "User_3_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_JiT-H_FDloss-500", "User_3_final_annotations.json"),
     },
     "Sys_IMFfdloss_ref_1": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_1", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_500_1", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_IMFfdloss_ref_2": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_2", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_500_2", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "Sys_IMFfdloss_ref_3": {
         "type": "final_report",
-        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_3", "final_reports"),
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_IMFfdloss_ref_cap_500_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
     "User_IMFfdloss_1": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_1_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss-500", "User_1_final_annotations.json"),
     },
     "User_IMFfdloss_2": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_2_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss-500", "User_2_final_annotations.json"),
     },
     "User_IMFfdloss_3": {
         "type": "human",
-        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss", "User_3_final_annotations.json"),
+        "path": os.path.join(BASE_DIR, "human_anno_IMF-XL_FDloss-500", "User_3_final_annotations.json"),
     },
 
     "Sys_VAR_ref_500_1": {
@@ -478,6 +479,21 @@ SOURCES = {
         "type": "final_report",
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noexpert_3", "without_expert_reports"),
         "prefix": "direct_score_",
+    },
+    "Sys_DiT_noref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noref_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_noref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noref_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_noref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noref_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
     },
 }
 

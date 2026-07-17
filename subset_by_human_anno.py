@@ -29,31 +29,40 @@ def setup_logging(log_file):
 
 def extract_image_names_from_json(json_path):
     image_names = set()
+    image_class_map = {}
     try:
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         logging.error(f"JSON parse error in {json_path}: {e}")
-        return image_names
+        return image_names, image_class_map
     except Exception as e:
         logging.error(f"Failed to read {json_path}: {e}")
-        return image_names
+        return image_names, image_class_map
 
     if not isinstance(data, dict):
         logging.error(f"{json_path}: top-level is not a dict, got {type(data).__name__}")
-        return image_names
+        return image_names, image_class_map
 
     for key in data.keys():
         if key.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".webp")):
             image_names.add(key)
+            entry = data[key]
+            if isinstance(entry, dict):
+                class_id = entry.get("class_id")
+                if class_id is not None:
+                    image_class_map[key] = class_id
         else:
             entry = data[key]
             if isinstance(entry, dict):
                 img_name = entry.get("image_name")
                 if img_name and isinstance(img_name, str):
                     image_names.add(img_name)
+                    class_id = entry.get("class_id")
+                    if class_id is not None:
+                        image_class_map[img_name] = class_id
 
-    return image_names
+    return image_names, image_class_map
 
 
 def process_task(src_dir, anno_dir, dst_dir):
@@ -81,14 +90,17 @@ def process_task(src_dir, anno_dir, dst_dir):
     logging.info(f"Found {len(json_files)} JSON file(s) in annotation folder")
 
     all_image_names = set()
+    all_image_class_map = {}
     per_json_stats = {}
     for jf in json_files:
-        names = extract_image_names_from_json(jf)
+        names, class_map = extract_image_names_from_json(jf)
         per_json_stats[jf.name] = len(names)
         all_image_names.update(names)
-        logging.info(f"  {jf.name}: {len(names)} image(s)")
+        all_image_class_map.update(class_map)
+        logging.info(f"  {jf.name}: {len(names)} image(s), {len(class_map)} with class_id")
 
     logging.info(f"Union of all image names: {len(all_image_names)}")
+    logging.info(f"Total images with class_id: {len(all_image_class_map)}")
 
     dst_path.mkdir(parents=True, exist_ok=True)
 
@@ -96,6 +108,7 @@ def process_task(src_dir, anno_dir, dst_dir):
     missing = 0
     skipped_dup = 0
     missing_list = []
+    copied_with_class = {}
 
     for img_name in sorted(all_image_names):
         src_file = src_path / img_name
@@ -109,13 +122,26 @@ def process_task(src_dir, anno_dir, dst_dir):
 
         if dst_file.exists():
             skipped_dup += 1
+            if img_name in all_image_class_map:
+                copied_with_class[img_name] = all_image_class_map[img_name]
             continue
 
         try:
             shutil.copy2(src_file, dst_file)
             copied += 1
+            if img_name in all_image_class_map:
+                copied_with_class[img_name] = all_image_class_map[img_name]
         except Exception as e:
             logging.error(f"  COPY FAILED: {img_name}: {e}")
+
+    if copied_with_class:
+        class_ids_file = dst_path / "class_ids.txt"
+        with open(class_ids_file, "w", encoding="utf-8") as f:
+            for img_name in sorted(copied_with_class.keys()):
+                class_id = copied_with_class[img_name]
+                idx = img_name.rsplit(".", 1)[0]
+                f.write(f"{idx} {class_id}\n")
+        logging.info(f"  class_ids.txt saved: {class_ids_file} ({len(copied_with_class)} entries)")
 
     logging.info(f"=== Summary ===")
     logging.info(f"  JSON files processed : {len(json_files)}")
