@@ -93,6 +93,13 @@ python c2i_faster/run.py --mode async --step 1234 --limit 40 \
 python c2i_faster/run.py --mode async --step 1234 --gpu-config my_config.json
 ```
 
+```bash
+# 计算ImageNet-1K val集的vendi-score，内置 100 个类（每类 50 张，共 5000 张图）
+python -X utf8 eval_dinov2_vendi_score.py --mode imagenet-val --model base --device cpu
+# 计算IMF-XL_FDloss-500集的vendi-score
+python eval_dinov2_vendi_score.py --model base --data-dir "d:\THEMIS\IMF-XL_FDloss-500" --output-dir "d:\THEMIS\vendi-IMF-FDloss-500" --batch-size 8 --device cpu
+```
+
 ### 全流程含 Reflector（Step 1-4）
 
 ```bash
