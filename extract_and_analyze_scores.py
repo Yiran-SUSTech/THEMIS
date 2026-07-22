@@ -47,6 +47,8 @@ SOURCE_GROUPS = {
     "Human_Val_500": ["User_Val_500_1", "User_Val_500_2", "User_Val_500_3"],
     "Sys_DiT_noexpert": ["Sys_DiT_noexpert_1", "Sys_DiT_noexpert_2", "Sys_DiT_noexpert_3"],
     "Sys_DiT_noref": ["Sys_DiT_noref_1", "Sys_DiT_noref_2", "Sys_DiT_noref_3"],
+    "Sys_VAR_noexpert": ["Sys_VAR_noexpert_1", "Sys_VAR_noexpert_2", "Sys_VAR_noexpert_3"],
+    "Sys_VAR_noref": ["Sys_VAR_noref_1", "Sys_VAR_noref_2", "Sys_VAR_noref_3"],
 }
 
 SOURCES = {
@@ -493,6 +495,37 @@ SOURCES = {
     "Sys_DiT_noref_3": {
         "type": "final_report",
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_noref_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    
+    "Sys_VAR_noexpert_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noexpert_1", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
+    "Sys_VAR_noexpert_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noexpert_2", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
+    "Sys_VAR_noexpert_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noexpert_3", "without_expert_reports"),
+        "prefix": "direct_score_",
+    },
+    "Sys_VAR_noref_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noref_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_noref_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noref_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_VAR_noref_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noref_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
 }
@@ -1593,14 +1626,92 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
 
     # 跨类 macro-average (每个 source)
     cross_class_avg = class_means.groupby("source")[score_cols].mean().reset_index()
+
+    # 为每个指标额外计算: 类间标准差 (std), 标准误 (se), 95% 置信区间 (ci_low, ci_high)
+    # CI 基于 t 分布: mean +/- t_{0.975, n-1} * std / sqrt(n), n = 类数
+    ci_extra_cols = []
+    for col in score_cols:
+        std_col = f"{col}_std"
+        se_col = f"{col}_se"
+        ci_low_col = f"{col}_ci_low"
+        ci_high_col = f"{col}_ci_high"
+        ci_extra_cols.extend([std_col, se_col, ci_low_col, ci_high_col])
+
+        # 按 source 计算类间 std / se / CI
+        grouped = class_means.groupby("source")[col]
+        n_per_source = grouped.size()  # 每个 source 的类数
+        std_per_source = grouped.std(ddof=1)  # 类间样本标准差
+        se_per_source = std_per_source / np.sqrt(n_per_source)
+        # t_{0.975, n-1}, n=类数 (通常 100)
+        t_val_per_source = n_per_source.apply(lambda n: stats.t.ppf(0.975, df=n - 1) if n > 1 else float("nan"))
+        mean_per_source = grouped.mean()
+        ci_low_per_source = mean_per_source - t_val_per_source * se_per_source
+        ci_high_per_source = mean_per_source + t_val_per_source * se_per_source
+
+        cross_class_avg[std_col] = cross_class_avg["source"].map(std_per_source)
+        cross_class_avg[se_col] = cross_class_avg["source"].map(se_per_source)
+        cross_class_avg[ci_low_col] = cross_class_avg["source"].map(ci_low_per_source)
+        cross_class_avg[ci_high_col] = cross_class_avg["source"].map(ci_high_per_source)
+
     # 保留 2 位小数
-    cross_class_avg[score_cols] = cross_class_avg[score_cols].round(2)
+    all_metric_cols = score_cols + ci_extra_cols
+    cross_class_avg[all_metric_cols] = cross_class_avg[all_metric_cols].round(2)
+
+    # ---- 2.6 Group-level 汇总行: 对每个 group 内的多个 source 计算 2 种汇总 ----
+    # 方式1: AVG_STATS  - 对各 source 的统计量 (mean/std/se/ci_low/ci_high) 取算术平均
+    # 方式2: AVG_PERCLASS - 先对每个 class 在 3 次 source 中的均值取平均, 再基于 averaged per-class means 重算 macro-mean/std/se/CI
+    group_summary_rows = []
+    for group_name, src_list in groups.items():
+        available_sources = [s for s in src_list if s in cross_class_avg["source"].values]
+        if len(available_sources) < 2:
+            continue  # 只有 1 个 source 的 group 不做汇总
+
+        group_rows = cross_class_avg[cross_class_avg["source"].isin(available_sources)]
+
+        # ---- 方式1: AVG_STATS (对统计量取算术平均) ----
+        avg_stats_row = {"source": f"{group_name}_AVG_STATS"}
+        for col in all_metric_cols:
+            avg_stats_row[col] = float(group_rows[col].mean())
+        group_summary_rows.append(avg_stats_row)
+
+        # ---- 方式2: AVG_PERCLASS (先按类平均, 再算统计量) ----
+        group_class_means = class_means[class_means["source"].isin(available_sources)]
+        # 按 class_id 对 3 次 source 取平均
+        per_class_avg = group_class_means.groupby("class_id")[score_cols].mean().reset_index()
+
+        avg_perclass_row = {"source": f"{group_name}_AVG_PERCLASS"}
+        for col in score_cols:
+            values = per_class_avg[col].values
+            n = len(values)
+            if n < 2:
+                mean = float(values.mean()) if n > 0 else float("nan")
+                std = se = ci_low = ci_high = float("nan")
+            else:
+                mean = float(values.mean())
+                std = float(values.std(ddof=1))
+                se = std / np.sqrt(n)
+                t_val = float(stats.t.ppf(0.975, df=n - 1))
+                ci_low = mean - t_val * se
+                ci_high = mean + t_val * se
+            avg_perclass_row[col] = mean
+            avg_perclass_row[f"{col}_std"] = std
+            avg_perclass_row[f"{col}_se"] = se
+            avg_perclass_row[f"{col}_ci_low"] = ci_low
+            avg_perclass_row[f"{col}_ci_high"] = ci_high
+        group_summary_rows.append(avg_perclass_row)
+
+    if group_summary_rows:
+        summary_df = pd.DataFrame(group_summary_rows)
+        # 保留 2 位小数
+        summary_df[all_metric_cols] = summary_df[all_metric_cols].round(2)
+        cross_class_avg = pd.concat([cross_class_avg, summary_df], ignore_index=True)
+
     cross_class_avg_csv = os.path.join(output_dir, "cross_class_macro_avg.csv")
     cross_class_avg.to_csv(cross_class_avg_csv, index=False, encoding="utf-8-sig")
-    print(f"Cross-class macro-average saved to: {cross_class_avg_csv}")
+    print(f"Cross-class macro-average (with std & 95% CI, group summaries) saved to: {cross_class_avg_csv}")
 
     # 打印
-    print("\n=== Cross-class Macro Average ===")
+    print("\n=== Cross-class Macro Average (mean / std / 95% CI, with group summaries) ===")
     print(cross_class_avg.to_string(index=False))
 
     # ---- 2.5 Per-image 折线图: 每张图的 4 个归一化指标 ----
