@@ -25,8 +25,8 @@ SOURCE_GROUPS = {
     "Sys_IMF_ref": ["Sys_IMF_ref_1", "Sys_IMF_ref_2", "Sys_IMF_ref_3"],
     "Human_IMF": ["User_IMF_1", "User_IMF_2", "User_IMF_3"],
     "Sys_DiT": ["Sys_DiT_1", "Sys_DiT_2", "Sys_DiT_3"],
-    "Sys_DiT_ref": ["Sys_DiT_ref_1", "Sys_DiT_ref_2", "Sys_DiT_ref_3"],
-    "Human_DiT": ["User_DiT_1", "User_DiT_2", "User_DiT_3"],
+    "Sys_DiT_ref_500": ["Sys_DiT_ref_1", "Sys_DiT_ref_2", "Sys_DiT_ref_3"],
+    "Human_DiT_500": ["User_DiT_1", "User_DiT_2", "User_DiT_3"],
     "Sys_VAR_ref": ["Sys_VAR_ref_1", "Sys_VAR_ref_2", "Sys_VAR_ref_3"],
     "Human_VAR": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
     "Sys_JiTfdloss_ref": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
@@ -1576,7 +1576,69 @@ def compute_auc_between_groups(df, output_dir, groups=None):
     return auc_df
 
 
-def compute_composite_and_class_stats(df, output_dir, groups=None):
+def load_vendi_ratio_data(vendi_csv_path):
+    """从 per_class_vendi_scores.csv 读取 vendi_ratio 和 vendi_ratio_train 数据。
+
+    用于将 composite 指标与 vendi_ratio 相乘, 评估"多样性归一化后的质量"。
+
+    Args:
+        vendi_csv_path: per_class_vendi_scores.csv 路径
+            (由 eval_dinov2_vendi_score.py --baseline-csv --baseline-train-csv 生成)
+
+    Returns:
+        per_class: {class_id: {"vendi_ratio": float|None, "vendi_ratio_train": float|None}}
+        summary: {"MEAN_VENDI_RATIO": float, "MEAN_VENDI_RATIO_TRAIN": float, ...}
+                 (包含所有统计行, 如 MEAN_VENDI_RATIO, MEDIAN_VENDI_RATIO, ...)
+    """
+    per_class = {}
+    summary = {}
+    if not vendi_csv_path:
+        return per_class, summary
+    if not os.path.isfile(vendi_csv_path):
+        print(f"[WARN] vendi ratio CSV not found: {vendi_csv_path}")
+        return per_class, summary
+
+    try:
+        df = pd.read_csv(vendi_csv_path, encoding="utf-8-sig")
+    except Exception as e:
+        print(f"[WARN] failed to read vendi ratio CSV: {e}")
+        return per_class, summary
+
+    if "class_id" not in df.columns:
+        print(f"[WARN] vendi ratio CSV missing 'class_id' column, columns: {list(df.columns)}")
+        return per_class, summary
+
+    has_vr = "vendi_ratio" in df.columns
+    has_vrt = "vendi_ratio_train" in df.columns
+    if not has_vr and not has_vrt:
+        print(f"[WARN] vendi ratio CSV missing both 'vendi_ratio' and 'vendi_ratio_train' columns")
+        return per_class, summary
+
+    for _, row in df.iterrows():
+        raw = str(row["class_id"]).strip()
+        try:
+            cid = int(raw)
+            # 逐类数据
+            per_class[cid] = {
+                "vendi_ratio": float(row["vendi_ratio"]) if has_vr and pd.notna(row.get("vendi_ratio")) else None,
+                "vendi_ratio_train": float(row["vendi_ratio_train"]) if has_vrt and pd.notna(row.get("vendi_ratio_train")) else None,
+            }
+        except ValueError:
+            # 统计行 (MEAN_VENDI_RATIO, MEAN_VENDI_RATIO_TRAIN, MEDIAN_*, STD_*, etc.)
+            if has_vr and pd.notna(row.get("vendi_ratio")):
+                summary[raw] = float(row["vendi_ratio"])
+            if has_vrt and pd.notna(row.get("vendi_ratio_train")):
+                summary[raw] = float(row["vendi_ratio_train"])
+
+    print(f"  [vendi_ratio] loaded: {len(per_class)} per-class entries, {len(summary)} summary stats")
+    if "MEAN_VENDI_RATIO" in summary:
+        print(f"    MEAN_VENDI_RATIO = {summary['MEAN_VENDI_RATIO']:.4f}")
+    if "MEAN_VENDI_RATIO_TRAIN" in summary:
+        print(f"    MEAN_VENDI_RATIO_TRAIN = {summary['MEAN_VENDI_RATIO_TRAIN']:.4f}")
+    return per_class, summary
+
+
+def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_data=None):
     """计算 composite score 和按类统计量。
 
     1. Per-image 归一化 (a=align/5, r=artifact/5), 计算:
@@ -1584,18 +1646,34 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
        - 调和平均 composite: 2*a*r / (a + r)
     2. 按 (source, class_id) 算 alignment/artifact/composite 的均值, 再跨类取 macro-average
     3. 按类算 P(alignment >= s, artifact >= t), 类间平均后画 25%/50%/75% 等高线
+
+    命名规范:
+      - per-image 级别: composite_product_perimage, composite_harmonic_perimage
+      - class-mean 级别: composite_product_classmean, composite_harmonic_classmean
+      - dataset 级别 (macro-avg): composite_product, composite_harmonic
+
+    当 vendi_ratio_data 提供时 (per_class dict + summary dict), 额外计算:
+      - per_class_means.csv 中增加 vendi_ratio/vendi_ratio_train 列及 4 个乘积列
+      - cross_class_macro_avg.csv 中增加 4 个乘积的 macro-avg + CI, 以及 4 个 scalar 乘积
     """
     os.makedirs(output_dir, exist_ok=True)
     if groups is None:
         groups = SOURCE_GROUPS
 
+    # 解析 vendi_ratio_data
+    has_vendi = vendi_ratio_data is not None and len(vendi_ratio_data[0]) > 0
+    if has_vendi:
+        vendi_per_class, vendi_summary = vendi_ratio_data
+        print(f"  [vendi_ratio] integrating vendi ratio data: {len(vendi_per_class)} classes")
+
     # ---- 1. Per-image 归一化 + composite ----
     df = df.copy()
     df["alignment_norm"] = df["alignment_score"] / 5.0
     df["artifact_norm"] = df["artifact_score"] / 5.0
-    df["composite_product"] = df["alignment_norm"] * df["artifact_norm"]
+    # per-image 命名: composite_product_perimage, composite_harmonic_perimage
+    df["composite_product_perimage"] = df["alignment_norm"] * df["artifact_norm"]
     sum_ar = df["alignment_norm"] + df["artifact_norm"]
-    df["composite_harmonic"] = np.where(
+    df["composite_harmonic_perimage"] = np.where(
         sum_ar > 0,
         2 * df["alignment_norm"] * df["artifact_norm"] / sum_ar.replace(0, np.nan),
         0.0,
@@ -1607,7 +1685,22 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
     print(f"Per-image normalized scores saved to: {norm_csv}")
 
     # ---- 2. 按类均值 + 跨类 macro-average ----
-    score_cols = ["alignment_norm", "artifact_norm", "composite_product", "composite_harmonic"]
+    # per-image 列名 (用于 groupby mean)
+    perimage_cols = ["alignment_norm", "artifact_norm",
+                     "composite_product_perimage", "composite_harmonic_perimage"]
+    # class-mean 列名 (在 class_means df 中)
+    classmean_cols = ["alignment_norm", "artifact_norm",
+                      "composite_product_classmean", "composite_harmonic_classmean"]
+    # dataset-level (macro-avg) 列名 (在 cross_class_avg df 中)
+    macro_cols = ["alignment_norm", "artifact_norm", "composite_product", "composite_harmonic"]
+
+    # classmean 列名 -> macro 列名 的映射
+    classmean_to_macro = {
+        "alignment_norm": "alignment_norm",
+        "artifact_norm": "artifact_norm",
+        "composite_product_classmean": "composite_product",
+        "composite_harmonic_classmean": "composite_harmonic",
+    }
 
     has_class = df["class_id"].notna().any()
     if not has_class:
@@ -1617,33 +1710,83 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
     df_valid = df[df["class_id"].notna()].copy()
 
     # 按 (source, class_id) 算均值
-    class_means = df_valid.groupby(["source", "class_id"])[score_cols].mean().reset_index()
+    class_means = df_valid.groupby(["source", "class_id"])[perimage_cols].mean().reset_index()
+    # 重命名 composite 列为 classmean 命名
+    class_means = class_means.rename(columns={
+        "composite_product_perimage": "composite_product_classmean",
+        "composite_harmonic_perimage": "composite_harmonic_classmean",
+    })
+
+    # ---- 2.1 [可选] 添加 vendi_ratio 乘积列 ----
+    # vendi 乘积在 class_means 中的列名 (classmean 级别)
+    vendi_product_classmean_cols = []
+    # vendi 乘积在 cross_class_avg 中的列名 (macro 级别)
+    vendi_product_macro_cols = []
+    # (classmean_col, macro_col) 配对
+    vendi_product_pairs = []
+    # scalar 乘积列名 (macro 级别)
+    vendi_scalar_cols = []
+
+    if has_vendi:
+        # 添加原始 vendi_ratio / vendi_ratio_train 列 (供参考)
+        class_means["vendi_ratio"] = class_means["class_id"].map(
+            lambda cid: vendi_per_class.get(cid, {}).get("vendi_ratio")
+        )
+        class_means["vendi_ratio_train"] = class_means["class_id"].map(
+            lambda cid: vendi_per_class.get(cid, {}).get("vendi_ratio_train")
+        )
+        # 计算 4 个乘积列 (classmean 级别)
+        # (classmean_col, macro_col, base_composite_col, vendi_col)
+        vendi_product_pairs_full = [
+            ("composite_product_classmean_x_vendi_ratio", "composite_product_x_vendi_ratio",
+             "composite_product_classmean", "vendi_ratio"),
+            ("composite_product_classmean_x_vendi_ratio_train", "composite_product_x_vendi_ratio_train",
+             "composite_product_classmean", "vendi_ratio_train"),
+            ("composite_harmonic_classmean_x_vendi_ratio", "composite_harmonic_x_vendi_ratio",
+             "composite_harmonic_classmean", "vendi_ratio"),
+            ("composite_harmonic_classmean_x_vendi_ratio_train", "composite_harmonic_x_vendi_ratio_train",
+             "composite_harmonic_classmean", "vendi_ratio_train"),
+        ]
+        vendi_product_pairs = []  # (classmean_col, macro_col) 配对, 供后续使用
+        for cm_col, macro_col, base_col, vendi_col in vendi_product_pairs_full:
+            class_means[cm_col] = class_means[base_col] * class_means[vendi_col]
+            vendi_product_classmean_cols.append(cm_col)
+            vendi_product_macro_cols.append(macro_col)
+            vendi_product_pairs.append((cm_col, macro_col))
+
     # 保留 2 位小数
-    class_means[score_cols] = class_means[score_cols].round(2)
+    round_cols = classmean_cols[:]
+    if has_vendi:
+        round_cols += ["vendi_ratio", "vendi_ratio_train"] + vendi_product_classmean_cols
+    class_means[round_cols] = class_means[round_cols].round(2)
+
     class_means_csv = os.path.join(output_dir, "per_class_means.csv")
     class_means.to_csv(class_means_csv, index=False, encoding="utf-8-sig")
     print(f"Per-class means saved to: {class_means_csv}")
 
-    # 跨类 macro-average (每个 source)
-    cross_class_avg = class_means.groupby("source")[score_cols].mean().reset_index()
+    # ---- 3. 跨类 macro-average (每个 source) ----
+    cross_class_avg = class_means.groupby("source")[classmean_cols].mean().reset_index()
+    # 重命名为 dataset-level 命名 (composite_product_classmean -> composite_product)
+    cross_class_avg = cross_class_avg.rename(columns=classmean_to_macro)
 
     # 为每个指标额外计算: 类间标准差 (std), 标准误 (se), 95% 置信区间 (ci_low, ci_high)
     # CI 基于 t 分布: mean +/- t_{0.975, n-1} * std / sqrt(n), n = 类数
     ci_extra_cols = []
-    for col in score_cols:
-        std_col = f"{col}_std"
-        se_col = f"{col}_se"
-        ci_low_col = f"{col}_ci_low"
-        ci_high_col = f"{col}_ci_high"
+
+    # 辅助函数: 为一个 classmean 列计算 macro 级别的 std/se/CI, 并填入 cross_class_avg
+    def _compute_macro_ci(cm_col, macro_col):
+        std_col = f"{macro_col}_std"
+        se_col = f"{macro_col}_se"
+        ci_low_col = f"{macro_col}_ci_low"
+        ci_high_col = f"{macro_col}_ci_high"
         ci_extra_cols.extend([std_col, se_col, ci_low_col, ci_high_col])
 
-        # 按 source 计算类间 std / se / CI
-        grouped = class_means.groupby("source")[col]
-        n_per_source = grouped.size()  # 每个 source 的类数
-        std_per_source = grouped.std(ddof=1)  # 类间样本标准差
+        grouped = class_means.groupby("source")[cm_col]
+        n_per_source = grouped.size()
+        std_per_source = grouped.std(ddof=1)
         se_per_source = std_per_source / np.sqrt(n_per_source)
-        # t_{0.975, n-1}, n=类数 (通常 100)
-        t_val_per_source = n_per_source.apply(lambda n: stats.t.ppf(0.975, df=n - 1) if n > 1 else float("nan"))
+        t_val_per_source = n_per_source.apply(
+            lambda n: stats.t.ppf(0.975, df=n - 1) if n > 1 else float("nan"))
         mean_per_source = grouped.mean()
         ci_low_per_source = mean_per_source - t_val_per_source * se_per_source
         ci_high_per_source = mean_per_source + t_val_per_source * se_per_source
@@ -1653,18 +1796,56 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
         cross_class_avg[ci_low_col] = cross_class_avg["source"].map(ci_low_per_source)
         cross_class_avg[ci_high_col] = cross_class_avg["source"].map(ci_high_per_source)
 
+    # ---- 3.1 原始 4 指标的 macro-avg + CI ----
+    for cm_col, macro_col in zip(classmean_cols, macro_cols):
+        _compute_macro_ci(cm_col, macro_col)
+
+    # ---- 3.2 [可选] vendi 乘积的 macro-avg + CI ----
+    if has_vendi:
+        for cm_col, macro_col in vendi_product_pairs:
+            # macro-mean
+            grouped = class_means.groupby("source")[cm_col]
+            mean_per_source = grouped.mean()
+            cross_class_avg[macro_col] = cross_class_avg["source"].map(mean_per_source)
+            # std/se/CI
+            _compute_macro_ci(cm_col, macro_col)
+
+        # ---- 3.3 [可选] scalar 乘积 (macro composite × MEAN_VENDI_RATIO) ----
+        # e: composite_harmonic × MEAN_VENDI_RATIO
+        # f: composite_harmonic × MEAN_VENDI_RATIO_TRAIN
+        # g: composite_product × MEAN_VENDI_RATIO
+        # h: composite_product × MEAN_VENDI_RATIO_TRAIN
+        if "MEAN_VENDI_RATIO" in vendi_summary:
+            vr_mean = vendi_summary["MEAN_VENDI_RATIO"]
+            cross_class_avg["composite_product_x_MEAN_VENDI_RATIO"] = (
+                cross_class_avg["composite_product"] * vr_mean)
+            cross_class_avg["composite_harmonic_x_MEAN_VENDI_RATIO"] = (
+                cross_class_avg["composite_harmonic"] * vr_mean)
+            vendi_scalar_cols.extend(
+                ["composite_product_x_MEAN_VENDI_RATIO",
+                 "composite_harmonic_x_MEAN_VENDI_RATIO"])
+        if "MEAN_VENDI_RATIO_TRAIN" in vendi_summary:
+            vrt_mean = vendi_summary["MEAN_VENDI_RATIO_TRAIN"]
+            cross_class_avg["composite_product_x_MEAN_VENDI_RATIO_TRAIN"] = (
+                cross_class_avg["composite_product"] * vrt_mean)
+            cross_class_avg["composite_harmonic_x_MEAN_VENDI_RATIO_TRAIN"] = (
+                cross_class_avg["composite_harmonic"] * vrt_mean)
+            vendi_scalar_cols.extend(
+                ["composite_product_x_MEAN_VENDI_RATIO_TRAIN",
+                 "composite_harmonic_x_MEAN_VENDI_RATIO_TRAIN"])
+
     # 保留 2 位小数
-    all_metric_cols = score_cols + ci_extra_cols
+    all_metric_cols = macro_cols + ci_extra_cols + vendi_product_macro_cols + vendi_scalar_cols
     cross_class_avg[all_metric_cols] = cross_class_avg[all_metric_cols].round(2)
 
-    # ---- 2.6 Group-level 汇总行: 对每个 group 内的多个 source 计算 2 种汇总 ----
+    # ---- 4. Group-level 汇总行 ----
     # 方式1: AVG_STATS  - 对各 source 的统计量 (mean/std/se/ci_low/ci_high) 取算术平均
-    # 方式2: AVG_PERCLASS - 先对每个 class 在 3 次 source 中的均值取平均, 再基于 averaged per-class means 重算 macro-mean/std/se/CI
+    # 方式2: AVG_PERCLASS - 先对每个 class 在多次 source 中的均值取平均, 再基于 averaged per-class means 重算 macro-mean/std/se/CI
     group_summary_rows = []
     for group_name, src_list in groups.items():
         available_sources = [s for s in src_list if s in cross_class_avg["source"].values]
         if len(available_sources) < 2:
-            continue  # 只有 1 个 source 的 group 不做汇总
+            continue
 
         group_rows = cross_class_avg[cross_class_avg["source"].isin(available_sources)]
 
@@ -1676,12 +1857,15 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
 
         # ---- 方式2: AVG_PERCLASS (先按类平均, 再算统计量) ----
         group_class_means = class_means[class_means["source"].isin(available_sources)]
-        # 按 class_id 对 3 次 source 取平均
-        per_class_avg = group_class_means.groupby("class_id")[score_cols].mean().reset_index()
+        # 按 class_id 对多次 source 取平均
+        avg_cols = classmean_cols + vendi_product_classmean_cols
+        per_class_avg = group_class_means.groupby("class_id")[avg_cols].mean().reset_index()
 
         avg_perclass_row = {"source": f"{group_name}_AVG_PERCLASS"}
-        for col in score_cols:
-            values = per_class_avg[col].values
+
+        # 辅助函数: 从 per_class_avg 的某列计算 macro 统计量, 填入 avg_perclass_row
+        def _avg_perclass_stats(cm_col, macro_col):
+            values = per_class_avg[cm_col].dropna().values
             n = len(values)
             if n < 2:
                 mean = float(values.mean()) if n > 0 else float("nan")
@@ -1693,16 +1877,39 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
                 t_val = float(stats.t.ppf(0.975, df=n - 1))
                 ci_low = mean - t_val * se
                 ci_high = mean + t_val * se
-            avg_perclass_row[col] = mean
-            avg_perclass_row[f"{col}_std"] = std
-            avg_perclass_row[f"{col}_se"] = se
-            avg_perclass_row[f"{col}_ci_low"] = ci_low
-            avg_perclass_row[f"{col}_ci_high"] = ci_high
+            avg_perclass_row[macro_col] = mean
+            avg_perclass_row[f"{macro_col}_std"] = std
+            avg_perclass_row[f"{macro_col}_se"] = se
+            avg_perclass_row[f"{macro_col}_ci_low"] = ci_low
+            avg_perclass_row[f"{macro_col}_ci_high"] = ci_high
+
+        # 原始 4 指标
+        for cm_col, macro_col in zip(classmean_cols, macro_cols):
+            _avg_perclass_stats(cm_col, macro_col)
+
+        # vendi 乘积指标
+        if has_vendi:
+            for cm_col, macro_col in vendi_product_pairs:
+                _avg_perclass_stats(cm_col, macro_col)
+
+            # scalar 乘积: AVG_PERCLASS 的 composite × MEAN_VENDI_RATIO[_TRAIN]
+            if "MEAN_VENDI_RATIO" in vendi_summary:
+                vr_mean = vendi_summary["MEAN_VENDI_RATIO"]
+                avg_perclass_row["composite_product_x_MEAN_VENDI_RATIO"] = (
+                    avg_perclass_row["composite_product"] * vr_mean)
+                avg_perclass_row["composite_harmonic_x_MEAN_VENDI_RATIO"] = (
+                    avg_perclass_row["composite_harmonic"] * vr_mean)
+            if "MEAN_VENDI_RATIO_TRAIN" in vendi_summary:
+                vrt_mean = vendi_summary["MEAN_VENDI_RATIO_TRAIN"]
+                avg_perclass_row["composite_product_x_MEAN_VENDI_RATIO_TRAIN"] = (
+                    avg_perclass_row["composite_product"] * vrt_mean)
+                avg_perclass_row["composite_harmonic_x_MEAN_VENDI_RATIO_TRAIN"] = (
+                    avg_perclass_row["composite_harmonic"] * vrt_mean)
+
         group_summary_rows.append(avg_perclass_row)
 
     if group_summary_rows:
         summary_df = pd.DataFrame(group_summary_rows)
-        # 保留 2 位小数
         summary_df[all_metric_cols] = summary_df[all_metric_cols].round(2)
         cross_class_avg = pd.concat([cross_class_avg, summary_df], ignore_index=True)
 
@@ -1715,6 +1922,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
     print(cross_class_avg.to_string(index=False))
 
     # ---- 2.5 Per-image 折线图: 每张图的 4 个归一化指标 ----
+    # 使用 perimage 命名 (composite_product_perimage, composite_harmonic_perimage)
     sources_list = sorted(df_valid["source"].unique())
     n_sources = len(sources_list)
     n_cols = min(3, n_sources)
@@ -1723,27 +1931,29 @@ def compute_composite_and_class_stats(df, output_dir, groups=None):
     fig, axes = plt.subplots(n_rows, n_cols,
                              figsize=(7 * n_cols, 4 * n_rows), squeeze=False)
     fig.suptitle("Per-image Normalized Scores\n"
-                 "(alignment_norm, artifact_norm, composite_product, composite_harmonic)",
+                 "(alignment_norm, artifact_norm, composite_product_perimage, composite_harmonic_perimage)",
                  fontsize=13, fontweight="bold")
 
+    line_score_cols = ["alignment_norm", "artifact_norm",
+                       "composite_product_perimage", "composite_harmonic_perimage"]
     score_colors = {
         "alignment_norm": "steelblue",
         "artifact_norm": "coral",
-        "composite_product": "seagreen",
-        "composite_harmonic": "purple",
+        "composite_product_perimage": "seagreen",
+        "composite_harmonic_perimage": "purple",
     }
     score_labels = {
         "alignment_norm": "alignment_norm",
         "artifact_norm": "artifact_norm",
-        "composite_product": "composite_product",
-        "composite_harmonic": "composite_harmonic",
+        "composite_product_perimage": "composite_product_perimage",
+        "composite_harmonic_perimage": "composite_harmonic_perimage",
     }
 
     for idx, src in enumerate(sources_list):
         ax = axes[idx // n_cols][idx % n_cols]
         src_df = df_valid[df_valid["source"] == src].sort_values("image_id")
         x = src_df["image_id"].values
-        for col in score_cols:
+        for col in line_score_cols:
             ax.plot(x, src_df[col].values, linewidth=0.7, alpha=0.8,
                     label=score_labels[col], color=score_colors[col])
 
@@ -1881,6 +2091,14 @@ def main():
         default=None,
         help="Output directory. Default: analysis_output or analysis_output_<sources>"
     )
+    parser.add_argument(
+        "--vendi-ratio-csv",
+        type=str,
+        default=None,
+        help="Path to per_class_vendi_scores.csv (含 vendi_ratio 和 vendi_ratio_train 列). "
+             "提供后会计算 composite × vendi_ratio 等衍生指标, 并添加到 per_class_means.csv "
+             "和 cross_class_macro_avg.csv 中。"
+    )
     args = parser.parse_args()
 
     selected_groups = {k: SOURCE_GROUPS[k] for k in args.source if k in SOURCE_GROUPS}
@@ -1898,6 +2116,12 @@ def main():
     print(f"Selected groups: {list(selected_groups.keys())}")
     print(f"Selected sources: {sorted(selected_source_names)}")
     print(f"Output dir: {output_dir}")
+
+    # 加载 vendi ratio 数据 (可选)
+    vendi_ratio_data = None
+    if args.vendi_ratio_csv:
+        print(f"\n--> Loading vendi ratio data from: {args.vendi_ratio_csv}")
+        vendi_ratio_data = load_vendi_ratio_data(args.vendi_ratio_csv)
 
     all_data = collect_all_scores(selected_source_names)
     df_full = build_dataframe(all_data)
@@ -1929,7 +2153,8 @@ def main():
         dist_df = pd.DataFrame()
         auc_df = pd.DataFrame()
 
-    composite_df = compute_composite_and_class_stats(df, output_dir, groups=selected_groups)
+    composite_df = compute_composite_and_class_stats(
+        df, output_dir, groups=selected_groups, vendi_ratio_data=vendi_ratio_data)
 
     print("\n=== Summary ===")
     print(f"\nCSV file: {csv_path}")
