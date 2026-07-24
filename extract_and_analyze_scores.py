@@ -22,17 +22,17 @@ SOURCE_GROUPS = {
     "DiT_val_temmp5": ["DiT_val_temmp5_1", "Checklist_temmp5_1"],
     "Without_expert": ["Without_expert_1"],
     "Human": ["User_1", "User_2", "User_3"],
-    "Sys_IMF_ref": ["Sys_IMF_ref_1", "Sys_IMF_ref_2", "Sys_IMF_ref_3"],
-    "Human_IMF": ["User_IMF_1", "User_IMF_2", "User_IMF_3"],
+    "Sys_IMF_ref_500": ["Sys_IMF_ref_1", "Sys_IMF_ref_2", "Sys_IMF_ref_3"],
+    "Human_IMF_500": ["User_IMF_1", "User_IMF_2", "User_IMF_3"],
     "Sys_DiT": ["Sys_DiT_1", "Sys_DiT_2", "Sys_DiT_3"],
     "Sys_DiT_ref_500": ["Sys_DiT_ref_1", "Sys_DiT_ref_2", "Sys_DiT_ref_3"],
     "Human_DiT_500": ["User_DiT_1", "User_DiT_2", "User_DiT_3"],
     "Sys_VAR_ref": ["Sys_VAR_ref_1", "Sys_VAR_ref_2", "Sys_VAR_ref_3"],
     "Human_VAR": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
-    "Sys_JiTfdloss_ref": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
-    "Human_JiTfdloss": ["User_JiTfdloss_1", "User_JiTfdloss_2", "User_JiTfdloss_3"],
-    "Sys_IMFfdloss_ref": ["Sys_IMFfdloss_ref_1", "Sys_IMFfdloss_ref_2", "Sys_IMFfdloss_ref_3"],
-    "Human_IMFfdloss": ["User_IMFfdloss_1", "User_IMFfdloss_2", "User_IMFfdloss_3"],
+    "Sys_JiTfdloss_ref_500": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
+    "Human_JiTfdloss_500": ["User_JiTfdloss_1", "User_JiTfdloss_2", "User_JiTfdloss_3"],
+    "Sys_IMFfdloss_ref_500": ["Sys_IMFfdloss_ref_1", "Sys_IMFfdloss_ref_2", "Sys_IMFfdloss_ref_3"],
+    "Human_IMFfdloss_500": ["User_IMFfdloss_1", "User_IMFfdloss_2", "User_IMFfdloss_3"],
     "Sys_VAR_ref_500": ["Sys_VAR_ref_500_1", "Sys_VAR_ref_500_2", "Sys_VAR_ref_500_3"],
     "Human_VAR_500": ["User_VAR_500_1", "User_VAR_500_2", "User_VAR_500_3"],
     "Sys_VAR_ref_600": ["Sys_VAR_ref_600_1", "Sys_VAR_ref_600_2", "Sys_VAR_ref_600_3"],
@@ -49,6 +49,8 @@ SOURCE_GROUPS = {
     "Sys_DiT_noref": ["Sys_DiT_noref_1", "Sys_DiT_noref_2", "Sys_DiT_noref_3"],
     "Sys_VAR_noexpert": ["Sys_VAR_noexpert_1", "Sys_VAR_noexpert_2", "Sys_VAR_noexpert_3"],
     "Sys_VAR_noref": ["Sys_VAR_noref_1", "Sys_VAR_noref_2", "Sys_VAR_noref_3"],
+    "Sys_RAEv2_ref_500": ["Sys_RAEv2_ref"],
+    "Sys_DiT_ref_cls_1k": ["Sys_DiT_ref_class1000"],
 }
 
 SOURCES = {
@@ -528,6 +530,18 @@ SOURCES = {
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_VAR_noref_3", "final_reports"),
         "prefix": "final_evaluation_report_",
     },
+
+    "Sys_RAEv2_ref": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_RAEv2_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+
+    "Sys_DiT_ref_class1000": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_1000class_5img_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    }
 }
 
 
@@ -1834,9 +1848,9 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
                 ["composite_product_x_MEAN_VENDI_RATIO_TRAIN",
                  "composite_harmonic_x_MEAN_VENDI_RATIO_TRAIN"])
 
-    # 保留 2 位小数
+    # 保留 4 位小数 (避免 2 位小数导致 tie, 影响 Spearman 相关性)
     all_metric_cols = macro_cols + ci_extra_cols + vendi_product_macro_cols + vendi_scalar_cols
-    cross_class_avg[all_metric_cols] = cross_class_avg[all_metric_cols].round(2)
+    cross_class_avg[all_metric_cols] = cross_class_avg[all_metric_cols].round(4)
 
     # ---- 4. Group-level 汇总行 ----
     # 方式1: AVG_STATS  - 对各 source 的统计量 (mean/std/se/ci_low/ci_high) 取算术平均
@@ -1910,7 +1924,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
 
     if group_summary_rows:
         summary_df = pd.DataFrame(group_summary_rows)
-        summary_df[all_metric_cols] = summary_df[all_metric_cols].round(2)
+        summary_df[all_metric_cols] = summary_df[all_metric_cols].round(4)
         cross_class_avg = pd.concat([cross_class_avg, summary_df], ignore_index=True)
 
     cross_class_avg_csv = os.path.join(output_dir, "cross_class_macro_avg.csv")
@@ -2029,6 +2043,23 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
     if not group_surfaces:
         print("[WARN] No group surfaces computed, skipping contour plot")
         return cross_class_avg
+
+    # ---- 保存等高线曲面数据 (供 contour_and_correlation_analysis.py 使用) ----
+    # 长格式 CSV: group, alignment_threshold, artifact_threshold, probability
+    surface_rows = []
+    for gname, prob in group_surfaces.items():
+        for i, a_thresh in enumerate(thresholds):
+            for j, r_thresh in enumerate(thresholds):
+                surface_rows.append({
+                    "group": gname,
+                    "alignment_threshold": round(float(a_thresh), 4),
+                    "artifact_threshold": round(float(r_thresh), 4),
+                    "probability": float(prob[i, j]),
+                })
+    surface_df = pd.DataFrame(surface_rows)
+    surface_csv = os.path.join(output_dir, "joint_probability_surfaces.csv")
+    surface_df.to_csv(surface_csv, index=False, encoding="utf-8-sig")
+    print(f"Joint probability surfaces saved to: {surface_csv}")
 
     # 画等高线图: 所有 group 的 25%/50%/75% 等高线在同一张图
     colors = plt.cm.tab10(np.linspace(0, 1, max(len(group_surfaces), 1)))
