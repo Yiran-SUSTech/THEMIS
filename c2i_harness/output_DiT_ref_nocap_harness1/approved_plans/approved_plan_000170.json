@@ -1,0 +1,155 @@
+{
+    "image_description": "A close-up underwater photograph of a lionfish (Pterois) positioned against a textured, rocky reef background. The fish exhibits characteristic red and white vertical stripes, large fan-like pectoral fins with distinct rays, and prominent dorsal spines extending upward. The head is visible in profile, showing the eye and mouth structure.",
+    "image_class": "lionfish",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Large head with prominent eyes and wide mouth.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The head is clearly visible in profile. The eye is distinct and large relative to the head size, and the mouth structure appears wide and consistent with scorpaenid anatomy."
+        },
+        {
+            "checkpoint": "Laterally compressed body with moderately sized proportions.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Although partially obscured by the expansive pectoral fins, the visible torso section demonstrates the typical laterally compressed shape of a lionfish. Proportions appear natural relative to the fin span."
+        },
+        {
+            "checkpoint": "Brightly striped coloration in red, white, brown, or black bands.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The image displays high-contrast vertical banding in reddish-brown and white/cream colors, matching the species description accurately."
+        },
+        {
+            "checkpoint": "Small scales covering body.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "While individual microscopic scales are difficult to resolve at this resolution, the skin texture appears suspiciously smooth and 'plastic-like' rather than exhibiting the granular texture expected of scaled fish. This lack of micro-texture is a potential AI artifact (melting/smoothing) that requires expert verification via the fine_grained_classifier's texture analysis capabilities."
+        },
+        {
+            "checkpoint": "Dorsal fin with numerous elongated venomous spines that fan outward like mane.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The dorsal spines are prominent and fan out extensively. They appear structurally sound, separate, and correctly anchored to the spine without obvious fusion."
+        },
+        {
+            "checkpoint": "Large fan-like pectoral fins with elongated rays.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The pectoral fins are fully extended, displaying the characteristic 'fan' shape with distinct rays. However, the complex overlap with the background requires depth verification."
+        },
+        {
+            "checkpoint": "Pelvic fins also with elongated spines.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The lower pelvic fins are visible beneath the pectoral fins, showing the expected elongated spine structures hanging downward."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "body_surface",
+            "severity": 2,
+            "reasoning": "The skin on the flanks appears overly smooth and lacks the expected granular scale texture, resembling a 'melted' or plastic surface common in AI generations. This contradicts the 'small scales' biological trait."
+        },
+        {
+            "artifact_type": "perspective_distortion",
+            "location": "pectoral_fins_background_interface",
+            "severity": 1,
+            "reasoning": "There is slight ambiguity in the boundary between the translucent pectoral fin rays and the rocky background, suggesting potential foreground-background bleeding or insufficient depth separation."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "lionfish_components",
+            "verification_goals": [
+                "Detect and provide bounding boxes for: head, body, dorsal_spines, pectoral_fins, pelvic_fins.",
+                "Establish spatial priors for downstream segmentation and depth auditing."
+            ],
+            "reason": "Essential precursor to define regions of interest for the topology and depth auditors, ensuring they focus on the correct anatomical parts amidst the complex background.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "lionfish",
+            "verification_goals": [
+                "Confirm species identity as Pterois (lionfish).",
+                "Analyze skin texture to verify presence of scales vs. smooth/plastic artifacts (addressing the 'Small scales' checkpoint contradiction).",
+                "Verify taxonomic consistency of striping pattern."
+            ],
+            "reason": "Resolves the logical flaw in the previous plan by explicitly tasking the classifier with texture analysis to confirm/deny the 'smooth skin' artifact hypothesis, rather than marking it unverifiable.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "pectoral_fins_vs_background",
+            "verification_goals": [
+                "Generate depth map to verify pectoral fins are spatially in front of the rocky reef.",
+                "Detect any geometric melting or bleeding where fin rays intersect with background rocks."
+            ],
+            "reason": "Addresses the missing geometric audit for complex occlusion. Ensures the translucent/complex fins are physically separated from the background and not merging with it.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "fin_structures",
+            "verification_goals": [
+                "Audit separation of individual fin rays in both dorsal and pectoral fins.",
+                "Check for edge bleeding, fusion, or floating segments in the spines.",
+                "Verify structural connectivity of spines to the vertebral column."
+            ],
+            "reason": "Consolidates the previous dual topology requests into one efficient audit guided by the open_vocabulary_detector BBoxes. Focuses on topological integrity of thin, complex structures.",
+            "weight": 0.3
+        }
+    ],
+    "unverifiable_points": [],
+    "focus_areas": [
+        "Skin texture analysis (scales vs. smooth/plastic artifact)",
+        "Depth separation between pectoral fin rays and rocky background",
+        "Topological integrity of individual fin rays (no fusion/melting)",
+        "Anatomical correctness of spine attachment points"
+    ],
+    "custom_prompts_for_reflector": "Critically evaluate the skin texture of the lionfish body. Does the fine_grained_classifier detect granular scale patterns, or does it report a smooth, plastic-like surface indicative of AI smoothing? Additionally, use the geometric_depth_auditor's output to confirm that the pectoral fin rays do not merge with the background rocks, checking for any 'bleeding' artifacts at the boundaries.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000170.png",
+        "class_id": 396,
+        "class_label": "lionfish",
+        "router_cost_seconds": 29.19,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": false,
+        "judge_forced": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Rejected",
+            "Iteration 2: Max iterations - forced"
+        ]
+    },
+    "router_scores": {
+        "router_alignment_score": 4.29,
+        "router_artifact_score": 2.55,
+        "checkpoint_summary": {
+            "total": 7,
+            "testable": 7,
+            "present": 6,
+            "absent": 1,
+            "untestable": 0
+        },
+        "artifact_summary": {
+            "count": 2,
+            "max_severity": 2,
+            "severe_count": 1,
+            "minor_count": 1
+        }
+    }
+}

@@ -1,0 +1,171 @@
+{
+    "image_id": "000045",
+    "class_label": "green mamba",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:17:31",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in the 'Expert Selection' and 'Coverage Assessment' phases. Specifically, the plan fails to utilize the `open_vocabulary_detector` as a prerequisite for the `topology_boundary_auditor`. The `topology_boundary_auditor` requires precise segmentation masks (BBox priors) to audit boundaries; without the detector first locating the snake and branches, the boundary auditor cannot function effectively. Additionally, the `fine_grained_classifier` is tasked with verifying 'scale texture', which is outside the scope of standard classification models (ViT/ImageNet); this verification should be delegated to the `perceptual_quality_auditor` or `topology_boundary_auditor`.",
+        "suggestions": [
+            {
+                "type": "missing_verification_step",
+                "point": "Topology Boundary Auditing requires localization priors.",
+                "recommended_expert": "open_vocabulary_detector",
+                "description": "Insert `open_vocabulary_detector` before `topology_boundary_auditor` in the execution chain. Use it to generate bounding boxes for 'snake' and 'branch' to provide the necessary segmentation masks for the boundary auditor."
+            },
+            {
+                "type": "incorrect_expert_capability_mapping",
+                "point": "Fine-grained classifier cannot verify micro-texture details like scale glossiness.",
+                "recommended_expert": "perceptual_quality_auditor",
+                "description": "Remove 'Verify specific head shape and scale texture characteristics' from the `fine_grained_classifier` goals. Scale texture and glossiness are perceptual/geometric attributes, not taxonomic class features. Move this verification goal entirely to the `perceptual_quality_auditor`."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Head morphology (coffin-shape) verification relies solely on visual checkpointing.",
+                "recommended_expert": "fine_grained_classifier",
+                "description": "While the classifier cannot see texture, it IS the correct expert to confirm the 'Elapid' vs 'Boa/Python' distinction based on head shape embeddings. Ensure the `fine_grained_classifier` prompt explicitly focuses on 'Head Shape Morphology' rather than texture."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, high-resolution photograph of a bright green snake, identified as a Green Mamba, draped over thin branches. The head is in sharp focus, showing a narrow profile and dark eye, while the body curves into the background with a shallow depth of field.",
+        "image_class": "green mamba",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is narrow and elongated with a prominent brow ridge creating a slightly coffin-shaped profile when viewed from above.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible head profile matches the description: it is narrow, elongated, and tapers towards the snout. The angle allows for verification of the 'coffin-shape' characteristic of elapids."
+            },
+            {
+                "checkpoint": "Eyes are large and dark with round pupils.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The eye is clearly visible, appearing large relative to the head size, black/dark in color, and possessing a round pupil shape consistent with diurnal snakes."
+            },
+            {
+                "checkpoint": "Body is slender and elongated.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible portion of the body exhibits a consistent, slender diameter typical of arboreal snakes, lacking the bulk of terrestrial constrictors."
+            },
+            {
+                "checkpoint": "Dorsal surface is uniformly bright emerald green with smooth, glossy scales.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration is a vivid, uniform emerald green. The lighting highlights a distinct sheen on the scales, confirming the 'glossy' attribute."
+            },
+            {
+                "checkpoint": "Ventral surface is pale yellow-green to white.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The snake is positioned such that the ventral (belly) side is obscured by the branch and the angle of the body; it cannot be visually verified."
+            },
+            {
+                "checkpoint": "Uniform green coloration with no patterning.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "No spots, stripes, or blotches are visible on the dorsal or lateral surfaces; the color is solid."
+            },
+            {
+                "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Specular highlights are visible on individual scales, indicating a smooth, non-keeled texture and high reflectivity."
+            },
+            {
+                "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cross-section of the body appears somewhat flattened rather than perfectly cylindrical, consistent with lateral compression for arboreal stability."
+            },
+            {
+                "checkpoint": "Tail is long and prehensile.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail tip is not visible in the frame; only the mid-body and neck region are shown."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "snake",
+                "verification_goals": [
+                    "Confirm species identity as Dendroaspis angusticeps (Green Mamba) vs. lookalikes like Green Tree Python or Emerald Tree Boa.",
+                    "Verify specific head shape and scale texture characteristics."
+                ],
+                "reason": "Critical to distinguish between venomous elapids and non-venomous boas/pythons which can have similar coloration but different head structures and scale textures.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake_body",
+                "verification_goals": [
+                    "Verify continuity of the snake's body where it passes behind branches.",
+                    "Check for 'melting' or fusion artifacts at the contact points between snake scales and wood.",
+                    "Ensure scales remain distinct and do not blur into the background."
+                ],
+                "reason": "AI generators often struggle with occlusion boundaries, causing the subject to merge with foreground/background elements or lose scale definition at edges.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess naturalness of specular highlights on glossy scales.",
+                    "Detect any subtle texture anomalies or repetitive patterns in the scale arrangement.",
+                    "Verify depth-of-field blur consistency."
+                ],
+                "reason": "To catch subtle rendering errors in the complex texture of overlapping scales and the interaction of light with the glossy surface.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [
+            "Ventral surface coloration (obscured)",
+            "Tail length and prehensile capability (out of frame)"
+        ],
+        "focus_areas": [
+            "Scale texture realism and glossiness",
+            "Head morphology accuracy (coffin shape)",
+            "Occlusion boundaries with branches"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the transition between the snake's body and the branches. AI images often fail to render the physical pressure/deformation where the snake grips the branch. Also, verify that the scale pattern remains consistent and does not 'melt' or become noisy in the out-of-focus areas.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000045.png",
+            "class_id": 64,
+            "class_label": "green mamba",
+            "router_cost_seconds": 25.31,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "snake",
+                "reason": "Critical to distinguish between venomous elapids and non-venomous boas/pythons which can have similar coloration but different head structures and scale textures.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake_body",
+                "reason": "AI generators often struggle with occlusion boundaries, causing the subject to merge with foreground/background elements or lose scale definition at edges.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To catch subtle rendering errors in the complex texture of overlapping scales and the interaction of light with the glossy surface.",
+                "weight": 0.3
+            }
+        ]
+    }
+}

@@ -1,0 +1,202 @@
+{
+    "image_id": "000138",
+    "class_label": "bison",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:22:18",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and coverage. The `animal_pose_auditor` is selected to audit the bison's structure, but its definition explicitly states it is 'NOT for limbless' and implies reliance on standard keypoint detection (typically optimized for humans or specific domestic animals). Bison have complex fur occlusion and non-standard skeletal proportions that standard pose estimators often fail to detect accurately without specific training. More importantly, the plan fails to utilize the `open_vocabulary_detector` as a precursor for the `topology_boundary_auditor`. The boundary auditor requires precise segmentation masks to audit fur transitions; without bounding box priors from an open-vocabulary detector, the segmentation may fail to isolate the bison from the background grass, leading to invalid topology audits. Additionally, the `fine_grained_classifier` is weighted heavily but does not address the structural artifacts observed in the legs/hooves area which are partially visible despite the 'unverifiable' claim.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Segmentation Priors for Boundary Audit",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "expert_mismatch",
+                "point": "Animal Pose Auditor Suitability",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "checkpoint_contradiction",
+                "point": "Leg/Hoof Visibility",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A side-profile view of a large American Bison standing in a grassy field. The animal features a massive, dark-furred forequarter with a prominent shoulder hump, transitioning to lighter brown, less dense fur on the hindquarters. A single curved horn is clearly visible on the left side of its broad head, which also displays a shaggy beard. The legs are sturdy and dark, partially obscured by tall grass.",
+        "image_class": "bison",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Large broad head with short curved horns.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head is visibly large and broad relative to the body. One short, curved horn is clearly visible; the other is occluded by perspective but the visible one matches the description."
+            },
+            {
+                "checkpoint": "Beard of long hair on chin and throat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Distinct long, dark hair hangs from the chin and throat area, matching the 'beard' description."
+            },
+            {
+                "checkpoint": "Dark eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The eye is visible as a small dark spot amidst the heavy facial fur."
+            },
+            {
+                "checkpoint": "Small ears hidden in fur.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are not prominently sticking out; they appear small and blended into the thick mane/fur of the head."
+            },
+            {
+                "checkpoint": "Massive body with exceptionally tall, heavily built proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The animal exhibits the characteristic high shoulder hump and massive build typical of bison."
+            },
+            {
+                "checkpoint": "Shaggy dark brown fur covering forequarters forming prominent shoulder hump.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The forequarters are covered in thick, dark, shaggy fur that creates the distinct hump shape."
+            },
+            {
+                "checkpoint": "Hindquarters less heavily furred.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There is a clear visual transition from the dark, shaggy front to the smoother, lighter brown fur on the rear flank."
+            },
+            {
+                "checkpoint": "Short horns compared to body size.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible horn is relatively short and stout compared to the massive scale of the head and body."
+            },
+            {
+                "checkpoint": "Sturdy legs with cloven hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The lower legs and feet are completely occluded by the tall green grass and white foreground debris; hooves cannot be verified."
+            },
+            {
+                "checkpoint": "Short tail with bushy tuft.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is located at the extreme right edge of the frame and is either cut off or indistinguishable from the background/hindquarters."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Foreground grass and white debris",
+                "severity": 2,
+                "reasoning": "The white objects in the immediate foreground (possibly feathers or trash) have slightly soft, undefined edges and lack consistent lighting shadows, appearing somewhat 'painted on' rather than physically present."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Hindquarters and background transition",
+                "severity": 1,
+                "reasoning": "Slight inconsistency in depth-of-field blur; the rear of the bison blends into the background with a uniformity that suggests digital smoothing rather than optical lens blur."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bison",
+                "verification_goals": [
+                    "Confirm species identity as Bison bison vs. other bovids.",
+                    "Verify taxonomic consistency with class label."
+                ],
+                "reason": "Primary verification to ensure the image is indeed a bison and not a misclassified cow or yak.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bison",
+                "verification_goals": [
+                    "Verify structural integrity of the shoulder hump and spine alignment.",
+                    "Check for limb anomalies in the visible upper leg structures."
+                ],
+                "reason": "To ensure the massive forequarter anatomy is biologically plausible and not structurally collapsed.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bison",
+                "verification_goals": [
+                    "Audit the boundary between the shaggy forequarter fur and the smoother hindquarter fur.",
+                    "Check for edge bleeding between the bison's outline and the grassy background."
+                ],
+                "reason": "AI generators often struggle with the transition of different fur textures and object-background separation in complex fur scenarios.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "foreground_debris",
+                "verification_goals": [
+                    "Analyze the white foreground objects for signs of generation artifacts (melting, nonsensical shapes).",
+                    "Verify if the texture anomaly is a real object or an AI artifact."
+                ],
+                "reason": "To investigate the severity of the observed texture anomalies in the foreground.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Sturdy legs with cloven hooves (occluded by grass)",
+            "Short tail with bushy tuft (out of frame/occluded)"
+        ],
+        "focus_areas": [
+            "Fur texture transition from forequarters to hindquarters",
+            "Structural plausibility of the shoulder hump",
+            "Edge definition against the background vegetation"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the transition zone between the dark shaggy fur and the brown smooth fur. AI models often create a 'muddy' or blended texture here rather than a distinct anatomical change. Also, scrutinize the white debris in the foreground; if it lacks coherent structure or shadows, it may indicate generative noise.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000138.png",
+            "class_id": 347,
+            "class_label": "bison",
+            "router_cost_seconds": 29.81,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bison",
+                "reason": "Primary verification to ensure the image is indeed a bison and not a misclassified cow or yak.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bison",
+                "reason": "To ensure the massive forequarter anatomy is biologically plausible and not structurally collapsed.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bison",
+                "reason": "AI generators often struggle with the transition of different fur textures and object-background separation in complex fur scenarios.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "foreground_debris",
+                "reason": "To investigate the severity of the observed texture anomalies in the foreground.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

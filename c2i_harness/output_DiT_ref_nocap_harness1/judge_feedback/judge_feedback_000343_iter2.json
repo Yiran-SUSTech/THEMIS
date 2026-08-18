@@ -1,0 +1,175 @@
+{
+    "image_id": "000343",
+    "class_label": "minibus",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:33:28",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The `geometric_depth_auditor` is assigned to verify the 'front_wheel_assembly', but this expert is explicitly defined for 'rigid objects' and 'scene structure', not for auditing the internal topology or circularity of specific components like wheels. Furthermore, the plan fails to utilize the `open_vocabulary_detector`, which is the required 'Bridge' expert to provide bounding box priors for the `topology_boundary_auditor`. Without the detector, the boundary auditor lacks the necessary localization input. Additionally, the `fine_grained_classifier` is underutilized; it should be used to verify the specific 'minibus' class features (like window count/spacing) mentioned in the custom prompts, rather than just a generic class label.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Localization of target subjects for segmentation",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "incorrect_expert_assignment",
+                "point": "Geometric depth auditor is not suitable for wheel circularity/topology checks",
+                "recommended_expert": "topology_boundary_auditor (primary), perceptual_quality_auditor (secondary)"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of side window spacing and vertical alignment (warping)",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A white minibus (resembling a Ford Transit or similar van chassis) parked on a muddy, unpaved surface. The vehicle features a high roof, a row of side windows along the passenger compartment, and a dark lower trim. The front wheel appears significantly deformed or melted into the ground.",
+        "image_class": "minibus",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Boxy body shape noticeably shorter than a full-size bus, yet tall enough for passengers to stand or sit upright comfortably.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vehicle exhibits the characteristic high-roof van silhouette associated with minibuses, distinct from full-size buses."
+            },
+            {
+                "checkpoint": "Large windshield and row of side windows along passenger area.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A large front windshield and a continuous strip of side windows are clearly visible along the side profile."
+            },
+            {
+                "checkpoint": "Height is substantial, with entrance door at front or mid-body.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vehicle height is consistent with a minibus. A driver's door is visible at the front; a passenger sliding door is implied by the window configuration though not explicitly open."
+            },
+            {
+                "checkpoint": "Sliding or folding entrance door.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vertical seam line typical of a sliding side door is visible behind the front wheel arch."
+            },
+            {
+                "checkpoint": "Front engine compartment.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The short hood/nose section ahead of the windshield indicates a front-engine layout typical of this van class."
+            },
+            {
+                "checkpoint": "Rear flat or slightly angled panel with taillights and license plate mount.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The rear of the vehicle is outside the frame or obscured by the angle of view; these features cannot be verified."
+            },
+            {
+                "checkpoint": "White, yellow, or company livery paint with route markings.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vehicle is primarily white with a dark grey/black lower trim, fitting the description of standard commercial livery."
+            },
+            {
+                "checkpoint": "Standard van-sized wheels with steel or alloy rims.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "CRITICAL FAILURE: The front wheel is structurally collapsed and appears to be melting into the mud/ground. It lacks a defined rim structure and circular geometry."
+            },
+            {
+                "checkpoint": "Compact passenger bus for 4-10 passengers.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Based on the window count and vehicle proportions, the capacity aligns with the 4-10 passenger definition."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Front left wheel and tire assembly",
+                "severity": 5,
+                "reasoning": "The front wheel has completely lost its structural integrity. The tire sidewall appears to merge seamlessly with the muddy ground, and the rim is non-existent or distorted into an amorphous black shape. This is a catastrophic physics failure typical of AI generation."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Lower side panel and wheel wells",
+                "severity": 3,
+                "reasoning": "The transition between the vehicle's dark lower trim and the muddy ground is blurry and indistinct. There is 'edge bleeding' where the vehicle body seems to smear into the background terrain rather than sitting firmly on top of it."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Side windows",
+                "severity": 2,
+                "reasoning": "The vertical pillars separating the side windows show slight waviness and inconsistent thickness, suggesting minor geometric warping in the body lines."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "front_wheel_assembly",
+                "verification_goals": [
+                    "Verify the structural collapse of the front wheel",
+                    "Analyze depth consistency to confirm if the wheel is physically grounded or melting into the terrain"
+                ],
+                "reason": "Directly addresses the Judge's feedback regarding the missing verification for the Severity 5 structural collapse. Depth analysis will confirm the physical impossibility of the wheel-ground fusion.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "front_wheel_rim_and_tire",
+                "verification_goals": [
+                    "Segment the front wheel to verify circularity and rim definition",
+                    "Check boundary sharpness between the tire and the muddy ground to detect fusion artifacts"
+                ],
+                "reason": "Addresses the Judge's feedback to specifically verify wheel rim definition and separation. Topology auditing will prove the lack of a closed, rigid loop structure expected in a wheel.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "vehicle_body_ground_interface",
+                "verification_goals": [
+                    "Analyze severity of edge bleeding along the lower trim",
+                    "Confirm texture anomalies in the mud/vehicle contact zone"
+                ],
+                "reason": "Secondary verification for the broader context of the artifact, ensuring the 'melting' isn't isolated to just the wheel but affects the vehicle's grounding.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "vehicle_class",
+                "verification_goals": [
+                    "Confirm ImageNet classification as 'minibus' or 'passenger_van'"
+                ],
+                "reason": "Low priority verification to ensure base object identity is correct despite severe geometric failures, as per standard protocol.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Rear flat or slightly angled panel with taillights and license plate mount"
+        ],
+        "focus_areas": [
+            "Front wheel structural integrity and circularity",
+            "Wheel rim definition and separation from ground",
+            "Vehicle-ground contact points and edge bleeding"
+        ],
+        "custom_prompts_for_reflector": "Pay extreme attention to the front wheel. In AI-generated images, wheels often fail to maintain circular geometry or separate cleanly from the ground. Verify if the 'mud' on the wheel is actually part of the wheel structure melting into the terrain. Use geometric depth to prove the wheel is not a distinct object resting on the surface. Also, check if the side windows have consistent spacing and vertical alignment, as AI often warps repetitive patterns.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000343.png",
+            "class_id": 654,
+            "class_label": "minibus",
+            "router_cost_seconds": 31.05,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

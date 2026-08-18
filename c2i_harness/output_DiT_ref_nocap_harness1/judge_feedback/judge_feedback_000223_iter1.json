@@ -1,0 +1,225 @@
+{
+    "image_id": "000223",
+    "class_label": "bassoon",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:27:03",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and workflow ordering. The `open_vocabulary_detector` is assigned the lowest weight (0.15) and placed last, yet its description explicitly states it is the 'primary Bridge expert' and 'necessary precursor for SAM-based boundary auditing'. The `topology_boundary_auditor` (weight 0.25) cannot effectively segment specific components like the 'bocal' or 'U-turn' without the bounding box priors from the detector. Furthermore, the plan fails to utilize the `animal_pose_auditor` (or equivalent human pose auditor if available/implied) to verify the physical plausibility of the subject holding such a large object, which is crucial given the observed 'fusion' artifacts between hands and keys.",
+        "suggestions": [
+            {
+                "type": "workflow_ordering",
+                "point": "Reorder experts to ensure `open_vocabulary_detector` runs first or has higher priority/weight to provide BBox priors for `topology_boundary_auditor`.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify the anatomical correctness of the subject's hands interacting with the instrument keys to rule out 'melting' artifacts.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "checkpoint_coverage",
+                "point": "The checkpoint 'Distinctive U-shape' is marked false. Ensure `topology_boundary_auditor` specifically targets the 'boot joint' area defined by the `open_vocabulary_detector` to confirm structural collapse vs. occlusion.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A woman in a pink dress is seated, holding a large, dark wooden wind instrument that resembles a bassoon but appears structurally anomalous. The background features bookshelves filled with books and other objects. The instrument has a long body, metal keys, and a bell, but the connection between the mouthpiece area and the main body is unclear and potentially fused or missing standard components like a distinct bocal.",
+        "image_class": "bassoon",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Long wooden wind instrument of considerable height when assembled.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The instrument is clearly long and extends across the subject's body, consistent with the size of a bassoon."
+            },
+            {
+                "checkpoint": "Distinctive U-shape when viewed from front with bell pointing upward.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the instrument is long, it does not exhibit the clear, distinct U-shape of a standard bassoon where the bore doubles back. The lower joint and boot joint appear fused or indistinct, lacking the characteristic parallel tube structure."
+            },
+            {
+                "checkpoint": "Conical bore that doubles back on itself.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The internal structure is not visible, but externally, the 'doubling back' mechanism (the U-turn at the bottom) is not clearly defined. The tubes seem to merge or end ambiguously near the subject's lap."
+            },
+            {
+                "checkpoint": "Curved metal bocal mouthpiece tube at top.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "There is no distinct, curved metal bocal visible at the top. The top of the instrument appears to blend into the subject's hand or the air without a clear, separate metal mouthpiece component."
+            },
+            {
+                "checkpoint": "Numerous metal keys and tone holes distributed along length.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There are silver-colored metallic structures along the body that resemble keys, though their placement and mechanical logic are somewhat irregular."
+            },
+            {
+                "checkpoint": "Bell flares outward at top and instrument held diagonally across body when played.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bell is visible at the upper right, flaring outward, and the instrument is held diagonally across the subject's body."
+            },
+            {
+                "checkpoint": "Dark reddish-brown polished wood finish maple or rosewood.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The instrument has a dark, polished appearance consistent with stained wood, although the texture is slightly smooth/plastic-like."
+            },
+            {
+                "checkpoint": "Metal keys are silver or gold-plated.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The keywork appears silver-colored."
+            },
+            {
+                "checkpoint": "Long wooden tube construction.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The main body appears to be constructed of wood-like material."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Lower joint/boot joint area (center-left)",
+                "severity": 4,
+                "reasoning": "The characteristic U-turn of the bassoon (where the long tube connects to the short side) is missing or melted. The tubes appear to fuse together or terminate abruptly without the necessary mechanical connection, violating the physical structure of the instrument."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Top of instrument (mouthpiece area)",
+                "severity": 3,
+                "reasoning": "The bocal (curved metal mouthpiece) is entirely missing. The wood seems to just end or blend into the hand, which is physically incorrect for a functional bassoon."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Instrument surface",
+                "severity": 2,
+                "reasoning": "The wood grain is overly uniform and lacks the specific depth and variation of real maple/rosewood, appearing slightly plastic or digitally smoothed."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Subject's hands and instrument keys",
+                "severity": 2,
+                "reasoning": "The fingers holding the instrument appear to merge slightly with the keys and the wood, lacking clear boundary separation."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "instrument",
+                "verification_goals": [
+                    "Confirm if the object is classified as a bassoon or a related woodwind (e.g., contrabassoon, oboe) despite structural anomalies.",
+                    "Distinguish between genuine instrument photography and AI-generated approximations."
+                ],
+                "reason": "To verify if the visual features, despite artifacts, still strongly align with the 'bassoon' class label or if it drifts into 'other woodwind' or 'non-object'.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "instrument_body",
+                "verification_goals": [
+                    "Verify the continuity of the wooden tubes.",
+                    "Check for the presence of two distinct parallel tubes in the lower section (U-shape verification).",
+                    "Identify any floating parts or fused sections in the keywork."
+                ],
+                "reason": "Critical for confirming the 'structural_collapse' and 'missing_parts' artifacts observed in the U-shape and bocal areas. It will segment the tubes to see if they connect logically.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess the severity of the melting/fusion between hands and instrument.",
+                    "Evaluate the realism of the wood texture and metal reflections.",
+                    "Detect any subtle edge bleeding between the instrument and the background/bookshelves."
+                ],
+                "reason": "To provide a holistic quality score and confirm the subtle texture and fusion artifacts noted in the preliminary scan.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "instrument_and_subject",
+                "verification_goals": [
+                    "Verify the spatial relationship between the instrument and the subject's body.",
+                    "Ensure the instrument sits correctly in 3D space relative to the bookshelves (no warping).",
+                    "Check if the 'missing' bocal area has any depth information suggesting a hidden part or just empty space."
+                ],
+                "reason": "To rule out perspective distortion and confirm that the structural failures are indeed generation errors rather than extreme angle occlusions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "instrument_components",
+                "verification_goals": [
+                    "Detect bounding boxes for 'bocal', 'bell', 'keys', 'wooden_tube'.",
+                    "Count the number of distinct tube ends visible at the top.",
+                    "Locate the 'U-turn' connection point."
+                ],
+                "reason": "To provide objective localization data for the topology auditor. Specifically, failing to detect a 'bocal' would confirm the missing part artifact.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Structural integrity of the bassoon's U-shape (boot joint).",
+            "Presence and definition of the metal bocal (mouthpiece).",
+            "Boundary separation between the subject's hands and the instrument keys.",
+            "Realism of the wood grain texture."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the lower third of the instrument. A real bassoon must have two parallel tubes connected by a U-shaped boot. If these appear fused, single, or disconnected, it is a major structural hallucination. Also, inspect the top of the instrument near the subject's left hand; the absence of a distinct curved metal bocal is a significant functional error. Evaluate if the 'keys' are mechanically plausible or just decorative blobs.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000223.png",
+            "class_id": 432,
+            "class_label": "bassoon",
+            "router_cost_seconds": 36.57,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "instrument",
+                "reason": "To verify if the visual features, despite artifacts, still strongly align with the 'bassoon' class label or if it drifts into 'other woodwind' or 'non-object'.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "instrument_body",
+                "reason": "Critical for confirming the 'structural_collapse' and 'missing_parts' artifacts observed in the U-shape and bocal areas. It will segment the tubes to see if they connect logically.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To provide a holistic quality score and confirm the subtle texture and fusion artifacts noted in the preliminary scan.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "instrument_and_subject",
+                "reason": "To rule out perspective distortion and confirm that the structural failures are indeed generation errors rather than extreme angle occlusions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "instrument_components",
+                "reason": "To provide objective localization data for the topology auditor. Specifically, failing to detect a 'bocal' would confirm the missing part artifact.",
+                "weight": 0.15
+            }
+        ]
+    }
+}

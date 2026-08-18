@@ -1,0 +1,202 @@
+{
+    "image_id": "000401",
+    "class_label": "wig",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:35:51",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and target definition. The `open_vocabulary_detector` is assigned the target 'doll_head', but this expert is defined as a detector for locating subjects to provide BBox priors for segmentation, not for auditing anatomical correctness or facial distortion. Furthermore, the plan fails to utilize the `animal_pose_auditor` (which covers humans/dolls) to rigorously audit the severe facial structural collapse identified in the artifact observations. Relying on a generic detector for facial anatomy verification is scientifically invalid given the available specialized tools.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Facial structural integrity and anatomical correctness of the doll/mannequin head.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "incorrect_expert_usage",
+                "point": "The open_vocabulary_detector cannot verify facial distortion; it only provides localization. Replace with a structural auditor.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "coverage_gap",
+                "point": "The checkpoint 'Realistic hair strand density' was marked false due to 'plastic-like clumps'. The fine_grained_classifier may struggle with texture granularity. Ensure perceptual_quality_auditor specifically targets 'strand-level coherence' in its goals.",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up shot of a doll or mannequin head wearing a bright blue, voluminous wig with straight bangs. The subject is also wearing a pink knitted hood or scarf around the neck and shoulders. The background is dark and indistinct.",
+        "image_class": "wig",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Artificial hairpiece conforming to cranial curvature.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The blue hair clearly sits on top of the head structure, following the curve of the skull/doll head."
+            },
+            {
+                "checkpoint": "Realistic hair strand density with varied length and texture.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The hair appears as solid, plastic-like clumps rather than individual strands. It lacks the fine detail and density of realistic hair, appearing more like molded plastic or low-resolution synthetic fiber."
+            },
+            {
+                "checkpoint": "Directional flow patterns with parting lines or wave patterns.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There is a clear directional flow from the crown downwards, and distinct straight bangs are visible across the forehead."
+            },
+            {
+                "checkpoint": "Flexible mesh or lace base for scalp coverage.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The base of the wig is completely occluded by the hair itself and the angle of the image; no scalp or mesh is visible."
+            },
+            {
+                "checkpoint": "Adjustable elastic bands or clips for secure attachment.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "These functional components are located on the underside or interior of the wig cap, which is not visible in this exterior view."
+            },
+            {
+                "checkpoint": "Constructed from synthetic fibers or processed human hair.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The uniform, intense blue color and the slightly glossy, clumped texture strongly suggest synthetic fibers rather than natural human hair."
+            },
+            {
+                "checkpoint": "Synthetic fibers or human hair mounted on mesh base.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible evidence supports the presence of synthetic hair material, although the mounting base is not directly seen, the assembly implies it."
+            },
+            {
+                "checkpoint": "Varied coloration patterns mimicking natural growth.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The color is a flat, uniform electric blue without the subtle tonal variations, roots, or highlights found in natural hair growth patterns."
+            },
+            {
+                "checkpoint": "Style-dependent texture: straight, wavy, or curled alignment.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wig exhibits a specific style with straight bangs and a somewhat voluminous, straight-to-wavy body."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Blue hair mass",
+                "severity": 3,
+                "reasoning": "The hair lacks individual strand definition, appearing as melted or fused plastic masses, particularly at the edges where it meets the background."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Doll's face/mouth area",
+                "severity": 4,
+                "reasoning": "The facial features, specifically the mouth and nose, appear distorted and asymmetrical, with the mouth looking like a smeared horizontal line rather than defined lips."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Hands/Lower foreground",
+                "severity": 2,
+                "reasoning": "The hands holding the object in the foreground are significantly blurred and lack clear finger definition, suggesting motion blur or generation failure."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "wig",
+                "verification_goals": [
+                    "Confirm the object is classified as a wig or artificial hairpiece.",
+                    "Distinguish between synthetic fiber texture and natural hair texture."
+                ],
+                "reason": "To verify the primary class label and assess the material realism which was flagged as anomalous.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Analyze the 'melted' texture of the hair for AI generation artifacts.",
+                    "Evaluate the structural integrity of the doll's facial features.",
+                    "Assess the severity of blurring in the foreground hands."
+                ],
+                "reason": "To provide a holistic quality score and confirm the suspected texture anomalies and structural distortions.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wig",
+                "verification_goals": [
+                    "Segment the wig from the background to check for edge bleeding or halo effects.",
+                    "Verify if the hair mass is a single continuous object or if there are floating artifacts."
+                ],
+                "reason": "To investigate the fuzzy edges and potential fusion of the hair with the dark background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "doll_head",
+                "verification_goals": [
+                    "Detect and bound the doll head and facial features.",
+                    "Identify if the facial distortion is a result of misalignment or generation error."
+                ],
+                "reason": "To localize the facial anomalies and provide bounding boxes for further structural analysis.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Flexible mesh or lace base for scalp coverage (Occluded)",
+            "Adjustable elastic bands or clips for secure attachment (Occluded/Interior)"
+        ],
+        "focus_areas": [
+            "Hair texture realism (strand definition vs. clumping)",
+            "Facial feature symmetry and structure",
+            "Edge sharpness between wig and background"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the transition between the blue hair and the dark background. Does the hair look like individual fibers or a solid plastic mass? Also, evaluate the anatomical correctness of the doll's face, specifically the mouth and nose area, for signs of AI-induced warping.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000401.png",
+            "class_id": 903,
+            "class_label": "wig",
+            "router_cost_seconds": 29.25,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "wig",
+                "reason": "To verify the primary class label and assess the material realism which was flagged as anomalous.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To provide a holistic quality score and confirm the suspected texture anomalies and structural distortions.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wig",
+                "reason": "To investigate the fuzzy edges and potential fusion of the hair with the dark background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "doll_head",
+                "reason": "To localize the facial anomalies and provide bounding boxes for further structural analysis.",
+                "weight": 0.15
+            }
+        ]
+    }
+}

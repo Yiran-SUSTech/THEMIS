@@ -1,0 +1,176 @@
+{
+    "image_id": "000199",
+    "class_label": "bakery, bakeshop, bakehouse",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:25:25",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and coverage. The Router correctly identified that the image fails the 'bakery' taxonomy (which requires a storefront) but incorrectly prioritized verifying the *content* (pastries) over the *missing context*. \n\n1. **Missing Negative Verification**: The plan lacks an `open_vocabulary_detector` or `geometric_depth_auditor` to rigorously prove the absence of architectural elements (windows, doors, facades). Relying solely on `fine_grained_classifier` for pastries does not address the primary failure mode: the image is a close-up product shot, not a scene.\n2. **Incorrect Expert Capability Mapping**: The `fine_grained_classifier` is tasked with distinguishing 'real photography vs AI-generated food imagery'. This is outside its capability; it classifies semantic categories, not generative artifacts. Artifact detection should be left to `perceptual_quality_auditor` or `image_text_auditor`.\n3. **Incomplete Artifact Coverage**: While `image_text_auditor` covers the text gibberish, the `texture_anomaly` (plastic-like frosting) is only loosely covered by `perceptual_quality_auditor`. A more specific check on material realism is needed given the 'close-up' nature of the image.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the absence of storefront architecture (windows, doors, facade) to confirm the 'is_present=false' verdicts for geometry checkpoints.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "capability_mismatch",
+                "point": "Remove the goal 'Distinguish between real photography and AI-generated food imagery' from fine_grained_classifier. This expert cannot detect generative artifacts.",
+                "recommended_expert": "N/A (Reassign to perceptual_quality_auditor)"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Explicitly verify the spatial relationship between the box and the background to ensure no 'bleeding' or impossible depth cues exist, which supports the 'close-up' classification.",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, high-angle shot of several square-shaped pastries or cakes arranged in a cardboard box. The pastries feature a thick layer of pale yellow/white frosting or cream, topped with garnishes including chopped nuts (walnuts) and red fruit pieces (possibly strawberries or cherries). The side of the box has some blurry text or markings. The lighting is warm but somewhat dim, casting soft shadows.",
+        "image_class": "bakery",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Commercial storefront with large display window.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The image shows a close-up of food items in a box, not a building exterior or storefront."
+            },
+            {
+                "checkpoint": "Facade typically brick or stucco with warm lighting.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No building facade is visible; only the interior of a packaging box and the food items are shown."
+            },
+            {
+                "checkpoint": "Door entrance adjacent to display window.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No architectural elements like doors or windows are present in the frame."
+            },
+            {
+                "checkpoint": "Display window showcasing baked goods arranged on shelves or trays.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While baked goods are present, they are in a takeaway box, not displayed in a commercial glass window on shelves."
+            },
+            {
+                "checkpoint": "Interior visible through window includes display cases with glass fronts shelving units and service counter.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The view is macro/close-up on the product itself; no shop interior, counters, or display cases are visible."
+            },
+            {
+                "checkpoint": "Sign with bakery name and may have awning.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No signage or awning is visible. There is some illegible text on the box, but it does not constitute a storefront sign."
+            },
+            {
+                "checkpoint": "Warm inviting atmosphere with visible flour-dusted surfaces and golden-brown products.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The atmosphere is neutral/domestic due to the packaging context. No flour-dusted surfaces are visible; the focus is on frosted toppings."
+            },
+            {
+                "checkpoint": "Breads pastries and cakes visible in display.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image clearly depicts pastries/cakes with frosting and toppings, matching the 'baked goods' component of the class definition, despite the missing context."
+            },
+            {
+                "checkpoint": "Warm lighting illuminating interior.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Lighting appears to be ambient or flash-based on a small scale, not the characteristic warm illumination of a shop interior."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Side of the cardboard box (bottom right)",
+                "severity": 2,
+                "reasoning": "The black markings/text on the side of the box are illegible and distorted, resembling AI-generated pseudo-text rather than clear branding or printing."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Frosting/Cream topping",
+                "severity": 1,
+                "reasoning": "The texture of the white frosting is overly smooth and plastic-like in areas, lacking the subtle micro-texture of real dairy or meringue, though this could also be due to image compression."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "pastries",
+                "verification_goals": [
+                    "Confirm if the objects are correctly classified as baked goods/pastries.",
+                    "Distinguish between real photography and AI-generated food imagery based on texture consistency."
+                ],
+                "reason": "To verify the primary subject matter identity since the contextual checkpoints for 'bakery storefront' failed completely.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "box_text",
+                "verification_goals": [
+                    "Analyze the illegible black markings on the box side.",
+                    "Determine if they are valid characters or AI artifacts."
+                ],
+                "reason": "To confirm the 'text_gibberish' artifact observation which is a strong indicator of AI generation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall_image",
+                "verification_goals": [
+                    "Assess the realism of the frosting texture and nut garnishes.",
+                    "Check for subtle blending errors between the pastries and the box interior."
+                ],
+                "reason": "To evaluate the overall photorealism and detect any subtle structural or textural anomalies missed by specific classifiers.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Mismatch between Class Label 'bakery' (storefront) and Image Content (close-up of product).",
+            "Legibility of text on the packaging box.",
+            "Texture realism of the frosting and toppings."
+        ],
+        "custom_prompts_for_reflector": "The image fails to meet the majority of the taxonomy checkpoints for 'bakery' because it depicts a close-up of packaged pastries rather than a commercial storefront. Evaluate whether this constitutes a 'failure' of the image generation relative to the prompt (if the prompt asked for a storefront) or if the class label is simply too broad. Prioritize the detection of AI artifacts in the text on the box and the unnatural smoothness of the frosting.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000199.png",
+            "class_id": 415,
+            "class_label": "bakery, bakeshop, bakehouse",
+            "router_cost_seconds": 26.74,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "pastries",
+                "reason": "To verify the primary subject matter identity since the contextual checkpoints for 'bakery storefront' failed completely.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "box_text",
+                "reason": "To confirm the 'text_gibberish' artifact observation which is a strong indicator of AI generation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall_image",
+                "reason": "To evaluate the overall photorealism and detect any subtle structural or textural anomalies missed by specific classifiers.",
+                "weight": 0.3
+            }
+        ]
+    }
+}

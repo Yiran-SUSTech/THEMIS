@@ -1,0 +1,196 @@
+{
+    "image_id": "000250",
+    "class_label": "car wheel",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:28:16",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in Expert Selection and Coverage. The Router identified multiple 'is_present=false' checkpoints regarding the absence of a rubber tire, bolt holes, and standard scale. However, it failed to assign the `open_vocabulary_detector` to verify these negative claims. The `fine_grained_classifier` only provides a global class label probability, which is insufficient to prove the *absence* of specific sub-components (like a tire) or to provide the bounding box priors necessary for the `topology_boundary_auditor` to segment the wheel rim accurately. Without the detector, the boundary auditor lacks the spatial grounding to distinguish the rim from the background or the human subject effectively.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verification of absent components (tire, bolt holes) and spatial grounding for segmentation.",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The plan relies on `topology_boundary_auditor` to check boundaries but fails to provide it with BBox priors. Additionally, `fine_grained_classifier` cannot verify the absence of specific parts. An `open_vocabulary_detector` is required to: 1) Attempt to detect 'rubber tire' and 'bolt holes' to scientifically validate their absence (providing evidence for the false checkpoints). 2) Generate precise BBoxes for the 'wheel rim' and 'human' to guide the topology auditor's segmentation, ensuring the fusion artifacts are analyzed on the correct regions."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a large, stylized car wheel with white multi-spoke rims in the foreground. A person wearing an orange jacket and yellow pants stands next to the wheel, holding onto it. The background is cluttered with what appears to be scrap metal, vehicle parts, or debris in a dimly lit industrial or junkyard setting. The overall scene has a chaotic, possibly AI-generated aesthetic with inconsistent lighting and object boundaries.",
+        "image_class": "car wheel",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Circular assembly with metal rim of standard automotive diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The wheel is disproportionately large compared to the human subject, suggesting it is not a 'standard automotive diameter' but rather a fantastical or oversized prop. The scale is physically implausible for a standard car wheel."
+            },
+            {
+                "checkpoint": "Flat disc with raised outer lip and recessed center hub.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wheel exhibits a flat disc structure with a visible outer lip and a center hub area, matching the basic geometric description despite the scale issues."
+            },
+            {
+                "checkpoint": "Rubber tire mounted around outer edge.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "There is no distinct black rubber tire mounted on the rim. The outer edge appears to be part of the white rim structure itself, lacking the characteristic texture and color separation of a tire."
+            },
+            {
+                "checkpoint": "Central hub with multiple bolt holes for attachment to vehicle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The center hub contains a logo or emblem, but distinct bolt holes for vehicle attachment are not clearly visible or structurally defined as per standard automotive wheels."
+            },
+            {
+                "checkpoint": "Wheel face features decorative cover hubcap or exposed spokes alloy wheels.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wheel features prominent white spokes radiating from the center, fitting the description of an alloy wheel design."
+            },
+            {
+                "checkpoint": "Tire has tread pattern on outer surface and sidewall markings.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "As there is no visible rubber tire, there is consequently no tread pattern or sidewall markings present."
+            },
+            {
+                "checkpoint": "Rim finish polished aluminum painted silver or black.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The rim is painted white/cream, not polished aluminum, silver, or black. While 'painted' is allowed, the specific colors listed in the taxonomy prior knowledge (silver/black/polished) are not matched, and the material looks more like plastic or painted prop material than metal."
+            },
+            {
+                "checkpoint": "Rubber tire with visible tread pattern.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No rubber tire is visible; therefore, no tread pattern exists."
+            },
+            {
+                "checkpoint": "Metal rim with rubber tire combination.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object lacks the fundamental combination of a metal rim and a separate rubber tire. It appears to be a single-piece prop or artistic representation."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Background debris and vehicle parts",
+                "severity": 4,
+                "reasoning": "The background objects lack coherent structure, appearing as melted or fused masses of metal and fabric without clear definition or physical logic."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Human subject and wheel interaction",
+                "severity": 3,
+                "reasoning": "The scale of the wheel relative to the human is physically impossible for a standard car wheel. The human's posture and interaction with the wheel appear awkward and physically ungrounded."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Wheel surface and human clothing",
+                "severity": 2,
+                "reasoning": "The wheel surface lacks realistic metallic reflections or wear. The human's clothing has a smooth, plastic-like texture inconsistent with fabric folds and lighting."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Human hand/wheel contact point",
+                "severity": 3,
+                "reasoning": "The boundary between the human's hand/arm and the wheel rim is blurred and indistinct, suggesting fusion or poor edge definition typical of AI generation."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car wheel",
+                "verification_goals": [
+                    "Verify if the object is classified as a standard automotive wheel or a prop/artistic representation.",
+                    "Confirm species/object identity against ImageNet classes."
+                ],
+                "reason": "To determine if the model recognizes this as a valid 'car wheel' or misclassifies it due to structural anomalies.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wheel and human subject",
+                "verification_goals": [
+                    "Segment the wheel to verify if it is a single continuous entity or has floating parts.",
+                    "Check boundary sharpness between the human hand and the wheel rim for fusion artifacts."
+                ],
+                "reason": "To audit topological connectivity and detect edge bleeding/fusion between the subject and the wheel.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene composition",
+                "verification_goals": [
+                    "Generate depth map to verify spatial relationship between the human and the oversized wheel.",
+                    "Check for geometric melting in the background debris."
+                ],
+                "reason": "To expose spatial grounding errors and validate the physical plausibility of the scene's depth and scale.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall image",
+                "verification_goals": [
+                    "Analyze texture consistency of the wheel rim and human clothing.",
+                    "Detect subtle distortions in lighting and shadows across the scene."
+                ],
+                "reason": "To catch fine-grained texture anomalies and lighting inconsistencies that indicate AI generation.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Scale plausibility of wheel relative to human",
+            "Presence/absence of rubber tire and tread",
+            "Edge definition between human and wheel",
+            "Structural coherence of background elements"
+        ],
+        "custom_prompts_for_reflector": "Focus on the physical impossibility of the wheel's size relative to the human. Verify if the lack of a rubber tire disqualifies it from being a 'car wheel' per taxonomy. Investigate the fused boundaries between the human and the wheel for AI artifacts.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000250.png",
+            "class_id": 479,
+            "class_label": "car wheel",
+            "router_cost_seconds": 31.27,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car wheel",
+                "reason": "To determine if the model recognizes this as a valid 'car wheel' or misclassifies it due to structural anomalies.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wheel and human subject",
+                "reason": "To audit topological connectivity and detect edge bleeding/fusion between the subject and the wheel.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene composition",
+                "reason": "To expose spatial grounding errors and validate the physical plausibility of the scene's depth and scale.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall image",
+                "reason": "To catch fine-grained texture anomalies and lighting inconsistencies that indicate AI generation.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

@@ -1,0 +1,188 @@
+{
+    "image_description": "The image displays a small, light-colored weasel (likely an ermine or stoat in winter coat) perched on the left side of a large, dark, textured object that resembles a piece of driftwood or bark. The weasel has white/cream fur with darker shading on its back and head. It is facing forward with its front paws visible. The background is a plain, neutral grey.",
+    "image_class": "weasel",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Small triangular head with pointed snout.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The head shape is clearly visible, appearing small and triangular with a distinct, pointed snout characteristic of mustelids."
+        },
+        {
+            "checkpoint": "Small dark eyes.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Two small, dark, bead-like eyes are visible on the face, consistent with the taxonomy."
+        },
+        {
+            "checkpoint": "Short rounded ears.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The ears are visible as small, rounded protrusions on the top of the head, not elongated or pointed."
+        },
+        {
+            "checkpoint": "Extremely elongated slender body with remarkably fine, diminutive proportions and lightweight build.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Although partially obscured by posture, the visible torso and neck suggest the characteristic elongated, slender 'tube-like' body shape of a weasel."
+        },
+        {
+            "checkpoint": "Short dense fur in brown dorsally with white or yellow ventral coloration.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The animal appears to be largely white/cream (winter morph/ermine). While there is some darker shading on the head/back, it does not clearly display the distinct 'brown dorsal / white ventral' split described in the general summer morph checkpoint. It matches the 'ermine morph' checkpoint better."
+        },
+        {
+            "checkpoint": "Some species turn white in winter (ermine morph).",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The predominant white/cream coloration with darker head markings is consistent with the ermine (stoat) winter coat."
+        },
+        {
+            "checkpoint": "Elongated neck.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The distance between the head and the main body mass indicates a visibly elongated neck, typical for this species."
+        },
+        {
+            "checkpoint": "Short legs.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The visible forelimbs are short relative to the body length, consistent with the taxonomy."
+        },
+        {
+            "checkpoint": "Short tail relative to body length.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The tail is completely occluded by the animal's body position and the object it is resting on; it cannot be seen to verify length."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Interface between weasel paws and the wooden object",
+            "severity": 2,
+            "reasoning": "The contact point between the weasel's front left paw and the dark wood shows slight blurring and lack of clear shadow definition, suggesting minor fusion or soft-edge artifacts common in AI generation."
+        },
+        {
+            "artifact_type": "structural_collapse",
+            "location": "Right side of the wooden object",
+            "severity": 3,
+            "reasoning": "The large dark object the weasel is on has an ambiguous structure. The right side appears to melt into the background or lacks coherent geometric logic, looking more like a painted texture than a solid 3D object."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "weasel",
+            "verification_goals": [
+                "Generate bounding box priors for the weasel and the wooden prop.",
+                "Localize the subject to enable downstream segmentation and boundary auditing."
+            ],
+            "reason": "Prerequisite for topology_boundary_auditor. Must define ROI before segmentation can occur.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "weasel",
+            "verification_goals": [
+                "Confirm species identity as Mustela erminea (Stoat/Ermine) or similar mustelid.",
+                "Verify if the white coat with dark head is a valid natural variation.",
+                "Analyze visible body proportions to infer likelihood of tail presence (checking for tailless anomalies)."
+            ],
+            "reason": "Primary verification of class label/morph. Also addresses the 'unverifiable' tail checkpoint by checking if overall body ratios match a tailed mustelid.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "weasel",
+            "verification_goals": [
+                "Verify keypoint connectivity of the visible forelimbs.",
+                "Check for anatomical correctness of the shoulder-to-paw structure.",
+                "Ensure no extra limbs are hidden in the fur/body mass."
+            ],
+            "reason": "To audit the structural integrity of the visible limbs and ensure the 'short leg' trait is anatomically correct.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "weasel",
+            "verification_goals": [
+                "Segment the weasel from the background and the wooden object using OVD priors.",
+                "Verify boundary sharpness around the ears and snout.",
+                "Check for 'melting' at the paw-object interface."
+            ],
+            "reason": "To address observed texture anomalies and ensure the subject is a distinct, continuous entity without edge bleeding.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "weasel_paws",
+            "verification_goals": [
+                "Inspect fine-grained details of the paws, including digit count and claw structure.",
+                "Detect any nonsensical geometry or melting in the non-subject elements (wooden prop)."
+            ],
+            "reason": "Corrects capability mismatch: Animal Pose Auditor cannot see digits/claws. Perceptual Quality Auditor handles fine structural details and prop coherence.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "scene",
+            "verification_goals": [
+                "Verify depth relationship between weasel, prop, and background.",
+                "Ensure the weasel is physically grounded on the prop and not floating."
+            ],
+            "reason": "To confirm spatial grounding, especially given the ambiguous nature of the prop's right side.",
+            "weight": 0.1
+        }
+    ],
+    "unverifiable_points": [],
+    "focus_areas": [
+        "Paw-object interaction integrity",
+        "Species-specific coat pattern validation (Ermine morph)",
+        "Structural coherence of the supporting prop",
+        "Fine-grained digit/claw structure verification"
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the transition between the weasel's white fur and the dark background/prop. AI models often struggle with high-contrast edges on fine fur. Verify if the 'wooden' object has a consistent grain direction or if it exhibits swirling/melting textures indicative of generative failure. Confirm that the visible paws have the correct number of digits and claw structure for a mustelid using high-resolution analysis, as pose estimators will miss this detail. Use the fine-grained classifier to check if the body proportions imply a missing tail, even if the tail itself is occluded.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000140.png",
+        "class_id": 356,
+        "class_label": "weasel",
+        "router_cost_seconds": 34.93,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Approved!"
+        ]
+    },
+    "router_scores": {
+        "router_alignment_score": 4.13,
+        "router_artifact_score": 1.4,
+        "checkpoint_summary": {
+            "total": 9,
+            "testable": 8,
+            "present": 7,
+            "absent": 1,
+            "untestable": 1
+        },
+        "artifact_summary": {
+            "count": 2,
+            "max_severity": 3,
+            "severe_count": 2,
+            "minor_count": 0
+        }
+    }
+}

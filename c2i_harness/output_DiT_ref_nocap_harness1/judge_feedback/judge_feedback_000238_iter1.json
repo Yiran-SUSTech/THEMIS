@@ -1,0 +1,204 @@
+{
+    "image_id": "000238",
+    "class_label": "bookcase",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:27:34",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address the most critical artifact in the image: the presence of illegible, hallucinated text on book spines and labels. The Router identified 'texture anomaly' and 'blur' but missed that the core failure mode is AI-generated gibberish text, which requires specific auditing. Furthermore, the plan lacks an Open Vocabulary Detector to ground the segmentation for the Topology Auditor, risking failure in separating the complex, overlapping shelves and glass reflections.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Audit of visual text quality (book spines/labels)",
+                "recommended_expert": "image_text_auditor",
+                "reason": "The image contains numerous book spines with illegible/gibberish text. The current plan relies on 'perceptual_quality_auditor' for texture, but 'image_text_auditor' is required to specifically detect OCR failures and hallucinated characters, which are key indicators of AI generation in this context."
+            },
+            {
+                "type": "missing_prerequisite",
+                "point": "Bounding box priors for topology segmentation",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The 'topology_boundary_auditor' needs precise instance segmentation of the bookcase frame vs. contents. Without 'open_vocabulary_detector' providing BBox priors first, the segmentation may fail to distinguish between the rigid furniture structure and the irregular books/objects inside, leading to inaccurate boundary audits."
+            },
+            {
+                "type": "refinement",
+                "point": "Clarify verification goal for glass doors",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "Update verification goals to explicitly check for 'reflection consistency' on the glass surfaces. The current plan checks depth, but verifying that reflections match the environment (and don't bleed into the shelf contents) is crucial for validating the 'glass door' claim against the 'open shelf' contradiction."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A tall, dark wooden bookcase with glass doors on the upper section and open shelves below. The unit is filled with books and various objects. The image has a painterly or heavily filtered aesthetic, resulting in soft edges and texture blending. To the right, another wooden structure or bookcase is partially visible.",
+        "image_class": "bookcase",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Rectangular furniture piece of considerable height, notably taller than wide.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The primary subject is clearly a tall, vertical rectangular structure that dominates the frame height-wise."
+            },
+            {
+                "checkpoint": "Tall rectangular frame with horizontal divisions.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Horizontal lines indicating shelves are visible across the width of the unit, creating distinct levels."
+            },
+            {
+                "checkpoint": "Bilateral symmetry with open front displaying books and objects.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the unit contains books, it features glass doors on the upper half, meaning the front is not entirely 'open' as described in the strict checkpoint. Additionally, bilateral symmetry is difficult to confirm due to the angle and partial occlusion."
+            },
+            {
+                "checkpoint": "Multiple horizontal shelves spaced evenly from top to bottom.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "At least 4-5 distinct shelf levels are visible, stacked vertically."
+            },
+            {
+                "checkpoint": "Shelves adjustable in some models.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Adjustability is an internal mechanical feature (pin holes) that cannot be resolved at this image resolution or through the glass/objects."
+            },
+            {
+                "checkpoint": "Some models have glass doors on upper section.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Reflections and vertical framing elements on the upper half strongly indicate the presence of glass cabinet doors."
+            },
+            {
+                "checkpoint": "Constructed from wood particleboard or metal with finished surface stained painted or laminated.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visual texture and color are consistent with stained wood."
+            },
+            {
+                "checkpoint": "Front open displaying books and objects on each shelf.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Contradicts the 'glass doors' observation; the upper section is enclosed, not open."
+            },
+            {
+                "checkpoint": "Decorative hardware and finished surfaces.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Handles or knobs are faintly visible on the glass doors, and the wood has a sheen."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Entire image, specifically book spines and wood grain",
+                "severity": 2,
+                "reasoning": "The image exhibits a strong painterly or impressionistic filter effect. Text on book spines is illegible gibberish/blurred, and wood grain lacks fine detail, appearing smudged rather than naturally textured."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Right edge of the main bookcase and background structures",
+                "severity": 1,
+                "reasoning": "Vertical lines show slight warping and bending, likely due to the artistic filter or lens distortion simulation, rather than rigid geometric straightness expected in architecture."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Lower foreground area",
+                "severity": 2,
+                "reasoning": "The foreground elements (possibly a counter or lower shelf) are significantly blurred and lack structural definition compared to the mid-ground bookcase."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "main_bookcase",
+                "verification_goals": [
+                    "Confirm class label 'bookcase'",
+                    "Distinguish between 'bookshelf' and 'cabinet'"
+                ],
+                "reason": "Primary verification that the object falls under the correct ImageNet taxonomy despite the artistic style.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "main_bookcase_frame",
+                "verification_goals": [
+                    "Verify continuous rectangular frame structure",
+                    "Check for melting/fusion between shelves and side panels"
+                ],
+                "reason": "To ensure the 'painterly' style hasn't caused structural collapse or fusion of the furniture's rigid components.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_image",
+                "verification_goals": [
+                    "Assess severity of texture smearing",
+                    "Identify if text gibberish is an artifact or style choice",
+                    "Evaluate overall structural coherence"
+                ],
+                "reason": "To quantify the impact of the artistic filter on the image's realism and detect any underlying generation artifacts masked by the style.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene_layout",
+                "verification_goals": [
+                    "Verify depth relationship between glass doors and shelves",
+                    "Check spatial consistency of the adjacent bookcase"
+                ],
+                "reason": "To confirm that the glass doors are physically in front of the shelves and the scene has valid 3D geometry.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Shelves adjustable in some models"
+        ],
+        "focus_areas": [
+            "Structural integrity of the rectangular frame under artistic filtering",
+            "Differentiation between open shelves and glass-enclosed sections",
+            "Legibility and nature of text on book spines (artifact vs. style)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the boundary between the 'glass' areas and the 'open' shelf areas. Does the reflection logic hold up? Also, investigate if the blurring of the book titles is consistent with AI text generation failures or merely a stylistic blur filter applied to legible text.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000238.png",
+            "class_id": 453,
+            "class_label": "bookcase",
+            "router_cost_seconds": 28.61,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "main_bookcase",
+                "reason": "Primary verification that the object falls under the correct ImageNet taxonomy despite the artistic style.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "main_bookcase_frame",
+                "reason": "To ensure the 'painterly' style hasn't caused structural collapse or fusion of the furniture's rigid components.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_image",
+                "reason": "To quantify the impact of the artistic filter on the image's realism and detect any underlying generation artifacts masked by the style.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene_layout",
+                "reason": "To confirm that the glass doors are physically in front of the shelves and the scene has valid 3D geometry.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

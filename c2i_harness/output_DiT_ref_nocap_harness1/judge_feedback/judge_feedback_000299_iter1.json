@@ -1,0 +1,196 @@
+{
+    "image_id": "000299",
+    "class_label": "hair spray",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:30:30",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with distinguishing between an aerosol can and a pump bottle. While ViTs are good at general classification, they may lack the specific geometric reasoning to distinguish 'aerosol' vs 'pump' based on structural features (crimped seam vs screw thread) without explicit bounding box guidance.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "optimization",
+                "point": "The 'topology_boundary_auditor' is selected to check the pump mechanism. However, topology auditors typically require a segmentation mask as input. The plan lacks the 'open_vocabulary_detector' to first locate and segment the 'bottle' or 'pump' to provide this mask.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A blue, translucent plastic bottle with a black spray pump mechanism sits on a reflective surface. The bottle has a cylindrical body that tapers slightly towards the neck. It features white text and graphics on the label, including a silhouette of a face/profile. The background is blurry, showing what appears to be a bathroom or shelf setting with tiled walls.",
+        "image_class": "hair spray",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Aerosol can, cylindrical metal container of standard handheld size, notably taller than a soda can.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is clearly a plastic pump-spray bottle, not a metal aerosol can. The material is translucent blue plastic, lacking the opaque metallic finish and crimped seams typical of aerosols."
+            },
+            {
+                "checkpoint": "Cap is dome-shaped or flat, removable.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bottle uses an integrated pump dispenser with a narrow nozzle/actuator, not a separate removable dome or flat cap covering a spray head."
+            },
+            {
+                "checkpoint": "Overall form is standard aerosol cylinder with ergonomic grip.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While cylindrical, the form factor matches a cosmetic pump bottle (like shampoo or toner) rather than the specific proportions and structural rigidity of an aerosol can."
+            },
+            {
+                "checkpoint": "Spray nozzle (actuator) on top with fine mist aperture.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There is a spray actuator on top, but it is part of a mechanical pump system, not the pressure-release valve of an aerosol. However, functionally it sprays, so it partially matches the 'nozzle' description but fails the 'aerosol' context."
+            },
+            {
+                "checkpoint": "Label shows hold strength indicator (light, medium, firm, extra firm) and ingredients.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The text is illegible/gibberish due to AI generation artifacts. No clear 'hold strength' indicators or standard ingredient lists are visible."
+            },
+            {
+                "checkpoint": "Bottom shows crimped seam and manufacturing codes.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bottom of the bottle is not visible in the frame; it is occluded by the reflection and the angle of the shot."
+            },
+            {
+                "checkpoint": "Surface is printed with brand name, product type, and graphics in vibrant colors.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bottle has vibrant blue coloring and white graphics/text, resembling branding, although the specific text is nonsensical."
+            },
+            {
+                "checkpoint": "Can surface is smooth with glossy printed graphics.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surface appears smooth and glossy, consistent with plastic packaging."
+            },
+            {
+                "checkpoint": "Contains hair-holding preparation.",
+                "category": "Material_and_Context",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Internal contents cannot be visually verified."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Label on the bottle body",
+                "severity": 4,
+                "reasoning": "The text on the label is nonsensical and malformed, characteristic of AI-generated images failing to render coherent typography. Letters merge and lack semantic meaning."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Reflection on the surface",
+                "severity": 2,
+                "reasoning": "The reflection of the bottle on the surface below is somewhat distorted and lacks the sharp clarity expected from a hard, glossy surface, appearing slightly 'muddy' or smeared."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Neck/Pump area",
+                "severity": 3,
+                "reasoning": "The connection between the pump mechanism and the bottle neck is slightly ambiguous and lacks precise mechanical definition, appearing somewhat fused or soft rather than distinct rigid parts."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bottle",
+                "verification_goals": [
+                    "Classify the object to determine if it is an aerosol can or a pump-spray bottle.",
+                    "Verify if the visual features align with 'hair spray' or general cosmetic containers."
+                ],
+                "reason": "To objectively confirm the mismatch between the generated object (pump bottle) and the target class (aerosol can).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "label text",
+                "verification_goals": [
+                    "Extract any legible text from the label.",
+                    "Confirm if the text constitutes valid brand names or hold-strength indicators."
+                ],
+                "reason": "To verify the severity of the text gibberish artifact and confirm the absence of required functional labeling.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bottle contour",
+                "verification_goals": [
+                    "Segment the bottle to check for boundary sharpness against the background.",
+                    "Verify the structural integrity of the pump mechanism relative to the bottle neck."
+                ],
+                "reason": "To assess the 'structural collapse' and edge bleeding artifacts observed in the neck/pump area.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall image",
+                "verification_goals": [
+                    "Evaluate the realism of the reflections and lighting.",
+                    "Assess the overall coherence of the object's material properties (plastic vs metal)."
+                ],
+                "reason": "To provide a holistic quality score and confirm the texture anomalies in the reflection.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Bottom shows crimped seam and manufacturing codes.",
+            "Contains hair-holding preparation."
+        ],
+        "focus_areas": [
+            "Object Identity Mismatch: Pump bottle vs Aerosol Can",
+            "Text Legibility: Gibberish on label",
+            "Structural Integrity: Pump mechanism definition"
+        ],
+        "custom_prompts_for_reflector": "The generated image depicts a plastic pump-spray bottle rather than the requested metal aerosol can. This is a fundamental category error. Additionally, the label text is illegible gibberish. Focus the evaluation on the failure to meet the specific 'aerosol' geometry constraints and the poor text rendering quality.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000299.png",
+            "class_id": 585,
+            "class_label": "hair spray",
+            "router_cost_seconds": 30.41,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bottle",
+                "reason": "To objectively confirm the mismatch between the generated object (pump bottle) and the target class (aerosol can).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "label text",
+                "reason": "To verify the severity of the text gibberish artifact and confirm the absence of required functional labeling.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bottle contour",
+                "reason": "To assess the 'structural collapse' and edge bleeding artifacts observed in the neck/pump area.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall image",
+                "reason": "To provide a holistic quality score and confirm the texture anomalies in the reflection.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

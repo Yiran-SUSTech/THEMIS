@@ -1,0 +1,198 @@
+{
+    "image_id": "000025",
+    "class_label": "common iguana, iguana, Iguana iguana",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:16:46",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Expert Selection and Coverage. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' and designed for 17-keypoint detection of animals/humans. Applying this expert to an iguana (a reptile with a different skeletal topology than mammals/birds) will likely result in failure or hallucinated keypoints, rendering the audit invalid. Additionally, the plan fails to utilize the `open_vocabulary_detector` to resolve the 'unverifiable' limb checkpoints, which is a missed opportunity for grounding.",
+        "suggestions": [
+            {
+                "type": "expert_mismatch",
+                "point": "Remove `animal_pose_auditor`. It is not suitable for reptiles/iguanas due to skeletal differences and the expert's explicit exclusion of non-mammalian/non-avian subjects.",
+                "recommended_expert": "None (Replace with geometric checks)"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The checkpoint 'Limbs are long... with five clawed digits' was marked untestable due to occlusion. However, `open_vocabulary_detector` should be used first to attempt locating all limbs before declaring them unverifiable or relying on pose estimation.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "coverage_gap",
+                "point": "The artifact observation regarding 'plastic-like orange sheen' on spines needs specific texture analysis. While `perceptual_quality_auditor` is selected, ensure its prompt specifically targets 'material consistency' between scales and spines.",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A large, greyish-green common iguana resting on a forest floor covered in dry leaves and surrounded by green foliage. The iguana is positioned horizontally, displaying its prominent dorsal crest, robust body, and long tail extending towards the right. The head is visible on the left, showing the eye and jawline.",
+        "image_class": "common iguana",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is large and triangular with a prominent dewlap (loose skin fold) hanging from the throat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head structure is clearly visible, appearing large and triangular. A distinct fold of skin (dewlap) is visible under the chin/jaw area."
+            },
+            {
+                "checkpoint": "Eyes are large with round pupils and golden irises.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the eye is visible, the resolution and lighting make it impossible to confirm 'golden irises' or distinct 'round pupils'. The eye appears dark and somewhat glossy without clear iris detail."
+            },
+            {
+                "checkpoint": "A large circular subtympanic shield (scale) is present below the tympanum.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A large, distinct circular scale pattern is visible on the cheek area behind the eye, consistent with the location of the subtympanic shield."
+            },
+            {
+                "checkpoint": "Body is robust.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The torso of the iguana appears thick and muscular, fitting the description of a robust body."
+            },
+            {
+                "checkpoint": "Coloration is bright green in juveniles, becoming darker green to greyish-green in adults with broad black bands on the body and tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The iguana exhibits a greyish-green coloration typical of adults. Faint darker banding is visible on the flank and tail sections."
+            },
+            {
+                "checkpoint": "Row of enlarged, spine-like scales running from the nape along the midline of the back to the tail base, forming a serrated crest.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A very prominent, continuous row of orange-tipped spines runs down the entire visible length of the back, forming a clear serrated crest."
+            },
+            {
+                "checkpoint": "Skin is covered in small, granular scales with larger, plate-like scales on the head.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The texture on the body appears granular/beaded, while the scales on the snout and cheek appear larger and more plate-like."
+            },
+            {
+                "checkpoint": "Limbs are long and muscular with five clawed digits on each foot.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The front left limb is partially visible but obscured by leaves and shadow. The digits and claws are not clearly resolved enough to count five or verify claw presence definitively. The rear limbs are mostly occluded."
+            },
+            {
+                "checkpoint": "Tail is laterally compressed and longer than body, used for balance and defense.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tail is visible extending behind the body. It appears laterally flattened (compressed) and is significantly longer than the visible portion of the torso."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Dorsal crest spines",
+                "severity": 2,
+                "reasoning": "The tips of the dorsal spines have a slightly uniform, plastic-like orange sheen that contrasts subtly with the more natural texture of the body scales, suggesting potential AI smoothing or texturing inconsistency."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Background foliage and tail tip",
+                "severity": 1,
+                "reasoning": "There is a slight depth-of-field blur that feels somewhat artificial, particularly where the tail merges with the background leaves, though this could also be photographic bokeh."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "common iguana",
+                "verification_goals": [
+                    "Confirm species identity as Iguana iguana",
+                    "Verify adult greyish-green coloration phase"
+                ],
+                "reason": "Primary verification to ensure the image depicts the correct species and morphological stage (adult vs juvenile) as per taxonomy.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "common iguana",
+                "verification_goals": [
+                    "Verify limb structural integrity despite occlusion",
+                    "Check for extra or missing limbs hidden in foliage",
+                    "Validate spinal alignment of the dorsal crest"
+                ],
+                "reason": "To audit the biological plausibility of the pose and ensure no anatomical errors (like fused limbs) exist in the occluded areas.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "common iguana",
+                "verification_goals": [
+                    "Segment iguana from complex leafy background",
+                    "Verify continuity of the dorsal crest spines",
+                    "Check for edge bleeding between tail and leaves"
+                ],
+                "reason": "Crucial for verifying that the complex boundary between the spiky crest/tail and the background foliage is physically coherent and not melted.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "common iguana",
+                "verification_goals": [
+                    "Analyze texture consistency of scales vs spines",
+                    "Detect subtle melting artifacts in the dewlap area",
+                    "Assess overall image realism"
+                ],
+                "reason": "To specifically investigate the observed texture anomalies in the spines and general image quality.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Five clawed digits on each foot (due to occlusion/resolution)",
+            "Golden irises and round pupils (due to lighting/resolution)"
+        ],
+        "focus_areas": [
+            "Boundary integrity between dorsal spines and background leaves",
+            "Texture realism of the orange spine tips",
+            "Anatomical correctness of the partially visible front limb"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the transition between the iguana's dorsal spines and the surrounding leaves. AI models often struggle with fine, repetitive structures like spines against complex backgrounds, leading to fusion or melting. Verify if the spines maintain individual structural integrity. Also, scrutinize the eye region; while the shape is correct, the lack of clear iris detail might indicate a generation artifact rather than just low resolution.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000025.png",
+            "class_id": 39,
+            "class_label": "common iguana, iguana, Iguana iguana",
+            "router_cost_seconds": 31.47,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "common iguana",
+                "reason": "Primary verification to ensure the image depicts the correct species and morphological stage (adult vs juvenile) as per taxonomy.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "common iguana",
+                "reason": "To audit the biological plausibility of the pose and ensure no anatomical errors (like fused limbs) exist in the occluded areas.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "common iguana",
+                "reason": "Crucial for verifying that the complex boundary between the spiky crest/tail and the background foliage is physically coherent and not melted.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "common iguana",
+                "reason": "To specifically investigate the observed texture anomalies in the spines and general image quality.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

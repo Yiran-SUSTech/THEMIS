@@ -1,0 +1,206 @@
+{
+    "image_id": "000103",
+    "class_label": "Rhodesian ridgeback",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:20:37",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. The Router identified severe anatomical artifacts in the hindquarters (structural collapse/fusion with grass) but failed to assign the `geometric_depth_auditor` to verify spatial grounding and depth consistency. Relying solely on `animal_pose_auditor` (keypoints) is insufficient for 'melting' artifacts where limbs blend into the background; depth analysis is required to prove the lack of physical separation. Additionally, the `fine_grained_classifier` is tasked with verifying 'ear set characteristics,' which exceeds the capability of standard classification models that output class probabilities rather than geometric attribute analysis.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Hindquarter structural collapse and fusion with grass",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The `artifact_observations` note that hind legs 'merge into the grass' and 'lack clear skeletal definition.' Keypoint detection may fail if the structure is melted. A relative depth map is necessary to confirm if the dog's body physically separates from the ground plane or if there is foreground-background bleeding."
+            },
+            {
+                "type": "unrealistic_verification_goal",
+                "point": "Verify head shape and ear set characteristics via fine_grained_classifier",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "Fine-grained classifiers (ViT) determine class identity (e.g., Boxer vs. Ridgeback) but do not explicitly verify geometric traits like 'ear set height.' The `perceptual_quality_auditor` (VLM) should be tasked with describing the head morphology to support the breed mismatch hypothesis, while the classifier simply confirms the likely wrong class."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Stick texture and boundary integrity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "While selected, the plan should explicitly ensure the segmentation mask covers the *interface* between the stick and mouth to detect the 'melting' artifact described, rather than just segmenting the objects individually."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A medium shot of a muscular, reddish-brown dog sitting on grass holding a stick in its mouth. The dog has a short coat and appears to be smiling with its tongue out. The background is blurred green foliage.",
+        "image_class": "Rhodesian ridgeback",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is fairly long and flat with moderate stop.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head shape appears disproportionately blocky and square (resembling a Boxer or Mastiff) rather than the 'fairly long and flat' profile characteristic of a Rhodesian Ridgeback. The muzzle is too short and deep."
+            },
+            {
+                "checkpoint": "Eyes are round, bright, and intelligent, color matching coat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes are visible, round, and dark/brown, consistent with the coat color."
+            },
+            {
+                "checkpoint": "Ears are set high, medium-sized, and carried close to head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The ears appear to be folded over or cropped very short and sit somewhat low/wide on the skull, lacking the distinct high-set, pendant appearance of a Ridgeback."
+            },
+            {
+                "checkpoint": "Ridge of reversed hair growing forward along spine from shoulders to hips forming two symmetrical crowns.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The dog is facing forward; the spine and back are completely occluded by the angle of the body and the head position. The defining feature cannot be verified."
+            },
+            {
+                "checkpoint": "Coat is short, dense, sleek, and glossy ranging from light wheaten to red wheaten.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coat texture is short and smooth, and the color is a rich red-wheaten, matching the description."
+            },
+            {
+                "checkpoint": "Body is muscular and athletic with deep chest of large hound proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The dog exhibits significant musculature in the chest and shoulders, consistent with an athletic build."
+            },
+            {
+                "checkpoint": "Legs are straight and muscular.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible forelegs are straight and show muscle definition."
+            },
+            {
+                "checkpoint": "Tail is thick at base, tapering, and carried in slight curve.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is not visible in the frame due to the sitting posture and camera angle."
+            },
+            {
+                "checkpoint": "Gait is free and powerful with strong drive.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The subject is stationary (sitting), so gait cannot be evaluated."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Hind legs and lower torso",
+                "severity": 4,
+                "reasoning": "The anatomy of the hindquarters is nonsensical. The right hind leg seems to merge into the grass without a clear paw or joint structure, and the left hind leg appears to float or blend into the stick/ground interface. There is a lack of clear skeletal definition in the pelvic region."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Mouth and Stick interface",
+                "severity": 3,
+                "reasoning": "The connection between the teeth/tongue and the stick is blurry and indistinct. The stick itself lacks realistic bark texture and appears to 'melt' slightly into the dog's jawline."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Front paws",
+                "severity": 2,
+                "reasoning": "The front paws are partially obscured by the grass but appear slightly disproportionate and lack distinct toe separation, blending into the foreground vegetation."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Confirm if the breed is Rhodesian Ridgeback or a look-alike (e.g., Boxer mix, Mastiff)",
+                    "Verify head shape and ear set characteristics against breed standards"
+                ],
+                "reason": "The head morphology strongly deviates from the Ridgeback standard. A classifier is needed to determine if this is a misclassified breed or an AI hallucination of features.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Verify structural integrity of hind limbs",
+                    "Check for missing or fused joints in the pelvic region",
+                    "Validate paw placement on the ground"
+                ],
+                "reason": "Severe anatomical ambiguity in the hindquarters requires keypoint detection to confirm if valid biological structures exist or if limbs are missing/fused.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "stick and mouth",
+                "verification_goals": [
+                    "Segment the stick from the dog's mouth",
+                    "Verify clean boundaries between teeth, tongue, and object"
+                ],
+                "reason": "To audit the 'melting' artifact observed where the stick enters the mouth, ensuring it is a distinct object and not a texture smear.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess overall coherence of fur texture vs. background blur",
+                    "Detect any subtle edge bleeding around the dog's silhouette"
+                ],
+                "reason": "General quality check to identify if the blurriness is artistic depth-of-field or AI-generated smoothing artifacts.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Ridge of reversed hair (occluded)",
+            "Tail structure (occluded)",
+            "Gait dynamics (static pose)"
+        ],
+        "focus_areas": [
+            "Breed identification accuracy (Head shape/Ears)",
+            "Hindquarter anatomical validity",
+            "Object interaction integrity (Stick/Mouth)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the discrepancy between the 'Rhodesian Ridgeback' label and the visual evidence of a Boxer-like head shape. Investigate whether the hind legs are physically plausible or if they exhibit AI 'melting' into the grass. Verify if the 'ridge' is simply hidden or if the absence of visible ridge indicators combined with wrong head shape suggests a total class failure.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000103.png",
+            "class_id": 159,
+            "class_label": "Rhodesian ridgeback",
+            "router_cost_seconds": 31.04,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "dog",
+                "reason": "The head morphology strongly deviates from the Ridgeback standard. A classifier is needed to determine if this is a misclassified breed or an AI hallucination of features.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "dog",
+                "reason": "Severe anatomical ambiguity in the hindquarters requires keypoint detection to confirm if valid biological structures exist or if limbs are missing/fused.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "stick and mouth",
+                "reason": "To audit the 'melting' artifact observed where the stick enters the mouth, ensuring it is a distinct object and not a texture smear.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "General quality check to identify if the blurriness is artistic depth-of-field or AI-generated smoothing artifacts.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

@@ -1,0 +1,191 @@
+{
+    "image_id": "000118",
+    "class_label": "ringlet, ringlet butterfly",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:21:20",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan incorrectly assigns the `animal_pose_auditor` to an insect subject. The expert registry explicitly states this expert is 'ONLY for limbed subjects' and 'NOT for limbless', but in the context of this system, it relies on standard 17-point human/animal skeletal models which are incompatible with insect anatomy (6 legs, different joint structure). Using it will result in failure or noise. Additionally, the plan misses a critical geometric check: the butterfly is perched on a stem, requiring verification that the legs physically grasp the stem rather than floating or merging, which is a classic AI artifact not covered by the current experts.",
+        "suggestions": [
+            {
+                "type": "expert_removal",
+                "point": "Remove animal_pose_auditor",
+                "recommended_expert": "N/A",
+                "reason": "The animal_pose_auditor is designed for vertebrate/human skeletons and cannot validly audit insect leg articulation or count."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Physical contact between legs and plant stem",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The image shows the butterfly perched on a vertical stem. It is critical to verify that the visible mid/hind legs actually wrap around or touch the stem with correct occlusion and depth, rather than floating in front or bleeding into the background. The current plan lacks a depth/contact audit."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Leg count and visibility",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Since the pose auditor is removed, an open-vocabulary detector should be used to specifically locate and count visible legs to ensure no extra limbs are generated, serving as a basic sanity check for arthropod anatomy."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up macro photograph of a butterfly, identified as a Ringlet (Aphantopus hyperantus), perched on a green plant stem. The butterfly's wings are held closed, displaying a soft brown coloration with distinct white patches and small black eyespots (ocelli) ringed in yellow/white. The body appears fuzzy/hairy and brown. The background is a soft, out-of-focus green.",
+        "image_class": "ringlet",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Clubbed antennae.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Two thin antennae are visible extending from the head; while the very tips are slightly out of focus or cut off, the visible structure is consistent with clubbed antennae typical of butterflies."
+            },
+            {
+                "checkpoint": "Satyrid butterfly with moderately sized wingspan.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The overall morphology, wing shape, and resting posture are consistent with the Satyrid family. The scale relative to the plant stem suggests a moderate wingspan (30-50mm range)."
+            },
+            {
+                "checkpoint": "Wings uniformly brown to dark brown with small eyespots (ocelli) arranged in rows.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wings are predominantly brown. There is a clear row of small ocelli along the ventral hindwing margin and larger white patches with central spots on the forewing/hindwing area, matching the description."
+            },
+            {
+                "checkpoint": "Wings held closed at rest revealing cryptic ventral patterning.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The butterfly is clearly depicted with wings folded vertically above the body, showing the underside (ventral) pattern which serves as camouflage."
+            },
+            {
+                "checkpoint": "Brown body integument matching wing coloration.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The thorax and abdomen are covered in brown hairs that closely match the tone of the wing surfaces."
+            },
+            {
+                "checkpoint": "Slender hairy body.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The thorax is visibly covered in dense setae (hairs), giving it a fuzzy appearance. The body proportions appear slender relative to the wing size."
+            },
+            {
+                "checkpoint": "Reduced brush-like forelegs characteristic of nymphalids.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The angle of the photo and the position of the wings obscure the head and thorax underside where the reduced forelegs would be located. They are not visible."
+            },
+            {
+                "checkpoint": "Chitinous exoskeleton with segmented body (three tagmata).",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The division between the head, thorax, and abdomen is discernible, consistent with insect anatomy. The texture implies a chitinous structure beneath the hair."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Wing surface, specifically the transition between brown scales and white patches.",
+                "severity": 1.5,
+                "reasoning": "The texture of the white patches appears slightly 'smudged' or airbrushed compared to the granular detail of the brown scales. This could be natural variation in scale density or slight AI smoothing, but lacks the crisp microscopic detail expected in high-end macro photography."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Junction of the left antenna and the head.",
+                "severity": 2.0,
+                "reasoning": "The base of the left antenna seems to merge slightly into the fuzzy texture of the head without a distinct joint or socket definition, appearing somewhat 'melted' into the fur."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "butterfly",
+                "verification_goals": [
+                    "Confirm species identification as Aphantopus hyperantus (Ringlet) or close Satyrid relative.",
+                    "Verify presence of diagnostic ocelli patterns."
+                ],
+                "reason": "Primary verification of the class label. The visual features strongly suggest a Ringlet, but expert classification ensures it isn't a similar-looking Satyrid (e.g., Meadow Brown female).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Analyze wing texture for AI-generated smoothing or lack of scale granularity.",
+                    "Check for haloing around the white wing patches.",
+                    "Verify natural depth of field blur consistency."
+                ],
+                "reason": "To investigate the subtle texture anomalies and potential 'airbrushed' look of the white spots which may indicate generative artifacts.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "butterfly_wings",
+                "verification_goals": [
+                    "Segment wing boundaries to check for edge bleeding into the background.",
+                    "Verify continuity of the wing veins (if visible) and spot shapes."
+                ],
+                "reason": "Ensures the butterfly is a coherent object and not merging with the background stem, and that the complex wing patterns are topologically sound.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "butterfly",
+                "verification_goals": [
+                    "Verify anatomical correctness of visible legs (mid and hind legs).",
+                    "Check symmetry of wing folding."
+                ],
+                "reason": "Although forelegs are hidden, the visible legs must attach correctly to the thorax. AI often struggles with the specific joint angles of insect legs.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Reduced brush-like forelegs characteristic of nymphalids."
+        ],
+        "focus_areas": [
+            "Texture fidelity of wing scales vs. white patches.",
+            "Antenna attachment points.",
+            "Leg joint articulation."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the micro-texture of the butterfly wings. Real macro photography should show individual scales or a consistent granular noise pattern. AI images often smooth out these details, especially in lighter colored areas. Also, verify if the 'fuzziness' of the thorax looks like natural hair or generated noise.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000118.png",
+            "class_id": 322,
+            "class_label": "ringlet, ringlet butterfly",
+            "router_cost_seconds": 30.24,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "butterfly",
+                "reason": "Primary verification of the class label. The visual features strongly suggest a Ringlet, but expert classification ensures it isn't a similar-looking Satyrid (e.g., Meadow Brown female).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To investigate the subtle texture anomalies and potential 'airbrushed' look of the white spots which may indicate generative artifacts.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "butterfly_wings",
+                "reason": "Ensures the butterfly is a coherent object and not merging with the background stem, and that the complex wing patterns are topologically sound.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "butterfly",
+                "reason": "Although forelegs are hidden, the visible legs must attach correctly to the thorax. AI often struggles with the specific joint angles of insect legs.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

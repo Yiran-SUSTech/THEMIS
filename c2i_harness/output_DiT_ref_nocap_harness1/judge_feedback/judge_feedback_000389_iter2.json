@@ -1,0 +1,168 @@
+{
+    "image_id": "000389",
+    "class_label": "space bar",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:35:46",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification goals. The primary conflict is a domain mismatch: the taxonomy defines a 'space bar' as a modern computer keyboard component (plastic, flush), while the image shows a vintage typewriter space lever (metal, protruding). The Router correctly identifies this geometric/material failure in the checkpoints but then assigns the `fine_grained_classifier` to verify if the object is a 'space bar'. Since standard classifiers (ImageNet-based) typically distinguish between 'typewriter' and 'computer keyboard', asking it to validate the specific component label is likely to yield a negative result that doesn't help resolve the semantic ambiguity. More importantly, the plan fails to explicitly verify the *absence* of modern keyboard features (e.g., verifying the keys are round/typebars rather than square plastic caps) which would definitively prove the domain mismatch. The `topology_boundary_auditor` is tasked with checking 'type-bar linkage', which is valid for image quality, but does not address the core classification error.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify key shape and material to confirm domain mismatch (Typewriter vs. Computer Keyboard).",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "incorrect_expert_goal",
+                "point": "The fine_grained_classifier should not be asked to validate the 'space bar' label if the geometry already failed. Instead, it should be used to classify the overall device as 'typewriter' to confirm the context, thereby invalidating the 'computer keyboard space bar' label.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Explicitly verify that the 'space bar' is a mechanical lever distinct from the key row, contradicting the 'flush with row' taxonomy requirement.",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A vintage manual typewriter with a green metal body, black carriage, and round keys. The image focuses on the keyboard area where a long, horizontal bar is located at the bottom center. Visible text includes 'OLIVETTI' on the ribbon cover and various characters on the keycaps.",
+        "image_class": "space bar",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated rectangular key spanning the full width of the bottom keyboard row.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is a mechanical lever (typewriter space bar) that protrudes significantly from the chassis. It does not sit flush or span the 'width of the row' like a modern keyboard key; it is a distinct, isolated mechanical component."
+            },
+            {
+                "checkpoint": "Length is dramatically greater than any other key, roughly ten times the width of a standard letter key.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The space lever is visibly much longer than the individual round type-keys, satisfying the relative proportion requirement despite the different form factor."
+            },
+            {
+                "checkpoint": "Surface is flat or slightly concave.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface is a smooth, rounded metal bar (cylindrical profile), not a flat or concave plastic keycap surface as described in the taxonomy for computer keyboards."
+            },
+            {
+                "checkpoint": "Underside connects to a long stabilizer bar mechanism.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The underside and internal mechanical linkage are completely occluded by the angle of the photo and the device's housing."
+            },
+            {
+                "checkpoint": "Label is typically blank with no printed character.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The metal bar has no printed characters or legends on its visible surface."
+            },
+            {
+                "checkpoint": "Positioned centrally between modifier keys on the bottom row.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "On this typewriter, the space bar is positioned *below* the lowest row of keys, not *between* keys in the same row. Additionally, typewriters do not have 'modifier keys' (like Shift/Ctrl) in the modern sense flanking the space bar."
+            },
+            {
+                "checkpoint": "Smooth matte plastic finish.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The material is clearly painted metal with specular highlights, not matte plastic."
+            },
+            {
+                "checkpoint": "Typically white, black, or gray to match keyboard color scheme.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bar is a metallic silver/chrome color, which coordinates with the metal type-bars, fitting the general aesthetic even if not strictly black/white/gray plastic."
+            },
+            {
+                "checkpoint": "Part of a standard computer or typewriter keyboard.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object is undeniably part of a typewriter keyboard assembly."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "space bar",
+                "verification_goals": [
+                    "Verify if the model classifies the specific component as a 'space bar' or 'keyboard key' despite the vintage typewriter context.",
+                    "Determine if the classifier distinguishes between modern computer peripherals and vintage mechanical parts to resolve the domain mismatch contradiction."
+                ],
+                "reason": "To assess if the semantic label 'space bar' holds true for this mechanical variant under strict ImageNet-style classification, addressing the logical conflict between geometry failure and context success.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "space bar",
+                "verification_goals": [
+                    "Detect the elongated bar at the bottom of the keyboard.",
+                    "Provide bounding box priors for the specific object to isolate it from the rest of the typewriter body."
+                ],
+                "reason": "To confirm the object's location and isolation before detailed boundary analysis.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "type-bar linkage",
+                "verification_goals": [
+                    "Verify the structural plausibility of the type-bar linkage (the metal arms connecting keys to the print head).",
+                    "Check for AI-generated hallucinations or fused mechanics in the complex array of metal arms."
+                ],
+                "reason": "To ensure the complex mechanical structure of the typewriter internals is physically consistent and not an AI artifact.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Analyze the texture consistency of the metal vs. the painted body.",
+                    "Check for subtle blurring or noise inconsistencies typical of AI generation in complex mechanical details."
+                ],
+                "reason": "To perform a holistic quality check on the realistic rendering of the vintage materials.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "typewriter text",
+                "verification_goals": [
+                    "Audit the visual text quality on the typewriter ribbon cover ('OLIVETTI') and keycaps.",
+                    "Check for gibberish, warped characters, or unreadable text artifacts common in AI-generated images of devices with text."
+                ],
+                "reason": "To verify the integrity of the prominent text features which are prone to AI degradation.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Underside connects to a long stabilizer bar mechanism."
+        ],
+        "focus_areas": [
+            "Material mismatch: Metal vs. Plastic.",
+            "Geometric mismatch: Protruding lever vs. Flush key.",
+            "Structural integrity of the type-bar linkage.",
+            "Text quality on ribbon cover and keys."
+        ],
+        "custom_prompts_for_reflector": "The taxonomy provided describes a modern computer keyboard space bar (plastic, flush, rectangular). The image shows a vintage typewriter space bar (metal, protruding, cylindrical). Evaluate whether the 'Class Label' should be considered correct despite the significant morphological and material differences, or if this constitutes a negative sample due to domain mismatch (Typewriter vs. Computer). Specifically address the contradiction where the object fails geometric checkpoints but passes context checkpoints.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000389.png",
+            "class_id": 810,
+            "class_label": "space bar",
+            "router_cost_seconds": 30.61,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

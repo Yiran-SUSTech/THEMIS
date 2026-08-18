@@ -1,0 +1,187 @@
+{
+    "image_id": "000103",
+    "class_label": "Rhodesian ridgeback",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:21:20",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and coverage. The `fine_grained_classifier` is tasked with distinguishing the breed, but standard ImageNet-trained classifiers (like ViT) typically lack the granularity to distinguish between similar large brown dogs (e.g., Rhodesian Ridgeback vs. Boxer vs. Mastiff mix) without specific fine-tuning or few-shot prompting. Relying solely on this expert for the primary 'Class Label' verification is scientifically weak. Furthermore, the plan fails to explicitly assign an expert to verify the 'Ridge' absence via negative evidence; while marked 'unverifiable' due to occlusion, the combination of a Boxer-like head AND no visible ridge strongly suggests a class error that should be flagged by the `perceptual_quality_auditor` or `open_vocabulary_detector` as a 'missing distinctive feature' rather than just 'occluded'.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Breed differentiation relies too heavily on a generic classifier which may fail on fine-grained canine taxonomy.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "The 'Ridge' checkpoint is marked unverifiable due to occlusion. However, given the suspected misclassification (Boxer-like head), the auditor should explicitly check for ANY sign of the ridge (even partial) to rule out the target class definitively. If the head is wrong, the ridge is likely missing entirely, not just hidden.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "expert_addition",
+                "point": "Add Open Vocabulary Detector to confirm the presence/absence of 'ridge' features specifically, providing a bounding box prior for the spine area even if occluded, to ensure no hallucinated ridge texture exists.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A medium shot of a muscular, reddish-brown dog sitting on grass holding a stick in its mouth. The dog has a short coat and appears to be smiling with its tongue out. The background is blurred green foliage.",
+        "image_class": "Rhodesian ridgeback",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is fairly long and flat with moderate stop.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head shape appears disproportionately blocky and square (resembling a Boxer or Mastiff) rather than the 'fairly long and flat' profile characteristic of a Rhodesian Ridgeback. The muzzle is too short and deep."
+            },
+            {
+                "checkpoint": "Eyes are round, bright, and intelligent, color matching coat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes are visible, round, and dark/brown, consistent with the coat color."
+            },
+            {
+                "checkpoint": "Ears are set high, medium-sized, and carried close to head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The ears appear to be folded over or cropped very short and sit somewhat low/wide on the skull, lacking the distinct high-set, pendant appearance of a Ridgeback."
+            },
+            {
+                "checkpoint": "Ridge of reversed hair growing forward along spine from shoulders to hips forming two symmetrical crowns.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The dog is facing forward; the spine and back are completely occluded by the angle of the body and the head position. The defining feature cannot be verified."
+            },
+            {
+                "checkpoint": "Coat is short, dense, sleek, and glossy ranging from light wheaten to red wheaten.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coat texture is short and smooth, and the color is a rich red-wheaten, matching the description."
+            },
+            {
+                "checkpoint": "Body is muscular and athletic with deep chest of large hound proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The dog exhibits significant musculature in the chest and shoulders, consistent with an athletic build."
+            },
+            {
+                "checkpoint": "Legs are straight and muscular.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible forelegs are straight and show muscle definition."
+            },
+            {
+                "checkpoint": "Tail is thick at base, tapering, and carried in slight curve.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is not visible in the frame due to the sitting posture and camera angle."
+            },
+            {
+                "checkpoint": "Gait is free and powerful with strong drive.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The subject is stationary (sitting), so gait cannot be evaluated."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Hind legs and lower torso",
+                "severity": 4,
+                "reasoning": "The anatomy of the hindquarters is nonsensical. The right hind leg seems to merge into the grass without a clear paw or joint structure, and the left hind leg appears to float or blend into the stick/ground interface. There is a lack of clear skeletal definition in the pelvic region."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Mouth and Stick interface",
+                "severity": 3,
+                "reasoning": "The connection between the teeth/tongue and the stick is blurry and indistinct. The stick itself lacks realistic bark texture and appears to 'melt' slightly into the dog's jawline."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Front paws",
+                "severity": 2,
+                "reasoning": "The front paws are partially obscured by the grass but appear slightly disproportionate and lack distinct toe separation, blending into the foreground vegetation."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Determine if the breed is Rhodesian Ridgeback or a look-alike (e.g., Boxer mix, Mastiff)"
+                ],
+                "reason": "To objectively verify if the visual features correspond to the target class or a different breed, addressing the suspected head morphology mismatch.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "head and face",
+                "verification_goals": [
+                    "Describe head shape (blocky vs long/flat)",
+                    "Analyze ear set characteristics (height and carriage)"
+                ],
+                "reason": "To provide detailed morphological analysis of the head and ears which deviate from the Ridgeback standard, as classifiers do not output geometric attributes.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "hindquarters and ground",
+                "verification_goals": [
+                    "Verify physical separation between hind legs and grass",
+                    "Detect foreground-background bleeding or depth inconsistencies in the pelvic region"
+                ],
+                "reason": "To confirm if the observed 'melting' of hind legs into the grass is a spatial grounding error (lack of depth separation) rather than just occlusion.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Verify structural integrity of hind limbs",
+                    "Check for missing or fused joints in the pelvic region"
+                ],
+                "reason": "To audit biological plausibility of limb placement and detect missing anatomical keypoints in the collapsed hindquarters.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "stick and mouth interface",
+                "verification_goals": [
+                    "Segment the boundary between the stick and the dog's mouth",
+                    "Verify clean edges to rule out texture melting/fusion"
+                ],
+                "reason": "To specifically audit the interface where the stick enters the mouth, ensuring distinct object boundaries and detecting the reported 'melting' artifact.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Ridge of reversed hair (occluded)",
+            "Tail structure (occluded)",
+            "Gait dynamics (static pose)"
+        ],
+        "focus_areas": [
+            "Breed identification accuracy (Head shape/Ears)",
+            "Hindquarter anatomical validity and spatial grounding",
+            "Object interaction integrity (Stick/Mouth boundary)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the discrepancy between the 'Rhodesian Ridgeback' label and the visual evidence of a Boxer-like head shape. Investigate whether the hind legs are physically plausible or if they exhibit AI 'melting' into the grass using depth cues. Verify if the 'ridge' is simply hidden or if the absence of visible ridge indicators combined with wrong head shape suggests a total class failure. Ensure the stick does not visually fuse with the dog's teeth.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000103.png",
+            "class_id": 159,
+            "class_label": "Rhodesian ridgeback",
+            "router_cost_seconds": 32.88,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}
