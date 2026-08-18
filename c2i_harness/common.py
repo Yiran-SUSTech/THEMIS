@@ -385,6 +385,7 @@ def preload_expert_managers(
             "open_vocabulary_detector": {"device": "cpu", "num_gpus": 0},
             "topology_boundary_auditor": {"device": "cpu", "num_gpus": 0},
             "image_text_auditor": {"device": "cpu", "num_gpus": 0},
+            "animal_pose_auditor": {"device": "cpu", "num_gpus": 0},
         }
         shared_cpu_manager = ExpertManager(gpu_config=cpu_config)
         cpu_ids_to_load = [eid for eid in required_ids if eid in CPU_EXPERT_IDS]

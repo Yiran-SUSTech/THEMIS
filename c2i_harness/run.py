@@ -301,6 +301,7 @@ Examples:
             pose_hard_cap=args.pose_hard_cap,
             enable_classifier_cap=args.enable_classifier_cap,
             enable_self_reflection=args.enable_self_reflection,
+            save_pose_viz=args.save_pose_viz,
         )
 
     elif args.mode == "batch":

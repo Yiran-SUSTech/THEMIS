@@ -189,6 +189,7 @@ async def _gpu_worker(
     done_event: asyncio.Event,
     reflector_queue: asyncio.Queue | None = None,
     cpu_semaphore: object | None = None,
+    save_pose_viz: bool = False,
 ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -214,7 +215,7 @@ async def _gpu_worker(
 
                 bundle = await loop.run_in_executor(
                     None, execute_plan, plan, expert_manager, resolved_path, class_label,
-                    False, cpu_semaphore,
+                    save_pose_viz, cpu_semaphore,
                 )
                 await loop.run_in_executor(
                     None, save_testimony_bundle, bundle, expert_results_dir,
@@ -378,6 +379,7 @@ async def _run_full_pipeline(
     pose_hard_cap: bool = False,
     enable_classifier_cap: bool = True,
     enable_self_reflection: bool = True,
+    save_pose_viz: bool = False,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -421,6 +423,7 @@ async def _run_full_pipeline(
             gpu_semaphore, i, stats, gpu_done_event,
             reflector_queue=reflector_queue,
             cpu_semaphore=cpu_semaphore,
+            save_pose_viz=save_pose_viz,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -525,6 +528,7 @@ async def run_step3_async(
     image_id_filter: str = "",
     limit: int = 0,
     cpu_semaphore: object | None = None,
+    save_pose_viz: bool = False,
 ) -> dict:
     """Run Step 3 with parallel GPU groups. Public API for batch mode too."""
     stats = {"gpu_ok": 0, "gpu_fail": 0}
@@ -557,6 +561,7 @@ async def run_step3_async(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, done_event,
             cpu_semaphore=cpu_semaphore,
+            save_pose_viz=save_pose_viz,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -735,6 +740,7 @@ def run_async_pipeline(
     pose_hard_cap: bool = False,
     enable_classifier_cap: bool = True,
     enable_self_reflection: bool = True,
+    save_pose_viz: bool = False,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     # Without-expert ablation mode: router-only direct scoring
@@ -803,6 +809,7 @@ def run_async_pipeline(
             pose_hard_cap=pose_hard_cap,
             enable_classifier_cap=enable_classifier_cap,
             enable_self_reflection=enable_self_reflection,
+            save_pose_viz=save_pose_viz,
         ))
     elif run_step12 and not run_step3:
         client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
@@ -829,6 +836,7 @@ def run_async_pipeline(
             expert_results_dir=expert_results_dir,
             expert_managers=expert_managers,
             cpu_semaphore=cpu_semaphore,
+            save_pose_viz=save_pose_viz,
         ))
 
     return {}
