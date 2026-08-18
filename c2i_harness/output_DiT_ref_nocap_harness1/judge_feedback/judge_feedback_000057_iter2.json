@@ -2,25 +2,39 @@
     "image_id": "000057",
     "class_label": "drake",
     "iteration": 2,
-    "timestamp": "2026-08-18 15:18:47",
+    "timestamp": "2026-08-18 23:54:09",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical and expert-selection errors. 1) The `animal_pose_auditor` is incorrectly selected for a bird; this expert is defined as detecting '17 keypoints' which typically refers to human/standard mammal skeletal structures (COCO format), making it ineffective for avian anatomy (wings/webbed feet). 2) The plan fails to address the most prominent visual artifact: the severe geometric distortion/melting of the duck's tail feathers into the water/background on the left side. 3) The `fine_grained_classifier` is assigned an unjustifiably high weight (0.35) for an image where the species is visually obvious, while structural integrity experts are under-weighted. 4) The `topology_boundary_auditor` is tasked with checking a 'background object', but the primary topological failure is on the main subject's tail.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'Legs are short... with webbed feet' checkpoint is marked is_present=false. While the plan notes they are likely occluded, the image shows a dabbling posture where legs might be visible trailing in the water or tucked under the tail. The current plan relies on perceptual_quality_auditor to 're-evaluate', but lacks a specific detection step to confirm absence vs. generation failure.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "expert_replacement",
+                "point": "Replace animal_pose_auditor with topology_boundary_auditor or perceptual_quality_auditor for anatomical checks.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The `animal_pose_auditor` is not suitable for birds. The `topology_boundary_auditor` should be used to verify the connectivity of the wings and tail to the body, ensuring no floating parts or biological impossibilities."
             },
             {
-                "type": "refinement",
-                "point": "The topology_boundary_auditor should explicitly target the 'specular highlights' on the green head and the white neck ring. AI generators often fail to maintain consistent lighting physics between the iridescent head (high specular) and the matte body, causing boundary bleeding at the neck ring.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_verification",
+                "point": "Severe structural collapse of the tail feathers (left side).",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The tail feathers appear to melt into the water and lack distinct boundaries. A depth audit is required to verify if this is a valid occlusion or a generative artifact (spatial grounding error)."
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Rebalance weights to prioritize structural integrity over classification.",
+                "recommended_expert": "N/A",
+                "reason": "Reduce `fine_grained_classifier` weight to <0.1 (species is obvious). Increase `topology_boundary_auditor` and `geometric_depth_auditor` weights to >0.4 combined to address the visible melting artifacts."
+            },
+            {
+                "type": "artifact_omission",
+                "point": "Missing observation of tail feather distortion.",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The current plan misses the 'smearing' of the tail feathers. This should be flagged as a severity 3+ artifact in the initial observation phase."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A male mallard duck (drake) floating on dark, rippling water. The duck is captured in a dynamic pose with its head tucked down towards the water and its tail feathers raised high (dabbling posture). It displays characteristic breeding plumage: an iridescent green head, a distinct white neck ring, and a brownish-grey patterned body. The bill is visible and appears yellow-green. The reflection of the duck is distorted in the water.",
+        "image_description": "A male Mallard duck (drake) floating on dark, rippling water. The duck displays characteristic breeding plumage: an iridescent green head, a distinct white neck ring, a chestnut-brown breast, and a greyish body with brown mottling on the flanks. The bill is yellow-green with a black tip. A second duck or wing structure is partially visible in the background to the left.",
         "image_class": "drake",
         "checkpoint_verdicts": [
             {
@@ -28,119 +42,121 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bill is clearly visible despite the head angle. It exhibits the characteristic broad, flat shape and yellow-green coloration of a male mallard."
+                "reasoning": "The bill is clearly visible, broad and flat, with the correct yellow-green coloration and black tip typical of a Mallard drake. It is structurally sound and distinct from the white neck ring."
             },
             {
                 "checkpoint": "Eyes are dark.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Although the head is angled down, the eye region is visible against the green plumage and appears dark/black."
+                "reasoning": "A dark eye is clearly visible on the side of the green head, positioned correctly above the bill line."
             },
             {
                 "checkpoint": "Body is stocky and compact, streamlined and buoyant with dense waterproof plumage.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body shape is compact and sits low in the water. The plumage texture appears dense and smooth, consistent with waterproof feathers, showing no signs of matting or unnatural clumping."
+                "reasoning": "The body shape is consistent with a floating duck, appearing buoyant, compact, and covered in dense feathers that sit high on the water."
             },
             {
                 "checkpoint": "Breeding plumage is typically more colorful than female: common patterns include iridescent green head with white neck ring and grey body (mallard), or chestnut head with grey body.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The image clearly shows the specific mallard pattern: iridescent green head, clear white neck ring, and brown/grey body patterning."
+                "reasoning": "The plumage matches the Mallard drake description perfectly: iridescent green head, clear white neck ring, chestnut breast, and grey/brown body feathers."
             },
             {
                 "checkpoint": "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing).",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "Correction from previous plan: While the duck is in a dabbling posture with the rear elevated, the legs and webbed feet are not visible in this specific frame. They are likely tucked under the body or obscured by the angle of the raised tail and water splash. Therefore, the feature is testable (area is visible) but the specific anatomical parts are absent/occluded."
+                "reasoning": "The legs and feet are submerged beneath the water surface and are not visible in this view."
             },
             {
                 "checkpoint": "Wings are broad and pointed.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The folded wings are visible on the side of the body. They appear broad with defined edges and correct layering, consistent with the anatomy of a duck at rest/dabbling."
+                "reasoning": "The folded wings on the side of the body appear structurally sound, with visible feather layering and appropriate proportions for a resting duck."
             },
             {
                 "checkpoint": "Tail is short with curled central tail feathers (drake feathers) in many species.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail feathers are distinctly curled upward, a key identifying feature of the drake, and are clearly visible due to the dabbling posture."
+                "reasoning": "The rear of the duck shows the characteristic upward curl of the central tail feathers (drake curls) typical of male Mallards."
             }
         ],
-        "artifact_observations": [],
-        "expert_verification_plan": [
+        "artifact_observations": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "drake",
-                "verification_goals": [
-                    "Detect and localize the drake to provide precise bounding box priors.",
-                    "Identify specific body parts (head, tail, wings) to guide segmentation experts."
-                ],
-                "reason": "Essential first step to isolate the subject from the complex water background, enabling accurate boundary and topology auditing.",
-                "weight": 0.15
+                "artifact_type": "structural_collapse",
+                "location": "Background left (behind main subject)",
+                "severity": 3,
+                "reasoning": "There is an ambiguous mass of feathers/wings behind the main duck's left side. It is unclear if this is a second duck, a reflection, or a hallucinated limb structure. The geometry does not fully resolve into a coherent separate object."
             },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Water surface around body",
+                "severity": 2,
+                "reasoning": "The water interaction at the waterline is slightly smeared. The reflection of the green head is somewhat distinct but lacks the precise distortion expected from ripples, looking slightly 'painted on' rather than optically accurate."
+            }
+        ],
+        "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "drake",
                 "verification_goals": [
-                    "Confirm species identification as Anas platyrhynchos (Mallard) based on head coloration and neck ring.",
-                    "Verify breeding plumage characteristics match the 'drake' class label."
+                    "Confirm species identification as Mallard Drake based on plumage patterns.",
+                    "Verify if the visual features align with the 'drake' class label."
                 ],
-                "reason": "Primary verification of the subject's taxonomic identity and specific visual markers (green head, white ring).",
-                "weight": 0.25
+                "reason": "Primary subject verification to ensure the base generation is taxonomically grounded and to confirm the correct presence of the bill and plumage features previously misidentified.",
+                "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "drake",
                 "verification_goals": [
-                    "Verify the structural connectivity of the head-neck-body-tail chain.",
-                    "Audit the plausibility of the wing and tail positioning in the dabbling posture.",
-                    "Check for any fused limbs or extra appendages near the vent/tail area."
+                    "Verify anatomical correctness of the head, bill, and body alignment.",
+                    "Confirm the structural integrity of the visible limbs (wings) and tail curls."
                 ],
-                "reason": "Crucial for validating biological structure, especially given the dynamic pose which can hide AI generation errors like limb fusion.",
-                "weight": 0.2
+                "reason": "To provide holistic anatomical validation and refute any potential subtle deformations, ensuring the bird's pose and structure are biologically valid.",
+                "weight": 0.3
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "drake",
+                "target_subject": "background object / secondary duck",
                 "verification_goals": [
-                    "Audit the boundary between the duck's body and the water for unnatural blending or bleeding.",
-                    "Verify the structural integrity of the curled tail feathers and wing edges using OVD priors."
+                    "Segment the ambiguous shape behind the main duck to determine if it is a separate entity or a fused part of the main subject.",
+                    "Check boundary sharpness between the main duck's wing and the background anomaly."
                 ],
-                "reason": "AI images often struggle with the interface between floating subjects and water, leading to 'melting' artifacts. Requires OVD priors for accuracy.",
+                "reason": "To resolve the ambiguity of the 'extra' wing/duck structure in the background which may indicate object duplication or merging artifacts.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "drake",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "water surface and duck",
                 "verification_goals": [
-                    "Check for texture anomalies in the plumage (e.g., overly smooth or painterly textures).",
-                    "Assess the realism of the water ripples and reflections.",
-                    "Re-evaluate the visibility of legs/feet in the exposed rear area."
+                    "Verify the physical grounding of the duck in the water.",
+                    "Check if the reflection aligns geometrically with the head position."
                 ],
-                "reason": "Holistic quality check to detect subtle generative artifacts in texture and lighting consistency, and to verify the absence of legs noted in checkpoints.",
-                "weight": 0.2
+                "reason": "To ensure the floating posture is physically plausible and not just a 2D overlay, addressing the texture anomalies at the waterline.",
+                "weight": 0.15
             }
         ],
-        "unverifiable_points": [],
-        "focus_areas": [
-            "Water-subject boundary integrity",
-            "Plumage texture realism",
-            "Structural connectivity of tail and wings in dynamic pose",
-            "Absence/Occlusion of legs in dabbling posture"
+        "unverifiable_points": [
+            "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing)."
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the transition line where the duck meets the water, especially around the raised tail. AI generators often create a 'halo' or soft blur here instead of a sharp displacement of water. Verify that the curl of the tail feathers follows a physically plausible structure and isn't just a textured blob. Specifically check the area under the raised tail for any signs of fused or missing leg structures, as the pose exposes the vent area.",
+        "focus_areas": [
+            "Bill morphology and connection to head (confirming correctness)",
+            "Ambiguous background structure behind the left wing",
+            "Waterline integration and reflection consistency"
+        ],
+        "custom_prompts_for_reflector": "Verify the bill is correctly formed and distinct from the neck ring, correcting previous false positives regarding fusion. Investigate the object behind the duck—is it a second duck or a hallucinated wing? Check the water texture for 'smearing' artifacts common in generative models.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000057.png",
             "class_id": 97,
             "class_label": "drake",
-            "router_cost_seconds": 29.68,
+            "router_cost_seconds": 28.55,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

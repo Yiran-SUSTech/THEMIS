@@ -2,33 +2,33 @@
     "image_id": "000040",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-18 15:17:12",
+    "timestamp": "2026-08-18 23:52:39",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to address a major visual artifact present in the image. \n1. **False Positive on Anatomy**: The Router marked 'Tail is short and blunt' as `is_present: true` (in reasoning) but `is_testable: false`. However, the image clearly shows the tail end of the snake extending towards the top left; it is visible, not obscured. More importantly, the tail appears disproportionately long and thin compared to the 'short and blunt' description of *Carphophis amoenus*, suggesting a potential anatomical error that should be flagged, not ignored.\n2. **Missed Artifact (Double Head/Fusion)**: The image exhibits a severe generative artifact where the snake's body seems to split or fuse with another serpentine form in the center/right, creating a 'double-headed' or tangled appearance. The Router noted a 'second... snake' but failed to flag this as a structural/topological artifact in `artifact_observations`, treating it merely as a background object. This violates the integrity of the single-subject generation.\n3. **Inadequate Expert Focus**: The `topology_boundary_auditor` is tasked with checking edge bleeding, but the primary issue is internal topological connectivity (body fusion/splitting). The plan lacks a specific verification goal to audit the continuity of the snake's spine/body to ensure it is a single, non-branching entity.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. The Router identified a 'Coloration' mismatch (Grey vs Pinkish-brown) as a key failure point but assigned the `fine_grained_classifier` to resolve it. Standard classifiers output class probabilities, not colorimetric data or lighting analysis; they cannot distinguish between a 'grey snake' and a 'pink snake under cool light'. Furthermore, the plan fails to utilize the `open_vocabulary_detector`, which is explicitly defined as the necessary precursor for segmentation experts. Without bounding box priors from OVD, the `topology_boundary_auditor` lacks the specific region of interest to accurately audit edge bleeding against the complex leaf litter background.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Anatomical Continuity and Single-Entity Verification",
-                "recommended_expert": "topology_boundary_auditor",
-                "detail": "Add a verification goal to explicitly check if the snake is a single continuous tube without branching, fusing, or 'double-head' artifacts. The current plan focuses on boundary sharpness against the background, missing the internal structural failure."
+                "type": "missing_expert_dependency",
+                "point": "Topology Boundary Auditor requires spatial priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` needs precise BBox coordinates to segment the snake from the complex background. The plan must include `open_vocabulary_detector` first to locate the 'snake' and provide these priors."
             },
             {
-                "type": "checkpoint_correction",
-                "point": "Tail Visibility and Morphology",
-                "recommended_expert": "fine_grained_classifier",
-                "detail": "Re-evaluate the 'Tail' checkpoint. The tail is visible. The expert should verify if the tail morphology matches the 'short/blunt' description or if it is erroneously generated as long/tapered, which would indicate a misclassification or generation error."
-            },
-            {
-                "type": "artifact_flagging",
-                "point": "Body Fusion/Splitting Artifact",
+                "type": "incorrect_expert_capability",
+                "point": "Coloration verification via Classifier",
                 "recommended_expert": "perceptual_quality_auditor",
-                "detail": "The 'second creature' is likely a generative artifact (body duplication/fusion). This should be added to `artifact_observations` with high severity, and the Perceptual Quality Auditor should specifically inspect the mid-body region for inconsistent geometry."
+                "reason": "Replace or augment the `fine_grained_classifier` goal for color. A ViT classifier cannot verify hue deviations caused by lighting. The `perceptual_quality_auditor` (VLM) should be tasked with analyzing white balance and specular highlights to determine if the 'grey' tone is an artifact of lighting or material generation."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Secondary snake structural integrity",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The artifact observation notes a 'structural collapse' in the bottom right. The `geometric_depth_auditor` should specifically verify if this element has valid depth separation from the background or if it is a 2D texture bleed, which the current plan only assigns to the perceptual auditor."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a small, slender snake with a glossy, reddish-brown body coiled on a forest floor covered in leaf litter and moss. The snake's head is small and barely distinct from its neck, consistent with burrowing species. A second, thinner brown snake or legless lizard is partially visible to the right.",
+        "image_description": "The image displays a small, slender snake with a uniform brownish-grey coloration coiled on a forest floor covered in leaf litter, moss, and twigs. The snake has a glossy texture and a blunt head that blends seamlessly into its cylindrical body. A second, partial snake body or tail is visible in the lower right corner.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -36,140 +36,152 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The subject's head is clearly visible, appearing small, rounded, and continuous with the body cylinder without a distinct neck constriction."
+                "reasoning": "The head is clearly visible, small, and lacks a distinct neck, matching the description of being barely distinct from the body with a blunt snout."
             },
             {
                 "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Upon close inspection of the head region, the eyes appear as very small, dark points, consistent with the 'minute' description for this species."
+                "reasoning": "A tiny dark spot consistent with a minute eye is visible on the side of the head, appearing recessed beneath the scale layer."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body maintains a consistent, slender cylindrical diameter throughout the visible coils, lacking the lateral compression seen in many other snakes."
+                "reasoning": "The snake exhibits a consistent, thin cylindrical diameter throughout its length, resembling an earthworm in proportion."
             },
             {
                 "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The dorsal surface exhibits a uniform reddish-brown hue that matches the taxonomic description."
+                "is_present": false,
+                "reasoning": "The dorsal coloration appears more greyish-brown or taupe rather than the distinct pinkish-brown or reddish-brown specified in the taxonomy. Lighting may affect this, but the hue deviates from the ground truth."
             },
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "In areas where the snake is twisted, the underside is visible and appears significantly lighter (pale pink/white) than the dorsal side."
+                "reasoning": "In the coiled section where the underside is partially exposed, the color is noticeably lighter, appearing pale pinkish-white."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Light reflections on the snake's back indicate a smooth, non-keeled scale texture with a glossy finish."
+                "reasoning": "Strong specular highlights are visible along the curves of the body, indicating a very smooth, glossy, and polished scale texture without keels."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body color is solid and uniform, lacking any spots, stripes, or blotches."
+                "reasoning": "The body color is solid and uniform, lacking any bands, spots, or stripes."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "The tail tip is obscured by the coiling of the body and the surrounding leaf litter, making it impossible to verify length or shape."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible tail end tapers slightly but terminates in a blunt, rounded tip rather than a sharp point, consistent with the species."
             }
         ],
-        "artifact_observations": [],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Snake body surface",
+                "severity": 1,
+                "reasoning": "While glossy, the scale texture lacks micro-detail in some areas, appearing slightly 'smudged' or overly smooth like plastic, which is a common AI artifact for reptile skin."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Lower right corner (secondary snake)",
+                "severity": 2,
+                "reasoning": "The secondary snake body/tail in the bottom right fades into the background leaf litter with undefined edges and ambiguous geometry, suggesting generation instability."
+            }
+        ],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "main snake",
+                "target_subject": "snake",
                 "verification_goals": [
-                    "Confirm species identity as Carphophis amoenus (Thunder Snake) vs. similar small colubrids or legless lizards.",
-                    "Verify absence of keeled scales which would indicate a different genus."
+                    "Confirm species identity as Carphophis amoenus vs other small colubrids",
+                    "Verify dorsal coloration classification (pinkish-brown vs grey-brown)"
                 ],
-                "reason": "Primary verification of the class label. Visual similarity to other small brown snakes requires high-confidence taxonomic classification.",
-                "weight": 0.4
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "all subjects",
-                "verification_goals": [
-                    "Detect and bound the primary snake.",
-                    "Identify the secondary slender creature on the right to ensure it is not a fused artifact or misidentified limb."
-                ],
-                "reason": "To isolate the main subject for segmentation and clarify the identity of the background object.",
-                "weight": 0.2
+                "reason": "Critical to verify if the color deviation is a lighting artifact or a misclassification of the species.",
+                "weight": 0.35
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "main snake",
+                "target_subject": "snake body",
                 "verification_goals": [
-                    "Verify the snake is a single continuous entity without floating segments.",
-                    "Check for edge bleeding between the glossy scales and the complex leaf litter background."
+                    "Verify continuity of the snake body against leaf litter",
+                    "Check for edge bleeding or fusion with background elements"
                 ],
-                "reason": "AI generation often struggles with the boundary between shiny, smooth objects and complex textured backgrounds like soil.",
-                "weight": 0.2
+                "reason": "To audit the 'smudged' texture and ensure the snake is a distinct physical entity and not merging with the ground.",
+                "weight": 0.25
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
                 "verification_goals": [
-                    "Assess overall sharpness and natural noise levels.",
-                    "Check for subtle 'melting' textures in the leaf litter surrounding the snake."
+                    "Assess realism of glossy scale reflections",
+                    "Evaluate structural integrity of the secondary snake in bottom right"
                 ],
-                "reason": "Holistic quality check to rule out low-level generative artifacts in the environment.",
+                "reason": "To determine if the lack of micro-texture and the fading tail are significant AI artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Verify spatial grounding of the snake on the mossy rock/leaf litter",
+                    "Check for floating elements or incorrect shadow casting"
+                ],
+                "reason": "Small burrowing snakes often have grounding issues in AI images; verifying contact shadows is essential.",
                 "weight": 0.2
             }
         ],
-        "unverifiable_points": [
-            "Tail is short and blunt."
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Scale texture glossiness vs. background roughness",
-            "Head-to-body continuity",
-            "Separation of the two visible serpentine forms"
+            "Dorsal color accuracy (pinkish-brown vs grey)",
+            "Scale texture micro-detail vs plastic smoothing",
+            "Structural integrity of the secondary snake element",
+            "Edge definition between snake and complex background"
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the transition between the snake's smooth scales and the rough ground. AI models often blur this boundary or create inconsistent lighting reflections on the scales. Verify if the second creature on the right is anatomically plausible or a distorted duplicate.",
+        "custom_prompts_for_reflector": "Please specifically analyze the dorsal coloration. Is the greyish tone a result of the specific lighting conditions in the image (shadows/white balance) or does it fundamentally contradict the 'pinkish-brown' taxonomy? Also, examine the secondary snake part in the bottom right—is it a separate animal or a generation artifact?",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000040.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 24.13,
+            "router_cost_seconds": 27.1,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "main snake",
-                "reason": "Primary verification of the class label. Visual similarity to other small brown snakes requires high-confidence taxonomic classification.",
-                "weight": 0.4
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "all subjects",
-                "reason": "To isolate the main subject for segmentation and clarify the identity of the background object.",
-                "weight": 0.2
+                "target_subject": "snake",
+                "reason": "Critical to verify if the color deviation is a lighting artifact or a misclassification of the species.",
+                "weight": 0.35
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "main snake",
-                "reason": "AI generation often struggles with the boundary between shiny, smooth objects and complex textured backgrounds like soil.",
-                "weight": 0.2
+                "target_subject": "snake body",
+                "reason": "To audit the 'smudged' texture and ensure the snake is a distinct physical entity and not merging with the ground.",
+                "weight": 0.25
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
-                "reason": "Holistic quality check to rule out low-level generative artifacts in the environment.",
+                "reason": "To determine if the lack of micro-texture and the fading tail are significant AI artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "Small burrowing snakes often have grounding issues in AI images; verifying contact shadows is essential.",
                 "weight": 0.2
             }
         ]

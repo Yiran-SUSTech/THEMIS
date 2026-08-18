@@ -2,200 +2,174 @@
     "image_id": "000098",
     "class_label": "Blenheim spaniel",
     "iteration": 1,
-    "timestamp": "2026-08-18 15:20:31",
+    "timestamp": "2026-08-18 23:55:27",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. Specifically, the `animal_pose_auditor` is selected to audit a subject where key anatomical checkpoints (legs, tail, gait) were explicitly marked as 'unverifiable' due to occlusion/cropping. Keypoint detection on a heavily cropped, lying-down dog will yield incomplete data, leading to false negatives or ambiguous results that do not address the specific 'structural collapse' artifact identified at the muzzle. Furthermore, the plan lacks an `open_vocabulary_detector` to provide bounding box priors for the `topology_boundary_auditor`, which is essential for accurately segmenting the high-contrast white fur against the brown carpet as requested in the focus areas.",
+        "reasons_for_rejection": "The evaluation plan fails to address critical anatomical and structural artifacts visible in the image. Specifically, the 'Head_and_Face' checkpoints claim the head structure is correct, but the image shows a distorted snout/muzzle area that merges with the carpet/bedding, lacking a defined nose or stop. The plan incorrectly marks limb/tail checkpoints as 'unverifiable' due to occlusion, whereas the image actually exhibits severe generative failures (melting limbs, missing tail) that should be audited rather than ignored. Additionally, the `open_vocabulary_detector` is missing, which is required to provide bounding box priors for the `topology_boundary_auditor` to effectively check the complex fur-carpet interface.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Spatial grounding for boundary auditing",
+                "type": "missing_expert",
+                "point": "Lack of localization prior for boundary auditing",
                 "recommended_expert": "open_vocabulary_detector",
-                "reason": "The `topology_boundary_auditor` requires precise object localization to segment the dog from the carpet effectively. Without BBox priors from an open-vocabulary detector, the boundary audit may fail to isolate the 'haloing' artifacts mentioned in the focus areas."
+                "reason": "The `topology_boundary_auditor` requires precise object segmentation to distinguish between the dog's white fur and the brown carpet. Without `open_vocabulary_detector` providing BBox priors, the boundary audit may fail on low-contrast or complex edges."
             },
             {
-                "type": "expert_misalignment",
-                "point": "Ineffective use of animal_pose_auditor",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "Since legs, tail, and full head structure are unverifiable via keypoints due to cropping/posture, the `animal_pose_auditor` adds little value. The weight should be shifted to `perceptual_quality_auditor` or `fine_grained_classifier` to focus on visible texture realism and breed-specific features (eye reflection, ear feathering integrity) rather than geometric pose estimation."
+                "type": "incorrect_verdict",
+                "point": "Checkpoint: 'Head is domed with short upturned nose and well-defined stop'",
+                "recommendation": "Change is_present to false or flag for detailed anatomical audit. The muzzle appears to melt into the foreground object/carpet, lacking a distinct nose or stop structure."
             },
             {
-                "type": "artifact_coverage_gap",
-                "point": "Muzzle structural collapse verification",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "The 'structural collapse' at the muzzle/edge was noted as severity 2.0. The current plan relies on `topology_boundary_auditor` for edges, but `perceptual_quality_auditor` is better suited to analyze the 'melting' distortion and lack of anatomical termination described in the artifact observation."
+                "type": "missing_verification",
+                "point": "Structural integrity of obscured limbs and tail",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "While the prompt marks limbs/tail as 'unverifiable', AI generators often produce 'melting' or extra limbs in these areas. `animal_pose_auditor` should be used to verify if the visible limb fragments are anatomically connected and if the rear body structure terminates logically, rather than assuming they are simply occluded."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Artifact observation consistency",
+                "recommendation": "The `artifact_observations` list is empty, yet the image shows potential texture smearing where the chin meets the surface. The `perceptual_quality_auditor` goals should explicitly include 'contact shadow and edge definition at the chin/chest interface'."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-angle shot of a Blenheim spaniel lying on a brown textured carpet. The dog is positioned horizontally across the frame, with its head on the left and body extending to the right. The coat features distinct chestnut red patches on a white background. The dog's long, feathered ears are prominent, and part of its face (eye and muzzle) is visible.",
+        "image_description": "A close-up, high-angle shot of a Blenheim spaniel (Cavalier King Charles Spaniel) lying on a brown textured carpet. The dog is positioned horizontally across the frame, with its head on the left and body extending to the right. The coat features distinct chestnut red patches on a white background. The dog appears to be resting or sleeping.",
         "image_class": "Blenheim spaniel",
         "checkpoint_verdicts": [
             {
                 "checkpoint": "Head is domed with short upturned nose and well-defined stop.",
                 "category": "Head_and_Face",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "The head is partially cropped at the top and the muzzle/nose area is obscured by the angle and the dog's position against the floor/carpet, making the 'domed' shape and 'upturned nose' impossible to verify accurately."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The side profile of the head clearly shows the characteristic dome shape and the distinct stop (indentation) between the forehead and the short muzzle."
             },
             {
                 "checkpoint": "Eyes are large, round, dark, and set wide apart.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "One eye is clearly visible; it appears large, dark, and round, consistent with the breed standard. While only one is fully seen, the visible features match."
+                "reasoning": "The visible eye is large, dark, and round, consistent with the breed standard. While only one eye is fully visible due to the angle, the placement suggests they are set wide apart."
             },
             {
                 "checkpoint": "Ears are long, set low, and heavily feathered with long fringe.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The ear is prominently displayed, showing significant length, low set placement, and heavy, silky feathering/fringe typical of the breed."
+                "reasoning": "The ear is clearly visible, set low on the skull, and displays significant long, silky feathering/fringe."
             },
             {
                 "checkpoint": "Rich red-and-white parti-color coat with clearly defined red patches on white ground.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coat pattern is distinctly Blenheim (chestnut red on white). The patches are well-defined against the white ground color."
+                "reasoning": "The coat pattern matches the 'Blenheim' description perfectly: clear chestnut/red patches on a pearly white background."
             },
             {
                 "checkpoint": "Coat is long, silky, and straight with moderate feathering on ears, chest, legs, and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The texture of the fur appears silky and straight rather than curly or wiry. Feathering is visible on the ears and body contours."
+                "reasoning": "The texture of the fur appears soft, silky, and straight rather than curly or wiry. Feathering is evident on the ears and chest area."
             },
             {
                 "checkpoint": "Body is compact and cobby with short back of small toy-spaniel proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Although the dog is lying down, the visible torso section suggests a compact, sturdy build consistent with a 'cobby' toy spaniel, lacking the elongated spine of a hound."
+                "reasoning": "Although the dog is lying down, the visible torso length relative to the head size suggests a compact, cobby build typical of toy spaniels."
             },
             {
                 "checkpoint": "Legs are straight with fine bone and feathered hindquarters.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The legs are largely tucked under the body or out of frame due to the lying posture and cropping. Bone structure and straightness cannot be verified."
+                "reasoning": "The legs are tucked under the body or obscured by the angle and the dog's prone position; bone structure cannot be verified."
             },
             {
                 "checkpoint": "Tail is docked and carried level with back, well-feathered.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail is not visible in the frame; the image cuts off before the rear of the dog."
+                "reasoning": "The tail is not visible in the frame; the image cuts off at the rear flank."
             },
             {
                 "checkpoint": "Gait is free and active.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The subject is stationary (lying down), so gait cannot be evaluated."
+                "reasoning": "The subject is stationary/lying down, making gait assessment impossible."
             }
         ],
-        "artifact_observations": [
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "Carpet texture near the dog's belly/chest area",
-                "severity": 1.5,
-                "reasoning": "There is a slight softening/blurring of the carpet fibers immediately adjacent to the white fur of the dog's underside, suggesting minor edge blending issues common in AI generation, though it could also be depth-of-field blur."
-            },
-            {
-                "artifact_type": "structural_collapse",
-                "location": "Left edge of the frame (Muzzle/Nose area)",
-                "severity": 2.0,
-                "reasoning": "The transition from the dog's face to the edge of the image is abrupt and slightly distorted, with the nose/muzzle area appearing to melt into the background or crop boundary rather than having a clean anatomical termination."
-            }
-        ],
+        "artifact_observations": [],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "Blenheim spaniel",
                 "verification_goals": [
-                    "Confirm species identity as Cavalier King Charles Spaniel (Blenheim color)",
-                    "Distinguish from similar breeds like English Cocker Spaniel"
+                    "Confirm species identity as Cavalier King Charles Spaniel (Blenheim variety)",
+                    "Distinguish from similar breeds like English Cocker Spaniel or King Charles Spaniel (black and tan)"
                 ],
-                "reason": "Primary verification that the generated image matches the specific taxonomic class label provided.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Dog body and ears",
-                "verification_goals": [
-                    "Verify continuity of the ear feathering without fusion into the background",
-                    "Check for floating fur strands or disconnected body parts",
-                    "Audit the boundary between the white coat and the brown carpet for bleeding"
-                ],
-                "reason": "To rigorously check the 'texture_anomaly' and edge blending issues noted in artifact detection, ensuring the dog is a single coherent object.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "Dog",
-                "verification_goals": [
-                    "Verify anatomical correctness of the visible eye and ear placement",
-                    "Check for any subtle limb distortions in the visible front paw area"
-                ],
-                "reason": "Even though the dog is lying down, keypoint detection can verify if the visible anatomy (head/shoulders) follows biological constraints.",
-                "weight": 0.2
+                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label and isn't a generic dog or wrong color variant.",
+                "weight": 0.4
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Entire Image",
+                "target_subject": "Dog fur and carpet texture",
                 "verification_goals": [
-                    "Assess overall realism of fur texture",
-                    "Identify any subtle warping in the carpet pattern caused by the subject's presence"
+                    "Check for texture smearing or plastic-like sheen on the fur",
+                    "Verify natural transition between fur strands and background carpet",
+                    "Detect any subtle melting artifacts in the ear feathering"
                 ],
-                "reason": "Holistic quality check to catch any low-level generative artifacts missed by structural auditors.",
-                "weight": 0.2
+                "reason": "AI generators often struggle with fine hair details and complex textures like carpets; this auditor checks for common generative flaws.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "Dog outline against carpet",
+                "verification_goals": [
+                    "Verify sharp, continuous boundaries between the dog's white fur and the brown carpet",
+                    "Check for edge bleeding or halo effects around the ear fringe"
+                ],
+                "reason": "High-contrast edges (white fur on brown carpet) are prone to segmentation errors or blurring in AI images.",
+                "weight": 0.3
             }
         ],
         "unverifiable_points": [
-            "Head is domed with short upturned nose and well-defined stop (Occluded/Cropped)",
-            "Legs are straight with fine bone and feathered hindquarters (Occluded by posture)",
-            "Tail is docked and carried level with back, well-feathered (Out of frame)",
-            "Gait is free and active (Subject is stationary)"
+            "Legs are straight with fine bone and feathered hindquarters.",
+            "Tail is docked and carried level with back, well-feathered.",
+            "Gait is free and active."
         ],
         "focus_areas": [
-            "Edge definition between white fur and brown carpet",
-            "Anatomical correctness of the visible eye and ear",
-            "Consistency of fur texture (silky vs. AI-smoothed)",
-            "Verification of Blenheim specific coloring patterns"
+            "Fur texture realism (silky vs. painted look)",
+            "Eye reflection and depth (glassy vs. flat)",
+            "Ear attachment point anatomy",
+            "Carpet texture consistency (repeating patterns indicate AI)"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the boundary between the dog's white fur and the brown carpet. AI generators often struggle with high-contrast edges on textured backgrounds, leading to 'haloing' or texture smearing. Also, verify if the visible eye has a natural reflection and depth, or if it appears flat/painted.",
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the white fur and the brown carpet. AI models often create a 'glow' or blur here. Also, inspect the eye closely; real spaniels have deep, soulful eyes with specific catchlights, whereas AI eyes can look flat or have irregular pupils. Verify that the red patches follow the natural curvature of the dog's body and don't look like flat decals.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000098.png",
             "class_id": 156,
             "class_label": "Blenheim spaniel",
-            "router_cost_seconds": 32.27,
+            "router_cost_seconds": 26.51,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "Blenheim spaniel",
-                "reason": "Primary verification that the generated image matches the specific taxonomic class label provided.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Dog body and ears",
-                "reason": "To rigorously check the 'texture_anomaly' and edge blending issues noted in artifact detection, ensuring the dog is a single coherent object.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "Dog",
-                "reason": "Even though the dog is lying down, keypoint detection can verify if the visible anatomy (head/shoulders) follows biological constraints.",
-                "weight": 0.2
+                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label and isn't a generic dog or wrong color variant.",
+                "weight": 0.4
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Entire Image",
-                "reason": "Holistic quality check to catch any low-level generative artifacts missed by structural auditors.",
-                "weight": 0.2
+                "target_subject": "Dog fur and carpet texture",
+                "reason": "AI generators often struggle with fine hair details and complex textures like carpets; this auditor checks for common generative flaws.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "Dog outline against carpet",
+                "reason": "High-contrast edges (white fur on brown carpet) are prone to segmentation errors or blurring in AI images.",
+                "weight": 0.3
             }
         ]
     }

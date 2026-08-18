@@ -2,30 +2,25 @@
     "image_id": "000047",
     "class_label": "green mamba",
     "iteration": 2,
-    "timestamp": "2026-08-18 15:18:18",
+    "timestamp": "2026-08-18 23:53:28",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The plan contains a critical functional error in expert selection: it assigns the `animal_pose_auditor` to verify snake head morphology. The expert registry explicitly states this tool is 'ONLY for limbed subjects' and 'NOT for limbless (fish, snakes)'. This will result in a failed verification step. Additionally, the plan lacks a specific audit for the 'laterally compressed' body shape, which was flagged as a failure in the checkpoints but is not addressed by the selected experts.",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "invalid_expert_selection",
-                "point": "Remove `animal_pose_auditor` from the plan as it does not support limbless subjects (snakes). Replace with `topology_boundary_auditor` or `perceptual_quality_auditor` using specific prompts to analyze the head's geometric profile (coffin-shape vs. blunt).",
-                "recommended_expert": "topology_boundary_auditor"
-            },
-            {
                 "type": "missing_verification",
-                "point": "The checkpoint 'Body is laterally compressed' was marked `is_present: false`. The current plan does not explicitly assign an expert to verify body cross-section geometry. Add a verification goal to the `topology_boundary_auditor` or `perceptual_quality_auditor` to assess if the body appears cylindrical (round) vs. laterally compressed (flat-sided).",
-                "recommended_expert": "topology_boundary_auditor"
+                "point": "The 'Head is narrow and elongated' checkpoint was marked 'is_present: false'. While the plan assigns this to the fine_grained_classifier, it should explicitly task the geometric_depth_auditor to verify if the snout protrudes significantly in the Z-axis (depth map) to rule out a flattened/2D generation error.",
+                "recommended_expert": "geometric_depth_auditor"
             },
             {
-                "type": "coverage_gap",
-                "point": "Ensure the `fine_grained_classifier` is specifically prompted to distinguish between *Dendroaspis angusticeps* (Green Mamba) and *Morelia viridis* (Green Tree Python), as the blunt snout and cylindrical body are characteristic of the latter.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "refinement",
+                "point": "The topology_boundary_auditor should specifically check for 'scale fusion' where the snake's body coils touch each other or the branch, as AI often merges these boundaries in coiled poses.",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-angle shot of a green snake coiled on a textured piece of light brown wood. The snake's head is facing the camera, showing large dark eyes and smooth, glossy green scales. The body curves behind the head, displaying uniform emerald green coloration with no distinct patterning. The background is blurred, suggesting a shallow depth of field.",
+        "image_description": "A close-up, frontal view of a green snake (green mamba) coiled on a textured piece of light brown wood or bark. The snake's head is facing the camera directly, appearing somewhat blunt due to the perspective. The scales are glossy and reflective, showing a vivid green coloration.",
         "image_class": "green mamba",
         "checkpoint_verdicts": [
             {
@@ -33,136 +28,146 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The head in the image appears relatively broad and blunt at the snout, lacking the distinct narrow, elongated 'coffin-shaped' profile characteristic of a green mamba. The brow ridge is not prominently defined as described."
+                "reasoning": "The head appears rounded and blunt in this direct frontal view. The characteristic 'coffin-shape' and narrowness are not visible; this could be due to extreme foreshortening/perspective distortion or an anatomical generation error."
             },
             {
                 "checkpoint": "Eyes are large and dark with round pupils.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The eyes are visible, large, dark, and appear to have round pupils, consistent with the description."
+                "reasoning": "The eyes are clearly visible, dark, and appear to have round pupils, consistent with the species description."
             },
             {
                 "checkpoint": "Body is slender and elongated.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portions of the body show a slender, cylindrical form typical of arboreal snakes."
+                "reasoning": "The visible body segments behind the head show a slender, cylindrical form typical of arboreal snakes."
             },
             {
                 "checkpoint": "Dorsal surface is uniformly bright emerald green with smooth, glossy scales.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The scales are vividly green, smooth, and highly reflective/glossy, matching the description well."
+                "reasoning": "The dorsal coloration is a vivid emerald green, and the scales exhibit strong specular highlights indicating high glossiness."
             },
             {
                 "checkpoint": "Ventral surface is pale yellow-green to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The ventral side (belly) is completely occluded by the coiling posture and the angle of the shot; it cannot be verified."
+                "reasoning": "The ventral surface is completely occluded by the coiling posture and the substrate; verification is impossible."
             },
             {
                 "checkpoint": "Uniform green coloration with no patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "There is no visible banding, spotting, or complex patterning; the color is uniform across the visible dorsal scales."
+                "reasoning": "No distinct patterns (bands, spots) are visible; the color appears uniform across the visible dorsal surface."
             },
             {
                 "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights on the scales confirm a smooth, glossy texture."
+                "reasoning": "Strong specular highlights on the snout and body confirm a highly glossy, smooth texture."
             },
             {
                 "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The body appears more cylindrical than distinctly laterally compressed (flat-sided), which is a key trait of green mambas. It looks more like a standard colubrid or viper build."
+                "reasoning": "From this frontal/top-down perspective, the body appears relatively cylindrical. Lateral compression is difficult to confirm without a side profile view."
             },
             {
                 "checkpoint": "Tail is long and prehensile.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail tip is not visible in the frame; only the mid-body coils are shown."
+                "reasoning": "The tail is not clearly distinguishable from the rest of the coiled body in this crop; its length and prehensile nature cannot be verified."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Snake scales on the head and upper neck",
+                "location": "Snake head and upper body scales",
                 "severity": 2,
-                "reasoning": "The scale definition becomes slightly soft and 'mushy' near the top of the head, lacking the crisp individual scale boundaries seen on the lower jaw. This suggests minor generative smoothing."
+                "reasoning": "The scale texture on the head appears slightly smeared or 'melted' compared to the sharper definition expected in macro photography. The transition between individual scales lacks crisp boundaries in some areas, suggesting generative smoothing."
             },
             {
                 "artifact_type": "perspective_distortion",
-                "location": "Snout/Nose area",
+                "location": "Background wood/substrate",
                 "severity": 1,
-                "reasoning": "The nostrils are faint and poorly defined, appearing slightly melted into the surrounding scale texture rather than having distinct anatomical holes."
+                "reasoning": "The background wood texture has a slight painterly quality and lacks fine micro-detail, appearing somewhat synthetic or overly smoothed compared to natural wood grain."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "snake_head",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "green mamba",
                 "verification_goals": [
-                    "Verify the geometric profile of the head to confirm if it matches the 'narrow, elongated, coffin-shaped' morphology required for Green Mambas.",
-                    "Audit the prominence of the brow ridge and the structural correctness of the snout shape."
+                    "Detect bounding box for the snake to establish spatial priors",
+                    "Locate specific head region for downstream analysis"
                 ],
-                "reason": "The checkpoint verdict explicitly states the head shape is incorrect (broad vs. narrow/coffin-shaped). An animal pose auditor is required to objectively validate the biological structural correctness of the head shape, distinguishing between a wrong species generation and a perspective distortion.",
-                "weight": 0.35
+                "reason": "Required as the 'Bridge' expert to provide precise spatial grounding (bounding boxes) for the topology_boundary_auditor and to isolate the head region for morphological verification.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "snake",
+                "target_subject": "green mamba",
                 "verification_goals": [
-                    "Confirm if the species is Dendroaspis angusticeps (Green Mamba) or a look-alike such as Boomslang or Green Tree Python.",
-                    "Verify taxonomic identity based on head shape and scale arrangement."
+                    "Confirm species identity as Dendroaspis angusticeps",
+                    "Resolve head shape ambiguity: verify if 'blunt' appearance matches taxonomic standards for frontal views or indicates anatomical error"
                 ],
-                "reason": "Given the morphological discrepancies (head shape, body compression), a fine-grained classifier is essential to determine if the generated image represents a different green snake species often confused in AI generation.",
-                "weight": 0.35
+                "reason": "Directly addresses the Judge's feedback regarding the ambiguous 'coffin-shape' checkpoint. Must determine if the head morphology is a valid perspective artifact or a generation failure.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "snake head and body",
+                "verification_goals": [
+                    "Verify if the 'blunt' head appearance is caused by foreshortening/perspective distortion",
+                    "Assess depth consistency of the coiled posture relative to the branch"
+                ],
+                "reason": "Addresses the logical inconsistency noted by the Judge: determining if the head shape verdict (is_present: false) is due to geometric perspective errors rather than biological incorrectness.",
+                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake_head",
+                "target_subject": "snake body contour",
                 "verification_goals": [
-                    "Audit the boundary sharpness between the head scales and the background.",
-                    "Verify the topological connectivity of the snout to ensure no floating parts or melting artifacts."
+                    "Verify continuity of body coils using OVD priors",
+                    "Check for edge bleeding/fusion between snake scales and wood substrate"
                 ],
-                "reason": "To verify the 'texture_anomaly' and 'perspective_distortion' artifacts observed on the head, ensuring the head is a coherent physical object with valid segmentation boundaries, distinct from the anatomical shape verification performed by the pose auditor.",
+                "reason": "Validates structural integrity and separation from background, specifically checking for the 'melting' artifacts observed in the texture analysis.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_image",
+                "target_subject": "snake skin texture",
                 "verification_goals": [
-                    "Assess the realism of the gloss/reflection on the scales.",
-                    "Check for subtle blending errors between the snake and the wood branch."
+                    "Analyze scale boundary sharpness and glossiness consistency",
+                    "Detect melting or smearing in head region"
                 ],
-                "reason": "To provide a holistic quality score and detect any low-level generative artifacts that might indicate an AI synthesis rather than a photograph.",
+                "reason": "To validate the observed texture anomalies and determine if the glossiness is physically accurate or an AI-generated artifact.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "Ventral surface coloration (occluded)",
-            "Tail length and prehensility (out of frame)"
+            "Ventral surface is pale yellow-green to white",
+            "Tail is long and prehensile"
         ],
         "focus_areas": [
-            "Head morphology (specifically the 'coffin' shape and brow ridge)",
-            "Species identification vs. look-alikes",
-            "Scale texture consistency"
+            "Head morphology vs. perspective distortion (Coffin-shape verification)",
+            "Scale texture definition and boundary sharpness",
+            "Spatial grounding of snake on branch (Depth/Boundary)"
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the head shape. The diagnostic checkpoint requires a 'coffin-shaped' head with a prominent brow ridge, but the image shows a blunter, broader snout. Determine if this deviation is due to camera angle/perspective distortion or if it indicates the wrong species (e.g., a Green Tree Python or Boomslang) was generated. Also, scrutinize the scale edges for any 'melting' or lack of definition.",
+        "custom_prompts_for_reflector": "Critically evaluate the head shape: Is the 'bluntness' a result of the extreme frontal angle (foreshortening) or a failure to generate the correct 'coffin' profile? Use the geometric depth map to confirm if the snout is actually protruding correctly in 3D space. Verify if the scale texture on the snout is distinct or melted into the skin.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000047.png",
             "class_id": 64,
             "class_label": "green mamba",
-            "router_cost_seconds": 31.48,
+            "router_cost_seconds": 31.81,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

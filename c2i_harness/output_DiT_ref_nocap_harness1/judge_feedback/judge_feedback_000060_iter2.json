@@ -2,33 +2,25 @@
     "image_id": "000060",
     "class_label": "wombat",
     "iteration": 2,
-    "timestamp": "2026-08-18 15:19:19",
+    "timestamp": "2026-08-18 23:54:13",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains critical logical gaps in expert selection and coverage:\n1. **Missing Perceptual Quality Audit**: The `artifact_observations` identified texture anomalies (reddish objects) and blur, but the `expert_verification_plan` fails to include the `perceptual_quality_auditor`. This expert is explicitly defined as the 'High-Speed Sieve' for catching standard graphics-level distortions and should be the primary verifier for these observations before geometric auditing.\n2. **Incompatible Expert Application**: The `animal_pose_auditor` is assigned to verify the central wombat. However, the registry note states this expert is 'ONLY for limbed subjects... NOT for limbless'. While wombats have limbs, they are stocky burrowers with short legs often obscured by fur/straw. Keypoint detection models trained on standard datasets (COCO/OpenPose) frequently fail on such morphologies, leading to false negatives. A `topology_boundary_auditor` or `geometric_depth_auditor` would be more robust for verifying limb existence via silhouette/depth consistency than rigid keypoint detection.\n3. **Unverified Artifact Hypothesis**: The plan relies on `open_vocabulary_detector` + `topology_boundary_auditor` for the reddish objects. While logically sound for segmentation, it misses the initial step of determining if these are *visual artifacts* (noise/hallucination) vs *misclassified objects*. The `perceptual_quality_auditor` should first assess if the region exhibits generative degradation patterns.",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "missing_expert",
-                "point": "Artifact verification for reddish objects and secondary wombat blur",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "Must act as the primary filter for the observed texture anomalies and blur before downstream geometric experts are engaged."
+                "type": "missing_verification",
+                "point": "The 'structural_collapse' artifact regarding paw/ground interaction requires specific depth validation to distinguish between valid occlusion and geometric melting.",
+                "recommended_expert": "geometric_depth_auditor"
             },
             {
-                "type": "expert_replacement",
-                "point": "Limb verification for stocky wombat",
-                "recommended_expert": "geometric_depth_auditor",
-                "reason": "Replace or supplement `animal_pose_auditor`. Keypoint detection is unreliable for stocky, low-to-ground animals with occluded limbs. Depth mapping can better verify if the 'stumps' are physically grounded limbs or melted geometry."
-            },
-            {
-                "type": "coverage_gap",
-                "point": "Verification of 'digging claws' untestable status",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "While detailed claw structure is untestable, the `fine_grained_classifier` can verify if the visible paw regions generally resemble 'wombat paws' vs 'generic blobs', providing a probabilistic check on the 'unverifiable' claim."
+                "type": "optimization",
+                "point": "The 'fine_grained_classifier' is assigned a high weight (0.25) but only targets the central wombat. It should also verify the partial subject on the left to ensure it is not a misclassified object (e.g., a rock or log).",
+                "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays two wombats in an enclosure with straw bedding and corrugated metal walls. The primary subject is a large, stocky wombat in the center-right, facing right, exhibiting coarse greyish-brown fur. A second wombat is partially visible on the left, curled up or facing away. There are some reddish leaf-like objects near the wall on the right.",
+        "image_description": "The image displays two wombats in an enclosure with a dirt and straw floor. The primary subject is a large, stocky wombat in the center-right, facing right towards a wooden wall. It has coarse, greyish-brown fur and a robust, barrel-shaped body. A second wombat is partially visible on the far left, showing its rear and side. The background consists of a corrugated metal fence and a wooden structure.",
         "image_class": "wombat",
         "checkpoint_verdicts": [
             {
@@ -36,149 +28,148 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The central wombat clearly displays a broad, blunt snout and small, rounded ears consistent with the species description."
+                "reasoning": "The central wombat's head profile is clearly visible, showing the characteristic broad, blunt shape and small, rounded ear. Eyes are small and consistent with the species."
             },
             {
                 "checkpoint": "Nose is large, bare, and pigmented.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The nose appears large, dark (pigmented), and lacks fur coverage, matching the diagnostic criteria."
+                "reasoning": "The nose area appears dark, large relative to the face, and lacks fur coverage, matching the description of a bare, pigmented nose."
             },
             {
                 "checkpoint": "Facial features are small relative to broad head.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The eyes and ears are proportionally small compared to the massive, blocky structure of the head."
+                "reasoning": "The eyes and ears are proportionally small compared to the massive width of the skull/head structure."
             },
             {
                 "checkpoint": "Fur is coarse and thick, ranging from sandy brown to dark grey or black.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The texture appears wiry and dense, with coloration falling within the expected grey/brown spectrum."
+                "reasoning": "The fur texture appears wiry and dense. The color is a mix of grey and brown, fitting the 'sandy brown to dark grey' range."
             },
             {
                 "checkpoint": "Body exhibits robust barrel-shaped form resembling a small bear.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The animal has a distinctively cylindrical, heavy-set torso typical of wombats."
+                "reasoning": "The torso is distinctly cylindrical and heavy-set, lacking a defined neck, which aligns perfectly with the 'barrel-shaped' and 'small bear' comparison."
             },
             {
                 "checkpoint": "Body is stocky and heavy-set with a substantial, ground-hugging build.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The subject sits low to the ground with no visible neck elongation, confirming the ground-hugging build."
+                "reasoning": "The animal sits very low to the ground with a wide stance, indicating a heavy, stocky build."
             },
             {
                 "checkpoint": "Short powerful limbs with broad feet equipped with strong digging claws on forefeet.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "While the limbs appear short and thick, the specific 'digging claws' and detailed foot structure are heavily obscured by straw bedding and the angle of the animal's belly. Visual confirmation of this fine-grained feature is impossible."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The forelimbs are visible and appear short and thick. While individual claws are hard to resolve due to resolution, the limb proportions and stance suggest powerful digging adaptations."
             },
             {
                 "checkpoint": "Tail is vestigial and inconspicuous.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "No prominent tail is visible extending from the rear, consistent with the vestigial nature of the wombat tail."
+                "reasoning": "No distinct tail is visible protruding from the rear; the rump is smooth and rounded, consistent with a vestigial tail."
             },
             {
                 "checkpoint": "Body exhibits low center of gravity with quadrupedal plantigrade stance.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "The exact contact point of the feet with the ground (plantigrade vs digitigrade) is obscured by straw and shadow. While the general posture is low, the specific biomechanical stance cannot be strictly verified visually."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The belly is close to the ground, and the feet appear flat against the substrate (plantigrade), supporting the low center of gravity description."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Right edge of the image, specifically the reddish leaf-like shapes against the blue wall.",
-                "severity": 2,
-                "reasoning": "The reddish objects appear slightly fused with the background wall and lack clear physical depth or attachment points, resembling common AI generation artifacts where foreground elements bleed into the background."
+                "location": "Right edge of the central wombat's back/rump",
+                "severity": 1.5,
+                "reasoning": "There is a slight softness or 'melting' effect where the fur meets the background wall/leaves. The boundary is not as sharp as the rest of the silhouette, suggesting minor segmentation or generation blur."
             },
             {
-                "artifact_type": "blur",
-                "location": "Secondary wombat on the left.",
-                "severity": 1,
-                "reasoning": "The secondary subject is significantly out of focus compared to the main subject. While this could be photographic depth-of-field, in AI images it often indicates a failure to render secondary subjects with equal fidelity."
+                "artifact_type": "structural_collapse",
+                "location": "Interaction between front paws and ground/straw",
+                "severity": 2.0,
+                "reasoning": "The specific definition of the toes/claws is lost in a muddy texture blend with the straw. It is difficult to distinguish individual digits, which is common in AI generations of complex limb-ground interactions."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "central wombat",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "wombats",
                 "verification_goals": [
-                    "Confirm species identity as Vombatus ursinus or related wombat species.",
-                    "Rule out misclassification as bear cub or badger due to body shape similarities."
+                    "Detect and localize both the central wombat and the partial wombat on the left",
+                    "Provide bounding box priors for downstream topology auditing"
                 ],
-                "reason": "High priority to ensure the generated subject is taxonomically correct given the 'bear-like' description in the prompt which can confuse models.",
-                "weight": 0.3
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "central wombat",
-                "verification_goals": [
-                    "Verify quadrupedal stance integrity.",
-                    "Check for missing or extra limbs obscured by straw.",
-                    "Confirm gross anatomical symmetry of the four legs."
-                ],
-                "reason": "Essential for verifying that the 'stocky' build doesn't hide anatomical errors like missing legs or fused limbs. Goals adjusted to focus on limb count rather than fine-grained claw details which are occluded.",
+                "reason": "Mandatory prerequisite for topology_boundary_auditor to segment instances correctly. Also ensures the second subject is identified for full scene coverage.",
                 "weight": 0.25
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "reddish objects on right",
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "central_wombat",
                 "verification_goals": [
-                    "Detect and provide bounding box priors for the reddish leaf-like shapes.",
-                    "Localize the objects to enable subsequent segmentation."
+                    "Confirm species identity as Vombatus ursinus or related wombat species",
+                    "Verify coarse fur texture classification"
                 ],
-                "reason": "Required prerequisite step to locate the suspected artifact regions before topology auditing can occur.",
-                "weight": 0.15
+                "reason": "Primary verification to ensure the generated subject is taxonomically correct and not a bear or badger mimic.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "central_wombat",
+                "verification_goals": [
+                    "Verify quadrupedal stance keypoints",
+                    "Check for valid limb count and placement",
+                    "Confirm low center of gravity geometry",
+                    "Audit paw/keypoint validity at ground interaction points"
+                ],
+                "reason": "Wombats are limbed mammals; this expert will verify biological plausibility of leg positions and specifically check if the 'muddy' paws represent valid anatomical keypoints or structural fusion.",
+                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "reddish objects on right",
+                "target_subject": "central_wombat",
                 "verification_goals": [
-                    "Segment the reddish leaf-like shapes using BBox priors from open_vocabulary_detector.",
-                    "Check for boundary bleeding into the wall.",
-                    "Determine if they are coherent physical objects or hallucinated textures."
+                    "Audit fur-to-background boundary sharpness",
+                    "Verify continuous body topology without floating parts",
+                    "Check integration of paws with ground plane"
                 ],
-                "reason": "To investigate the suspected texture anomaly/fusion artifact at the image edge, now properly sequenced after detection.",
+                "reason": "To investigate the observed texture anomaly at the rump and potential melting of paws into the straw, using BBox priors from open_vocabulary_detector.",
                 "weight": 0.15
             },
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "secondary wombat",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
                 "verification_goals": [
-                    "Classify the blurred object on the left to ensure it is a wombat.",
-                    "Rule out it being a hallucinated rock or different species."
+                    "Assess overall fur texture consistency across both subjects",
+                    "Detect any subtle warping in the wooden fence background",
+                    "Evaluate lighting coherence between subjects"
                 ],
-                "reason": "Ensures taxonomic rigor for the secondary subject, confirming it is not a 'wombat-shaped rock' or other hallucination.",
+                "reason": "Holistic check for common generative artifacts like inconsistent lighting or background warping that might affect the realism of the enclosure.",
                 "weight": 0.15
             }
         ],
-        "unverifiable_points": [
-            "Short powerful limbs with broad feet equipped with strong digging claws on forefeet.",
-            "Body exhibits low center of gravity with quadrupedal plantigrade stance."
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Anatomical correctness of limb count despite straw occlusion.",
-            "Boundary separation of the reddish foreground elements from the background wall.",
-            "Taxonomic accuracy of both the primary and secondary subjects.",
-            "Verification that the secondary subject is a biological entity and not a static object."
+            "Fur texture realism and edge definition against the background",
+            "Anatomical correctness of the forelimbs and paw details",
+            "Species-specific facial proportions (blunt head, small eyes)",
+            "Structural integrity of the second wombat on the left edge"
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the interface between the reddish leaf-like objects and the blue corrugated wall on the right side; verify if this is a physical object casting a shadow or a textural hallucination. Additionally, scrutinize the paws of the main wombat to ensure the 'digging claws' are structurally plausible and not just blurred stumps, acknowledging that straw occlusion makes definitive verification difficult.",
+        "custom_prompts_for_reflector": "Focus heavily on the transition between the wombat's fur and the background elements. AI often struggles with the fine, wiry texture of wombat fur, causing it to look like a solid mass or blur into the surroundings. Also, scrutinize the paws; ensure they look like distinct biological structures capable of digging, rather than melted stumps. Verify that the second wombat on the left does not exhibit edge-melting artifacts.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000060.png",
             "class_id": 106,
             "class_label": "wombat",
-            "router_cost_seconds": 33.4,
+            "router_cost_seconds": 33.5,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

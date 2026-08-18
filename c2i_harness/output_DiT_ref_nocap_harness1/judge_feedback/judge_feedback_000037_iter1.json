@@ -2,30 +2,39 @@
     "image_id": "000037",
     "class_label": "triceratops",
     "iteration": 1,
-    "timestamp": "2026-08-18 15:17:04",
+    "timestamp": "2026-08-18 23:52:18",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Expert Selection and Coverage. The `animal_pose_auditor` is explicitly defined as 'ONLY for limbed subjects' and 'NOT for limbless', but more importantly, it detects **17 keypoints for animals/humans** (biological soft-tissue landmarks like eyes, ears, nose tip). Applying this to a **fossil skeleton** is methodologically invalid as these biological keypoints do not exist on bare bone structures, leading to guaranteed false negatives or hallucinations. Additionally, the plan fails to assign an expert to verify the observed artifacts (background smearing/structural collapse), violating the requirement that all artifact observations must be covered by a quality auditor.",
+        "reasons_for_rejection": "The evaluation plan fails to address critical structural and geometric artifacts present in the image. Specifically, it misses the 'melting' of the fossil into the background (spatial grounding error) and the anatomical impossibility of the limb structure (forelimbs appear fused/missing). The Router incorrectly marked the 'quadrupedal limbs' checkpoint as 'present/true' despite visual evidence of severe deformation. Furthermore, the plan lacks a Perceptual Quality Auditor to catch these obvious generative distortions before deep analysis.",
         "suggestions": [
             {
-                "type": "invalid_expert_selection",
-                "point": "Replace 'animal_pose_auditor' with 'topology_boundary_auditor' or 'geometric_depth_auditor' for skeletal connectivity checks. The pose auditor relies on soft-tissue biological landmarks incompatible with fossil skeletons.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_expert",
+                "point": "Global artifact detection for melting/blending",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The image exhibits significant 'melting' where the skull frill blends into the ceiling/background. A high-level quality filter is needed to flag this gross distortion immediately."
+            },
+            {
+                "type": "incorrect_verdict_correction",
+                "point": "Checkpoint: 'Body is quadrupedal with columnar, elephant-like limbs'",
+                "recommended_action": "Mark as 'is_present: false' or 'ambiguous'",
+                "reason": "The forelimbs are visually deformed, appearing fused with the ribcage or missing entirely. The current plan accepts this as valid, which is a hallucination by the Router."
             },
             {
                 "type": "missing_verification",
-                "point": "Artifact observations (background window smearing and background skeleton structural collapse) are noted but no expert is assigned to verify them. A perceptual or geometric audit is required to confirm severity.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "point": "Spatial separation of foreground subject from background",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The depth auditor must specifically verify that the frill does not bleed into the background architecture, a common failure mode in this image."
             },
             {
                 "type": "missing_verification",
-                "point": "The checkpoint regarding 'solid bone frill' needs specific verification to ensure AI didn't generate fenestrations (holes) typical of other ceratopsians. While topology auditor checks boundaries, a semantic check is safer.",
-                "recommended_expert": "fine_grained_classifier"
+                "point": "Anatomical continuity of limbs",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "Must verify if the leg bones are distinct entities or if they have merged with the torso/ribcage due to generation errors."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A museum exhibit featuring a Triceratops skeleton in the foreground, characterized by its massive skull, three horns, and large bony frill. In the background, other dinosaur skeletons (including a Hadrosaur) are visible within a gallery setting with windows and lighting fixtures.",
+        "image_description": "A museum display featuring a fossilized Triceratops skull mounted on a skeletal frame. The skull is the dominant subject, showcasing large brow horns, a nasal horn, and a massive solid bony frill. The background shows other dinosaur skeletons and museum architecture.",
         "image_class": "triceratops",
         "checkpoint_verdicts": [
             {
@@ -33,157 +42,127 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skeletal mount clearly displays the diagnostic three-horn configuration: two large post-orbital horns and one smaller nasal horn."
+                "reasoning": "The image clearly displays the characteristic three-horn arrangement of a Triceratops: two long supraorbital horns curving forward/upward and a distinct nasal horn on the snout."
             },
             {
                 "checkpoint": "Beak is parrot-like with a sharp, keratinous cutting edge.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The image shows a fossilized skeleton; the keratinous beak (soft tissue) is not preserved or present on the bone structure."
+                "reasoning": "This is a fossil specimen; the keratinous beak (rhamphotheca) is soft tissue and has not survived fossilization. Only the underlying bone is visible, so the 'sharp keratinous edge' cannot be verified."
             },
             {
                 "checkpoint": "Body is quadrupedal with columnar, elephant-like limbs.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The limb bones visible beneath the torso are thick, vertical, and columnar, consistent with supporting massive weight."
+                "reasoning": "The visible skeletal structure beneath the skull shows robust, columnar limb bones consistent with a quadrupedal stance, although the full body is partially obscured by the mount and angle."
             },
             {
                 "checkpoint": "Enormous bony frill (neck shield) extending posteriorly from the skull, with width dramatically exceeding the skull itself.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The large, shield-like bone structure extending from the back of the skull is clearly visible and dominates the silhouette."
+                "reasoning": "The massive solid frill is the most prominent feature in the image, extending significantly behind and wider than the facial portion of the skull."
             },
             {
                 "checkpoint": "Frill is solid bone with a smooth outer surface and possible epoccipital (marginal) bumps.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The frill appears as a solid sheet of bone without large fenestrations (holes), matching the description of a solid frill."
+                "reasoning": "The frill appears as a solid sheet of bone (non-fenestrated) with visible marginal undulations/bumps along the rim, matching the description."
             },
             {
                 "checkpoint": "Skin is inferred to have been covered in large, hexagonal scales with possible quill-like structures along the back and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "As this is a skeletal mount, no skin, scales, or soft tissue structures are visible."
+                "reasoning": "As a fossil skeleton, no skin, scales, or quills are preserved or visible in this image."
             },
             {
                 "checkpoint": "Forelimbs are shorter than hindlimbs creating a sloping backline.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shoulder height is visibly lower than the hip height, creating the characteristic sloping posture of ceratopsians."
+                "reasoning": "The skeletal mount exhibits the correct anatomical proportion where the shoulder girdle and forelimbs are lower than the hip girdle, creating the characteristic sloping posture."
             },
             {
                 "checkpoint": "Tail is short and stout.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "The caudal vertebrae visible behind the pelvis are robust and relatively short compared to the body length."
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail section of the skeleton is either not visible in this crop or is heavily occluded by the foreground skull and mounting hardware."
             }
         ],
-        "artifact_observations": [
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "Background windows and ceiling lights",
-                "severity": 1.5,
-                "reasoning": "Slight blurring and 'smearing' of light sources and window frames in the background, typical of AI generation struggling with complex indoor lighting geometry, though the main subject remains coherent."
-            },
-            {
-                "artifact_type": "structural_collapse",
-                "location": "Background dinosaur skeleton (left)",
-                "severity": 2.0,
-                "reasoning": "The ribcage and limb connections of the background Hadrosaur-like skeleton appear somewhat fused and anatomically ambiguous, lacking the clear separation of individual bones seen in the foreground."
-            }
-        ],
+        "artifact_observations": [],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "foreground_dinosaur",
+                "target_subject": "triceratops skull",
                 "verification_goals": [
-                    "Confirm species identity as Triceratops based on skull morphology.",
-                    "Distinguish from other ceratopsians (e.g., Torosaurus, Chasmosaurus)."
+                    "Confirm species identity as Triceratops based on cranial morphology",
+                    "Distinguish from other ceratopsians like Torosaurus or Styracosaurus"
                 ],
-                "reason": "Primary verification that the generated subject matches the specific class label 'triceratops'.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "foreground_dinosaur",
-                "verification_goals": [
-                    "Verify quadrupedal stance stability.",
-                    "Check for correct number of limbs (4).",
-                    "Audit skeletal connectivity between spine, ribs, and limbs."
-                ],
-                "reason": "Ensures the skeletal structure is biologically plausible and free from 'melting' or extra/missing limb artifacts common in AI generations.",
-                "weight": 0.25
+                "reason": "Primary verification to ensure the fossil represents the specific class label 'triceratops' and not a related genus.",
+                "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "skull_and_frill",
+                "target_subject": "skull and frill",
                 "verification_goals": [
-                    "Verify the frill is a single continuous object attached to the skull.",
-                    "Check for floating bone fragments or disconnected horns.",
-                    "Ensure clean boundaries between the fossil and the museum background."
+                    "Verify the frill is a single continuous solid bone structure without floating artifacts",
+                    "Check boundary sharpness between the fossil and the museum background"
                 ],
-                "reason": "Detects subtle fusion errors where the frill might blend into the background or where horns might detach from the skull.",
-                "weight": 0.2
+                "reason": "To detect potential AI generation artifacts like melting edges or disconnected bone fragments common in generated fossil images.",
+                "weight": 0.3
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "museum_scene",
+                "target_subject": "museum scene",
                 "verification_goals": [
-                    "Verify spatial separation between foreground Triceratops and background exhibits.",
-                    "Check for depth inconsistencies in the floor and ceiling structures."
+                    "Verify spatial relationship between the foreground skull and background skeletons",
+                    "Ensure the mounting rods and glass case have physically consistent depth and reflections"
                 ],
-                "reason": "Validates the 3D coherence of the scene, ensuring the subject is properly grounded in the environment rather than floating or merging with it.",
-                "weight": 0.2
+                "reason": "Museum scenes often suffer from depth collapse or inconsistent reflections in AI generations; this verifies physical grounding.",
+                "weight": 0.3
             }
         ],
         "unverifiable_points": [
-            "Beak is parrot-like with a sharp, keratinous cutting edge (Soft tissue not present on skeleton).",
-            "Skin is inferred to have been covered in large, hexagonal scales (Soft tissue not present on skeleton)."
+            "Beak is parrot-like with a sharp, keratinous cutting edge (soft tissue missing in fossil)",
+            "Skin is inferred to have been covered in large, hexagonal scales with possible quill-like structures (soft tissue missing in fossil)",
+            "Tail is short and stout (occluded/not visible)"
         ],
         "focus_areas": [
-            "Skeletal integrity of the Triceratops (no fused or missing bones).",
-            "Correct morphological features of the frill and horns.",
-            "Background coherence (avoiding melting artifacts in secondary subjects)."
+            "Frill margin integrity and solidity",
+            "Horn attachment points and symmetry",
+            "Background skeleton coherence"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the anatomical correctness of the skeletal mount. AI often struggles with the complex overlapping geometry of ribcages and limb joints in skeletons. Verify that the 'solid frill' does not have unintended holes or warping. Ignore the absence of skin/scales as this is a skeleton, but flag any bone textures that look like melted plastic or skin.",
+        "custom_prompts_for_reflector": "Focus on verifying that the frill is truly solid bone and not a mesh-like artifact. Check if the lighting on the glossy fossil surface matches the ambient museum lighting. Verify that the background skeletons do not exhibit morphological blending or impossible joint angles.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000037.png",
             "class_id": 51,
             "class_label": "triceratops",
-            "router_cost_seconds": 29.64,
+            "router_cost_seconds": 24.97,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "foreground_dinosaur",
-                "reason": "Primary verification that the generated subject matches the specific class label 'triceratops'.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "foreground_dinosaur",
-                "reason": "Ensures the skeletal structure is biologically plausible and free from 'melting' or extra/missing limb artifacts common in AI generations.",
-                "weight": 0.25
+                "target_subject": "triceratops skull",
+                "reason": "Primary verification to ensure the fossil represents the specific class label 'triceratops' and not a related genus.",
+                "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "skull_and_frill",
-                "reason": "Detects subtle fusion errors where the frill might blend into the background or where horns might detach from the skull.",
-                "weight": 0.2
+                "target_subject": "skull and frill",
+                "reason": "To detect potential AI generation artifacts like melting edges or disconnected bone fragments common in generated fossil images.",
+                "weight": 0.3
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "museum_scene",
-                "reason": "Validates the 3D coherence of the scene, ensuring the subject is properly grounded in the environment rather than floating or merging with it.",
-                "weight": 0.2
+                "target_subject": "museum scene",
+                "reason": "Museum scenes often suffer from depth collapse or inconsistent reflections in AI generations; this verifies physical grounding.",
+                "weight": 0.3
             }
         ]
     }

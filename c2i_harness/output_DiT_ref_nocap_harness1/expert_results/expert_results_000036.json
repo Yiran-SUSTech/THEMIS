@@ -6,21 +6,126 @@
     "class_id": 51,
     "class_label": "triceratops",
     "plan_reference": "approved_plan_000036",
-    "execution_timestamp": "2026-08-18 15:18:01",
+    "execution_timestamp": "2026-08-18 23:52:52",
     "focus_areas": [
-        "Semantic Domain Verification (Biological vs. Artificial/Puppet)",
-        "Texture consistency (biological scales vs. synthetic material)",
-        "Horn morphology grounding via bounding boxes",
-        "Object boundary integrity against background"
+        "Anatomical accuracy of horns (orientation and count)",
+        "Texture realism (biological scales vs. artificial smooth surface)",
+        "Eye morphology (biological vs. cartoonish)",
+        "Frill structure (solid bone shield vs. stylized spikes)"
     ],
-    "custom_prompts_for_reflector": "The image appears to depict stylized puppets or costumes rather than a biological Triceratops. The previous plan failed to address this domain shift. Please evaluate whether the 'triceratops' class label is appropriate given the non-realistic, artificial nature of the subjects. Use the open_vocabulary_detector results to confirm if the subjects are 'puppets' or 'mascots'. Focus on whether the key identifying features (three horns, frill shape) are present enough to warrant the label, despite the lack of biological texture and full-body visibility. Prioritize the distinction between 'AI-generated realistic animal' and 'AI-generated/captured artificial representation'.",
-    "image_description": "The image features two large, stylized Triceratops heads in a forest setting. The figure on the left is a tan/brown skull-like structure with three horns and large eye sockets, resembling a puppet or costume head. The figure on the right is a grey, cartoonish Triceratops head with large, forward-facing eyes, a beak, and three horns (two brow, one nasal), also appearing to be a puppet, mascot, or AI-generated character rather than a realistic biological specimen. The background consists of blurred green trees.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "The image appears to show puppets or statues rather than a biological animal. Focus verification on whether the 'triceratops' label applies to these artificial representations. Specifically check if the horn orientation matches the 'forward and upward' requirement (the right subject's horns look lateral) and if the frill structure matches the 'solid bone' description (it looks like separate spikes). Note that body/tail checkpoints are unverifiable due to cropping.",
+    "image_description": "The image displays two large, stylized dinosaur heads in a forest setting. The subject on the left is a beige/tan skull-like structure with three horns and large eye sockets, resembling a puppet or prop. The subject on the right is a grey, cartoonish triceratops head with wide, forward-facing eyes, a parrot-like beak, and a frill topped with yellow spikes. Both appear to be artificial constructs (puppets, masks, or statues) rather than biological animals.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "triceratops heads",
+            "weight": 0.25,
+            "reason": "Essential for grounding the verification of specific anatomical checkpoints (horns, frill) to the correct regions of the stylized subjects.",
+            "status": "success",
+            "execution_time_ms": 11561.26,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "heads",
+                        "confidence_score": 0.4222,
+                        "bounding_box": [
+                            0,
+                            53,
+                            255,
+                            255
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "triceratops",
+            "weight": 0.35,
+            "reason": "The image depicts highly stylized/artificial representations. A classifier is needed to determine if the model recognizes this as the target class or as an artifact/toy.",
+            "status": "success",
+            "execution_time_ms": 367.41,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 51,
+                        "label_name": "triceratops",
+                        "logit_score": 8.0
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 345,
+                        "label_name": "ox",
+                        "logit_score": 1.9
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 43,
+                        "label_name": "frilled lizard, Chlamydosaurus kingi",
+                        "logit_score": 1.51
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "right subject (grey head)",
+            "weight": 0.2,
+            "reason": "To ensure the stylized features (spikes, horns) are structurally coherent and not floating or melting into the background.",
+            "status": "success",
+            "execution_time_ms": 853.27,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000036_mask.png",
+                "mask_confidence_score": 0.9091,
+                "prompt_point_used": [
+                    127,
+                    154
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.2,
+            "reason": "To rigorously audit the 'prop-like' quality and structural anomalies (cartoon eyes) observed in the preliminary scan.",
+            "status": "success",
+            "execution_time_ms": 3879.82,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there's no visible noise, blur, or darkening. The only potential issue could be compression, but the image seems to have a good resolution and clarity. The image looks like it has been digitally manipulated, which might lead to some distortion, but the overall quality seems fine.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 6.28,
+        "total_execution_time_ms": 15454.33,
         "failed_expert_ids": []
     }
 }

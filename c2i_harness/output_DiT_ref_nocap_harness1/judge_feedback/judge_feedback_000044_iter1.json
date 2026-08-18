@@ -2,101 +2,109 @@
     "image_id": "000044",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-18 15:17:31",
+    "timestamp": "2026-08-18 23:52:48",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and coverage. The Router identified a 'CRITICAL MISMATCH' regarding the snake's patterning (black blotches vs. required uniform coloration) but failed to assign the `open_vocabulary_detector` to verify this specific visual feature. Relying solely on the `fine_grained_classifier` is insufficient because the classifier may hallucinate a label or fail if the image is an out-of-distribution generation. Furthermore, the plan misses the opportunity to use the detector to provide bounding box priors for the `topology_boundary_auditor`, which is crucial for auditing the coiled body structure mentioned in the focus areas.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and sequencing. The `topology_boundary_auditor` is assigned to audit the snake's body connectivity, but this expert requires bounding box priors to function effectively. While the `open_vocabulary_detector` is included in the plan, it is assigned the lowest weight (0.1) and listed last, implying it may be treated as optional or secondary. In reality, the detector is a prerequisite for the topology auditor. Furthermore, the plan fails to explicitly address the 'multiple tail-like tips' observation with a specific counting/instance verification step, relying instead on general topology auditing which might miss the semantic error of having >1 tail.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Verification of the 'black patterning' artifact. The checkpoint 'No distinctive patterning' was marked false. The plan needs an objective detection step to confirm the presence and extent of these markings before classification.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Prerequisite Dependency for Topology Audit",
+                "recommended_expert": "open_vocabulary_detector",
+                "description": "The `topology_boundary_auditor` cannot effectively segment and audit the coiled body without precise region proposals. The `open_vocabulary_detector` must be elevated in priority and explicitly tasked with generating bounding boxes for *each* visible body segment/tip before the topology audit begins. It should not be the lowest weight item."
             },
             {
                 "type": "missing_verification",
-                "point": "Structural grounding of the coiled snake. The topology auditor needs precise segmentation masks to check for fusion artifacts in the coils, which requires bounding box priors.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Instance Counting for Anatomical Correctness",
+                "recommended_expert": "open_vocabulary_detector",
+                "description": "The checkpoint notes 'Multiple tail-like tips are visible'. The plan should explicitly task the `open_vocabulary_detector` with counting these tips. If >1 tip is detected, this is a definitive structural failure (poly-caudality) rather than just a topological ambiguity."
             },
             {
                 "type": "weight_adjustment",
-                "point": "The weight of `fine_grained_classifier` (0.4) is too high given the obvious morphological mismatch (patterning). The `perceptual_quality_auditor` should have higher priority to determine if the 'painted' texture is a generative artifact, as the species ID is already suspect.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "point": "Rebalance Expert Weights",
+                "description": "Increase the weight of `open_vocabulary_detector` to at least 0.25 (equal to or higher than topology auditor) because it serves as the foundational 'Bridge' expert for both the taxonomy verification (locating the head/snout if visible) and the topology audit."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a coiled, reddish-orange snake with distinct black mottling or banding on its dorsal surface, resting on a bright green leaf. The snake has a slender body and a visible tail. There is some illegible text in the bottom right corner.",
+        "image_description": "The image displays a coiled reddish-brown snake resting on a bright green leaf. The snake has a glossy, smooth texture with dark mottling or blotches along its dorsal side. There appears to be text in the bottom right corner of the leaf.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
                 "checkpoint": "Head is small, rounded, and barely distinct from the body with a blunt, rounded snout.",
                 "category": "Head_and_Face",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The head is partially obscured by the coils, but the visible portion does not clearly show the characteristic 'barely distinct' blunt snout; the neck area appears slightly defined."
+                "reasoning": "The head is completely obscured by the coiling of the body; no distinct head structure is visible."
             },
             {
                 "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The head is tucked under the body coils and is not visible enough to verify the presence or size of the eyes."
+                "reasoning": "No eyes are visible due to the angle and occlusion of the head."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body diameter is consistent and slender, matching the worm-like description."
+                "reasoning": "The visible segments of the body appear cylindrical and relatively slender, consistent with a worm snake morphology."
             },
             {
                 "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The base color is a vibrant reddish-orange, which falls within the reddish-brown spectrum, though potentially more saturated than typical specimens."
+                "reasoning": "The primary dorsal color is a vibrant reddish-brown/orange."
             },
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The snake is coiled such that the ventral side is largely hidden or in shadow; cannot be clearly verified."
+                "reasoning": "The ventral surface is largely hidden by the coiling; where glimpsed, it does not clearly show the expected pale pink/white contrast, appearing darker or shadowed."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skin exhibits a high-gloss, wet-looking sheen consistent with smooth scales."
+                "reasoning": "The skin exhibits strong specular highlights indicating a smooth, glossy texture typical of this species."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "CRITICAL MISMATCH: The snake exhibits prominent black/dark brown blotches and bands along its back. The taxonomy states 'No distinctive patterning; uniform coloration.'"
+                "reasoning": "The snake exhibits distinct dark brown/black irregular blotches or mottling along the dorsal side, contradicting the 'uniform coloration' requirement for *Carphophis amoenus* (which is typically unpatterned)."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The visible tail tapers to a fine, short point, consistent with the species description."
+                "is_present": false,
+                "reasoning": "Multiple tail-like tips are visible, but they appear tapered rather than distinctly short and blunt. It is difficult to confirm if these are true tails or just body ends due to the complex coil."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "text_gibberish",
-                "location": "Bottom right corner on the leaf",
-                "severity": 2,
-                "reasoning": "There is a string of characters that resembles text but is illegible and nonsensical, a common artifact in AI-generated images."
+                "location": "Bottom right corner on the leaf surface",
+                "severity": 2.0,
+                "reasoning": "There is illegible, scribbled text resembling a watermark or signature that does not form coherent characters, typical of AI generation artifacts."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Center coil intersection",
+                "severity": 3.0,
+                "reasoning": "The overlapping sections of the snake's body in the center appear to fuse together without clear depth separation or shadowing, making the topology ambiguous."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Snake's dorsal surface",
-                "severity": 3,
-                "reasoning": "The black markings appear somewhat 'painted on' or fused with the red scales rather than being distinct scale-level pigmentation. The transition between red and black lacks the micro-texture of individual scales."
+                "location": "Dorsal surface patterns",
+                "severity": 2.5,
+                "reasoning": "The dark blotches look somewhat painted-on or smeared rather than integrated into the scale structure, lacking the crisp definition of natural pigmentation."
             }
         ],
         "expert_verification_plan": [
@@ -104,82 +112,100 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Verify if the subject belongs to the genus Carphophis or similar worm-snake taxa.",
-                    "Determine if the black patterning is a valid variation for this species or indicates a different species (e.g., Red-bellied Snake)."
+                    "Verify if the subject belongs to the genus Carphophis or resembles other reddish snakes like Calamaria or coral snake mimics.",
+                    "Confirm species identity given the conflicting pattern evidence."
                 ],
-                "reason": "The visual evidence of black patterning contradicts the 'uniform coloration' prior. An expert classifier is needed to determine if this is a misidentified species or an invalid generation.",
-                "weight": 0.4
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake texture",
-                "verification_goals": [
-                    "Analyze the boundary between the red body and black markings for signs of melting or diffusion artifacts.",
-                    "Assess the realism of the glossiness relative to the lighting environment."
-                ],
-                "reason": "To verify if the 'painted' look of the patterns is an AI artifact (texture anomaly) or a legitimate biological feature captured poorly.",
-                "weight": 0.3
+                "reason": "The presence of dorsal blotching contradicts the specific taxonomy for *Carphophis amoenus*. A fine-grained classifier is needed to determine if this is a misidentified species or an AI hallucination of features.",
+                "weight": 0.35
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
                 "verification_goals": [
-                    "Trace the continuity of the snake's body to ensure no limbs or extra segments are fused into the coils.",
-                    "Verify the separation between the snake and the leaf background."
+                    "Audit the connectivity of the coiled body segments to ensure they are distinct tubes and not fused.",
+                    "Verify the boundary sharpness between the snake and the leaf."
                 ],
-                "reason": "Coiled snakes are prone to 'fusion' artifacts where the body merges with itself or the background. This ensures structural integrity.",
-                "weight": 0.2
+                "reason": "Visual inspection suggests potential fusion in the central coil. Topology auditing is required to confirm physical plausibility of the overlap.",
+                "weight": 0.25
             },
             {
                 "expert_name": "image_text_auditor",
-                "target_subject": "bottom right text",
+                "target_subject": "leaf surface text",
                 "verification_goals": [
-                    "Extract and analyze the gibberish text to confirm it is non-semantic noise."
+                    "Analyze the scribbled marks in the bottom right to confirm they are gibberish/artifacts.",
+                    "Check for any hidden watermarks."
                 ],
-                "reason": "To document the severity of the text artifact, which supports the hypothesis of AI generation.",
+                "reason": "The visible text-like marks are suspicious and need OCR verification to classify as an artifact.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the glossiness and lighting consistency.",
+                    "Evaluate the naturalness of the dorsal patterning."
+                ],
+                "reason": "To provide a holistic quality score regarding the 'painted-on' look of the patterns and overall rendering fidelity.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "snake parts",
+                "verification_goals": [
+                    "Detect and bound individual body segments to assist the topology auditor.",
+                    "Identify if there are multiple snakes or one continuous snake."
+                ],
+                "reason": "Providing bounding boxes for the coiled segments will help the topology auditor distinguish between separate limbs/tails and a single continuous body.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Eyes are minute and dark, barely visible beneath head scales.",
-            "Ventral surface is pale pink to white."
+            "Head shape and snout bluntness (occluded)",
+            "Eye visibility (occluded)",
+            "Ventral coloration (mostly occluded)"
         ],
         "focus_areas": [
-            "Discrepancy between observed black patterning and taxonomy requirement for uniform coloration.",
-            "Texture consistency of the black markings (are they scaled or smeared?).",
-            "Legibility and nature of the text artifact in the corner."
+            "Species identification vs. pattern mismatch",
+            "Body coil topology and fusion",
+            "Text artifact verification"
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the 'Body_and_Plumage' checkpoint regarding uniform coloration. The image clearly shows black blotches. Investigate if this is a hallucination of features from a different snake species (like a Red-bellied Snake) or if the 'Thunder Snake' taxonomy provided is incomplete/incorrect for this specific morph. Also, scrutinize the 'glossy' texture to ensure it doesn't look like plastic or melted wax.",
+        "custom_prompts_for_reflector": "Focus heavily on the discrepancy between the 'uniform coloration' checkpoint and the visible dark blotches. Is this a different species of worm snake (e.g., *Calamaria*) mislabeled as *Carphophis*, or is it an AI generation error? Also, rigorously check the central coil for 'melting' where body parts merge.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000044.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 28.61,
+            "router_cost_seconds": 31.07,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
-                "reason": "The visual evidence of black patterning contradicts the 'uniform coloration' prior. An expert classifier is needed to determine if this is a misidentified species or an invalid generation.",
-                "weight": 0.4
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake texture",
-                "reason": "To verify if the 'painted' look of the patterns is an AI artifact (texture anomaly) or a legitimate biological feature captured poorly.",
-                "weight": 0.3
+                "reason": "The presence of dorsal blotching contradicts the specific taxonomy for *Carphophis amoenus*. A fine-grained classifier is needed to determine if this is a misidentified species or an AI hallucination of features.",
+                "weight": 0.35
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
-                "reason": "Coiled snakes are prone to 'fusion' artifacts where the body merges with itself or the background. This ensures structural integrity.",
-                "weight": 0.2
+                "reason": "Visual inspection suggests potential fusion in the central coil. Topology auditing is required to confirm physical plausibility of the overlap.",
+                "weight": 0.25
             },
             {
                 "expert_name": "image_text_auditor",
-                "target_subject": "bottom right text",
-                "reason": "To document the severity of the text artifact, which supports the hypothesis of AI generation.",
+                "target_subject": "leaf surface text",
+                "reason": "The visible text-like marks are suspicious and need OCR verification to classify as an artifact.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To provide a holistic quality score regarding the 'painted-on' look of the patterns and overall rendering fidelity.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "snake parts",
+                "reason": "Providing bounding boxes for the coiled segments will help the topology auditor distinguish between separate limbs/tails and a single continuous body.",
                 "weight": 0.1
             }
         ]
