@@ -1,0 +1,179 @@
+{
+    "image_description": "An underwater shot looking up towards the surface, capturing the dark silhouette of a hammerhead shark swimming overhead. The sun is shining through the water on the left, creating strong backlighting and glare. The shark's distinctive T-shaped head (cephalofoil) is clearly visible in profile against the light. Several smaller fish are visible in the background near the surface.",
+    "image_class": "hammerhead",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Most distinctive feature is the laterally expanded, dorsoventrally flattened cephalofoil (hammer-shaped head).",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The silhouette clearly displays the iconic T-shaped head structure extending horizontally from the body axis."
+        },
+        {
+            "checkpoint": "Eyes are positioned at the extreme lateral tips of the cephalofoil.",
+            "category": "Head_and_Face",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "Due to the strong backlighting and silhouette nature of the image, specific facial features like eyes are not resolvable, though their position is implied by the shape."
+        },
+        {
+            "checkpoint": "Nostrils are positioned near the lateral margins of the cephalofoil.",
+            "category": "Head_and_Face",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "Nostrils are too small to be seen in this backlit silhouette."
+        },
+        {
+            "checkpoint": "Anterior margin of the cephalofoil is straight to slightly curved with a central indentation in some species.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The leading edge of the hammer appears relatively straight/flat in the silhouette, consistent with the description."
+        },
+        {
+            "checkpoint": "Body is streamlined and laterally compressed.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The side profile shows a smooth, hydrodynamic curve typical of sharks."
+        },
+        {
+            "checkpoint": "Dorsal coloration is grey to brownish with white ventral surface.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The subject is entirely silhouetted against the light; no color or ventral/dorsal contrast is visible."
+        },
+        {
+            "checkpoint": "Skin is covered in dermal denticles with a rough texture.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "Image resolution and lighting conditions prevent visualization of skin texture."
+        },
+        {
+            "checkpoint": "First dorsal fin is tall and falcate (sickle-shaped), positioned anteriorly.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "A prominent, triangular/falcate dorsal fin is visible on the top of the shark's back."
+        },
+        {
+            "checkpoint": "Pectoral fins are broad and triangular.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The pectoral fin on the near side is visible as a broad, triangular shape extending from the body."
+        },
+        {
+            "checkpoint": "Caudal fin is asymmetrical with a pronounced upper lobe.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The tail fin is visible and exhibits the characteristic heterocercal shape with a larger upper lobe."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Water surface/background",
+            "severity": 1.5,
+            "reasoning": "The light refraction patterns on the water surface appear slightly repetitive and painterly, lacking the chaotic randomness of real caustics, though this could be due to image compression."
+        },
+        {
+            "artifact_type": "blur",
+            "location": "Shark edges",
+            "severity": 1.0,
+            "reasoning": "Slight softness around the edges of the shark, likely due to motion blur or focus issues, but also common in AI generations struggling with sharp silhouettes against bright backgrounds."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "shark",
+            "verification_goals": [
+                "Detect bounding box for the hammerhead shark silhouette",
+                "Provide spatial grounding priors for the topology auditor to isolate the shark from the bright background"
+            ],
+            "reason": "Essential 'Bridge' expert to provide precise segmentation masks/bounding boxes. Without this, the topology auditor may bleed into the bright water surface, causing false positives.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "shark_body",
+            "verification_goals": [
+                "Verify the cephalofoil is a single continuous structure connected to the head",
+                "Check for any floating artifacts or disconnected fins using the OVD mask",
+                "Ensure the silhouette boundary is clean and physically plausible"
+            ],
+            "reason": "Uses OVD priors to audit structural integrity, ensuring the hammer-head connects properly to the neck and fins are not fused with the background.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "scene",
+            "verification_goals": [
+                "Verify the shark correctly occludes the sun glare/water surface highlights",
+                "Check if the shark's position relative to the light source creates realistic shadowing/silhouette depth",
+                "Ensure the shark is submerged and not floating on top of the background layer"
+            ],
+            "reason": "Explicitly checks occlusion relationships against bright light sources to prevent 'pasted-on' artifacts common in AI generations.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "shark_morphology",
+            "verification_goals": [
+                "Identify morphological features (cephalofoil shape, fin position) via visual reasoning since texture/color is absent",
+                "Analyze the realism of the water caustics and light refraction",
+                "Detect subtle melting or warping in the background elements"
+            ],
+            "reason": "Replaces reliance on standard classifiers which fail on silhouettes. Uses CoT reasoning to verify species-specific morphology and background quality.",
+            "weight": 0.3
+        }
+    ],
+    "unverifiable_points": [
+        "Eye position details",
+        "Nostril placement",
+        "Skin texture (dermal denticles)",
+        "Coloration patterns"
+    ],
+    "focus_areas": [
+        "Cephalofoil structural integrity and connection to body",
+        "Occlusion consistency between shark silhouette and sun glare",
+        "Realism of underwater lighting and silhouetting"
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the junction where the hammer-head meets the main body. In AI images, this area sometimes shows unnatural blending or lack of definition. Also, verify that the shark's silhouette correctly blocks the sunlight behind it, rather than appearing semi-transparent or pasted on top of the glare.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000000.png",
+        "class_id": 4,
+        "class_label": "hammerhead, hammerhead shark",
+        "router_cost_seconds": 31.86,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Approved!"
+        ]
+    },
+    "router_scores": {
+        "router_alignment_score": 4.0,
+        "router_artifact_score": 3.2,
+        "checkpoint_summary": {
+            "total": 10,
+            "testable": 6,
+            "present": 6,
+            "absent": 0,
+            "untestable": 4
+        },
+        "artifact_summary": {
+            "count": 2,
+            "max_severity": 1.5,
+            "severe_count": 0,
+            "minor_count": 2
+        }
+    }
+}

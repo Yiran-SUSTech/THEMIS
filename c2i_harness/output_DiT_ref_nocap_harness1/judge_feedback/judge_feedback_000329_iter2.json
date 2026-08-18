@@ -1,0 +1,176 @@
+{
+    "image_id": "000329",
+    "class_label": "loupe, jeweler's loupe",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:32:43",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with verifying the absence of a rubber eye cup by distinguishing textures. However, ViT classifiers are generally optimized for global semantic labels rather than local texture/material discrimination at specific keypoints. This verification goal is better suited for the 'perceptual_quality_auditor' (visual texture analysis) or 'topology_boundary_auditor' (edge sharpness of the eyepiece rim).",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "optimization",
+                "point": "The 'open_vocabulary_detector' is assigned a low weight (0.15) but is a critical prerequisite for the 'topology_boundary_auditor'. If the detector fails to separate the lens housing from the casing, the topology audit will fail. Consider increasing its weight or ensuring its output is strictly gated before passing to the topology auditor.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up view of a black, folding jeweler's loupe. The device features a circular lens housing on the left and a protective casing on the right, connected by a hinge mechanism. White text is visible on the side of the casing. The background is plain white.",
+        "image_class": "loupe",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Small circular optical device with a compact fingertip diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object clearly exhibits a circular lens housing consistent with the size and shape of a handheld loupe."
+            },
+            {
+                "checkpoint": "Smooth cylindrical body with convex lens surface.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lens housing appears cylindrical, and reflections on the glass indicate a convex curvature typical of magnifying lenses."
+            },
+            {
+                "checkpoint": "Overall length when folded is pocket-sized, easily carried in a pocket.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "While the object is small, there is no scale reference (like a hand or coin) to definitively verify 'pocket-sized' dimensions, though it is implied by the form factor."
+            },
+            {
+                "checkpoint": "Convex lens providing strong magnification for close inspection.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The presence of a thick glass element within a frame confirms the primary functional component of a loupe."
+            },
+            {
+                "checkpoint": "Some models fold into protective casing with hinged cover.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image shows a two-part structure with a visible hinge area, characteristic of folding loupes where one half protects the lens."
+            },
+            {
+                "checkpoint": "Rubber eye cup at eyepiece end for comfortable viewing.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eyepiece end (left side) appears to be hard plastic or metal; there is no distinct soft rubber flange or cup visible."
+            },
+            {
+                "checkpoint": "Polished chrome, brass, or black metal frame.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The frame is black. While it looks like molded plastic rather than polished metal, black metal/plastic is a valid material variation for this class."
+            },
+            {
+                "checkpoint": "Clear glass lens with slight convex curvature and anti-reflective coating tint.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lens is transparent with visible surface reflections indicating curvature. A slight yellowish/amber tint is visible, which may be due to lighting or coating."
+            },
+            {
+                "checkpoint": "Small magnifying optical device.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The overall morphology matches the definition of a small optical magnification tool."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "White text on the right-side casing",
+                "severity": 2,
+                "reasoning": "The white lettering on the black casing is illegible and distorted, resembling AI-generated pseudo-text rather than a clear brand name or specification mark."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Black casing surface",
+                "severity": 1,
+                "reasoning": "The texture of the black material is overly smooth and uniform, lacking the micro-scratches or molding lines typically found on used or manufactured plastic/metal tools."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "loupe_components",
+                "verification_goals": [
+                    "Detect and localize the lens housing, protective casing, and hinge mechanism.",
+                    "Provide bounding box priors for the topology boundary auditor to segment these specific parts."
+                ],
+                "reason": "Prerequisite step: The topology auditor requires precise localization (BBoxes) of the lens and casing to audit the hinge connectivity without hallucinating boundaries.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "loupe",
+                "verification_goals": [
+                    "Confirm the object is classified as a jeweler's loupe or similar optical instrument.",
+                    "Verify the absence of a rubber eye cup by distinguishing hard plastic/metal textures from rubber materials at the eyepiece."
+                ],
+                "reason": "Primary verification of class identity and confirmation of the negative checkpoint regarding the missing rubber eye cup.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "lens_and_frame",
+                "verification_goals": [
+                    "Using BBox priors, segment the lens housing and casing to verify physical connectivity at the hinge.",
+                    "Check for edge bleeding or fusion artifacts where the two halves meet."
+                ],
+                "reason": "Ensures the folding mechanism is structurally plausible and not melted together, relying on the localization provided by the open_vocabulary_detector.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "text_on_casing",
+                "verification_goals": [
+                    "Extract text boxes and perform character-level confidence scoring on the white markings.",
+                    "Scientifically validate the observation that the text is illegible/gibberish based on low confidence scores."
+                ],
+                "reason": "To rigorously verify the severity of the text artifact using OCR metrics rather than just visual estimation.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "overall_image",
+                "verification_goals": [
+                    "Assess the realism of the lighting reflections on the convex lens.",
+                    "Evaluate the texture consistency of the black frame material for anomalies."
+                ],
+                "reason": "Holistic quality check for subtle rendering artifacts in materials and lighting that other experts might miss.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Overall length when folded is pocket-sized, easily carried in a pocket."
+        ],
+        "focus_areas": [
+            "Legibility and character-level confidence of text on the device casing",
+            "Structural integrity and boundary sharpness of the hinge mechanism",
+            "Material classification of the eyepiece (hard plastic vs rubber)",
+            "Realism of lens reflections and curvature"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the text on the side of the loupe; AI generators often fail to render crisp, meaningful text on small objects. Also, verify that the hinge area does not show signs of 'melting' where the two halves of the device meet, and confirm that the eyepiece lacks a rubber cup.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000329.png",
+            "class_id": 633,
+            "class_label": "loupe, jeweler's loupe",
+            "router_cost_seconds": 31.05,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

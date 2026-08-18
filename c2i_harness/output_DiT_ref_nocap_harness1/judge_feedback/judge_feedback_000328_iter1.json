@@ -1,0 +1,210 @@
+{
+    "image_id": "000328",
+    "class_label": "loupe, jeweler's loupe",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:31:55",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains logical inconsistencies in expert selection and coverage. Specifically: 1) The `image_text_auditor` is selected to verify 'gibberish' artifacts, but the provided image shows clear, legible regulatory markings (CE, trash bin), making the premise of 'illegible text' factually incorrect and the expert selection potentially misleading if not retargeted to verify *legibility*. 2) The `fine_grained_classifier` is tasked with distinguishing loupes from flashlights/cameras, but a standard ImageNet ViT may lack the specific granularity for 'jeweler's loupe' vs generic optical parts without strong priors; relying solely on it for class verification is risky. 3) The `geometric_depth_auditor` is missing, despite the scene having two distinct objects at different depths where 'spatial grounding' and 'shadow consistency' are critical for realism.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial relationship and shadow consistency between the foreground and background loupes.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "incorrect_premise",
+                "point": "The plan assumes text on the background loupe is gibberish/illegible. The image shows clear regulatory symbols. The `image_text_auditor` should be retargeted to verify 'text legibility and correctness' rather than just 'gibberish detection'.",
+                "recommended_expert": "image_text_auditor"
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verify that the 'folding mechanism' hinge is physically plausible and not melted/fused, which is a common AI artifact in mechanical objects.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays two black jeweler's loupes (magnifying glasses) resting on a white surface. One loupe is in the foreground, showing its circular lens housing and eyepiece. The second loupe is in the background, appearing to be a folding model with a rectangular casing. There are faint, illegible markings or text on the side of the background loupe's casing.",
+        "image_class": "loupe",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Small circular optical device with a compact fingertip diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground object clearly exhibits a small, circular form factor consistent with a handheld optical device."
+            },
+            {
+                "checkpoint": "Smooth cylindrical body with convex lens surface.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground loupe has a smooth, cylindrical barrel holding the lens assembly."
+            },
+            {
+                "checkpoint": "Overall length when folded is pocket-sized, easily carried in a pocket.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "While the objects appear small, there is no reference object (like a hand or coin) to definitively verify 'pocket-sized' scale, though it is implied by the class."
+            },
+            {
+                "checkpoint": "Convex lens providing strong magnification for close inspection.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The glass element in the foreground loupe shows reflections and curvature indicative of a convex lens."
+            },
+            {
+                "checkpoint": "Some models fold into protective casing with hinged cover.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The background object appears to be a folding loupe housed within a rectangular protective case, matching this description."
+            },
+            {
+                "checkpoint": "Rubber eye cup at eyepiece end for comfortable viewing.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The visible eyepieces appear to be hard plastic or metal rims; distinct rubber eye cups are not clearly visible on either unit."
+            },
+            {
+                "checkpoint": "Polished chrome, brass, or black metal frame.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both devices feature black frames/casings, which aligns with the 'black metal' or plastic option in the taxonomy."
+            },
+            {
+                "checkpoint": "Clear glass lens with slight convex curvature and anti-reflective coating tint.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lens surface is clear and reflective, showing the expected optical properties."
+            },
+            {
+                "checkpoint": "Small magnifying optical device.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The overall structure matches the definition of a loupe."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Side of the background loupe casing",
+                "severity": 2,
+                "reasoning": "There are white markings on the side of the background loupe that resemble text or symbols but are illegible and distorted, a common artifact in AI-generated images attempting to render labels."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Surface of the black plastic/metal",
+                "severity": 1,
+                "reasoning": "The specular highlights on the black surfaces are slightly soft and lack the crisp micro-scratches or texture details often seen in real macro photography of used tools."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground_loupe",
+                "verification_goals": [
+                    "Confirm the object is classified as a loupe or magnifying glass.",
+                    "Distinguish from similar cylindrical objects like camera lenses or flashlights."
+                ],
+                "reason": "Primary verification of the class label against ImageNet taxonomy.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "both_loupes",
+                "verification_goals": [
+                    "Detect bounding boxes for 'loupe', 'lens', and 'folding case'.",
+                    "Verify the presence of two distinct objects."
+                ],
+                "reason": "To provide spatial priors for segmentation and confirm object count/presence.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "foreground_loupe_lens",
+                "verification_goals": [
+                    "Segment the lens from the frame to ensure clean boundaries.",
+                    "Check for melting or fusion between the glass and the housing."
+                ],
+                "reason": "AI often struggles with the interface between transparent glass and opaque frames.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "background_loupe_markings",
+                "verification_goals": [
+                    "Analyze the illegible white markings on the background casing.",
+                    "Determine if they are valid text or gibberish artifacts."
+                ],
+                "reason": "To verify the severity of the text_gibberish artifact observed.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_image",
+                "verification_goals": [
+                    "Assess overall sharpness and lighting consistency.",
+                    "Check for subtle warping in the cylindrical shapes."
+                ],
+                "reason": "Holistic quality check for structural integrity and rendering realism.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Overall length when folded is pocket-sized, easily carried in a pocket."
+        ],
+        "focus_areas": [
+            "Legibility of markings on the background loupe.",
+            "Boundary integrity between the lens glass and the black frame.",
+            "Geometric correctness of the cylindrical folds."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the text-like artifacts on the background object. If the text auditor confirms gibberish, increase the suspicion of AI generation. Verify that the lens reflections are physically consistent with a convex shape.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000328.png",
+            "class_id": 633,
+            "class_label": "loupe, jeweler's loupe",
+            "router_cost_seconds": 28.64,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground_loupe",
+                "reason": "Primary verification of the class label against ImageNet taxonomy.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "both_loupes",
+                "reason": "To provide spatial priors for segmentation and confirm object count/presence.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "foreground_loupe_lens",
+                "reason": "AI often struggles with the interface between transparent glass and opaque frames.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "background_loupe_markings",
+                "reason": "To verify the severity of the text_gibberish artifact observed.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_image",
+                "reason": "Holistic quality check for structural integrity and rendering realism.",
+                "weight": 0.1
+            }
+        ]
+    }
+}

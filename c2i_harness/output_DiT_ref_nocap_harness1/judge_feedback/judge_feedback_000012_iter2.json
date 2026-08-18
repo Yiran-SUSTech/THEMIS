@@ -1,0 +1,198 @@
+{
+    "image_id": "000012",
+    "class_label": "brambling, Fringilla montifringilla",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:16:35",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical and expert-selection errors. \n1. **Expert Mismatch**: The `animal_pose_auditor` is explicitly defined as 'NOT for limbless' but also implies a focus on standard vertebrate keypoint detection (17 keypoints). While birds are limbed, this specific auditor is likely trained on COCO/AP-10k (mammals/humans) or similar, which does not map well to avian anatomy (tarsus/toes vs ankles/knees). Using it to detect 'ankles/toes' on a bird is methodologically flawed and will yield false negatives. \n2. **Missing Critical Expert**: The image exhibits severe texture smearing and 'melting' artifacts. The `perceptual_quality_auditor` (described as a CoT-enabled VLM for fine-grained degradations) is completely missing from the plan, despite being the most suitable tool to qualitatively assess the 'smearing' and 'fusion' described in the artifact observations.\n3. **Incomplete Verification**: The `fine_grained_classifier` is tasked with ignoring head shape, but the head is the primary site of failure. A general classifier might fail due to the distortion. The plan lacks a mechanism to verify if the *visible* parts (breast color) are sufficient for ID, or if the distortion makes the class unverifiable entirely.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Add perceptual_quality_auditor to assess the severity of texture smearing and structural melting described in artifact_observations.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "expert_mismatch",
+                "point": "Replace animal_pose_auditor with open_vocabulary_detector + topology_boundary_auditor for leg verification. The pose auditor is not validated for avian foot/keypoint detection. Instead, use OVD to locate 'bird feet' and Topology Auditor to check connectivity to the branch.",
+                "recommended_expert": "open_vocabulary_detector, topology_boundary_auditor"
+            },
+            {
+                "type": "verification_gap",
+                "point": "The checkpoint 'Bill is short, thick...' is marked false due to fusion. The geometric_depth_auditor is correctly assigned, but the plan should also include a specific goal for the topology_boundary_auditor to segment the 'bill' region specifically to confirm if it shares pixels with the branch (topological error) vs just depth overlap.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A small passerine bird, likely a Brambling, is perched on a mossy branch. The image exhibits significant AI-generation artifacts, particularly in the head region where the bill and face appear to fuse with the vertical branch structure. The plumage shows orange-rufous coloration on the breast but lacks distinct feather definition, appearing smeared. The tail and lower body blend into the background vegetation.",
+        "image_class": "brambling",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Bill is short, thick, and conical with a sharp tip, grey in winter and black in breeding season.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill is not clearly defined as a separate anatomical structure. It appears to melt into the foreground branch, lacking the conical shape and sharp tip. The boundary between the beak and the wood is indistinct."
+            },
+            {
+                "checkpoint": "Eyes are dark and round, positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eye region is a smudged dark patch without the crisp, round geometry of a biological eye. It blends into the black head plumage and lacks a clear pupil or reflection."
+            },
+            {
+                "checkpoint": "Breeding male has a black head and throat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head and throat area displays black coloration consistent with a breeding male, although the texture is painterly and lacks fine feather detail."
+            },
+            {
+                "checkpoint": "Body is compact and rounded.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The torso silhouette is generally compact and rounded, matching the expected passerine body shape, despite some blurring at the edges."
+            },
+            {
+                "checkpoint": "Breeding male has bright orange-rufous breast and underparts with black upperparts and bold white shoulder patches and rump.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While orange-rufous coloration is present on the breast, the 'bold white shoulder patches' are not distinct geometric shapes. They appear as vague, smeared light areas rather than structured plumage markings."
+            },
+            {
+                "checkpoint": "Female and non-breeding male exhibit duller brownish-grey upperparts with buff-orange underparts.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Not applicable as the subject exhibits breeding male characteristics (black head), though the upperparts are a muddy mix of black and grey."
+            },
+            {
+                "checkpoint": "Plumage texture is soft and slightly fluffy with a matte finish.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The texture is inconsistent and artificial. Edges show significant blurring and 'smearing' rather than distinct feather structures, indicating a diffusion artifact rather than natural matte plumage."
+            },
+            {
+                "checkpoint": "Wings are moderately long with pointed primaries.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The wing structure is poorly defined. Primaries do not resolve into distinct pointed feathers; the wing edge melts into the background and tail area."
+            },
+            {
+                "checkpoint": "Flight displays distinctive white wing bars and white outer tail feathers.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "White markings are amorphous blobs rather than structured wing bars. Tail feathers are fused with the perch/background, making individual feather identification impossible."
+            },
+            {
+                "checkpoint": "Legs are pinkish-brown with slender toes and small claws adapted for perching.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No legs or feet are visible. Given the perching posture, they should be gripping the branch. Their absence suggests either complete occlusion (unlikely given the angle) or generation failure (missing limbs)."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Head and Bill region",
+                "severity": 4,
+                "reasoning": "Severe structural collapse where the bird's beak and face merge seamlessly with the vertical branch. There is no clear boundary separation, indicating a failure to distinguish subject from environment."
+            },
+            {
+                "artifact_type": "melting",
+                "location": "Tail and lower back",
+                "severity": 3,
+                "reasoning": "Tail feathers lack definition and appear to dissolve into the background vegetation. Expected white outer tail feathers are not distinct."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Wing edges and Breast",
+                "severity": 2,
+                "reasoning": "Edges show an airbrushed, painterly quality rather than sharp feather details. Color transitions are overly smooth and unnatural."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Eye",
+                "severity": 2,
+                "reasoning": "The eye lacks geometric precision, appearing as a smudged dark patch within the head plumage rather than a distinct spherical organ."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bird_head_and_branch",
+                "verification_goals": [
+                    "Generate depth map to determine if the bird's head and the branch are at different depths",
+                    "Verify if the 'fusion' is a 2D texture bleed or a 3D structural collapse"
+                ],
+                "reason": "Critical for diagnosing the primary artifact. Determines if the model failed to separate objects in 3D space (structural error) or just blended textures (rendering error).",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "coarse_objects",
+                "verification_goals": [
+                    "Detect bounding boxes for 'bird' and 'branch' only",
+                    "Avoid detecting malformed parts like 'bill' or 'eye'"
+                ],
+                "reason": "To provide coarse localization priors for the topology auditor. Detecting specific malformed parts would fail; coarse detection ensures robust segmentation masks for the intersection zone.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bird_branch_intersection",
+                "verification_goals": [
+                    "Segment the bird and branch using coarse priors",
+                    "Analyze the connectivity at the head/branch interface for topological errors"
+                ],
+                "reason": "To verify if the bird and branch are topologically distinct entities or if they share connected components, confirming the fusion artifact.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bird_body",
+                "verification_goals": [
+                    "Detect keypoints for ankles/toes relative to the perch",
+                    "Confirm absence of leg structures vs. hard occlusion"
+                ],
+                "reason": "To distinguish between 'legs hidden by branch' and 'legs never generated'. Absence of expected keypoint clusters near the perch indicates generation failure.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bird_plumage",
+                "verification_goals": [
+                    "Classify species based on visible plumage colors (orange breast, black head)",
+                    "Ignore head shape due to distortion"
+                ],
+                "reason": "To confirm if the visible color patterns align with Brambling taxonomy, despite structural artifacts. Lower weight due to potential misclassification from distorted features.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Depth separation between bird head and branch",
+            "Topological connectivity at the beak-branch interface",
+            "Presence/Absence of leg keypoints near the perch",
+            "Coarse object separation (bird vs. background)"
+        ],
+        "custom_prompts_for_reflector": "Prioritize the geometric depth analysis: Is the bird physically in front of the branch, or are they merged in 3D space? Use the topology auditor to check for shared pixels at the head/branch boundary. For the legs, use the pose auditor to definitively rule out generation failure vs. occlusion. Do not rely on fine-grained part detection for the head due to severe melting.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000012.png",
+            "class_id": 10,
+            "class_label": "brambling, Fringilla montifringilla",
+            "router_cost_seconds": 37.29,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

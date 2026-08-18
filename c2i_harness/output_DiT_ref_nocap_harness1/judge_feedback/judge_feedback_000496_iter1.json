@@ -1,0 +1,181 @@
+{
+    "image_id": "000496",
+    "class_label": "toilet tissue, toilet paper, bathroom tissue",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:40:44",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address the most critical visual evidence: the object is clearly a flat sheet of paper with printed graphics, not a cylindrical roll. The Router's plan relies heavily on `fine_grained_classifier` and `perceptual_quality_auditor`, which are insufficient for verifying the fundamental geometric failure (lack of roll structure). Crucially, the plan omits `geometric_depth_auditor`, which is necessary to prove the object lacks the 3D volume of a roll and to detect if the 'box' and 'paper' are spatially coherent or hallucinated. Additionally, `open_vocabulary_detector` is missing, which is required to provide bounding box priors for the `topology_boundary_auditor` to function correctly.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Geometric Structure Verification",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The primary failure mode is the lack of cylindrical geometry (it's a flat sheet). A depth map is required to objectively verify that the object has no volume/curvature and to check for spatial bleeding between the paper, box, and wall."
+            },
+            {
+                "type": "missing_expert",
+                "point": "Object Localization Priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` requires precise bounding boxes to segment the 'paper' and 'box' instances. Without this bridge expert, boundary auditing may fail to isolate the specific regions of interest."
+            },
+            {
+                "type": "verification_gap",
+                "point": "Printed Text/Graphics Integrity",
+                "recommended_expert": "image_text_auditor",
+                "reason": "The image contains distinct graphical figures/text. The current plan ignores text quality. An OCR audit is needed to determine if the graphics are coherent symbols or AI-generated gibberish/artifacts, which is a key indicator of generation quality."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A roll of white toilet paper is partially pulled out of a cardboard box, hanging down against a beige wall and carpeted floor. The visible portion of the paper features a printed graphic design consisting of three stylized figures (resembling stick figures or abstract shapes) in gold/yellow and black ink, arranged vertically.",
+        "image_class": "toilet tissue",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Soft, thin, absorbent paper wound into cylindrical roll around cardboard tube.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object appears to be a flat sheet or a very loosely folded stack emerging from a box, rather than a tightly wound cylindrical roll. The geometry lacks the characteristic curvature and density of a standard toilet paper roll."
+            },
+            {
+                "checkpoint": "Roll is compact with modest diameter and width, suitable for standard bathroom holder.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The visible form does not exhibit the compact, cylindrical dimensions of a standard roll; it appears as a hanging rectangular sheet."
+            },
+            {
+                "checkpoint": "Individual sheets perforated for easy tearing.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No perforation lines are visible on the hanging sheet. The surface appears continuous where the graphics are printed."
+            },
+            {
+                "checkpoint": "Slightly textured, embossed surface pattern (quilted or dotted).",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface appears relatively smooth to accommodate the printed graphics, lacking the distinct quilted or dotted embossing typical of standard toilet tissue."
+            },
+            {
+                "checkpoint": "Cardboard core visible at center of roll.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "There is no visible cardboard tube or core; the paper emerges directly from the box opening."
+            },
+            {
+                "checkpoint": "White or off-white coloration throughout.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the base paper is white, the presence of prominent gold and black printed graphics violates the 'throughout' condition of uniform coloration."
+            },
+            {
+                "checkpoint": "Matte, fibrous texture with visible paper fibers at close range.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The material exhibits a matte finish consistent with paper products, though specific fiber visibility is limited by resolution."
+            },
+            {
+                "checkpoint": "Perforated sheet separation lines.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No separation lines or perforations are discernible on the visible portion of the paper."
+            },
+            {
+                "checkpoint": "Household paper product in roll format.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The product is presented in a box as a hanging sheet/stack, not in the standard 'roll format' defined by the taxonomy."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Printed graphics on the paper",
+                "severity": 2,
+                "reasoning": "The printed figures appear slightly fused with the paper texture, lacking the crisp edge definition expected of ink on porous paper, suggesting potential AI generation artifacts in texture synthesis."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Paper emergence point from box",
+                "severity": 3,
+                "reasoning": "The physics of how the paper exits the box is ambiguous; it hangs like a rigid sheet rather than draping naturally like soft tissue, indicating a structural/plausibility error."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "hanging paper object",
+                "verification_goals": [
+                    "Verify if the object is classified as 'toilet tissue' or 'paper towel' vs 'printed poster' or 'artwork'.",
+                    "Confirm if the visual features align with the ImageNet class 'toilet tissue' despite the non-standard presentation."
+                ],
+                "reason": "The object deviates significantly from the standard roll format. A classifier is needed to determine if the semantic content still qualifies as the target class or if it has drifted into a different category due to the graphics and shape.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the printed graphics on the paper surface.",
+                    "Evaluate the physical plausibility of the paper's drape and rigidity.",
+                    "Detect any subtle blending artifacts between the box and the paper."
+                ],
+                "reason": "To verify the severity of the observed texture anomalies and structural implausibility (rigid hanging sheet).",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "paper edges and box opening",
+                "verification_goals": [
+                    "Segment the paper to check for continuous topology without melting into the box.",
+                    "Verify the boundary sharpness between the printed ink and the paper substrate."
+                ],
+                "reason": "To confirm if the paper is a distinct, physically coherent object or if it suffers from boundary bleeding/fusion with the container.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Deviation from standard cylindrical roll geometry",
+            "Presence of non-standard printed graphics",
+            "Physical plausibility of paper drape/rigidity",
+            "Absence of perforations and embossing"
+        ],
+        "custom_prompts_for_reflector": "The image depicts an object labeled 'toilet tissue' but visually presents as a printed sheet hanging from a box, lacking the defining cylindrical roll structure, cardboard core, and perforations. Evaluate whether this significant structural deviation constitutes a failure to meet the class definition, or if it represents a valid but rare variant (e.g., novelty packaging). Prioritize the assessment of physical plausibility in the paper's drape and the integrity of the printed graphics.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000496.png",
+            "class_id": 999,
+            "class_label": "toilet tissue, toilet paper, bathroom tissue",
+            "router_cost_seconds": 28.61,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "hanging paper object",
+                "reason": "The object deviates significantly from the standard roll format. A classifier is needed to determine if the semantic content still qualifies as the target class or if it has drifted into a different category due to the graphics and shape.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To verify the severity of the observed texture anomalies and structural implausibility (rigid hanging sheet).",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "paper edges and box opening",
+                "reason": "To confirm if the paper is a distinct, physically coherent object or if it suffers from boundary bleeding/fusion with the container.",
+                "weight": 0.3
+            }
+        ]
+    }
+}

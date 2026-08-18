@@ -1,0 +1,187 @@
+{
+    "image_description": "A close-up, eye-level shot of a bakery display case filled with an assortment of golden-brown pastries and buns. The items are arranged on trays behind a glass front, which shows reflections and glare. Visible items include round buns, twisted pastries, and some with colorful toppings or fillings. Small paper tags (pink and white) are inserted into some of the baked goods. The lighting is warm and artificial, typical of a retail display.",
+    "image_class": "bakery",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Commercial storefront with large display window.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The image is a tight crop of the interior display; the exterior building structure and full window frame are not visible."
+        },
+        {
+            "checkpoint": "Facade typically brick or stucco with warm lighting.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "Exterior facade materials are completely out of frame."
+        },
+        {
+            "checkpoint": "Door entrance adjacent to display window.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "No door or entrance is visible in this cropped view."
+        },
+        {
+            "checkpoint": "Display window showcasing baked goods arranged on shelves or trays.",
+            "category": "Functional_Components",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The image clearly shows baked goods arranged on trays behind a glass barrier, consistent with a display window."
+        },
+        {
+            "checkpoint": "Interior visible through window includes display cases with glass fronts shelving units and service counter.",
+            "category": "Functional_Components",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Glass reflections and the arrangement of items confirm a display case setting. While the full service counter is not distinct, the functional component of the display case is present."
+        },
+        {
+            "checkpoint": "Sign with bakery name and may have awning.",
+            "category": "Functional_Components",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "No exterior signage or awning is visible in the frame."
+        },
+        {
+            "checkpoint": "Warm inviting atmosphere with visible flour-dusted surfaces and golden-brown products.",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The lighting is warm, and the products exhibit a golden-brown crust typical of baked goods."
+        },
+        {
+            "checkpoint": "Breads pastries and cakes visible in display.",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Multiple types of pastries and buns are clearly identifiable."
+        },
+        {
+            "checkpoint": "Warm lighting illuminating interior.",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The scene is well-lit with a warm color temperature consistent with bakery display lighting."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "text_gibberish",
+            "location": "Pink and white paper tags inserted in pastries (right side)",
+            "severity": 3,
+            "reasoning": "The text on the small paper labels appears illegible and distorted, resembling AI-generated gibberish rather than clear handwriting or print."
+        },
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Pastries in the center and foreground",
+            "severity": 2,
+            "reasoning": "Some pastry surfaces appear overly smooth or waxy, lacking the fine crumb texture and irregularities expected of real baked goods. Edges of some items blend slightly into the background."
+        },
+        {
+            "artifact_type": "structural_collapse",
+            "location": "Background items (top left/center)",
+            "severity": 1,
+            "reasoning": "Items in the background lack clear definition and seem to merge with the glass reflections, creating a slight 'melting' effect typical of AI generation in complex cluttered scenes."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "baked_goods_and_tags",
+            "verification_goals": [
+                "Identify specific types of pastries (e.g., croissant, bun, cake)",
+                "Detect and provide bounding boxes for paper tags/labels",
+                "Establish spatial grounding for all objects to aid downstream segmentation"
+            ],
+            "reason": "As the 'Bridge' expert, this must run first to provide accurate BBoxes for the topology auditor and to locate text regions for the text auditor. High weight ensures robust ROI definition.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "pastries",
+            "verification_goals": [
+                "Confirm objects are classified as baked goods/pastries (semantic validation)",
+                "Verify top-3 ImageNet classes correspond to food/bakery items"
+            ],
+            "reason": "To verify that the visual features correspond to actual bakery items semantically. Note: This expert does NOT assess texture realism.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire_image",
+            "verification_goals": [
+                "Assess severity of texture anomalies (waxy/smooth surfaces) on pastry surfaces",
+                "Check for edge bleeding between pastries and glass/background",
+                "Evaluate overall structural coherence of the cluttered display"
+            ],
+            "reason": "To quantify the observed smoothness, melting artifacts, and texture inconsistencies which are key indicators of AI generation in food images.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "image_text_auditor",
+            "target_subject": "paper_tags",
+            "verification_goals": [
+                "Extract text from pink and white labels",
+                "Determine if text is legible, meaningful, or gibberish/hallucinated"
+            ],
+            "reason": "AI models often fail to render coherent text on small labels. Verifying the legibility of these tags is crucial for authenticity assessment.",
+            "weight": 0.1
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "display_case_glass_and_pastries",
+            "verification_goals": [
+                "Verify the continuity of the glass barrier using BBoxes from open_vocabulary_detector",
+                "Check for logical separation between foreground pastries and background reflections"
+            ],
+            "reason": "To ensure the spatial relationship between the food and the display case is physically valid, relying on the detection priors.",
+            "weight": 0.1
+        }
+    ],
+    "unverifiable_points": [
+        "Commercial storefront with large display window.",
+        "Facade typically brick or stucco with warm lighting.",
+        "Door entrance adjacent to display window.",
+        "Sign with bakery name and may have awning."
+    ],
+    "focus_areas": [
+        "Legibility of text on paper tags",
+        "Texture realism of pastry surfaces (crumb vs. waxiness)",
+        "Logical consistency of glass reflections and object boundaries"
+    ],
+    "custom_prompts_for_reflector": "Focus heavily on the micro-textures of the baked goods: do they show realistic crumb structures and crust variations, or do they appear airbrushed/plastic? Analyze the reflections on the glass: do they match the geometry of the items inside? Crucially, examine the small paper tags: is the text legible and consistent with real handwriting/print, or is it hallucinated gibberish?",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000197.png",
+        "class_id": 415,
+        "class_label": "bakery, bakeshop, bakehouse",
+        "router_cost_seconds": 32.9,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Approved!"
+        ]
+    },
+    "router_scores": {
+        "router_alignment_score": 3.89,
+        "router_artifact_score": 1.25,
+        "checkpoint_summary": {
+            "total": 9,
+            "testable": 5,
+            "present": 5,
+            "absent": 0,
+            "untestable": 4
+        },
+        "artifact_summary": {
+            "count": 3,
+            "max_severity": 3,
+            "severe_count": 2,
+            "minor_count": 1
+        }
+    }
+}

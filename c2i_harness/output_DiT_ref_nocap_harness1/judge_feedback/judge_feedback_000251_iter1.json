@@ -1,0 +1,203 @@
+{
+    "image_id": "000251",
+    "class_label": "car wheel",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:28:17",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address critical geometric and structural hallucinations present in the image. Specifically, the 'Central hub with multiple bolt holes' checkpoint was marked `is_present: false`, yet no expert is assigned to verify if this is a valid center cap or a generation error (missing mounting hardware). Furthermore, the plan ignores severe spatial/grounding errors: the wheel appears to float above the ground (no contact patch/shadow) and the tire sidewall merges into the rim without a clear bead seat. The `geometric_depth_auditor` is missing, which is essential for verifying the physical grounding of the wheel.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Verify physical grounding and contact patch existence.",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The wheel lacks a visible contact patch or shadow, suggesting it is floating. A depth map is required to confirm if the tire intersects the ground plane logically."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Audit the central hub structure for missing bolt holes vs. valid center cap.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The router noted missing bolt holes but did not assign an expert to determine if the center geometry is structurally valid (e.g., a solid cap) or a hallucination (smooth blob where holes should be)."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify tire-to-rim boundary integrity (bead seat).",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "AI generators often fail to render the distinct lip/bead seat where the rubber tire locks onto the metal rim. This boundary needs explicit segmentation auditing."
+            },
+            {
+                "type": "incorrect_weighting",
+                "point": "Increase weight for geometric/topological audits.",
+                "recommended_expert": "N/A",
+                "reason": "Structural integrity (spokes, hub, grounding) is more critical than text decals for a 'car wheel' classification. The current plan underweights geometric validation."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, low-angle shot of a custom chrome alloy car wheel mounted on a red vehicle. The wheel features large, stylized Y-spokes with a highly reflective chrome finish. A black rubber tire surrounds the rim. The background shows the red body panel of the car with some illegible white text decals and strong lens flare/lighting effects.",
+        "image_class": "car wheel",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Circular assembly with metal rim of standard automotive diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object is clearly circular and fits the visual proportions of a standard automotive wheel."
+            },
+            {
+                "checkpoint": "Flat disc with raised outer lip and recessed center hub.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The geometry is not a simple flat disc; it features complex, deep-dish styling with protruding Y-spokes and significant depth variation, deviating from the 'flat disc' description."
+            },
+            {
+                "checkpoint": "Rubber tire mounted around outer edge.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A black rubber tire is clearly visible encircling the metal rim."
+            },
+            {
+                "checkpoint": "Central hub with multiple bolt holes for attachment to vehicle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The center cap is solid and decorative; individual bolt holes are not visible or are obscured by the design/reflections."
+            },
+            {
+                "checkpoint": "Wheel face features decorative cover hubcap or exposed spokes alloy wheels.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wheel features prominent, decorative exposed alloy spokes."
+            },
+            {
+                "checkpoint": "Tire has tread pattern on outer surface and sidewall markings.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The tire sidewall appears smooth and glossy due to lighting/reflection; no distinct tread pattern or legible sidewall markings are visible in this view."
+            },
+            {
+                "checkpoint": "Rim finish polished aluminum painted silver or black.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The rim exhibits a high-gloss, mirror-like chrome/polished aluminum finish."
+            },
+            {
+                "checkpoint": "Rubber tire with visible tread pattern.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the tire material is identifiable as rubber, the specific 'tread pattern' is not visible on the sidewall or the limited visible contact patch."
+            },
+            {
+                "checkpoint": "Metal rim with rubber tire combination.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image clearly depicts the standard combination of a metal rim and rubber tire."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Red car body panel (upper left)",
+                "severity": 2,
+                "reasoning": "White decal text on the car body is illegible and distorted, resembling AI-generated pseudo-text rather than clear branding."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Chrome rim reflections",
+                "severity": 1,
+                "reasoning": "Reflections in the chrome are overly saturated and slightly smeared, lacking the crisp environmental mapping expected in a real photograph, though common in high-end renders."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car wheel",
+                "verification_goals": [
+                    "Verify the object is correctly classified as a car wheel/automotive part.",
+                    "Distinguish between real photography and 3D render if possible via texture analysis."
+                ],
+                "reason": "Primary classification verification to ensure the subject matches the 'car wheel' label.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wheel rim",
+                "verification_goals": [
+                    "Audit the continuity of the alloy spokes.",
+                    "Check for melting or fusion artifacts at the junction of spokes and the central hub.",
+                    "Verify the boundary sharpness between the tire and the rim."
+                ],
+                "reason": "AI generators often struggle with the complex topology of alloy wheels, causing spokes to merge or warp.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "body decals",
+                "verification_goals": [
+                    "Analyze the white text on the red car body for legibility.",
+                    "Detect if the text is gibberish or nonsensical characters."
+                ],
+                "reason": "To verify the 'text_gibberish' artifact observed in the preliminary scan.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the chrome reflections.",
+                    "Check for unnatural blur or smoothing in the tire texture.",
+                    "Evaluate overall lighting consistency."
+                ],
+                "reason": "Holistic quality check to identify subtle rendering artifacts or photographic inconsistencies.",
+                "weight": 0.25
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Structural integrity of the alloy spokes (no melting/fusion).",
+            "Legibility of text decals on the car body.",
+            "Realism of chrome reflections and tire texture."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the geometry of the wheel spokes. AI models often fail to maintain consistent thickness and connection points for complex alloy designs. Also, scrutinize the reflections in the chrome; they should reflect a coherent environment, not just abstract colors. Verify if the 'missing' bolt holes are a stylistic choice (center cap) or a generation error.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000251.png",
+            "class_id": 479,
+            "class_label": "car wheel",
+            "router_cost_seconds": 28.48,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car wheel",
+                "reason": "Primary classification verification to ensure the subject matches the 'car wheel' label.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wheel rim",
+                "reason": "AI generators often struggle with the complex topology of alloy wheels, causing spokes to merge or warp.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "body decals",
+                "reason": "To verify the 'text_gibberish' artifact observed in the preliminary scan.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to identify subtle rendering artifacts or photographic inconsistencies.",
+                "weight": 0.25
+            }
+        ]
+    }
+}

@@ -1,0 +1,176 @@
+{
+    "image_id": "000078",
+    "class_label": "spoonbill",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:19:51",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'structural_collapse' artifact at the leg joint (Severity 1) requires explicit verification of limb connectivity to rule out fusion with the background or internal bone structure errors.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "refinement",
+                "point": "Ensure the 'topology_boundary_auditor' specifically targets the interface between the white neck feathers and the blue background, as noted in the custom prompts, to detect potential 'melting' artifacts.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A medium shot of a Roseate Spoonbill standing in shallow water. The bird features distinctive pink plumage on its wings and body, with white feathers on the neck and upper chest. It has long, dark pink legs and a unique, long, flat, spatulate bill that is pale greyish-white. The background is a soft-focus blue, likely water or sky.",
+        "image_class": "spoonbill",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated flat bill with spatulate tip resembling a spoon, notably long relative to head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bill is clearly visible, elongated, and terminates in a distinct flattened, spoon-like shape characteristic of the species."
+            },
+            {
+                "checkpoint": "Bill color ranges from black to grey with yellow tip depending on species.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill in the image is predominantly pale grey/white. While some spoonbills have grey bills, the specific 'black to grey with yellow tip' description does not fully match the uniform pale appearance here, though it is close enough for a Roseate Spoonbill which often has a greyish bill. However, strictly speaking, the yellow tip is absent."
+            },
+            {
+                "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The nape area appears smooth with no visible elongated crest feathers extending backwards."
+            },
+            {
+                "checkpoint": "Plumage is predominantly white with some species displaying pink, yellow, or black accents.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bird displays significant pink coloration on the wings and lower body, with white on the neck, matching the description for species like the Roseate Spoonbill."
+            },
+            {
+                "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body proportions are consistent with a large wading bird; wings are folded but appear broad."
+            },
+            {
+                "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is standing, not in flight, so primary feathers in flight posture cannot be verified."
+            },
+            {
+                "checkpoint": "Legs are long and dark grey to black adapted for wading.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The legs are long and adapted for wading, but they are distinctly pink/reddish, not dark grey or black as specified in the generic checkpoint."
+            },
+            {
+                "checkpoint": "Neck is long and S-curved.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The neck is visibly long and exhibits a slight S-curve retraction typical of herons and spoonbills."
+            },
+            {
+                "checkpoint": "Flight posture features neck retraction in S-curve.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is standing, not flying."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Neck and upper chest feathers",
+                "severity": 2,
+                "reasoning": "The feather texture on the white neck area appears slightly smudged or painterly compared to the sharper definition of the pink wing feathers, suggesting minor generative inconsistency in texture detail."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Left leg joint (ankle/hock)",
+                "severity": 1,
+                "reasoning": "The joint structure of the left leg is somewhat indistinct and blends slightly into the background/water line, lacking crisp anatomical definition."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Generate precise bounding boxes for the spoonbill body, head, and legs.",
+                    "Provide ROI constraints for downstream pose and topology experts."
+                ],
+                "reason": "Acts as the prerequisite 'Bridge' expert to localize the subject, ensuring the topology and pose auditors have accurate segmentation priors and do not drift on the thin limbs or complex background.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Confirm species identity as Roseate Spoonbill (Platalea ajaja) given the pink plumage and pale bill.",
+                    "Verify if the lack of crest, pale bill, and pink legs are consistent with this specific species sub-type to rule out color hallucination."
+                ],
+                "reason": "To resolve the mismatch between the generic 'grey/black bill' and 'dark legs' checkpoints and the observed pink/pale features, confirming if the image represents a valid species variant rather than an AI error.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Verify anatomical correctness of the legs and feet using the bounding box from the detector.",
+                    "Check for symmetry and proper joint articulation in the standing posture."
+                ],
+                "reason": "To ensure the long legs are structurally sound and not fused or malformed, addressing the slight blurriness at the joints, now constrained by the detector's ROI.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Audit the boundary between the white neck feathers and the blue background for edge bleeding.",
+                    "Verify the separation of the bill from the background using instance masks derived from detection priors."
+                ],
+                "reason": "To check for subtle fusion artifacts where the light-colored bird meets the background, utilizing the bounding box priors from the open_vocabulary_detector for accurate segmentation.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Assess the consistency of feather texture across different body parts (neck vs. wings).",
+                    "Identify any unnatural smoothing or noise patterns in the plumage."
+                ],
+                "reason": "To validate the observation of painterly textures on the neck and ensure overall image coherence.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Wings are broad with colored primary feathers visible in flight.",
+            "Flight posture features neck retraction in S-curve."
+        ],
+        "focus_areas": [
+            "Species-specific bill and leg coloration validation (Roseate vs. Generic).",
+            "Feather texture consistency between neck and body.",
+            "Leg joint anatomical clarity and boundary separation from background."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the bill color and leg color discrepancies against the generic taxonomy. Determine if these are species-specific traits (Roseate Spoonbill) rather than AI errors. Inspect the neck feathers for 'melting' into the background. Ensure the topology audit relies on the bounding box provided by the detector.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000078.png",
+            "class_id": 129,
+            "class_label": "spoonbill",
+            "router_cost_seconds": 33.44,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

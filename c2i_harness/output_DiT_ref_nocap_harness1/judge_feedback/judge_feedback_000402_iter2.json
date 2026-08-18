@@ -1,0 +1,182 @@
+{
+    "image_id": "000402",
+    "class_label": "wig",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:36:35",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'Fine Grained Classifier' is assigned a low weight (0.1) and tasked with distinguishing wig from natural hair. Given the heavy prosthetic makeup and surreal context, this distinction is ambiguous. The Perceptual Quality Auditor should be explicitly tasked with analyzing the 'hairline transition' to determine if the wig base merges unnaturally with the skin/prosthetics, which is a stronger signal than simple classification.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "optimization",
+                "point": "The 'Open Vocabulary Detector' is correctly prioritized. However, ensure its prompt includes 'face', 'makeup', and 'background' to provide negative constraints for the Topology Auditor, ensuring the wig boundary is not confused with the dark background or facial shadows.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up portrait of a person wearing a voluminous, curly black wig. The subject's face features heavy, surreal prosthetic makeup that appears to be melting or peeling, particularly around the eyes and forehead. The wig dominates the upper frame with dense, dark curls against a black background.",
+        "image_class": "wig",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Artificial hairpiece conforming to cranial curvature.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The hair mass sits atop the head and follows the general rounded shape of the skull. However, due to facial distortion, geometric verification is required to ensure it doesn't merge with the forehead."
+            },
+            {
+                "checkpoint": "Realistic hair strand density with varied length and texture.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The hair texture appears overly uniform and 'clumped' rather than showing individual realistic strands. It has a synthetic, slightly melted appearance lacking fine-grained fiber detail."
+            },
+            {
+                "checkpoint": "Directional flow patterns with parting lines or wave patterns.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While there is general curly volume, distinct natural parting lines or coherent directional flow from a root point are not clearly visible; the hair looks like a solid textured mass."
+            },
+            {
+                "checkpoint": "Flexible mesh or lace base for scalp coverage.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The hairline and scalp area are completely obscured by the heavy makeup/prosthetics and the density of the wig; no mesh or lace is visible."
+            },
+            {
+                "checkpoint": "Adjustable elastic bands or clips for secure attachment.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "These components are typically located on the underside or interior of the wig and are not visible in this frontal portrait view."
+            },
+            {
+                "checkpoint": "Constructed from synthetic fibers or processed human hair.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visual characteristics (high sheen, uniform curl pattern) strongly suggest synthetic fibers, which fits the definition."
+            },
+            {
+                "checkpoint": "Synthetic fibers or human hair mounted on mesh base.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visually consistent with synthetic hair construction, although the mounting base is hidden."
+            },
+            {
+                "checkpoint": "Varied coloration patterns mimicking natural growth.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The wig is a solid, uniform black color without the subtle tonal variations, highlights, or root shading found in natural hair growth."
+            },
+            {
+                "checkpoint": "Style-dependent texture: straight, wavy, or curled alignment.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wig exhibits a distinct curly/coiled style alignment."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Hair strands",
+                "severity": 2.5,
+                "reasoning": "The hair lacks fine individual strand definition, appearing as fused, plastic-like clumps rather than distinct fibers, typical of AI generation struggling with high-frequency hair details."
+            },
+            {
+                "artifact_type": "melting",
+                "location": "Face/Makeup area",
+                "severity": 3.0,
+                "reasoning": "The facial features and makeup appear to be melting or dissolving into the skin. While this may be an artistic intent (horror/surrealism), it presents as a structural coherence failure common in AI portraits where facial topology degrades."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Jawline and neck junction",
+                "severity": 2.0,
+                "reasoning": "The boundary between the chin/neck and the background is soft and ill-defined, with the jaw structure appearing slightly warped or incomplete."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "wig",
+                "verification_goals": [
+                    "Provide precise bounding box for the wig to isolate it from facial artifacts.",
+                    "Detect presence of any visible clips or bands (unlikely but possible)."
+                ],
+                "reason": "Foundational step: Provides necessary BBox priors for the Topology Boundary Auditor to function effectively. Must be executed first.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wig",
+                "verification_goals": [
+                    "Verify the wig is a single continuous object separate from the head using OVD priors.",
+                    "Check for edge bleeding between hair curls and the background."
+                ],
+                "reason": "Audits the physical boundary integrity of the wig, ensuring it does not merge with the distorted facial features or background.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "head_and_wig",
+                "verification_goals": [
+                    "Verify the wig sits ON the head and conforms to cranial curvature.",
+                    "Ensure the wig does not geometrically merge with the forehead/makeup area."
+                ],
+                "reason": "Addresses the Judge's concern about verifying 'cranial curvature' via geometry tools, especially given the unreliable visual cues from the melting face.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "hair_texture",
+                "verification_goals": [
+                    "Analyze if the lack of hair strand detail is an artifact or stylistic choice.",
+                    "Assess micro-texture realism to distinguish synthetic vs. human hair signatures (replacing FGC capability gap)."
+                ],
+                "reason": "Handles the micro-texture analysis that the Fine Grained Classifier cannot perform, differentiating artistic distortion from generative error.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "wig",
+                "verification_goals": [
+                    "Confirm the object is classified as a wig/hairpiece rather than natural hair.",
+                    "Verify top-level class identity."
+                ],
+                "reason": "High-speed sieve to confirm the primary class label. Removed texture differentiation goals as per Judge feedback.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Flexible mesh or lace base for scalp coverage (Occluded)",
+            "Adjustable elastic bands or clips for secure attachment (Occluded/Interior)"
+        ],
+        "focus_areas": [
+            "Geometric separation of wig from forehead (Depth Audit)",
+            "Boundary integrity using BBox priors (Topology Audit)",
+            "Micro-texture fidelity of hair strands (Perceptual Audit)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the transition zone between the wig's hairline and the subject's forehead. Use the geometric depth map to confirm the wig is physically sitting on top of the skull and not merging with the melting makeup. Evaluate if the hair texture is uniformly 'plastic' (AI artifact) or if it shows realistic micro-variations, relying on the perceptual auditor rather than just visual inspection.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000402.png",
+            "class_id": 903,
+            "class_label": "wig",
+            "router_cost_seconds": 33.15,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

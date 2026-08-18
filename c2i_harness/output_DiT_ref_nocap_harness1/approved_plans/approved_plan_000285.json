@@ -1,0 +1,178 @@
+{
+    "image_description": "A high-angle, close-up shot of a black frying pan (skillet) containing white rice topped with an orange sauce or seasoning. The pan has a visible handle extending to the right. In the background, there are other dining items including a small bowl with red specks, chopsticks in a holder, and a red object (possibly a tomato or container). The lighting is somewhat dim with strong reflections on the metallic/seasoned surfaces.",
+    "image_class": "frying pan",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Shallow circular cooking pan, with diameter substantially wider than its depth.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The object is clearly a circular vessel with a wide opening relative to its visible wall height, consistent with a shallow pan."
+        },
+        {
+            "checkpoint": "Long handle, proportionally shorter than the pan diameter, with hanging hole at end.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "While the handle is present, the 'hanging hole at end' is not visible as the handle extends out of the frame. Marking as false because the full feature description is not met visually, requiring detection verification."
+        },
+        {
+            "checkpoint": "Sloped sides facilitate food flipping.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The interior walls of the pan curve upwards from the base, indicating sloped sides typical of a skillet."
+        },
+        {
+            "checkpoint": "Handle is metal (with heat-resistant grip) or Bakelite/plastic, attached by rivets or welded.",
+            "category": "Functional_Components",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The attachment point (rivets/weld) where the handle meets the pan body is obscured by shadow and the angle of the shot. Requires detection to confirm absence of visible artifacts."
+        },
+        {
+            "checkpoint": "Bottom is flat (induction-compatible) or slightly rounded.",
+            "category": "Functional_Components",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The exterior bottom of the pan is not visible as the pan is viewed from the top/inside."
+        },
+        {
+            "checkpoint": "Surface shows cooking residue patterns, oil sheen, or pristine non-stick coating.",
+            "category": "Functional_Components",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The black surface of the pan shows specular highlights (sheen) consistent with seasoned cast iron or coated metal."
+        },
+        {
+            "checkpoint": "Cast iron (black, rough seasoned surface), stainless steel (polished silver), aluminum (brushed or anodized), or non-stick coated (black PTFE surface).",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The pan is black with a semi-gloss finish, matching the description of cast iron or non-stick coating."
+        },
+        {
+            "checkpoint": "Material is metal with characteristic finish.",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The reflections and rigidity implied by the shape confirm it is a hard material, likely metal."
+        },
+        {
+            "checkpoint": "Handle is proportionally sized for single-hand grip.",
+            "category": "Material_and_Context",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The visible portion of the handle appears to be of standard width and thickness for a handheld skillet."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Rice grains and sauce",
+            "severity": 2,
+            "reasoning": "The texture of the rice and sauce appears slightly smudged or painterly rather than having distinct individual grain boundaries, which is common in AI generation but could also be due to low image resolution/compression."
+        },
+        {
+            "artifact_type": "perspective_distortion",
+            "location": "Background objects (chopsticks/bowls)",
+            "severity": 1,
+            "reasoning": "The geometry of the background items is slightly ambiguous and soft-focused, making their exact 3D structure difficult to discern, though not definitively erroneous."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "frying pan, handle, hanging hole, rivets",
+            "verification_goals": [
+                "Detect bounding boxes for 'frying pan', 'handle', 'hanging hole', and 'rivets'.",
+                "Confirm if 'hanging hole' and 'rivets' are detectable; if no boxes are returned, it supports the verdict that they are not visible/present.",
+                "Provide BBox priors for the topology boundary auditor."
+            ],
+            "reason": "Essential bridge expert to provide segmentation masks for the topology auditor and to rigorously verify the absence of specific functional components (hole, rivets) via negative detection.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "frying pan",
+            "verification_goals": [
+                "Confirm the object is classified as a frying pan/skillet and not a similar vessel like a wok or deep pot."
+            ],
+            "reason": "Primary class verification to ensure the generated object matches the target label.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "frying pan",
+            "verification_goals": [
+                "Verify the pan rim is a continuous, closed loop without breaks or melting into the background.",
+                "Check that the handle connects solidly to the pan body without floating artifacts.",
+                "Use BBoxes from open_vocabulary_detector to isolate the pan from background clutter."
+            ],
+            "reason": "To detect subtle edge bleeding or structural discontinuities in the main subject's silhouette, dependent on OVD priors.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire image",
+            "verification_goals": [
+                "Assess the realism of the rice texture and sauce distribution.",
+                "Identify any unnatural blurring or 'smearing' artifacts in the food contents."
+            ],
+            "reason": "To evaluate the quality of the complex textures (food) which are prone to AI artifacts.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "pan and background",
+            "verification_goals": [
+                "Verify the spatial relationship between the pan and the background objects (chopsticks, bowls).",
+                "Ensure the pan sits logically on a surface with correct occlusion."
+            ],
+            "reason": "To check for spatial grounding errors where the pan might appear to float or merge incorrectly with the table/background.",
+            "weight": 0.1
+        }
+    ],
+    "unverifiable_points": [
+        "Bottom is flat (induction-compatible) or slightly rounded."
+    ],
+    "focus_areas": [
+        "Pan rim continuity and sharpness",
+        "Texture realism of the rice and sauce",
+        "Spatial grounding of the pan against the background",
+        "Verification of handle attachment points and hanging hole visibility"
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the interface between the rice and the pan wall; AI often struggles with the precise contact line where food meets a curved container. Also, verify if the reflections on the pan's inner wall are consistent with a single light source. Specifically check if the OVD confirms the absence of a hanging hole or rivets, validating the 'not visible' status.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000285.png",
+        "class_id": 567,
+        "class_label": "frying pan, frypan, skillet",
+        "router_cost_seconds": 33.33,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Approved!"
+        ]
+    },
+    "router_scores": {
+        "router_alignment_score": 3.54,
+        "router_artifact_score": 2.55,
+        "checkpoint_summary": {
+            "total": 9,
+            "testable": 8,
+            "present": 6,
+            "absent": 2,
+            "untestable": 1
+        },
+        "artifact_summary": {
+            "count": 2,
+            "max_severity": 2,
+            "severe_count": 1,
+            "minor_count": 1
+        }
+    }
+}

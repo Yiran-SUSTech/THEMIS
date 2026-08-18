@@ -1,0 +1,198 @@
+{
+    "image_id": "000091",
+    "class_label": "sea lion",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:19:58",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification coverage. Specifically, the `animal_pose_auditor` is selected to audit a sea lion, but its definition explicitly states it is 'NOT for limbless (fish, snakes)' and designed for subjects with 17 keypoints (typically humans/quadrupeds with distinct limbs). Sea lions have flippers that do not map to standard pose estimation skeletons, making this expert ineffective or prone to false positives. Furthermore, the plan fails to utilize the `open_vocabulary_detector` to establish bounding box priors for the `topology_boundary_auditor`, which is necessary for accurate segmentation of the two overlapping animals.",
+        "suggestions": [
+            {
+                "type": "expert_mismatch",
+                "point": "Remove animal_pose_auditor",
+                "recommended_expert": "None (Replace with perceptual_quality_auditor for symmetry checks)",
+                "reason": "Sea lions do not fit the 17-keypoint biological structure required by the animal_pose_auditor. Symmetry and structural plausibility should be handled by the CoT-enabled perceptual_quality_auditor or fine_grained_classifier."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Instance Segmentation Priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The topology_boundary_auditor requires precise instance masks to audit the boundary between the two sea lions and the dock. The open_vocabulary_detector must run first to provide BBox priors for SAM-based segmentation."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verification of 'Unverifiable' Limbs",
+                "recommended_expert": "fine_grained_classifier / perceptual_quality_auditor",
+                "reason": "While the flippers are occluded, the fine_grained_classifier should verify that no anatomical hallucinations (e.g., extra limbs merging with the dock) are present in the occluded regions, rather than just marking them as untestable."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays two sea lions resting on a wooden dock structure near water. The primary subject is a large, dark-colored male sea lion in the foreground, characterized by a prominent sagittal crest and thick neck mane. A second, lighter-colored sea lion (likely female or juvenile) is visible behind it to the left. Both animals exhibit wet, sleek fur typical of pinnipeds.",
+        "image_class": "sea lion",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is broad with prominent sagittal crest in males.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground subject clearly displays the characteristic bony bump (sagittal crest) on the top of its head, consistent with an adult male sea lion."
+            },
+            {
+                "checkpoint": "External ear pinnae (visible ear flaps) distinguish from true seals.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small but distinct external ear flaps are visible on the side of the head of the foreground animal, confirming it is an otariid (sea lion/fur seal) rather than a phocid (true seal)."
+            },
+            {
+                "checkpoint": "Whiskers (vibrissae) are prominent and sensitive.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Stiff, light-colored whiskers are clearly visible protruding from the muzzle area of both animals."
+            },
+            {
+                "checkpoint": "Fur is short and coarse ranging from brown to dark grey, lighter on ventral surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The fur appears short and sleek (wet look). The foreground male is dark brown/black, while the background animal is lighter tan/brown, fitting the color variation description."
+            },
+            {
+                "checkpoint": "Body exhibits streamlined fusiform form of substantial marine mammal proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is robust, tapered, and streamlined, consistent with a large marine mammal adapted for swimming."
+            },
+            {
+                "checkpoint": "Males develop thick neck mane and are significantly larger than females.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground animal shows a thickening of the skin/fur around the neck (mane) and appears physically larger and darker than the companion behind it, indicating sexual dimorphism."
+            },
+            {
+                "checkpoint": "Foreflippers are large, broad, and hairless on underside used for terrestrial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The foreflippers are largely occluded by the animal's body position and the angle of the shot; the underside texture cannot be verified."
+            },
+            {
+                "checkpoint": "Hind flippers can rotate forward for walking on land.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The hind flippers are completely hidden beneath the body or out of frame; their orientation and structure cannot be seen."
+            },
+            {
+                "checkpoint": "Body exhibits bilateral symmetry.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the pose, the visible anatomical landmarks (eyes, ears, nostrils) align symmetrically along the central axis of the head and body."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Neck and shoulder region of foreground sea lion",
+                "severity": 1.5,
+                "reasoning": "The transition between the wet, sleek fur on the face and the thicker mane area shows slight smoothing/blurring that lacks individual hair strand definition, common in AI generation of wet fur textures."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Junction of background sea lion and wooden dock",
+                "severity": 2.0,
+                "reasoning": "The edge where the background sea lion's body meets the wooden planks is slightly soft and indistinct, suggesting minor blending or depth estimation errors rather than sharp physical contact."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground sea lion",
+                "verification_goals": [
+                    "Confirm species classification as Sea Lion (Otariidae) vs True Seal (Phocidae)",
+                    "Verify presence of sagittal crest indicative of male"
+                ],
+                "reason": "Primary verification of class identity and key taxonomic features (ear flaps, crest) to rule out misclassification or hybrid artifacts.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "foreground sea lion",
+                "verification_goals": [
+                    "Verify bilateral symmetry of facial keypoints",
+                    "Check for missing or fused limbs despite occlusion"
+                ],
+                "reason": "To ensure the underlying skeletal structure is biologically plausible and symmetrical, even if flippers are hidden.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "sea lions and dock",
+                "verification_goals": [
+                    "Audit boundary sharpness between animal fur and wooden dock",
+                    "Verify continuous body topology without floating parts"
+                ],
+                "reason": "To investigate the slight edge bleeding observed at the contact points with the environment.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "fur texture",
+                "verification_goals": [
+                    "Analyze fur texture consistency (wet vs dry areas)",
+                    "Detect subtle melting or smearing in the neck mane"
+                ],
+                "reason": "To validate the severity of the texture anomalies noted in the preliminary scan.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Foreflipper underside hairlessness",
+            "Hind flipper rotation capability"
+        ],
+        "focus_areas": [
+            "Edge definition between subject and background",
+            "Texture realism of wet fur vs mane",
+            "Symmetry of facial features"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the boundary between the sea lion's body and the wooden dock. AI models often struggle with the intersection of organic wet textures and rigid geometric wood. Check if the 'mane' looks like natural thickened skin/fur or if it resembles melted plastic. Verify that the eye reflections are consistent with the outdoor lighting environment.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000091.png",
+            "class_id": 150,
+            "class_label": "sea lion",
+            "router_cost_seconds": 29.88,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground sea lion",
+                "reason": "Primary verification of class identity and key taxonomic features (ear flaps, crest) to rule out misclassification or hybrid artifacts.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "foreground sea lion",
+                "reason": "To ensure the underlying skeletal structure is biologically plausible and symmetrical, even if flippers are hidden.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "sea lions and dock",
+                "reason": "To investigate the slight edge bleeding observed at the contact points with the environment.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "fur texture",
+                "reason": "To validate the severity of the texture anomalies noted in the preliminary scan.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

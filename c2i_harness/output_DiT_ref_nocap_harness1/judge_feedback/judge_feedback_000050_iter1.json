@@ -1,0 +1,196 @@
+{
+    "image_id": "000050",
+    "class_label": "black grouse",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:17:44",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Expert Selection and Coverage. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' but implies suitability for limbed subjects; however, its description specifies it detects '17 keypoints for animals/humans'. Standard pose estimators (like OpenPose or similar 17-point models) are trained on humans or specific quadrupeds and will fail catastrophically or produce hallucinated keypoints on avian anatomy (wings/tails vs arms/legs). Using this expert for a bird is scientifically invalid. Additionally, the plan lacks an `open_vocabulary_detector` to provide bounding box priors for the `topology_boundary_auditor`, which is crucial for separating the black bird from the complex brown branch background.",
+        "suggestions": [
+            {
+                "type": "invalid_expert_selection",
+                "point": "animal_pose_auditor is incompatible with avian subjects",
+                "recommended_action": "Remove `animal_pose_auditor`. Replace with a specialized avian structure check via `perceptual_quality_auditor` (focusing on wing/tail integrity) or a custom keypoint definition if available. Do not use human-centric pose estimators on birds."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Lack of spatial grounding for boundary audit",
+                "recommended_expert": "open_vocabulary_detector",
+                "reasoning": "The `topology_boundary_auditor` requires precise segmentation masks. Without an initial detection step from `open_vocabulary_detector` to locate the 'black grouse' and 'branches', the boundary auditor may struggle to distinguish foreground from background in high-contrast, occluded areas."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verification of 'Feathered legs' absence",
+                "recommended_action": "Since `animal_pose_auditor` is removed, ensure `perceptual_quality_auditor` specifically inspects the lower body/leg region for anatomical plausibility (e.g., ensuring legs aren't melted into branches or missing entirely if visible)."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A male black grouse (blackcock) perched on a tangle of dry, leafless branches against an overcast sky. The bird displays glossy black plumage with visible iridescence, prominent red eyebrow combs, and a short dark beak. It is facing slightly to the left.",
+        "image_class": "black grouse",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Red eyebrow combs (caruncles) are prominent above the eyes in males.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bright red patch above the eye is clearly visible and distinct against the black head feathers."
+            },
+            {
+                "checkpoint": "Beak is short, curved, and dark.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The beak is visible, appearing short, stout, and dark grey/black, consistent with the species description."
+            },
+            {
+                "checkpoint": "Body is robust and stocky.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bird's silhouette shows a rounded, heavy-set body typical of gallinaceous birds, not slender or elongated."
+            },
+            {
+                "checkpoint": "Male (blackcock) exhibits striking bluish-black plumage with iridescent green and purple sheen on the neck and breast.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The plumage is deep black with noticeable blue/purple highlights on the neck and upper back, indicating healthy iridescence."
+            },
+            {
+                "checkpoint": "Most distinctive feature is the white undertail coverts forming a bright white patch visible in flight and during display.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is perched with its tail down; the undertail area is occluded by the body angle and surrounding branches, making this feature impossible to verify visually."
+            },
+            {
+                "checkpoint": "Female (greyhen) is mottled brown and buff with cryptic camouflage patterning.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The subject is clearly a male (blackcock) based on the black plumage and red combs; female characteristics are absent as expected for this specific individual."
+            },
+            {
+                "checkpoint": "Legs and feet are feathered (adaptation for cold climates).",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The legs and feet are completely obscured by the dense network of twigs and the bird's belly plumage."
+            },
+            {
+                "checkpoint": "Tail is short and rounded; male tail feathers curve outward in a lyre shape during display.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tail is visible behind the perch. While not in full 'lyre' display mode, the feathers appear broad and structured correctly for the species, without melting or fusion artifacts."
+            },
+            {
+                "checkpoint": "Wings are broad and rounded for short, explosive flights.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The folded wings create a smooth, rounded contour along the side of the body, consistent with the anatomy of a game bird."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Branches intersecting the bird's lower body",
+                "severity": 1.5,
+                "reasoning": "Slight softness/blurring where the thin twigs overlap the black plumage. This could be depth-of-field blur or minor edge blending issues common in AI generation, but it is subtle."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Lower right tail feathers",
+                "severity": 1.0,
+                "reasoning": "The tips of the tail feathers blend slightly into the background twigs, lacking crisp definition, though the overall structure remains plausible."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "black grouse",
+                "verification_goals": [
+                    "Confirm species identity as Black Grouse (Lyrurus tetrix)",
+                    "Verify male sex characteristics (plumage color)"
+                ],
+                "reason": "Primary verification to ensure the generated image matches the high-level class label and taxonomy prior knowledge regarding species appearance.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "black grouse",
+                "verification_goals": [
+                    "Verify keypoint connectivity of head, neck, and body",
+                    "Check for missing limbs or structural anomalies in the wing/tail region"
+                ],
+                "reason": "To audit the biological plausibility of the bird's posture and ensure no hidden limb errors or 'melting' into the perch.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bird and branches",
+                "verification_goals": [
+                    "Segment bird from background branches",
+                    "Verify sharp boundaries between black plumage and thin twigs"
+                ],
+                "reason": "To investigate the slight texture anomalies and edge bleeding observed where the dark bird overlaps the complex branch structure.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess overall realism of lighting and shadows",
+                    "Detect any subtle generative artifacts in the sky or branch textures"
+                ],
+                "reason": "Holistic quality check to rule out low-level GAN artifacts or inconsistent lighting that might indicate synthetic origin.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "White undertail coverts (occluded by posture)",
+            "Feathered legs and feet (occluded by branches and body)"
+        ],
+        "focus_areas": [
+            "Edge integrity between black plumage and foreground branches",
+            "Anatomical correctness of the tail feathers",
+            "Species-specific features (red comb, beak shape)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the intersection of the bird's black feathers and the thin brown branches. AI models often struggle with occlusion here, causing branches to disappear or feathers to melt. Verify if the red comb has a natural texture or looks like a flat painted patch.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000050.png",
+            "class_id": 80,
+            "class_label": "black grouse",
+            "router_cost_seconds": 29.86,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "black grouse",
+                "reason": "Primary verification to ensure the generated image matches the high-level class label and taxonomy prior knowledge regarding species appearance.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "black grouse",
+                "reason": "To audit the biological plausibility of the bird's posture and ensure no hidden limb errors or 'melting' into the perch.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bird and branches",
+                "reason": "To investigate the slight texture anomalies and edge bleeding observed where the dark bird overlaps the complex branch structure.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to rule out low-level GAN artifacts or inconsistent lighting that might indicate synthetic origin.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

@@ -1,0 +1,206 @@
+{
+    "image_id": "000432",
+    "class_label": "bagel, beigel",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:37:25",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'Traditional Jewish bread ring format' checkpoint was marked false due to the metallic band. The plan should explicitly verify if the underlying geometry (ignoring the artifact) satisfies the toroidal constraint.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "optimization",
+                "point": "The fine_grained_classifier is tasked with verifying the bagel despite the metal band. Since the band obscures part of the object, the open_vocabulary_detector should first provide a mask or bbox for the 'clean' visible portion of the bagel to ensure accurate classification.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up shot of two golden-brown bagels resting on a wire cooling rack. The foreground bagel is topped with sesame seeds and features a distinct, ornate metallic band wrapped around its lower right quadrant. The background bagel is also topped with sesame seeds. A blurred package with text is visible in the upper left background.",
+        "image_class": "bagel",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Ring-shaped bread roll with toroidal form and central hole that is narrow relative to the overall ring diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The subject clearly exhibits the toroidal geometry of a bagel with a visible central hole."
+            },
+            {
+                "checkpoint": "Overall form is compact and hand-sized with glossy, chewy crust.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The scale relative to the wire rack suggests a standard hand-sized roll, and the surface reflects light indicating a glossy crust."
+            },
+            {
+                "checkpoint": "Smooth, shiny glaze from boiling before baking.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Specular highlights on the crust confirm the presence of a glaze typical of boiled bagels."
+            },
+            {
+                "checkpoint": "Dense interior crumb visible at cut surface.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bagels are whole; no cut surfaces are visible to inspect the interior crumb structure."
+            },
+            {
+                "checkpoint": "Firm exterior with slight blistering from baking.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The crust appears firm and intact, with minor surface irregularities consistent with baking blistering."
+            },
+            {
+                "checkpoint": "May be topped with sesame seeds, poppy seeds, or coarse salt.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both bagels are visibly topped with white sesame seeds."
+            },
+            {
+                "checkpoint": "Golden-brown to deep amber coloration on surface.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration matches the expected golden-brown range for baked dough."
+            },
+            {
+                "checkpoint": "Chewy texture characteristic of boiled-then-baked dough.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visual cues of the crust density and glaze support the inference of a chewy texture."
+            },
+            {
+                "checkpoint": "Traditional Jewish bread ring format.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the base object is a bagel, the presence of an ornate metallic jewelry band wrapped around it violates the 'traditional' format definition, introducing a non-food artifact."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "other",
+                "location": "Lower right quadrant of the foreground bagel",
+                "severity": 4,
+                "reasoning": "An ornate, metallic, jewelry-like band is wrapped around the bagel. This is a severe semantic and structural anomaly (fusion of food and metal object) inconsistent with the class label 'bagel'."
+            },
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Background packaging (left side)",
+                "severity": 2,
+                "reasoning": "The text on the plastic packaging in the background is distorted and illegible, a common AI generation artifact."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground bagel",
+                "verification_goals": [
+                    "Confirm the base object is classified as a bagel despite the attached metallic object.",
+                    "Verify species identity against ImageNet classes."
+                ],
+                "reason": "To ensure the underlying object is indeed a bagel and not a hallucinated shape resembling one.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "metallic band on bagel",
+                "verification_goals": [
+                    "Segment the metallic band to verify if it is physically fused with the bread or floating.",
+                    "Check for boundary bleeding between the metal texture and the bread crust."
+                ],
+                "reason": "To audit the structural plausibility of the metallic object attached to the food item.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the severity of the metallic band artifact.",
+                    "Evaluate texture consistency between the bread and the metal object.",
+                    "Identify any other subtle distortions in the sesame seed distribution."
+                ],
+                "reason": "To provide a holistic quality score and confirm the unnatural nature of the metallic addition.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "background packaging",
+                "verification_goals": [
+                    "Extract any legible text from the background package.",
+                    "Determine if the text is gibberish or valid branding."
+                ],
+                "reason": "To verify the text artifact observed in the background.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "scene objects",
+                "verification_goals": [
+                    "Detect and bound the 'bagel', 'sesame seeds', 'wire rack', and 'metallic band'.",
+                    "Provide bounding box priors for the topology auditor."
+                ],
+                "reason": "To localize all components for downstream segmentation and verification.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Dense interior crumb visible at cut surface"
+        ],
+        "focus_areas": [
+            "The junction where the metallic band meets the bagel crust.",
+            "The realism of the sesame seed attachment.",
+            "The legibility of background text."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the metallic object wrapped around the front bagel. Is this a realistic food styling choice (e.g., a decorative napkin ring) or an AI hallucination/fusion error? Evaluate the physical interaction between the metal and the bread surface.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000432.png",
+            "class_id": 931,
+            "class_label": "bagel, beigel",
+            "router_cost_seconds": 28.96,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground bagel",
+                "reason": "To ensure the underlying object is indeed a bagel and not a hallucinated shape resembling one.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "metallic band on bagel",
+                "reason": "To audit the structural plausibility of the metallic object attached to the food item.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To provide a holistic quality score and confirm the unnatural nature of the metallic addition.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "background packaging",
+                "reason": "To verify the text artifact observed in the background.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "scene objects",
+                "reason": "To localize all components for downstream segmentation and verification.",
+                "weight": 0.1
+            }
+        ]
+    }
+}

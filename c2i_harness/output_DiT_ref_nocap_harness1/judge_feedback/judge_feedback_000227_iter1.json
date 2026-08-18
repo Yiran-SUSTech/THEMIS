@@ -1,0 +1,168 @@
+{
+    "image_id": "000227",
+    "class_label": "bib",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:26:58",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. Specifically, the `topology_boundary_auditor` requires bounding box (BBox) priors to segment specific object instances, but the plan fails to include the `open_vocabulary_detector` which is explicitly defined as the 'Bridge' expert to provide these priors. Without the detector, the topology auditor cannot function effectively on complex boundaries like lace. Additionally, the plan misses verifying the 'ties/fastener' checkpoint which was marked present; visual inspection shows yellow ribbons that need semantic confirmation to ensure they are functional ties and not just decorative artifacts.",
+        "suggestions": [
+            {
+                "type": "missing_expert_dependency",
+                "point": "Topology Boundary Auditing requires BBox priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` description states it is best for verifying connectivity but relies on segmentation. The `open_vocabulary_detector` is defined as the necessary precursor to identify 'WHERE' subjects are. The plan must include the detector to generate BBoxes for the bib and its lace trim before the topology auditor can assess boundary sharpness."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of 'Ties or snap fastener at neck'",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The checkpoint verdict claims a 'yellow ribbon/tie' is present. The current plan lacks a specific verification step to confirm these yellow elements are indeed ties/fasteners and not unrelated background objects or generative artifacts. An open-vocabulary detection for 'ribbon' or 'tie' localized at the neck region is required."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Pattern consistency verification",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "While listed in focus areas, the `perceptual_quality_auditor` goals should explicitly include checking for 'geometric distortion in polka dots' to align with the custom prompt's concern about perspective consistency on curved surfaces."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up view of a handmade baby bib lying flat on a white textured surface. The bib features a curved neck opening and a rounded body shape. It is constructed with multiple layers or panels: a central white section, a pink panel with silver/white polka dots on the left, and blue ruffled lace trim along the edges. A yellow ribbon or tie is visible at the top center.",
+        "image_class": "bib",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Flat piece of fabric shaped to cover chest area.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object is clearly a flat textile item designed to drape over the chest, consistent with the definition."
+            },
+            {
+                "checkpoint": "Truncated shield or rounded rectangle shape of moderate torso-covering length.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The overall silhouette is a rounded, shield-like shape typical of baby bibs."
+            },
+            {
+                "checkpoint": "Curved top edge fitting under chin.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The upper boundary forms a distinct U-shaped curve intended for the neck/chin area."
+            },
+            {
+                "checkpoint": "Ties or snap fastener at neck.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A yellow ribbon/tie is visible at the top center apex of the bib's curve."
+            },
+            {
+                "checkpoint": "Body extends downward in rectangular or rounded shape.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The main body extends vertically from the neck curve in a rounded manner."
+            },
+            {
+                "checkpoint": "Some bibs have pocket or trough at bottom to catch food.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "This appears to be a soft fabric/cloth bib rather than a plastic one; there is no visible rigid trough or distinct pocket structure at the bottom hem."
+            },
+            {
+                "checkpoint": "Fabric of cotton plastic or terry cloth.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The texture indicates soft fabric (likely cotton or blend) with ruffled lace trim, not rigid plastic."
+            },
+            {
+                "checkpoint": "Plastic bibs have glossy waterproof surface while fabric bibs have soft matte texture.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surface exhibits a soft, matte textile appearance consistent with fabric, lacking the high-gloss reflection of plastic."
+            },
+            {
+                "checkpoint": "Surface may be plain patterned or printed with designs.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bib features a distinct pink panel with polka dots and blue lace trim, satisfying the 'patterned/design' criteria."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bib",
+                "verification_goals": [
+                    "Confirm the object is classified as a 'bib' or 'baby clothing accessory' within ImageNet taxonomy.",
+                    "Rule out misclassification as generic 'cloth', 'towel', or 'handkerchief'."
+                ],
+                "reason": "Primary verification that the generated image matches the target class label 'bib' at a semantic level.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bib",
+                "verification_goals": [
+                    "Verify the bib is a single, continuous physical entity without floating lace parts.",
+                    "Check for edge bleeding between the pink polka-dot panel and the white background fabric.",
+                    "Ensure the ruffled lace trim is structurally connected to the main body."
+                ],
+                "reason": "AI images often struggle with complex textile boundaries like lace and layered fabrics; this ensures structural integrity.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "bib",
+                "verification_goals": [
+                    "Inspect for texture anomalies in the fabric weave (e.g., smearing or inconsistent grain).",
+                    "Check for unnatural warping in the polka dot pattern.",
+                    "Verify lighting consistency across the different colored panels."
+                ],
+                "reason": "To detect subtle generative artifacts in texture rendering and pattern consistency common in synthetic textile images.",
+                "weight": 0.25
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Textile boundary integrity (lace trim connection)",
+            "Pattern consistency (polka dots)",
+            "Class confirmation (bib vs. generic cloth)"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the junction where the blue lace trim meets the main fabric body. AI generators often create 'floating' lace or blurred connections. Also, verify if the polka dots maintain consistent perspective and shape across the curved surface of the bib.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000227.png",
+            "class_id": 443,
+            "class_label": "bib",
+            "router_cost_seconds": 23.6,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bib",
+                "reason": "Primary verification that the generated image matches the target class label 'bib' at a semantic level.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bib",
+                "reason": "AI images often struggle with complex textile boundaries like lace and layered fabrics; this ensures structural integrity.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "bib",
+                "reason": "To detect subtle generative artifacts in texture rendering and pattern consistency common in synthetic textile images.",
+                "weight": 0.25
+            }
+        ]
+    }
+}

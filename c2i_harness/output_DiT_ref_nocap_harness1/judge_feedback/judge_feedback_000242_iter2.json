@@ -1,0 +1,177 @@
+{
+    "image_id": "000242",
+    "class_label": "breastplate, aegis, egis",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:28:17",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with verifying the object is a breastplate and not a vase/shield. However, given the high reflectivity and potential for AI hallucinations in metallic textures, the classifier might misinterpret the object if the shape is slightly distorted. It is recommended to ensure the 'open_vocabulary_detector' also explicitly checks for 'vase' or 'urn' as negative constraints to support the classifier's verdict.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "refinement",
+                "point": "The 'geometric_depth_auditor' is assigned a low weight (0.1). Given that the primary definition of a breastplate is its 'anatomical contour' and 'raised center ridge', geometric validity is critical. If the depth map shows the ridge is flat (texture-only) or the curvature is physically impossible (e.g., concave where it should be convex), the image fails. Consider increasing the weight or ensuring the 'perceptual_quality_auditor' cross-references specular highlights with the depth map to confirm 3D structure.",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up view of a golden-colored metal breastplate (cuirass) featuring a central vertical ridge, embossed decorative patterns on the lower abdomen section, and rounded shoulder guards. The object has a highly reflective, polished surface with visible light specular highlights.",
+        "image_class": "breastplate",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Curved metal armor plate of torso-covering proportions shaped to fit over chest.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image clearly displays a rigid, curved plate structure sized and shaped to cover a human torso."
+            },
+            {
+                "checkpoint": "Broad curved shield-like form with anatomical contours.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The silhouette matches the description of a broad shield with curvature suggesting anatomical fitting."
+            },
+            {
+                "checkpoint": "Contoured to follow human torso with raised center ridge and curved edges.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A distinct vertical ridge runs down the center, and the lateral edges curve outward consistent with torso geometry."
+            },
+            {
+                "checkpoint": "Shoulder straps or attachment points connect to back armor.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While shoulder guards are present, specific straps or mechanical attachment points connecting to a back piece are not clearly visible or defined in this frontal view; they appear fused or obscured by lighting. Requires expert verification to confirm absence vs. low contrast."
+            },
+            {
+                "checkpoint": "Raised center ridge following torso contour.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The central vertical line is prominent and creates a clear ridge effect."
+            },
+            {
+                "checkpoint": "Curved edges conforming to body shape.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bottom and side edges show continuous curvature appropriate for a torso-fitting garment."
+            },
+            {
+                "checkpoint": "Polished steel bronze or decorative metal with reflective surface.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The material exhibits strong specular highlights and reflections characteristic of polished metal (likely brass or gold-plated)."
+            },
+            {
+                "checkpoint": "Ornamental details include embossed patterns etched designs or gilded accents.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Faint embossed patterns are visible on the lower half of the plate, and the color suggests gilding or brass."
+            },
+            {
+                "checkpoint": "Smooth highly polished surface reflecting light.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surface texture appears smooth with high-gloss reflections."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "blur",
+                "location": "shoulder guards and background interface",
+                "severity": 2,
+                "reasoning": "The edges of the shoulder pieces blend slightly into the dark background, lacking sharp definition, which may indicate generation blur or low-resolution source artifacts."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "embossed patterns on lower abdomen",
+                "severity": 1,
+                "reasoning": "The decorative patterns lack crisp depth; they appear somewhat 'painted on' rather than physically embossed, though this is subtle."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "breastplate_components",
+                "verification_goals": [
+                    "Detect bounding boxes for 'breastplate', 'shoulder guard', and 'strap'.",
+                    "Verify if 'straps' or 'attachment points' are genuinely absent or merely low-contrast/obscured.",
+                    "Provide localization priors for the topology boundary auditor."
+                ],
+                "reason": "Essential prerequisite for segmentation experts. Specifically addresses the Judge's feedback regarding the 'False Negative' on shoulder straps by attempting to detect them explicitly.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "breastplate",
+                "verification_goals": [
+                    "Confirm the object is classified as a breastplate/cuirass and not a generic shield or vase.",
+                    "Verify the style aligns with historical or fantasy armor aesthetics."
+                ],
+                "reason": "Primary classification verification to ensure the generated object matches the intended ImageNet class label.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "breastplate",
+                "verification_goals": [
+                    "Segment the breastplate and shoulder guards using OVD priors.",
+                    "Verify the breastplate is a single, contiguous physical object without floating parts.",
+                    "Check the boundary sharpness between the shoulder guards and the main chest plate."
+                ],
+                "reason": "To audit structural integrity and ensure the shoulder components are physically connected to the torso plate, addressing the 'fusion' concern. Relies on OVD for accurate segmentation.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "surface_material",
+                "verification_goals": [
+                    "Analyze the reflectivity and specular highlights to confirm metallic material properties.",
+                    "Distinguish between optical depth-of-field blur and AI-generation artifacts at the shoulder/background interface.",
+                    "Detect any 'melting' artifacts in the reflective surfaces."
+                ],
+                "reason": "To verify the 'polished metal' checkpoint and specifically address the artifact observation regarding blur at the shoulder guards, distinguishing it from valid photographic effects.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "breastplate",
+                "verification_goals": [
+                    "Verify the 3D curvature of the plate matches a human torso shape.",
+                    "Ensure the central ridge has valid geometric depth relative to the flat planes."
+                ],
+                "reason": "To confirm the 'anatomical contours' and 'raised center ridge' checkpoints are geometrically plausible and not just 2D textures.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Verification of absent functional components (shoulder straps/attachment points).",
+            "Structural connectivity of shoulder guards to the main plate.",
+            "Authenticity of metallic reflections and distinction of blur artifacts.",
+            "Geometric plausibility of the torso curvature."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the junction where the shoulder guards meet the chest plate. AI generators often fail to create a clean mechanical connection here, resulting in 'melting' or ambiguous boundaries. Also, verify that the embossed patterns have consistent depth and do not warp unnaturally across the curved surface. Crucially, use the open_vocabulary_detector results to definitively rule out the presence of hidden or low-contrast straps before marking that checkpoint as failed.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000242.png",
+            "class_id": 461,
+            "class_label": "breastplate, aegis, egis",
+            "router_cost_seconds": 31.5,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

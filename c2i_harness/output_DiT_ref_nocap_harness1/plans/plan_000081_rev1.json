@@ -1,0 +1,158 @@
+{
+    "image_description": "The image displays two large waterbirds, identified as pelicans, in a naturalistic setting with water and green foliage. The foreground subject is a white pelican (likely an Australian Pelican) with a prominent pinkish-orange bill and gular pouch, facing right with wings partially spread. Behind it, a second pelican (appearing to be a Brown Pelican or similar dark-plumaged species) stands with wings fully extended upwards in a display or drying posture. Both birds exhibit the characteristic large bills and heavy bodies associated with the species.",
+    "image_class": "pelican",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Enormous bill with distensible gular pouch extending from lower mandible.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The foreground bird clearly displays the massive, elongated bill and the hanging skin pouch (gular sac) typical of pelicans. The structure is anatomically consistent."
+        },
+        {
+            "checkpoint": "Bill is enormous and elongated, vastly exceeding head length, with bright orange, yellow, or pink coloration during breeding.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The bill is visibly much longer than the skull portion of the head and exhibits a distinct orange/peach hue, matching the description."
+        },
+        {
+            "checkpoint": "Head is large with prominent pouch.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The head proportions are large relative to the body, and the pouch is the most dominant feature of the lower face."
+        },
+        {
+            "checkpoint": "Plumage is predominantly white, grey, or brown depending on species and season.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The foreground bird is predominantly white. The background bird appears to have dark brown/black plumage, which is consistent with certain pelican species or juvenile phases."
+        },
+        {
+            "checkpoint": "Body exhibits heavy barrel-shaped torso of very large proportions.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Both birds show a bulky, robust torso shape consistent with the 'barrel-shaped' description of large waterbirds."
+        },
+        {
+            "checkpoint": "Wings are extremely broad and long with dark flight feathers contrasting lighter body.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The foreground bird shows white wings with visible dark tips/flight feathers. The background bird shows extensive dark wing surfaces. The span appears broad."
+        },
+        {
+            "checkpoint": "Legs are short and webbed with all four toes connected.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The legs and feet of both birds are submerged in the water or occluded by the body/wings, making it impossible to verify webbing or toe count visually."
+        },
+        {
+            "checkpoint": "Neck is long and S-curved.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The foreground bird's neck is extended and shows a slight curve; the background bird's neck is retracted but visibly long and thick."
+        },
+        {
+            "checkpoint": "Tail is short and wedge-shaped.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The tail feathers are visible on the foreground bird, appearing short and tucked, consistent with the wedge shape when not fanned."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Background bird's wing edges and foliage interface",
+            "severity": 2,
+            "reasoning": "There is slight softness and blending between the dark wing feathers of the background bird and the green foliage behind it, suggesting minor edge bleeding or generation smoothing, though not catastrophic."
+        },
+        {
+            "artifact_type": "structural_collapse",
+            "location": "Foreground bird's left wing tip",
+            "severity": 1,
+            "reasoning": "The individual feather definition at the very tip of the spread wing becomes slightly indistinct and merges with the background water, lacking the sharp separation seen in high-fidelity photography."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "both_pelicans",
+            "verification_goals": [
+                "Detect and localize the foreground white pelican",
+                "Detect and localize the background dark pelican",
+                "Provide bounding box priors for subsequent segmentation experts"
+            ],
+            "reason": "Essential 'Bridge' expert to separate the two overlapping instances before detailed auditing can occur, preventing conflation of the subjects.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "foreground_pelican",
+            "verification_goals": [
+                "Confirm species identity as Pelecanus (e.g., Great White Pelican or Australian Pelican)",
+                "Verify plumage color consistency with known species variants"
+            ],
+            "reason": "Primary class verification to ensure the generated subject matches the 'pelican' label at a taxonomic level.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "foreground_pelican_wings",
+            "verification_goals": [
+                "Verify wing continuity without floating fragments",
+                "Check for fusion artifacts between wing tips and water/background",
+                "Audit feather edge sharpness"
+            ],
+            "reason": "Replaces animal_pose_auditor to specifically audit the complex structure of avian wings, ensuring feathers are distinct and not melted, addressing the 'structural_collapse' artifact observation.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "background_pelican",
+            "verification_goals": [
+                "Segment dark plumage from background foliage",
+                "Verify wing continuity without floating fragments",
+                "Check for fusion artifacts between bird and trees"
+            ],
+            "reason": "The background bird has low contrast with the environment; this expert will verify if it is a coherent object or a hallucinated blend, addressing the 'texture_anomaly' observation.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire_image",
+            "verification_goals": [
+                "Verify severity of texture anomaly at background bird's wing/foliage interface",
+                "Verify severity of structural collapse at foreground wing tip",
+                "Assess overall feather texture realism and lighting consistency"
+            ],
+            "reason": "Holistic quality check explicitly tasked with validating the specific artifact locations and severities identified by the router.",
+            "weight": 0.2
+        }
+    ],
+    "unverifiable_points": [
+        "Legs are short and webbed with all four toes connected."
+    ],
+    "focus_areas": [
+        "Feather edge sharpness against complex backgrounds",
+        "Anatomical correctness of the gular pouch attachment",
+        "Consistency of lighting between the two subjects",
+        "Separation of overlapping bird instances"
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the interaction between the background pelican's dark feathers and the green foliage. AI models often struggle with dark-on-dark or dark-on-complex-texture segmentation, leading to 'melting' edges. Also, verify that the foreground pelican's wing fingers (primary feathers) are distinct and not clumped into a single mass. Ensure the open_vocabulary_detector correctly separates the two birds before topology auditing begins.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000081.png",
+        "class_id": 144,
+        "class_label": "pelican",
+        "router_cost_seconds": 33.67,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1
+    }
+}

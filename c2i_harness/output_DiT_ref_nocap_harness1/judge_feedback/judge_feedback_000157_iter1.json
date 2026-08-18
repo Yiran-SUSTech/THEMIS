@@ -1,0 +1,187 @@
+{
+    "image_id": "000157",
+    "class_label": "barracouta, snoek",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:23:19",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with identifying the fish species. However, standard ImageNet-trained classifiers (ViT) may lack specific granularity for 'Esox lucius' (Northern Pike) vs 'Thyrsites atun' (Snoek). If the classifier returns a generic 'fish' or incorrect label, the plan lacks a fallback.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "optimization",
+                "point": "The 'topology_boundary_auditor' is assigned to check dorsal fin continuity. While valid, the 'perceptual_quality_auditor' (VLM) is likely more efficient at describing the *shape* and *separation* of fins via reasoning, whereas topology experts are better suited for segmentation masks. Consider shifting the 'dorsal fin structure' verification goal primarily to the VLM's reasoning capabilities.",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "Two men are holding a large fish in an outdoor setting with buildings and water in the background. The man on the left holds the fish by its gills/mouth area, displaying its side profile. The fish has an elongated body, mottled greenish-brown coloration, and distinct fins.",
+        "image_class": "barracouta, snoek",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated head with prominent jaw bearing large fang-like teeth.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The fish in the image has a broad, duck-bill shaped snout typical of a Pike or Pickerel, not the elongated, streamlined head with fang-like teeth characteristic of a Barracouta/Snoek."
+            },
+            {
+                "checkpoint": "Large lateral eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The fish possesses large eyes positioned laterally on the head, which is visible."
+            },
+            {
+                "checkpoint": "Wide mouth with protruding lower jaw.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the mouth is wide, the jaw structure resembles that of an Esox species (Pike) rather than the specific prognathous lower jaw of a Barracouta. The teeth visible are numerous and small/needle-like, not the large distinct fangs described."
+            },
+            {
+                "checkpoint": "Elongated streamlined body with notably extended proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The fish has an elongated, cylindrical body shape consistent with the general description of a barracouta, though the specific species match is suspect."
+            },
+            {
+                "checkpoint": "Small silvery scales with bluish-green dorsal coloration.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The fish exhibits a mottled green-and-yellow camouflage pattern with dark vertical bars or spots, lacking the uniform silvery/bluish-green metallic sheen typical of a Snoek/Barracouta."
+            },
+            {
+                "checkpoint": "Prominent lateral line.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A lateral line is faintly visible running along the flank of the fish."
+            },
+            {
+                "checkpoint": "Separated dorsal fins; first dorsal spiny, second dorsal soft-rayed.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The fish appears to have a single long dorsal fin set far back on the body, characteristic of Pike/Esox, rather than the two separated dorsal fins (one spiny, one soft) described for Barracouta."
+            },
+            {
+                "checkpoint": "Anal fin similar to second dorsal.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The anal fin is present and positioned posteriorly, roughly opposite the rear dorsal fin area."
+            },
+            {
+                "checkpoint": "Forked tail.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The caudal fin is visibly forked."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Fish scales and skin",
+                "severity": 2,
+                "reasoning": "The texture of the fish skin appears slightly overly smooth and plastic-like in areas, lacking the crisp definition of individual small scales expected in a high-resolution photo of a silvery fish."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Man's hand holding fish",
+                "severity": 3,
+                "reasoning": "The fingers of the man holding the fish appear somewhat fused and lack clear anatomical definition at the grip point, suggesting minor AI generation artifacts in the hand-fish interaction."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "fish",
+                "verification_goals": [
+                    "Identify the specific species of the fish held by the man.",
+                    "Determine if the fish matches 'barracouta' or 'snoek' vs 'pike' or 'pickerel'."
+                ],
+                "reason": "The visual features (snout shape, coloration, fin placement) strongly suggest a misclassification (likely a Pike). A fine-grained classifier is needed to definitively identify the species and confirm the mismatch with the target class.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "fish",
+                "verification_goals": [
+                    "Locate the fish and provide bounding box coordinates.",
+                    "Detect specific anatomical parts: dorsal fins, tail, head."
+                ],
+                "reason": "To isolate the fish from the complex background and the holders, providing precise regions for subsequent anatomical auditing.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "fish",
+                "verification_goals": [
+                    "Verify the continuity of the dorsal fin structure (single vs separated).",
+                    "Check the boundary sharpness between the fish and the holder's hand."
+                ],
+                "reason": "To resolve the ambiguity regarding the dorsal fin structure (Checkpoint: Separated dorsal fins) and check for fusion artifacts at the contact point.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess the realism of the hand-fish interaction.",
+                    "Evaluate the texture consistency of the fish scales."
+                ],
+                "reason": "To verify the severity of the observed texture anomalies and potential structural issues in the human subject's hands.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Species Identification (Morphology)",
+            "Dorsal Fin Structure",
+            "Hand-Fish Interaction Integrity"
+        ],
+        "custom_prompts_for_reflector": "The image likely depicts a Northern Pike or similar Esox species, not a Barracouta/Snoek. Key differentiators are the duck-bill snout, mottled green camouflage pattern (vs silvery), and single posterior dorsal fin (vs two separated fins). Please prioritize the fine_grained_classifier results to confirm the species mismatch. Also, inspect the hand holding the fish for AI artifacts like finger fusion.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000157.png",
+            "class_id": 389,
+            "class_label": "barracouta, snoek",
+            "router_cost_seconds": 29.35,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "fish",
+                "reason": "The visual features (snout shape, coloration, fin placement) strongly suggest a misclassification (likely a Pike). A fine-grained classifier is needed to definitively identify the species and confirm the mismatch with the target class.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "fish",
+                "reason": "To isolate the fish from the complex background and the holders, providing precise regions for subsequent anatomical auditing.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "fish",
+                "reason": "To resolve the ambiguity regarding the dorsal fin structure (Checkpoint: Separated dorsal fins) and check for fusion artifacts at the contact point.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To verify the severity of the observed texture anomalies and potential structural issues in the human subject's hands.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

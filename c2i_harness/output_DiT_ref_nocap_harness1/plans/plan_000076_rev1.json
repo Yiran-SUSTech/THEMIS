@@ -1,0 +1,145 @@
+{
+    "image_description": "A Roseate Spoonbill perched on a thick tree branch against a blurred green background. The bird features distinctive bright pink plumage on its body and wings, with white feathers on the neck and head. It has a long, flat, spatulate bill that is greyish-pink in color. The legs are long, thin, and pink. A crest of feathers is visible on the back of the head.",
+    "image_class": "spoonbill",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Elongated flat bill with spatulate tip resembling a spoon, notably long relative to head.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The bill is clearly visible, elongated, and exhibits the characteristic flattened, spoon-like shape at the tip, consistent with the species definition."
+        },
+        {
+            "checkpoint": "Bill color ranges from black to grey with yellow tip depending on species.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The bill in the image appears to be a pale greyish-pink or flesh tone throughout, lacking the distinct black/grey base and yellow tip described in the general taxonomy (though specific species variations exist, it deviates from the provided ground truth description)."
+        },
+        {
+            "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "A small tuft or crest of feathers is visible extending from the back of the head/nape area."
+        },
+        {
+            "checkpoint": "Plumage is predominantly white with some species displaying pink, yellow, or black accents.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The plumage is predominantly bright pink, not white. While the neck is white, the majority of the body and wings are pink, which contradicts the 'predominantly white' descriptor in the checkpoint, although it matches the 'pink accents' allowance for some species. Strictly speaking, it fails the 'predominantly white' condition."
+        },
+        {
+            "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The bird's body proportions appear consistent with a medium-to-large wading bird, with a robust torso and folded wings suggesting significant span."
+        },
+        {
+            "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The bird is perched, not in flight. Therefore, the wing structure in flight and the visibility of primary feathers in that context cannot be tested."
+        },
+        {
+            "checkpoint": "Legs are long and dark grey to black adapted for wading.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The legs are long, but they are distinctly reddish-pink, not dark grey or black as specified in the checkpoint."
+        },
+        {
+            "checkpoint": "Neck is long and S-curved.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The neck is visibly long and exhibits a gentle curve, consistent with the anatomical description."
+        },
+        {
+            "checkpoint": "Flight posture features neck retraction in S-curve.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The bird is stationary/perched, not in flight, so flight posture cannot be evaluated."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Pink wing feathers",
+            "severity": 1.5,
+            "reasoning": "The transition between the white neck feathers and the pink wing feathers shows slight softness and blending that could indicate minor generative smoothing, though it may also be natural feather down. The pink texture appears slightly uniform/plastic-like compared to individual feather strands."
+        },
+        {
+            "artifact_type": "structural_collapse",
+            "location": "Foot/Branch interaction",
+            "severity": 2.0,
+            "reasoning": "The connection point where the bird's feet grasp the branch is somewhat indistinct. The toes blend into the branch texture slightly, lacking sharp definition of individual talons gripping the wood."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "bird",
+            "verification_goals": [
+                "Detect and provide bounding box for the spoonbill instance.",
+                "Detect and provide bounding box for the branch/foreground elements."
+            ],
+            "reason": "Primary Bridge Expert: Provides necessary localization priors (BBoxes) for the topology_boundary_auditor to accurately segment the bird from the complex branch background and audit foot-branch fusion.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "bird",
+            "verification_goals": [
+                "Confirm Class Label: Verify if the subject is correctly classified as a Spoonbill (vs other waders like Ibises or Herons).",
+                "Identify Species: Determine if the specific species is Roseate Spoonbill (Platalea ajaja) based on visual features."
+            ],
+            "reason": "High-Speed Sieve: Establishes the ground truth identity of the bird. Confirming it is a Roseate Spoonbill explains the pink plumage and leg color discrepancies with the generic 'white/dark leg' checkpoints.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "bird",
+            "verification_goals": [
+                "Audit the boundary between the bird's feet and the branch for fusion artifacts using BBox priors.",
+                "Check edge sharpness of the bill and wing contours against the background."
+            ],
+            "reason": "Uses detection boxes to verify if the bird is a single continuous entity and if the feet are physically distinct from the branch, addressing the observed structural collapse.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "bird",
+            "verification_goals": [
+                "Analyze feather texture for signs of AI-generated smearing or lack of micro-detail.",
+                "Assess structural correctness of leg joints and wing folding (avian anatomy) via CoT reasoning.",
+                "Evaluate color consistency and lighting realism on the pink plumage."
+            ],
+            "reason": "Replaces animal_pose_auditor for avian subjects. Uses VLM reasoning to assess biological plausibility of the pose and texture quality, covering both structural and aesthetic artifacts.",
+            "weight": 0.25
+        }
+    ],
+    "unverifiable_points": [
+        "Wings are broad with colored primary feathers visible in flight.",
+        "Flight posture features neck retraction in S-curve."
+    ],
+    "focus_areas": [
+        "Species-specific coloration accuracy (Pink vs White/Grey).",
+        "Foot-branch interaction integrity (fusion artifacts).",
+        "Feather texture realism and edge sharpness."
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the coloration discrepancies: the checkpoint expects a grey/black bill with yellow tip and dark legs, but the image shows a pinkish bill and pink legs. Use the fine_grained_classifier to confirm if this is a valid Roseate Spoonbill. If confirmed, the checkpoint failures are due to generic taxonomy vs specific species traits, not AI error. Scrutinize the feet for any merging with the branch using the topology_boundary_auditor results.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000076.png",
+        "class_id": 129,
+        "class_label": "spoonbill",
+        "router_cost_seconds": 33.49,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1
+    }
+}

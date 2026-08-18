@@ -1,0 +1,187 @@
+{
+    "image_id": "000044",
+    "class_label": "thunder snake, worm snake, Carphophis amoenus",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:17:31",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and coverage. The Router identified a 'CRITICAL MISMATCH' regarding the snake's patterning (black blotches vs. required uniform coloration) but failed to assign the `open_vocabulary_detector` to verify this specific visual feature. Relying solely on the `fine_grained_classifier` is insufficient because the classifier may hallucinate a label or fail if the image is an out-of-distribution generation. Furthermore, the plan misses the opportunity to use the detector to provide bounding box priors for the `topology_boundary_auditor`, which is crucial for auditing the coiled body structure mentioned in the focus areas.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verification of the 'black patterning' artifact. The checkpoint 'No distinctive patterning' was marked false. The plan needs an objective detection step to confirm the presence and extent of these markings before classification.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Structural grounding of the coiled snake. The topology auditor needs precise segmentation masks to check for fusion artifacts in the coils, which requires bounding box priors.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "The weight of `fine_grained_classifier` (0.4) is too high given the obvious morphological mismatch (patterning). The `perceptual_quality_auditor` should have higher priority to determine if the 'painted' texture is a generative artifact, as the species ID is already suspect.",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a coiled, reddish-orange snake with distinct black mottling or banding on its dorsal surface, resting on a bright green leaf. The snake has a slender body and a visible tail. There is some illegible text in the bottom right corner.",
+        "image_class": "thunder snake",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is small, rounded, and barely distinct from the body with a blunt, rounded snout.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head is partially obscured by the coils, but the visible portion does not clearly show the characteristic 'barely distinct' blunt snout; the neck area appears slightly defined."
+            },
+            {
+                "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The head is tucked under the body coils and is not visible enough to verify the presence or size of the eyes."
+            },
+            {
+                "checkpoint": "Body is slender, worm-like and cylindrical.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body diameter is consistent and slender, matching the worm-like description."
+            },
+            {
+                "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The base color is a vibrant reddish-orange, which falls within the reddish-brown spectrum, though potentially more saturated than typical specimens."
+            },
+            {
+                "checkpoint": "Ventral surface is pale pink to white.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The snake is coiled such that the ventral side is largely hidden or in shadow; cannot be clearly verified."
+            },
+            {
+                "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The skin exhibits a high-gloss, wet-looking sheen consistent with smooth scales."
+            },
+            {
+                "checkpoint": "No distinctive patterning; uniform coloration throughout.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "CRITICAL MISMATCH: The snake exhibits prominent black/dark brown blotches and bands along its back. The taxonomy states 'No distinctive patterning; uniform coloration.'"
+            },
+            {
+                "checkpoint": "Tail is short and blunt.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible tail tapers to a fine, short point, consistent with the species description."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Bottom right corner on the leaf",
+                "severity": 2,
+                "reasoning": "There is a string of characters that resembles text but is illegible and nonsensical, a common artifact in AI-generated images."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Snake's dorsal surface",
+                "severity": 3,
+                "reasoning": "The black markings appear somewhat 'painted on' or fused with the red scales rather than being distinct scale-level pigmentation. The transition between red and black lacks the micro-texture of individual scales."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "snake",
+                "verification_goals": [
+                    "Verify if the subject belongs to the genus Carphophis or similar worm-snake taxa.",
+                    "Determine if the black patterning is a valid variation for this species or indicates a different species (e.g., Red-bellied Snake)."
+                ],
+                "reason": "The visual evidence of black patterning contradicts the 'uniform coloration' prior. An expert classifier is needed to determine if this is a misidentified species or an invalid generation.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake texture",
+                "verification_goals": [
+                    "Analyze the boundary between the red body and black markings for signs of melting or diffusion artifacts.",
+                    "Assess the realism of the glossiness relative to the lighting environment."
+                ],
+                "reason": "To verify if the 'painted' look of the patterns is an AI artifact (texture anomaly) or a legitimate biological feature captured poorly.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
+                "verification_goals": [
+                    "Trace the continuity of the snake's body to ensure no limbs or extra segments are fused into the coils.",
+                    "Verify the separation between the snake and the leaf background."
+                ],
+                "reason": "Coiled snakes are prone to 'fusion' artifacts where the body merges with itself or the background. This ensures structural integrity.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "bottom right text",
+                "verification_goals": [
+                    "Extract and analyze the gibberish text to confirm it is non-semantic noise."
+                ],
+                "reason": "To document the severity of the text artifact, which supports the hypothesis of AI generation.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Eyes are minute and dark, barely visible beneath head scales.",
+            "Ventral surface is pale pink to white."
+        ],
+        "focus_areas": [
+            "Discrepancy between observed black patterning and taxonomy requirement for uniform coloration.",
+            "Texture consistency of the black markings (are they scaled or smeared?).",
+            "Legibility and nature of the text artifact in the corner."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the 'Body_and_Plumage' checkpoint regarding uniform coloration. The image clearly shows black blotches. Investigate if this is a hallucination of features from a different snake species (like a Red-bellied Snake) or if the 'Thunder Snake' taxonomy provided is incomplete/incorrect for this specific morph. Also, scrutinize the 'glossy' texture to ensure it doesn't look like plastic or melted wax.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000044.png",
+            "class_id": 52,
+            "class_label": "thunder snake, worm snake, Carphophis amoenus",
+            "router_cost_seconds": 28.61,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "snake",
+                "reason": "The visual evidence of black patterning contradicts the 'uniform coloration' prior. An expert classifier is needed to determine if this is a misidentified species or an invalid generation.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake texture",
+                "reason": "To verify if the 'painted' look of the patterns is an AI artifact (texture anomaly) or a legitimate biological feature captured poorly.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
+                "reason": "Coiled snakes are prone to 'fusion' artifacts where the body merges with itself or the background. This ensures structural integrity.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "bottom right text",
+                "reason": "To document the severity of the text artifact, which supports the hypothesis of AI generation.",
+                "weight": 0.1
+            }
+        ]
+    }
+}

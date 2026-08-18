@@ -1,0 +1,195 @@
+{
+    "image_id": "000114",
+    "class_label": "tiger beetle",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:21:08",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical methodological error in expert selection: it assigns the `animal_pose_auditor` (explicitly defined for vertebrates/limbed subjects with 17 keypoints) to audit an arthropod (tiger beetle). Arthropod anatomy (6 legs, exoskeleton segmentation) is structurally incompatible with vertebrate keypoint models, leading to inevitable failure or hallucinated results. Additionally, the plan fails to utilize the `open_vocabulary_detector` to verify the 'unverifiable' antennae length and pale markings, which could be resolved via bounding box localization rather than being dismissed.",
+        "suggestions": [
+            {
+                "type": "expert_misapplication",
+                "point": "Remove `animal_pose_auditor` for arthropod subjects.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reasoning": "The `animal_pose_auditor` is restricted to vertebrates. For the tiger beetle, limb count, articulation, and body segmentation should be audited exclusively by the `topology_boundary_auditor` (via instance segmentation masks) and visual inspection by the `perceptual_quality_auditor`."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of antennae length and pale markings.",
+                "recommended_expert": "open_vocabulary_detector",
+                "reasoning": "The plan marks antennae length and pale markings as 'unverifiable' or 'absent'. The `open_vocabulary_detector` should be used to generate bounding boxes for 'antennae' and 'elytra markings' to definitively determine if they are present but occluded/small, or truly absent, providing objective evidence for the `fine_grained_classifier`."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Leg count verification.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reasoning": "With the removal of the pose auditor, the explicit goal of 'Verify presence of 6 legs' must be added to the `topology_boundary_auditor`'s verification goals, utilizing segmentation masks to count distinct limb instances attached to the thorax."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, high-angle shot of a metallic green beetle (likely a tiger beetle) on rough, dry soil. The beetle has a shiny, iridescent exoskeleton, long slender legs, and prominent mandibles. The lighting creates strong highlights on the elytra.",
+        "image_class": "tiger beetle",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head broader than pronotum with large prominent compound eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head is clearly visible, appearing wider than the thorax section immediately behind it. Large, bulging compound eyes are distinct on the lateral sides of the head."
+            },
+            {
+                "checkpoint": "Long sickle-shaped mandibles adapted for capturing prey.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Prominent, elongated mandibles are visible extending forward from the head, consistent with the predatory morphology of a tiger beetle."
+            },
+            {
+                "checkpoint": "Filiform antennae extending well beyond the midbody.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While antennae bases are visible, the full length is obscured by shadows, angle, or blending with the background/legs. It is not clearly verifiable that they extend 'well beyond the midbody' in this specific pose."
+            },
+            {
+                "checkpoint": "Elongated, slender body with distinctly narrow proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The overall body shape is oval but relatively slender compared to robust beetles like scarabs, fitting the 'elongated' description for this family."
+            },
+            {
+                "checkpoint": "Bright metallic coloration in green, bronze, or copper tones.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The beetle exhibits a vibrant, iridescent metallic green/teal coloration across the head, pronotum, and elytra."
+            },
+            {
+                "checkpoint": "Distinctive pale markings on smooth iridescent elytra.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The elytra appear largely solid metallic green in this image. While there are light reflections, there are no distinct, pigmented pale markings (spots or bands) typical of many tiger beetle species visible here."
+            },
+            {
+                "checkpoint": "Six slender cursorial legs enabling rapid pursuit.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Multiple long, thin legs are visible. Although not all six are perfectly isolated due to the angle and ground contact, the visible limbs match the 'slender cursorial' description."
+            },
+            {
+                "checkpoint": "Chitinous exoskeleton with segmented body (head, thorax, abdomen).",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The texture is clearly hard and shiny (chitinous). The segmentation between head, pronotum (thorax), and elytra (covering abdomen) is structurally correct."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Leg-ground interface",
+                "severity": 1.5,
+                "reasoning": "Slight softness/blurring where the tarsi meet the soil particles, potentially indicating minor generation smoothing or depth-of-field simulation issues, though likely within acceptable photographic limits."
+            },
+            {
+                "artifact_type": "other",
+                "location": "Antennae tips",
+                "severity": 1.0,
+                "reasoning": "The distal ends of the antennae fade into the background/shadows without a clear termination point, making them difficult to trace fully."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "beetle",
+                "verification_goals": [
+                    "Confirm species identity as Cicindelidae (tiger beetle)",
+                    "Verify metallic green coloration is consistent with known species"
+                ],
+                "reason": "Primary verification of the class label and visual characteristics against taxonomic database.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "beetle",
+                "verification_goals": [
+                    "Verify presence of 6 legs",
+                    "Check joint articulation of visible limbs",
+                    "Confirm anatomical connectivity of head, thorax, and abdomen"
+                ],
+                "reason": "Although designed for vertebrates, keypoint detection can verify the count and structural integrity of the arthropod limbs and body segments.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "beetle",
+                "verification_goals": [
+                    "Segment beetle from soil background",
+                    "Verify continuous exoskeleton boundary",
+                    "Check for melting/fusion at leg-body junctions"
+                ],
+                "reason": "Ensures the beetle is a single coherent object and not fused with the ground or suffering from structural collapse.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess sharpness of mandibles and eyes",
+                    "Detect any subtle warping in the elytra reflection",
+                    "Verify natural lighting consistency"
+                ],
+                "reason": "Holistic quality check to rule out subtle AI artifacts in texture and lighting.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Filiform antennae extending well beyond the midbody (obscured/angle)",
+            "Distinctive pale markings on smooth iridescent elytra (absent in this specific specimen/image)"
+        ],
+        "focus_areas": [
+            "Mandible structure and symmetry",
+            "Leg count and attachment points",
+            "Exoskeleton texture realism vs. plastic-like AI sheen",
+            "Boundary separation between legs and soil"
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the 'pale markings' checkpoint. Many tiger beetles have them, but some are solid colored. Do not penalize the image if the species is correctly identified as a solid-colored variant. Verify if the lack of visible antenna length is due to occlusion or generation failure.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000114.png",
+            "class_id": 300,
+            "class_label": "tiger beetle",
+            "router_cost_seconds": 29.02,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "beetle",
+                "reason": "Primary verification of the class label and visual characteristics against taxonomic database.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "beetle",
+                "reason": "Although designed for vertebrates, keypoint detection can verify the count and structural integrity of the arthropod limbs and body segments.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "beetle",
+                "reason": "Ensures the beetle is a single coherent object and not fused with the ground or suffering from structural collapse.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Holistic quality check to rule out subtle AI artifacts in texture and lighting.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

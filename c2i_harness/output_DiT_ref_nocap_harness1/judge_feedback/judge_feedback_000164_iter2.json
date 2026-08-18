@@ -1,0 +1,163 @@
+{
+    "image_id": "000164",
+    "class_label": "rock beauty, Holocanthus tricolor",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:24:12",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical expert selection error: `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)', yet it is selected to audit the fish fins. This will result in execution failure or invalid data. Additionally, the plan fails to utilize `topology_boundary_auditor` to address the specific artifact observation regarding the 'unnaturally sharp' color boundary, which is a key indicator of generative masking errors.",
+        "suggestions": [
+            {
+                "type": "expert_replacement",
+                "point": "Replace `animal_pose_auditor` with `topology_boundary_auditor`.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The `animal_pose_auditor` cannot process fish. The `topology_boundary_auditor` should be used to verify if the fins are continuous physical entities attached to the body and not floating/melted, addressing the blur/structure concerns."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Audit the 'unnaturally sharp' black-to-yellow transition zone.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The artifact observation notes a mask-like boundary. `topology_boundary_auditor` is best suited to segment these regions and check for edge coherence and lack of bleeding, which `perceptual_quality_auditor` might only describe qualitatively."
+            },
+            {
+                "type": "logic_adjustment",
+                "point": "Refine `open_vocabulary_detector` goals.",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Ensure the detector specifically targets 'caudal fin' and 'dorsal fin' to provide bounding boxes for the topology auditor, rather than just general 'fish parts'."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, side-profile view of a fish that appears to be an Angelfish or Butterflyfish. The fish exhibits a color pattern with a bright yellow anterior body (head and front) and a black posterior body (back and tail area). This is the inverse of the target class 'Rock Beauty' (Holocanthus tricolor), which typically has a black head and yellow tail. The background is a blurred blue aquatic environment.",
+        "image_class": "rock beauty",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Small protrusible mouth with brush-like teeth.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The mouth is visible but lacks the high-resolution detail to confirm 'brush-like teeth'. It appears as a generic small fish mouth. More importantly, the head coloration is wrong for the species, casting doubt on specific morphological matches."
+            },
+            {
+                "checkpoint": "Large eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The eye is clearly visible, large relative to the head, and positioned correctly for a reef fish."
+            },
+            {
+                "checkpoint": "Laterally compressed disc-shaped body with compact proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is laterally compressed and disc-like, consistent with the family Pomacanthidae/Pomacentridae, though the species identity is suspect."
+            },
+            {
+                "checkpoint": "Striking gold and black coloration: anterior body and head black, posterior body and tail golden yellow with black margin.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "CRITICAL MISMATCH: The image shows a YELLOW anterior/head and BLACK posterior/tail. The taxonomy requires a BLACK anterior/head and YELLOW posterior/tail. The colors are inverted."
+            },
+            {
+                "checkpoint": "Continuous dorsal fin with spiny anterior and soft-rayed posterior portions.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The dorsal fin is visible along the top edge and appears continuous. However, the distinction between spiny and soft rays is obscured by resolution/blur."
+            },
+            {
+                "checkpoint": "Anal fin similar.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The anal fin is visible on the ventral side, mirroring the dorsal fin's position."
+            },
+            {
+                "checkpoint": "Rounded tail.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While partially obscured by blur and frame edge, the visible portion of the caudal fin does not clearly exhibit the 'rounded' shape typical of Rock Beauty; it appears truncated or potentially forked/straight, but definitive verification is hindered by artifacts."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Black-to-yellow transition zone on the body",
+                "severity": 2,
+                "reasoning": "The boundary between the black and yellow regions is unnaturally sharp and smooth, lacking the subtle scale texture transition expected in a biological image. It resembles a painted mask rather than natural pigmentation."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Posterior body and tail region",
+                "severity": 3,
+                "reasoning": "Significant blur affects the tail and rear fins. In AI generation, this often masks structural inconsistencies (e.g., malformed fins or fusion with background). The blur severity makes anatomical verification difficult."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "fish",
+                "verification_goals": [
+                    "Identify the specific species of the fish in the image",
+                    "Verify if the color pattern (Yellow Head/Black Body) matches Holocanthus tricolor (Rock Beauty) or a different species (e.g., Bicolor Angelfish)",
+                    "Confirm the inversion of the expected coloration"
+                ],
+                "reason": "Primary verification to definitively prove the species mismatch. The Router identified a color inversion; the classifier must confirm if this is a different species entirely or a hallucinated variant.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "fish",
+                "verification_goals": [
+                    "Detect keypoints for dorsal fin, anal fin, and caudal fin",
+                    "Verify the structural continuity and attachment of fins to the body",
+                    "Assess bilateral symmetry of the fins"
+                ],
+                "reason": "To audit the biological structural correctness of the fins, which were flagged as potentially malformed or obscured by blur. This expert replaces generic topology checks for limbed/finned subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "fish parts",
+                "verification_goals": [
+                    "Locate the caudal fin (tail) specifically",
+                    "Determine if the tail is physically present but blurred, or missing/melted",
+                    "Provide bounding boxes for the animal_pose_auditor"
+                ],
+                "reason": "To resolve the 'unverifiable' status of the tail. The detector must confirm if the tail exists within the blurred region or if it is a generative failure (missing part).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Analyze the nature of the blur (photographic depth-of-field vs. generative smearing)",
+                    "Check for haloing or color bleeding at the black-yellow interface",
+                    "Evaluate overall coherence of lighting and shadows"
+                ],
+                "reason": "To determine if the observed blurriness and lack of fine detail are due to low resolution/generation quality or intentional depth of field, and to catch subtle texture artifacts.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Brush-like teeth structure (resolution too low to verify microscopic details)"
+        ],
+        "focus_areas": [
+            "Species identification via coloration pattern (Yellow Head vs Black Head)",
+            "Structural integrity of the caudal fin despite blur",
+            "Edge definition and texture realism at the color boundary"
+        ],
+        "custom_prompts_for_reflector": "The primary failure mode here is likely a species hallucination or color inversion. The image shows a Yellow Head/Black Body pattern, while Rock Beauty is Black Head/Yellow Body. Focus heavily on whether the 'blur' on the tail is hiding a malformed structure or if the tail is simply out of focus. Use the animal_pose_auditor to check if the fins attach correctly to the body, as AI fish often have floating or fused fins.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000164.png",
+            "class_id": 392,
+            "class_label": "rock beauty, Holocanthus tricolor",
+            "router_cost_seconds": 29.95,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

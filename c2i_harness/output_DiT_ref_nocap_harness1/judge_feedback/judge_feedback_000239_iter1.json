@@ -1,0 +1,218 @@
+{
+    "image_id": "000239",
+    "class_label": "bookcase",
+    "iteration": 1,
+    "timestamp": "2026-08-18 15:27:39",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in checkpoint verdicts and incomplete expert coverage for identified artifacts. Specifically: 1) The Router incorrectly marked 'Rectangular furniture piece' and 'Bilateral symmetry' as `is_present=false` based on the unique curved design of the bookcase, failing to recognize that 'bookcase' is a broad category that includes non-rectangular/asymmetrical variants (e.g., corner units). This leads to false negative structural audits. 2) The `image_text_auditor` is missing despite explicit observations of 'unreadable text artifacts' and 'gibberish' on book spines, which is a primary function of that expert. 3) The `open_vocabulary_detector` is assigned to verify object distinctness but lacks a specific goal to validate the 'black wire-frame object' identified in the description, risking misclassification of background clutter as part of the subject.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Text quality on book spines",
+                "recommended_expert": "image_text_auditor",
+                "reason": "The artifact observation notes 'smeared color bands' and lack of distinct text on book spines. The `image_text_auditor` is specifically designed to detect unreadable text artifacts and gibberish, which is a critical failure mode for AI-generated books. The current plan relies only on `perceptual_quality_auditor` for texture, which is less precise for character-level validation."
+            },
+            {
+                "type": "logic_correction",
+                "point": "Checkpoint Verdicts for Geometry and Symmetry",
+                "recommendation": "Re-evaluate checkpoints 'Rectangular furniture piece' and 'Bilateral symmetry'. Mark them as `is_present=true` (or modify the checkpoint definition to 'Coherent furniture structure') because the image clearly depicts a valid, albeit asymmetrical and curved, bookcase design. Penalizing it for lacking bilateral symmetry is taxonomically incorrect for this class."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Background object identification",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The description identifies a 'black wire-frame object' on the left. The `open_vocabulary_detector` should explicitly target this region to confirm it is a separate entity (lamp/stand) and not a hallucinated extension of the bookcase structure, ensuring clean segmentation boundaries for the main subject."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A wooden bookcase filled with books, magazines, and a light blue tote bag. The bookcase appears to have a complex structure with both straight shelves and curved, protruding shelf sections. To the left, there is a black wire-frame object (possibly a lamp or stand). The background includes a patterned wall and framed artwork.",
+        "image_class": "bookcase",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Rectangular furniture piece of considerable height, notably taller than wide.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The overall silhouette is irregular due to the protruding curved shelves on the left side, breaking the standard rectangular frame definition."
+            },
+            {
+                "checkpoint": "Tall rectangular frame with horizontal divisions.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While there are horizontal divisions, the 'frame' is not a clean rectangle; the structural integrity of the left side seems compromised or stylistically warped, lacking clear vertical support alignment."
+            },
+            {
+                "checkpoint": "Bilateral symmetry with open front displaying books and objects.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is distinctly asymmetrical. The left side features unique curved shelving structures not mirrored on the right."
+            },
+            {
+                "checkpoint": "Multiple horizontal shelves spaced evenly from top to bottom.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Shelf spacing is irregular. The curved shelves disrupt the even vertical spacing typical of standard bookcases."
+            },
+            {
+                "checkpoint": "Shelves adjustable in some models.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Adjustability mechanisms (pins/holes) are not visible at this resolution, and the fixed nature of the curved shelves suggests non-adjustability."
+            },
+            {
+                "checkpoint": "Some models have glass doors on upper section.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No glass doors are visible; the front is entirely open."
+            },
+            {
+                "checkpoint": "Constructed from wood particleboard or metal with finished surface stained painted or laminated.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The material appears to be wood with a visible grain and finish, consistent with the description."
+            },
+            {
+                "checkpoint": "Front open displaying books and objects on each shelf.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The shelves are loaded with books, magazines, and a bag, and the front is open."
+            },
+            {
+                "checkpoint": "Decorative hardware and finished surfaces.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Finished wood surfaces are evident. No specific decorative hardware (knobs/hinges) is clearly visible, but the finish qualifies."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Left side of the bookcase, specifically the curved shelves",
+                "severity": 3,
+                "reasoning": "The curved shelves on the left appear to float or merge into the vertical supports without clear mechanical connection points. The geometry defies standard carpentry logic, suggesting AI hallucination of structural plausibility."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Books and magazines on the lower shelves",
+                "severity": 2,
+                "reasoning": "The spines of the books lack distinct text or logical patterns, appearing as smeared color bands rather than individual printed spines. This is a common AI artifact in dense text regions."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Vertical dividers and back panel",
+                "severity": 2,
+                "reasoning": "The vertical lines of the bookcase compartments do not remain parallel or converge consistently with a single vanishing point, creating a slight warping effect in the middle section."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bookcase",
+                "verification_goals": [
+                    "Confirm if the object is classified as a bookcase despite the irregular geometry.",
+                    "Identify if the style matches any known real-world furniture design or if it is an AI-generated hybrid."
+                ],
+                "reason": "To verify if the irregular structure is a valid design variant or an AI failure.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "curved_shelves",
+                "verification_goals": [
+                    "Verify the physical connectivity between the curved shelves and the main vertical frame.",
+                    "Check for floating elements or merged boundaries in the left-side structure."
+                ],
+                "reason": "To audit the structural plausibility and detect fusion artifacts in the complex geometry.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "entire_bookcase",
+                "verification_goals": [
+                    "Generate a depth map to verify if the curved shelves occupy a consistent 3D space relative to the back panel.",
+                    "Detect any spatial bleeding between the books and the shelves."
+                ],
+                "reason": "To expose potential geometric melting or incorrect spatial grounding of the protruding elements.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "book_spines",
+                "verification_goals": [
+                    "Analyze the texture quality of the book spines for gibberish or smearing.",
+                    "Assess the overall sharpness and coherence of the wood grain texture."
+                ],
+                "reason": "To confirm the presence of subtle texture anomalies typical of AI generation in detailed areas.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "books_and_objects",
+                "verification_goals": [
+                    "Detect and bound individual books to assess if they are distinct entities or merged blobs.",
+                    "Identify the black wire-frame object on the left to ensure it is not a distorted part of the bookcase."
+                ],
+                "reason": "To provide bounding box priors for segmentation and verify object distinctness.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Shelves adjustable in some models."
+        ],
+        "focus_areas": [
+            "Structural integrity of the curved shelves on the left.",
+            "Texture coherence of book spines.",
+            "Geometric consistency of vertical and horizontal lines."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the junction where the curved shelves meet the vertical frame. Does the wood grain flow continuously, or is there a visual break/fusion? Also, examine the book spines for any legible text vs. AI gibberish.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000239.png",
+            "class_id": 453,
+            "class_label": "bookcase",
+            "router_cost_seconds": 31.48,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bookcase",
+                "reason": "To verify if the irregular structure is a valid design variant or an AI failure.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "curved_shelves",
+                "reason": "To audit the structural plausibility and detect fusion artifacts in the complex geometry.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "entire_bookcase",
+                "reason": "To expose potential geometric melting or incorrect spatial grounding of the protruding elements.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "book_spines",
+                "reason": "To confirm the presence of subtle texture anomalies typical of AI generation in detailed areas.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "books_and_objects",
+                "reason": "To provide bounding box priors for segmentation and verify object distinctness.",
+                "weight": 0.15
+            }
+        ]
+    }
+}

@@ -1,0 +1,149 @@
+{
+    "image_description": "A close-up, high-angle shot of a small, slender snake with smooth, glossy reddish-brown scales coiled among dark soil, decaying leaves, and small patches of green moss. The snake's body is uniform in color, lacking distinct patterns, and its head is small and rounded, blending seamlessly into the neck. A watermark or text artifact is visible in the bottom right corner.",
+    "image_class": "thunder snake",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Head is small, rounded, and barely distinct from the body with a blunt, rounded snout.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The head is clearly visible, small, and lacks a distinct neck constriction, matching the 'worm-like' description."
+        },
+        {
+            "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "A tiny, dark eye spot is discernible on the side of the head, consistent with the burrowing species' anatomy."
+        },
+        {
+            "checkpoint": "Body is slender, worm-like and cylindrical.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The body diameter is consistent and slender throughout the visible coils, resembling an earthworm."
+        },
+        {
+            "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The dorsal surface exhibits a uniform reddish-brown hue."
+        },
+        {
+            "checkpoint": "Ventral surface is pale pink to white.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The snake is positioned such that the ventral side is mostly obscured by the ground or its own coils; only dorsal/lateral views are clear."
+        },
+        {
+            "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Light reflections on the scales indicate a smooth, non-keeled texture with a glossy finish."
+        },
+        {
+            "checkpoint": "No distinctive patterning; uniform coloration throughout.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The color is solid without bands, spots, or stripes."
+        },
+        {
+            "checkpoint": "Tail is short and blunt.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The tail tip is not clearly isolated or visible in the frame; it appears to be tucked under coils or out of focus."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "text_gibberish",
+            "location": "Bottom right corner",
+            "severity": 2.0,
+            "reasoning": "There is a string of characters resembling a watermark or signature ('...T73...') that appears slightly distorted and inconsistent with natural scene elements, typical of AI generation artifacts or low-quality compression overlays."
+        },
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Mid-body coils",
+            "severity": 1.5,
+            "reasoning": "Slight inconsistency in scale definition where coils overlap; the boundaries between the snake's body segments are slightly softer than expected for a high-resolution macro shot, suggesting minor generative smoothing."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "snake",
+            "verification_goals": [
+                "Confirm species identity as Carphophis amoenus (Thunder Snake) vs. similar lookalikes like Red-bellied Snake or Earthworm Snake.",
+                "Verify taxonomic features: small size, smooth scales, uniform reddish-brown color.",
+                "Analyze visible lateral scales to ensure they transition correctly to expected ventral coloration at edges."
+            ],
+            "reason": "Primary verification of class label accuracy against visual features and partial verification of ventral coloration via lateral edge analysis.",
+            "weight": 0.35
+        },
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "snake_and_background",
+            "verification_goals": [
+                "Identify and bound the snake, soil, leaves, and moss to ensure they are distinct objects.",
+                "Provide precise bounding box priors for the topology_boundary_auditor to segment the snake from complex background clutter."
+            ],
+            "reason": "Critical 'Bridge' expert. Its output is a mandatory prerequisite for the topology auditor to function effectively; elevated weight reflects this structural dependency.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "snake_body",
+            "verification_goals": [
+                "Audit the continuity of the snake's body to ensure no fused loops or missing segments.",
+                "Verify sharp boundaries between the glossy snake skin and the rough soil background using BBox priors from open_vocabulary_detector."
+            ],
+            "reason": "To detect subtle fusion artifacts common in coiled subjects and verify the 'smooth/glossy' texture claim.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "image_text_auditor",
+            "target_subject": "bottom_right_corner",
+            "verification_goals": [
+                "Extract text strings and character-level confidence scores from the artifact in the bottom right.",
+                "Determine if the text is nonsensical gibberish, indicating AI generation."
+            ],
+            "reason": "Specialized tool for verifying the identified text artifact, replacing the less precise perceptual_quality_auditor for this specific task.",
+            "weight": 0.15
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire_image",
+            "verification_goals": [
+                "Check for global lighting consistency and shadow realism under the coils.",
+                "Verify overall photorealism and absence of other non-text artifacts."
+            ],
+            "reason": "Holistic quality check focusing on lighting and general image coherence after specific artifacts are handled by specialized experts.",
+            "weight": 0.05
+        }
+    ],
+    "unverifiable_points": [
+        "Ventral surface coloration (mostly obscured, though lateral transitions will be checked)",
+        "Exact tail length and bluntness (obscured/out of frame)"
+    ],
+    "focus_areas": [
+        "Scale texture glossiness and regularity",
+        "Head-to-body transition smoothness",
+        "Text artifact analysis in bottom right using OCR",
+        "Coil separation and boundary sharpness using segmentation priors"
+    ],
+    "custom_prompts_for_reflector": "Pay close attention to the interaction between the snake's glossy scales and the surrounding soil. AI models often struggle with the specular highlights on smooth wet-looking surfaces against matte dirt. Verify if the highlights are consistent with a single light source. Scrutinize the text in the corner using the image_text_auditor; if it is nonsensical, it is a strong indicator of AI generation. Ensure the 'worm-like' proportion is maintained without any sudden thickening or thinning that defies anatomy. Use the open_vocabulary_detector's bounding boxes to strictly enforce boundary checks between the snake and the leaf litter.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000043.png",
+        "class_id": 52,
+        "class_label": "thunder snake, worm snake, Carphophis amoenus",
+        "router_cost_seconds": 32.44,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1
+    }
+}

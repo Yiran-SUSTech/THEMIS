@@ -1,0 +1,174 @@
+{
+    "image_id": "000181",
+    "class_label": "airship, dirigible",
+    "iteration": 2,
+    "timestamp": "2026-08-18 15:25:09",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'Propeller nacelles' checkpoint was marked is_present=false. While the open_vocabulary_detector is tasked with searching for them, the plan should explicitly instruct it to verify if the dark shapes under the gondola are engines/props or just landing gear/shadows, as this is a common AI hallucination area.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "refinement",
+                "point": "The text on the airship appears mirrored/reversed ('RAEDYOO...'). The image_text_auditor goal should explicitly check for 'text directionality/mirroring' in addition to legibility, as standard OCR might read the characters correctly but miss the spatial inversion error.",
+                "recommended_expert": "image_text_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A yellow and black airship (blimp) flying against a clear blue sky. The airship features prominent text on the side, a gondola suspended beneath the forward section, and tail fins at the rear. The hull is elongated and cigar-shaped.",
+        "image_class": "airship",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated cigar-shaped craft with exceptionally streamlined envelope.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image clearly shows an elongated, streamlined, cigar-shaped hull consistent with an airship."
+            },
+            {
+                "checkpoint": "Bilateral symmetry with distinctive elongated oval silhouette much longer than wide.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible profile demonstrates the characteristic elongated oval shape; while only one side is visible, the structure implies bilateral symmetry."
+            },
+            {
+                "checkpoint": "Tapers to pointed nose and conical tail with cruciform or X-shaped fins.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The nose tapers smoothly, and the tail features distinct vertical and horizontal stabilizer fins."
+            },
+            {
+                "checkpoint": "Gondola or car suspended beneath forward section housing crew cabin and engines.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A dark gondola structure is clearly visible suspended beneath the front half of the envelope."
+            },
+            {
+                "checkpoint": "Propeller nacelles mounted on sides or beneath envelope.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No distinct propeller nacelles are clearly visible in this specific angle/resolution; they may be obscured or integrated, but not explicitly present as distinct external mounts."
+            },
+            {
+                "checkpoint": "Gas-filled hull with stability fins at tail.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The main body acts as the gas-filled hull, and stability fins are present at the rear."
+            },
+            {
+                "checkpoint": "Envelope surface typically silver white or painted with advertising.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The envelope is painted yellow with large black text advertising."
+            },
+            {
+                "checkpoint": "Smooth tapered hull with pointed nose cone.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surface appears smooth and aerodynamic, tapering to a rounded/pointed nose."
+            },
+            {
+                "checkpoint": "Cruciform or X-shaped tail fins for stability.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Tail fins are visible, providing the necessary stability structure."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Side of the airship envelope",
+                "severity": 2,
+                "reasoning": "The text reads 'GOODYEAR' but the letters exhibit slight warping and irregular spacing typical of AI generation, particularly the 'Y' and 'R'. It is legible but not perfectly crisp."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Gondola area",
+                "severity": 1,
+                "reasoning": "The gondola lacks fine mechanical detail (windows, landing gear specifics) and appears slightly melted or overly smooth compared to the sharpness of the hull."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "airship components",
+                "verification_goals": [
+                    "Locate and provide bounding boxes for 'gondola', 'hull', and 'tail fins' to serve as priors for topology auditing.",
+                    "Search specifically for 'propeller' or 'engine nacelle' to verify their absence (negative evidence) regarding the failed checkpoint."
+                ],
+                "reason": "Acts as the bridge expert to provide segmentation masks for the topology auditor and rigorously verify the absence of propellers.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "airship",
+                "verification_goals": [
+                    "Confirm the object is classified as an airship/dirigible/blimp.",
+                    "Verify visual features consistent with the Goodyear Blimp class."
+                ],
+                "reason": "Primary classification verification to ensure the generated image matches the target class label.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "airship hull and gondola",
+                "verification_goals": [
+                    "Verify the physical connection between the gondola and the hull using detection priors.",
+                    "Ensure the hull is a single continuous manifold without floating parts."
+                ],
+                "reason": "To check for structural collapse or fusion artifacts between the suspended gondola and the main envelope.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "text on airship",
+                "verification_goals": [
+                    "Extract and verify the text string on the side of the hull.",
+                    "Check for character-level coherence and absence of gibberish."
+                ],
+                "reason": "To rigorously audit the 'text_gibberish' artifact observed in the branding text.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess overall sharpness and lighting consistency.",
+                    "Detect any subtle blending errors between the airship and the sky background."
+                ],
+                "reason": "Holistic quality check to identify any low-severity artifacts missed by specific experts.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Text legibility and correctness on the hull.",
+            "Structural integrity of the gondola attachment.",
+            "Verification of absent propeller nacelles.",
+            "Surface smoothness and absence of melting artifacts on the envelope."
+        ],
+        "custom_prompts_for_reflector": "Pay close attention to the rendering of the 'GOODYEAR' text. AI models often struggle with curved text on cylindrical surfaces. Verify if the letters maintain consistent thickness and perspective alignment. Also, inspect the gondola for realistic mechanical details versus generic 'blobby' shapes. Crucially, use the open_vocabulary_detector results to confirm if propellers are truly missing or just poorly rendered/occluded.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000181.png",
+            "class_id": 405,
+            "class_label": "airship, dirigible",
+            "router_cost_seconds": 29.67,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}
