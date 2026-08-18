@@ -27,8 +27,8 @@ SOURCE_GROUPS = {
     "Sys_DiT": ["Sys_DiT_1", "Sys_DiT_2", "Sys_DiT_3"],
     "Sys_DiT_ref_500": ["Sys_DiT_ref_1", "Sys_DiT_ref_2", "Sys_DiT_ref_3"],
     "Human_DiT_500": ["User_DiT_1", "User_DiT_2", "User_DiT_3"],
-    "Sys_VAR_ref": ["Sys_VAR_ref_1", "Sys_VAR_ref_2", "Sys_VAR_ref_3"],
-    "Human_VAR": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
+    "Sys_VAR_ref_1000": ["Sys_VAR_ref_1", "Sys_VAR_ref_2", "Sys_VAR_ref_3"],
+    "Human_VAR_1000": ["User_VAR_1", "User_VAR_2", "User_VAR_3"],
     "Sys_JiTfdloss_ref_500": ["Sys_JiTfdloss_ref_1", "Sys_JiTfdloss_ref_2", "Sys_JiTfdloss_ref_3"],
     "Human_JiTfdloss_500": ["User_JiTfdloss_1", "User_JiTfdloss_2", "User_JiTfdloss_3"],
     "Sys_IMFfdloss_ref_500": ["Sys_IMFfdloss_ref_1", "Sys_IMFfdloss_ref_2", "Sys_IMFfdloss_ref_3"],
@@ -51,6 +51,9 @@ SOURCE_GROUPS = {
     "Sys_VAR_noref": ["Sys_VAR_noref_1", "Sys_VAR_noref_2", "Sys_VAR_noref_3"],
     "Sys_RAEv2_ref_500": ["Sys_RAEv2_ref"],
     "Sys_DiT_ref_cls_1k": ["Sys_DiT_ref_class1000"],
+    "Sys_DiT_ref_randcls_100_1": ["Sys_DiT_ref_cls100_1"],
+    "Sys_DiT_ref_randcls_100_2": ["Sys_DiT_ref_cls100_2"],
+    "Sys_DiT_ref_randcls_100_3": ["Sys_DiT_ref_cls100_3"],
 }
 
 SOURCES = {
@@ -541,7 +544,23 @@ SOURCES = {
         "type": "final_report",
         "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_1000class_5img_ref_cap_1", "final_reports"),
         "prefix": "final_evaluation_report_",
-    }
+    },
+
+    "Sys_DiT_ref_cls100_1": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_rand100class_5img_ref_cap_1", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_ref_cls100_2": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_rand100class_5img_ref_cap_2", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
+    "Sys_DiT_ref_cls100_3": {
+        "type": "final_report",
+        "path": os.path.join(BASE_DIR, "c2i_faster", "output_DiT_rand100class_5img_ref_cap_3", "final_reports"),
+        "prefix": "final_evaluation_report_",
+    },
 }
 
 
@@ -563,14 +582,14 @@ def extract_final_report_scores(dir_path, prefix):
             with open(fpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
             align = data.get("alignment_score")
-            artifact = data.get("artifact_score")
-            if align is not None and artifact is not None:
+            authenticity = data.get("artifact_score")
+            if align is not None and authenticity is not None:
                 class_id = data.get("class_id")
                 if class_id is None:
                     class_id = data.get("metadata", {}).get("class_id")
                 results[idx] = {
                     "alignment_score": float(align),
-                    "artifact_score": float(artifact),
+                    "authenticity_score": float(authenticity),
                     "class_id": class_id,
                 }
         except Exception as e:
@@ -597,14 +616,14 @@ def extract_checklist_scores(dir_path, prefix):
                 data = json.load(f)
             scores = data.get("scores", {})
             align = scores.get("alignment_score")
-            artifact = scores.get("artifact_score")
-            if align is not None and artifact is not None:
+            authenticity = scores.get("artifact_score")
+            if align is not None and authenticity is not None:
                 class_id = data.get("class_id")
                 if class_id is None:
                     class_id = data.get("metadata", {}).get("class_id")
                 results[idx] = {
                     "alignment_score": float(align),
-                    "artifact_score": float(artifact),
+                    "authenticity_score": float(authenticity),
                     "class_id": class_id,
                 }
         except Exception as e:
@@ -632,12 +651,12 @@ def extract_human_scores(json_path):
             continue
         scores = val.get("scores", {})
         align = scores.get("alignment_score")
-        artifact = scores.get("artifact_score")
-        if align is not None and artifact is not None:
+        authenticity = scores.get("artifact_score")
+        if align is not None and authenticity is not None:
             class_id = val.get("class_id")
             results[idx] = {
                 "alignment_score": float(align),
-                "artifact_score": float(artifact),
+                "authenticity_score": float(authenticity),
                 "class_id": class_id,
             }
     return results
@@ -673,7 +692,7 @@ def build_dataframe(all_data):
                 "image_id": idx,
                 "source": source_name,
                 "alignment_score": sc["alignment_score"],
-                "artifact_score": sc["artifact_score"],
+                "authenticity_score": sc["authenticity_score"],
                 "class_id": sc.get("class_id"),
             })
     df = pd.DataFrame(rows)
@@ -702,13 +721,13 @@ def plot_distributions(df, output_dir, groups=None):
     else:
         group_sources = {"All": sources}
 
-    for score_col, score_label in [("alignment_score", "Alignment Score"), ("artifact_score", "Artifact Score")]:
+    for score_col, score_label in [("alignment_score", "Alignment Score"), ("authenticity_score", "Authenticity Score")]:
         group_names = list(group_sources.keys())
         n_groups = len(group_names)
         n_cols = max(len(srcs) for srcs in group_sources.values()) if group_sources else 1
         n_rows = n_groups
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows), squeeze=False)
-        fig.suptitle(f"{score_label} Distribution by Source", fontsize=18, fontweight="bold")
+        fig.suptitle(f"{score_label} Distribution by Source", fontsize=24, fontweight="bold")
 
         for row_idx, gname in enumerate(group_names):
             src_list = group_sources[gname]
@@ -716,12 +735,13 @@ def plot_distributions(df, output_dir, groups=None):
                 ax = axes[row_idx, col_idx]
                 vals = df[df["source"] == src][score_col].dropna().values
                 if len(vals) == 0:
-                    ax.set_title(f"{src}\n(no data)")
+                    ax.set_title(f"{src}\n(no data)", fontsize=15)
                     continue
                 ax.hist(vals, bins=20, edgecolor="black", alpha=0.7, color="steelblue")
-                ax.set_title(f"{src}\nn={len(vals)}, mean={np.mean(vals):.2f}, std={np.std(vals):.2f}", fontsize=9)
-                ax.set_xlabel(score_label)
-                ax.set_ylabel("Count")
+                ax.set_title(f"{src}\nn={len(vals)}, mean={np.mean(vals):.2f}, std={np.std(vals):.2f}", fontsize=15)
+                ax.set_xlabel(score_label, fontsize=15)
+                ax.set_ylabel("Count", fontsize=15)
+                ax.tick_params(labelsize=13)
             # Hide unused subplots in this row
             for col_idx in range(len(src_list), n_cols):
                 axes[row_idx, col_idx].set_visible(False)
@@ -731,7 +751,7 @@ def plot_distributions(df, output_dir, groups=None):
         plt.close(fig)
         print(f"Saved: distribution_{score_col}.png")
 
-    for score_col, score_label in [("alignment_score", "Alignment Score"), ("artifact_score", "Artifact Score")]:
+    for score_col, score_label in [("alignment_score", "Alignment Score"), ("authenticity_score", "Authenticity Score")]:
         fig, ax = plt.subplots(figsize=(14, 6))
         data_for_box = []
         labels_for_box = []
@@ -843,10 +863,10 @@ def compute_correlations(df, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     sources = sorted(df["source"].unique())
     pivot_align = df.pivot_table(index="image_id", columns="source", values="alignment_score")
-    pivot_artifact = df.pivot_table(index="image_id", columns="source", values="artifact_score")
+    pivot_authenticity = df.pivot_table(index="image_id", columns="source", values="authenticity_score")
 
     results = []
-    for score_name, pivot in [("alignment_score", pivot_align), ("artifact_score", pivot_artifact)]:
+    for score_name, pivot in [("alignment_score", pivot_align), ("authenticity_score", pivot_authenticity)]:
         for i, s1 in enumerate(sources):
             for j, s2 in enumerate(sources):
                 if i >= j:
@@ -876,7 +896,7 @@ def compute_correlations(df, output_dir):
     corr_df.to_csv(corr_csv_path, index=False, encoding="utf-8-sig")
     print(f"Correlations saved to: {corr_csv_path}")
 
-    for score_name in ["alignment_score", "artifact_score"]:
+    for score_name in ["alignment_score", "authenticity_score"]:
         sub = corr_df[corr_df["score_type"] == score_name]
         if sub.empty:
             continue
@@ -911,18 +931,21 @@ def compute_correlations(df, output_dir):
             im = ax.imshow(mat, cmap="RdYlBu_r", vmin=-1, vmax=1)
             ax.set_xticks(range(n_src))
             ax.set_yticks(range(n_src))
-            ax.set_xticklabels(sources_in_sub, rotation=45, ha="right", fontsize=8)
-            ax.set_yticklabels(sources_in_sub, fontsize=8)
+            ax.set_xticklabels(sources_in_sub, rotation=45, ha="right", fontsize=14)
+            ax.set_yticklabels(sources_in_sub, fontsize=14)
             for ii in range(n_src):
                 for jj in range(n_src):
                     val = mat[ii, jj]
                     if not np.isnan(val):
-                        ax.text(jj, ii, f"{val:.2f}", ha="center", va="center", fontsize=7,
+                        ax.text(jj, ii, f"{val:.2f}", ha="center", va="center", fontsize=14,
+                                fontweight="bold",
                                 color="white" if abs(val) > 0.6 else "black")
             label = {"Pearson": "Pearson r", "Spearman": "Spearman r",
                      "ICC_2_1": "ICC(2,1)", "ICC_3_1": "ICC(3,1)"}[mat_name]
-            plt.colorbar(im, ax=ax, label=label)
-            ax.set_title(f"{label} - {score_name}", fontsize=14, fontweight="bold")
+            cbar = plt.colorbar(im, ax=ax)
+            cbar.set_label(label, fontsize=16)
+            cbar.ax.tick_params(labelsize=14)
+            ax.set_title(f"{label} - {score_name}", fontsize=20, fontweight="bold")
             plt.tight_layout()
             fig.savefig(os.path.join(output_dir, f"corr_{mat_name}_{score_name}.png"), dpi=150)
             plt.close(fig)
@@ -938,7 +961,7 @@ def compute_stability(df, output_dir, groups=None):
 
     results = []
     for group_name, source_list in groups.items():
-        for score_col in ["alignment_score", "artifact_score"]:
+        for score_col in ["alignment_score", "authenticity_score"]:
             sub = df[df["source"].isin(source_list)]
             pivot = sub.pivot_table(index="image_id", columns="source", values=score_col)
             common = pivot.dropna()
@@ -988,7 +1011,7 @@ def compute_stability(df, output_dir, groups=None):
     print(f"Stability results saved to: {stability_csv}")
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    for ax_idx, score_col in enumerate(["alignment_score", "artifact_score"]):
+    for ax_idx, score_col in enumerate(["alignment_score", "authenticity_score"]):
         ax = axes[ax_idx]
         sub_results = [r for r in results if r["score_type"] == score_col]
         group_names = [r["group"] for r in sub_results]
@@ -1047,13 +1070,13 @@ def analyze_system_vs_human(df, output_dir, groups=None):
     sub_sys = df[df["source"].isin(system_sources)]
     sub_human = df[df["source"].isin(human_sources)]
 
-    sys_avg = sub_sys.pivot_table(index="image_id", columns="source", values=["alignment_score", "artifact_score"])
-    human_avg = sub_human.pivot_table(index="image_id", columns="source", values=["alignment_score", "artifact_score"])
+    sys_avg = sub_sys.pivot_table(index="image_id", columns="source", values=["alignment_score", "authenticity_score"])
+    human_avg = sub_human.pivot_table(index="image_id", columns="source", values=["alignment_score", "authenticity_score"])
 
     sys_groups = {g: groups[g] for g in system_group_names}
 
     results = []
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         human_per_image = human_avg[score_col]
         human_mean_per_image = human_per_image.mean(axis=1)
         human_grand_mean = human_mean_per_image.mean()
@@ -1099,7 +1122,7 @@ def analyze_system_vs_human(df, output_dir, groups=None):
     bias_df.to_csv(bias_csv, index=False, encoding="utf-8-sig")
     print(f"System vs Human bias saved to: {bias_csv}")
 
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         n_sys = len(sys_groups)
         fig, axes = plt.subplots(1, n_sys, figsize=(7 * n_sys, 6))
         if n_sys == 1:
@@ -1139,7 +1162,7 @@ def analyze_system_vs_human(df, output_dir, groups=None):
         plt.close(fig)
         print(f"Saved: scatter_system_vs_human_{score_col}.png")
 
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         fig, ax = plt.subplots(figsize=(10, 5))
         human_per_image = human_avg[score_col]
         human_mean_per_image = human_per_image.mean(axis=1)
@@ -1170,7 +1193,7 @@ def analyze_system_vs_human(df, output_dir, groups=None):
         print(f"Saved: boxplot_system_vs_human_{score_col}.png")
 
     dist_stats_rows = []
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         fig, ax = plt.subplots(figsize=(12, 6))
 
         human_per_image = human_avg[score_col]
@@ -1313,7 +1336,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
     roc_curves = {}
 
     # 1. 逐对 (individual source vs individual source)
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         for sys_g in system_group_names:
             for human_g in human_group_names:
                 for sys_src in groups[sys_g]:
@@ -1357,7 +1380,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
                         })
 
     # 2. 聚合 (group avg vs group avg)
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         for sys_g in system_group_names:
             for human_g in human_group_names:
                 sys_pivot = df[df["source"].isin(groups[sys_g])].pivot_table(
@@ -1416,7 +1439,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
         print(f"[WARN] Permission denied: {auc_csv} (file open in Excel?), skip CSV save, continue plotting")
 
     # 3. 画图: 逐对 AUC 柱状图
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "individual")].copy()
         if sub.empty:
             continue
@@ -1450,7 +1473,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
         print(f"Saved: auc_individual_{score_col}.png")
 
     # 4. 画图: 聚合 AUC 柱状图
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "group_avg")].copy()
         if sub.empty:
             continue
@@ -1484,7 +1507,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
         print(f"Saved: auc_group_avg_{score_col}.png")
 
     # 5. 画图: heatmap (sys_source × human_source)
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         sub = auc_df[(auc_df["score_type"] == score_col) & (auc_df["aggregation"] == "individual")].copy()
         if sub.empty:
             continue
@@ -1515,7 +1538,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
         print(f"Saved: auc_heatmap_{score_col}.png")
 
     # 6. 画图: ROC 曲线 (individual, 每个 pair 一个子图)
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         curves = roc_curves.get(("individual", score_col), [])
         if not curves:
             continue
@@ -1530,7 +1553,7 @@ def compute_auc_between_groups(df, output_dir, groups=None):
         for idx, (fpr, tpr, auc_val, label) in enumerate(curves):
             ax = axes[idx // n_cols][idx % n_cols]
             if len(fpr) == 0:
-                ax.set_title(f"{label}\n(insufficient data)", fontsize=8)
+                ax.set_title(f"{label}\n(insufficient data)", fontsize=14)
                 ax.set_visible(True)
                 continue
 
@@ -1538,12 +1561,12 @@ def compute_auc_between_groups(df, output_dir, groups=None):
                     label=f"AUC = {auc_val:.4f}")
             ax.fill_between(fpr, tpr, alpha=0.2, color="steelblue")
             ax.plot([0, 1], [0, 1], "r--", alpha=0.5, label="Random (AUC=0.5)")
-            ax.set_xlabel("False Positive Rate (FPR)", fontsize=9)
-            ax.set_ylabel("True Positive Rate (TPR)", fontsize=9)
-            ax.set_title(label, fontsize=9)
+            ax.set_xlabel("False Positive Rate (FPR)", fontsize=15)
+            ax.set_ylabel("True Positive Rate (TPR)", fontsize=15)
+            ax.set_title(label, fontsize=15)
             ax.set_xlim(-0.01, 1.01)
             ax.set_ylim(-0.01, 1.01)
-            ax.legend(loc="lower right", fontsize=7)
+            ax.legend(loc="lower right", fontsize=13)
             ax.set_aspect("equal")
 
         # 隐藏多余子图
@@ -1552,14 +1575,14 @@ def compute_auc_between_groups(df, output_dir, groups=None):
 
         fig.suptitle(f"ROC Curves: {score_col} (individual)\n"
                      f"Threshold = human median, AUC = area under curve",
-                     fontsize=12, fontweight="bold")
+                     fontsize=18, fontweight="bold")
         plt.tight_layout()
         fig.savefig(os.path.join(output_dir, f"roc_curve_individual_{score_col}.png"), dpi=150)
         plt.close(fig)
         print(f"Saved: roc_curve_individual_{score_col}.png")
 
     # 7. 画图: ROC 曲线 (group_avg, 所有 pair 叠加在一张图)
-    for score_col in ["alignment_score", "artifact_score"]:
+    for score_col in ["alignment_score", "authenticity_score"]:
         curves = roc_curves.get(("group_avg", score_col), [])
         if not curves:
             continue
@@ -1655,11 +1678,11 @@ def load_vendi_ratio_data(vendi_csv_path):
 def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_data=None):
     """计算 composite score 和按类统计量。
 
-    1. Per-image 归一化 (a=align/5, r=artifact/5), 计算:
+    1. Per-image 归一化 (a=align/5, r=authenticity/5), 计算:
        - 乘积 composite: a * r
        - 调和平均 composite: 2*a*r / (a + r)
-    2. 按 (source, class_id) 算 alignment/artifact/composite 的均值, 再跨类取 macro-average
-    3. 按类算 P(alignment >= s, artifact >= t), 类间平均后画 25%/50%/75% 等高线
+    2. 按 (source, class_id) 算 alignment/authenticity/composite 的均值, 再跨类取 macro-average
+    3. 按类算 P(alignment >= s, authenticity >= t), 类间平均后画 25%/50%/75% 等高线
 
     命名规范:
       - per-image 级别: composite_product_perimage, composite_harmonic_perimage
@@ -1683,13 +1706,13 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
     # ---- 1. Per-image 归一化 + composite ----
     df = df.copy()
     df["alignment_norm"] = df["alignment_score"] / 5.0
-    df["artifact_norm"] = df["artifact_score"] / 5.0
+    df["authenticity_norm"] = df["authenticity_score"] / 5.0
     # per-image 命名: composite_product_perimage, composite_harmonic_perimage
-    df["composite_product_perimage"] = df["alignment_norm"] * df["artifact_norm"]
-    sum_ar = df["alignment_norm"] + df["artifact_norm"]
+    df["composite_product_perimage"] = df["alignment_norm"] * df["authenticity_norm"]
+    sum_ar = df["alignment_norm"] + df["authenticity_norm"]
     df["composite_harmonic_perimage"] = np.where(
         sum_ar > 0,
-        2 * df["alignment_norm"] * df["artifact_norm"] / sum_ar.replace(0, np.nan),
+        2 * df["alignment_norm"] * df["authenticity_norm"] / sum_ar.replace(0, np.nan),
         0.0,
     )
 
@@ -1700,18 +1723,18 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
 
     # ---- 2. 按类均值 + 跨类 macro-average ----
     # per-image 列名 (用于 groupby mean)
-    perimage_cols = ["alignment_norm", "artifact_norm",
+    perimage_cols = ["alignment_norm", "authenticity_norm",
                      "composite_product_perimage", "composite_harmonic_perimage"]
     # class-mean 列名 (在 class_means df 中)
-    classmean_cols = ["alignment_norm", "artifact_norm",
+    classmean_cols = ["alignment_norm", "authenticity_norm",
                       "composite_product_classmean", "composite_harmonic_classmean"]
     # dataset-level (macro-avg) 列名 (在 cross_class_avg df 中)
-    macro_cols = ["alignment_norm", "artifact_norm", "composite_product", "composite_harmonic"]
+    macro_cols = ["alignment_norm", "authenticity_norm", "composite_product", "composite_harmonic"]
 
     # classmean 列名 -> macro 列名 的映射
     classmean_to_macro = {
         "alignment_norm": "alignment_norm",
-        "artifact_norm": "artifact_norm",
+        "authenticity_norm": "authenticity_norm",
         "composite_product_classmean": "composite_product",
         "composite_harmonic_classmean": "composite_harmonic",
     }
@@ -1945,20 +1968,20 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
     fig, axes = plt.subplots(n_rows, n_cols,
                              figsize=(7 * n_cols, 4 * n_rows), squeeze=False)
     fig.suptitle("Per-image Normalized Scores\n"
-                 "(alignment_norm, artifact_norm, composite_product_perimage, composite_harmonic_perimage)",
+                 "(alignment_norm, authenticity_norm, composite_product_perimage, composite_harmonic_perimage)",
                  fontsize=13, fontweight="bold")
 
-    line_score_cols = ["alignment_norm", "artifact_norm",
+    line_score_cols = ["alignment_norm", "authenticity_norm",
                        "composite_product_perimage", "composite_harmonic_perimage"]
     score_colors = {
         "alignment_norm": "steelblue",
-        "artifact_norm": "coral",
+        "authenticity_norm": "coral",
         "composite_product_perimage": "seagreen",
         "composite_harmonic_perimage": "purple",
     }
     score_labels = {
         "alignment_norm": "alignment_norm",
-        "artifact_norm": "artifact_norm",
+        "authenticity_norm": "authenticity_norm",
         "composite_product_perimage": "composite_product_perimage",
         "composite_harmonic_perimage": "composite_harmonic_perimage",
     }
@@ -1991,7 +2014,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
     plt.close(fig)
     print(f"Saved: per_image_scores_lineplot.png")
 
-    # ---- 3. P(alignment >= s, artifact >= t) 等高线图 ----
+    # ---- 3. P(alignment >= s, authenticity >= t) 等高线图 ----
     grid_res = 51
     thresholds = np.linspace(0, 1, grid_res)
 
@@ -2006,7 +2029,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
 
         # Per-image group average (across sources within group)
         pivot_a = group_df.pivot_table(index="image_id", columns="source", values="alignment_norm")
-        pivot_r = group_df.pivot_table(index="image_id", columns="source", values="artifact_norm")
+        pivot_r = group_df.pivot_table(index="image_id", columns="source", values="authenticity_norm")
         pivot_cls = group_df.groupby("image_id")["class_id"].first()
 
         a_avg = pivot_a.mean(axis=1).dropna()
@@ -2045,7 +2068,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
         return cross_class_avg
 
     # ---- 保存等高线曲面数据 (供 contour_and_correlation_analysis.py 使用) ----
-    # 长格式 CSV: group, alignment_threshold, artifact_threshold, probability
+    # 长格式 CSV: group, alignment_threshold, authenticity_threshold, probability
     surface_rows = []
     for gname, prob in group_surfaces.items():
         for i, a_thresh in enumerate(thresholds):
@@ -2053,7 +2076,7 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
                 surface_rows.append({
                     "group": gname,
                     "alignment_threshold": round(float(a_thresh), 4),
-                    "artifact_threshold": round(float(r_thresh), 4),
+                    "authenticity_threshold": round(float(r_thresh), 4),
                     "probability": float(prob[i, j]),
                 })
     surface_df = pd.DataFrame(surface_rows)
@@ -2075,7 +2098,10 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
             )
             # 标注等高线
             try:
-                ax.clabel(cs, fmt={level: f"{gname} {level:.0%}"}, fontsize=6, inline=True)
+                clabels = ax.clabel(cs, fmt={level: f"{gname} {level:.0%}"}, fontsize=9, inline=True)
+                if clabels:
+                    for t in clabels:
+                        t.set_fontweight("bold")
             except Exception:
                 pass
 
@@ -2091,8 +2117,8 @@ def compute_composite_and_class_stats(df, output_dir, groups=None, vendi_ratio_d
     ax.legend(handles=legend_handles, loc="upper right", fontsize=8)
 
     ax.set_xlabel("Alignment threshold (normalized)", fontsize=11)
-    ax.set_ylabel("Artifact threshold (normalized)", fontsize=11)
-    ax.set_title("Joint Probability P(alignment >= s, artifact >= t)\n"
+    ax.set_ylabel("Authenticity threshold (normalized)", fontsize=11)
+    ax.set_title("Joint Probability P(alignment >= s, authenticity >= t)\n"
                  "(class-averaged, per group)", fontweight="bold")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)

@@ -188,12 +188,12 @@ def load_contour_surface(surface_csv, group_name):
 
     # 构建 2D 网格
     a_thresh = sorted(sub["alignment_threshold"].unique())
-    r_thresh = sorted(sub["artifact_threshold"].unique())
+    r_thresh = sorted(sub["authenticity_threshold"].unique())
     n = len(a_thresh)
     prob = np.zeros((n, n))
     # 用 pivot 构建 2D 矩阵
     pivot = sub.pivot_table(
-        index="alignment_threshold", columns="artifact_threshold", values="probability"
+        index="alignment_threshold", columns="authenticity_threshold", values="probability"
     )
     prob = pivot.values
     thresholds = np.array(a_thresh)
@@ -358,13 +358,13 @@ def plot_contour_comparison(source_groups, joint_probs, output_dir):
             for seg_idx, seg in enumerate(segments):
                 label = src if seg_idx == 0 else ""
                 ax.plot(seg[:, 0], seg[:, 1], color=color, linestyle=ls,
-                        linewidth=2.5, alpha=0.85, label=label)
+                        linewidth=6.5, alpha=0.85, label=label)
 
-        ax.set_xlabel("Alignment threshold (normalized)", fontsize=12)
-        ax.set_ylabel("Artifact threshold (normalized)", fontsize=12)
+        ax.set_xlabel("Alignment threshold (normalized)", fontsize=26)
+        ax.set_ylabel("Authenticity threshold (normalized)", fontsize=26)
         ax.set_title(f"Joint Probability Contour Comparison\n"
-                     f"P(alignment >= s, artifact >= t) = {jp}%",
-                     fontsize=14, fontweight="bold")
+                     f"P(alignment >= s, authenticity >= t) = {jp}%",
+                     fontsize=26, fontweight="bold")
 
         # 根据概率水平设置坐标轴范围
         xlim, ylim = CONTOUR_AXIS_RANGES.get(int(jp), ((0.0, 1.0), (0.0, 1.0)))
@@ -372,10 +372,11 @@ def plot_contour_comparison(source_groups, joint_probs, output_dir):
         ax.set_ylim(ylim)
         ax.set_aspect("auto")
         ax.grid(alpha=0.3, linestyle="--")
+        ax.tick_params(axis="both", labelsize=20)
 
         # 图例
-        ax.legend(loc="upper right", fontsize=9, framealpha=0.9,
-                  title="Source", title_fontsize=10)
+        ax.legend(loc="lower left", fontsize=24, framealpha=0.9,
+                  title="Source", title_fontsize=24)
 
         plt.tight_layout()
         jp_label = f"{jp:g}"

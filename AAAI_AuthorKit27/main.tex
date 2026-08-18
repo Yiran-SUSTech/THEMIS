@@ -6,9 +6,48 @@
 \def\UrlFont{\rm}
 \usepackage{natbib}
 \usepackage{caption}
+\usepackage{subcaption}
 \frenchspacing
 \usepackage{booktabs}
 \usepackage{multirow}
+
+% Additional packages (double-check whether they are allowed in AAAI 2027)
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{enumitem}
+\setlist[itemize]{itemsep=0pt,parsep=0pt,topsep=2pt,leftmargin=*}
+\setlist[enumerate]{itemsep=0pt,parsep=0pt,topsep=2pt,leftmargin=*}
+\usepackage{multicol}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\tcbset{
+  colback=gray!5!white,
+  colframe=gray!75!black,
+  fonttitle=\bfseries,
+  arc=3mm,
+  boxrule=0.5mm,
+  left=2mm,right=2mm,top=1mm,bottom=1mm,
+  breakable
+}
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=flexible,
+  keepspaces=true,
+  showstringspaces=false
+}
+
+% Tighten float and caption spacing to reduce page count
+\setlength{\textfloatsep}{6pt plus 1pt minus 1pt}
+\setlength{\intextsep}{6pt plus 1pt minus 1pt}
+\setlength{\floatsep}{6pt plus 1pt minus 1pt}
+\setlength{\dbltextfloatsep}{6pt plus 1pt minus 1pt}
+\setlength{\dblfloatsep}{6pt plus 1pt minus 1pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{2pt}
+\setlength{\abovedisplayskip}{4pt plus 1pt minus 1pt}
+\setlength{\belowdisplayskip}{4pt plus 1pt minus 1pt}
 
 \pdfinfo{
 /TemplateVersion (2027.1)
@@ -16,7 +55,10 @@
 
 \setcounter{secnumdepth}{0}
 
-\title{THEMIS: Agentic Evaluation of Image Generation Models Achieves Near-Perfect Human Alignment}
+% \title{Beyond FID: An Agentic Evaluation System for Class-to-Image Generative Models via Multi-Expert Collaborative Assessment}
+% \title{Beyond FID: An Agentic Multi-Expert System for Interpretable Per-Image Evaluation of c2i Generative Models}
+\title{What Sub-One FID Misses?\\
+A Per-Image Evaluation of Alignment and Artifact for Image Generation}
 
 \author{Anonymous Author}
 \affiliations{
@@ -24,405 +66,56 @@
     \texttt{anonymous@example.com}
 }
 
+\newcommand{\llmname}{Qwen3.6-Plus}
+
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Evaluating class-to-image (c2i) generative models requires metrics that faithfully reflect human perception. The widely adopted Fr\'echet Inception Distance (FID) relies on the assumption that feature distributions follow a unimodal Gaussian---an assumption we empirically find to be violated in practice. More critically, FID produces a single scalar with no interpretability: it cannot identify which specific images are problematic or diagnose the nature of failures. We propose an agentic multi-expert evaluation framework that decomposes c2i assessment into three complementary dimensions: Alignment Score (class conformance), Authenticity Score (structural integrity, absence of artifacts), and Diversity (measured via Vendi Ratio). Our framework employs a four-stage pipeline: Router, Judge, Reflector (all powered by LLMs), and seven specialized expert models. Unlike FID, our method provides per-image diagnostic reports pinpointing specific defects, enabling targeted model improvement. Extensive experiments across multiple state-of-the-art c2i models demonstrate that our framework achieves substantially stronger alignment with human judgment than FID in both rank correlation and spacing fidelity. Crucially, while FID often fails to distinguish models with similar scores, our method provides finer-grained quantitative differentiation that better matches human perception of quality differences, outperforming FID by a factor of 9 in absolute fit to human judgments while providing interpretable, actionable feedback at the per-image level.
+The Fr\'echet Inception Distance (FID) has long been the de facto metric for class-to-image (c2i) evaluation, yet it reduces an entire dataset to a single scalar with no per-image interpretability and relies on a Gaussian assumption empirically find to be violated. We propose THEMIS, an agentic evaluation framework that scores every generated image on two disentangled dimensions---Alignment (class conformance) and Authenticity (structural integrity)---and reports set-level Diversity via Vendi Ratio. THEMIS employs a four-stage pipeline: a Router plans the evaluation, a Judge reviews the plan through multi-round feedback, seven specialized vision experts execute the plan, and a Reflector synthesizes all evidence provided by experts into final scores with self-reflection and few-shot human calibration. This agentic design yields per-image diagnostic reports that pinpoint specific defects, enabling targeted model improvement. Across five c2i models, THEMIS achieves perfect ranking agreement with human judgment ($\rho = 1.0$) and system stability matching human inter-annotator reproducibility (ICC $\geq 0.70$), outperforming FID in both rank correlation and score-level fidelity.
 \end{abstract}
 
 \section{Introduction}
 
-The rapid advancement of class-to-image (c2i) generative models demands evaluation metrics that reliably quantify both semantic fidelity and visual quality. The Fr\'echet Inception Distance (FID)~\citep{heusel2017gans} has served as the de facto standard, measuring the Fr\'echet distance between Inception-v3 feature distributions of real and generated images. However, FID fundamentally relies on the assumption that both distributions are unimodal and Gaussian. We empirically find that this assumption does not hold in practice: real image feature distributions for fine-grained ImageNet categories exhibit significant multimodality and non-Gaussian characteristics, as different visual manifestations of the same category (e.g., varied poses, lighting conditions, and backgrounds) create complex, multi-cluster feature spaces.
+Class-to-image (c2i) generative models have advanced rapidly, producing images that are increasingly difficult to distinguish from real photographs. As models mature, the ability to precisely evaluate their quality---not just to rank them, but to diagnose where and why they fail---becomes essential for guiding further improvement. Yet the field still relies on a single metric that was designed a decade ago for a fundamentally different purpose.
 
-This violation has two critical consequences. First, FID produces biased estimates when the Gaussian assumption is violated, systematically misestimating the quality of models that generate diverse but valid outputs. Second, FID reduces evaluation to a single scalar that conflates class conformance with visual quality, making it impossible to diagnose \emph{why} a model receives a particular score. More importantly, FID's coarse granularity often fails to distinguish meaningful quality differences: models with substantially different perceptual quality may receive similar FID scores, while minor improvements may appear statistically significant.
+The Fr\'echet Inception Distance (FID)~\citep{heusel2017gans} measures the distance between Gaussian-modeled feature distributions of real and generated sets. While effective as a coarse ranking signal in earlier eras, FID has two structural limitations that are becoming critical. First, it assumes that Inception features follow a unimodal Gaussian---an assumption we empirically demonstrate to be violated for fine-grained ImageNet categories, where varied poses, viewpoints, and backgrounds create multi-cluster feature spaces. Second, and more fundamentally, FID collapses an entire dataset into a single scalar, conflating class conformance with visual quality and offering no per-image diagnosis. A model that generates a flawless dog with a melted limb receives the same scalar signal as one that produces a structurally intact but semantically wrong image. As modern c2i models cluster around similar FID scores (e.g., several current models report FID $\leq 1.0$), this opacity makes it impossible to identify failure modes or guide targeted improvements.
 
-To address these limitations, we propose \textbf{THEMIS}, an agentic framework that decomposes c2i evaluation into two interpretable dimensions: \textbf{Alignment Score} (0--5, measuring class conformance) and \textbf{Authenticity Score} (0--5, measuring structural integrity and visual fidelity). The system employs a four-stage pipeline: (1)~a \emph{Router} analyzes each image with taxonomy priors to formulate an evaluation plan; (2)~a \emph{Judge} reviews and iteratively refines the plan; (3)~seven specialized \emph{expert models} execute the plan locally on GPUs; and (4)~a \emph{Reflector} synthesizes all evidence into final scores.
+Existing alternatives each address only part of the problem. Distribution-level metrics such as Clean FID~\citep{parmar2021cleanfid} and CMMD~\citep{jayasumana2024rethinking} correct statistical biases but remain set-level scalars with no per-image granularity. LLM-as-a-judge approaches~\citep{zheng2023judging} can produce per-image assessments but lack the specialized vision capabilities needed to detect structural defects such as anatomical anomalies or subtle artifacts. What is needed is an evaluation system that combines the reliability of statistical metrics with the interpretability of per-image diagnosis, grounded in specialized visual evidence.
 
-Our contributions are threefold: (1)~We identify and empirically validate the Gaussian assumption violation in FID, motivating a new evaluation paradigm. (2)~We propose THEMIS, the first agentic multi-expert framework for c2i evaluation with interpretable dual-dimensional scoring. (3)~Extensive experiments on five state-of-the-art models with six human annotators demonstrate that THEMIS achieves strong human alignment while providing finer-grained model discrimination that better matches human perception.
+We propose \textbf{THEMIS}, an agentic evaluation framework that addresses these limitations through three design principles: \textbf{per-image interpretability}, \textbf{agentic reliability}, and \textbf{dimensional disentanglement}. Rather than reducing evaluation to a distribution-level statistic, THEMIS scores every generated image individually on two disentangled dimensions---Alignment and Authenticity---and supplements these with set-level Diversity via Vendi Ratio. A four-stage pipeline realizes these principles: (1)~a \emph{Router} analyzes each image with taxonomy priors to formulate an evaluation plan; (2)~a \emph{Judge} reviews and iteratively refines the plan through multi-round feedback; (3)~seven specialized \emph{expert models} (classification, detection, pose estimation, etc.) execute the plan to provide structural evidence that the LLM alone cannot assess; and (4)~a \emph{Reflector} synthesizes all evidence into final scores via self-reflection, calibrated against few-shot human-annotated reference images. This agentic design---combining multi-agent collaboration, expert grounding, iterative feedback, and self-reflection---ensures that scoring is reliable and interpretable, producing per-image diagnostic reports that pinpoint specific defects.
 
-\section{Related Work}
+Our contributions are as follows:
+\begin{enumerate}
+\item We propose THEMIS, an agentic framework for c2i evaluation that provides per-image interpretable scores on two disentangled dimensions (Alignment and Authenticity) plus set-level Diversity, comparing FID's single scalar.
+\item We demonstrate that THEMIS achieves perfect ranking agreement with human judgment ($\rho = 1.0$) across five c2i models, substantially outperforming FID ($\rho = 0.667$), and that system stability matches human inter-annotator reproducibility (ICC $\geq 0.70$).
+\item We establish a c2i evaluation benchmark comprising five state-of-the-art models evaluated on 500 images per model with paired human annotations, and empirically validate that 5 images per class suffice for stable and reproducible evaluation, providing a standardized protocol for future c2i assessment.
+\end{enumerate}
 
-\textbf{Image Generation Metrics.}
-FID~\citep{heusel2017gans} measures the Fr\'echet distance between Gaussian-approximated feature distributions. While widely used, its Gaussian assumption has been questioned. IS~\citep{salimans2016improved} evaluates quality and diversity but shares similar distributional assumptions. CLIP-based metrics (CLIP-SCORE, CLIP-IQA~\citep{radford2021clip}) leverage pre-trained vision-language models for open-ended evaluation but lack fine-grained diagnostic capability. DINO-based metrics~\citep{caron2021dino} use self-supervised features but still reduce evaluation to distribution-level distances. All these methods produce single scalars that conflate multiple quality dimensions and cannot diagnose specific failure modes.
-
-\textbf{Agentic Evaluation Systems.}
-LLM-as-a-judge paradigms~\citep{zheng2023judging} use large language models for automated assessment. Multi-agent systems employ specialized agents for complex reasoning tasks. THEMIS extends this paradigm to visual generation evaluation by combining LLM-based reasoning with domain-specific expert models, enabling structured, interpretable, and multi-dimensional quality assessment.
-
-\section{Methodology}
-
-THEMIS decomposes c2i evaluation into two complementary dimensions: \textbf{Alignment Score} (0--5, higher = better class conformance) and \textbf{Authenticity Score} (0--5, higher = fewer distortions and artifacts). Both scores are continuous values, enabling fine-grained discrimination. The overall quality of an image dataset is summarized by a \textbf{composite score}: the product of the per-image mean Alignment and the per-image mean Authenticity scores.
-
-\subsection{System Architecture}
-
-THEMIS employs a four-stage pipeline where the Router, Judge, and Reflector are powered by a large language model (Qwen3.6-Plus) accessed via API, while expert models run locally on GPUs.
-
-\textbf{Stage 1 --- Router (Plan Generation).}
-For each image, the Router receives: (1)~the image itself, (2)~its ImageNet class label, (3)~taxonomy prior knowledge with structured diagnostic checkpoints, and (4)~a registry of available expert models. The Router performs four sub-tasks: checkpoint verification against taxonomy priors, authenticity scanning, expert selection (choosing 3--8 from seven available experts with weights summing to 1.0), and plan formulation. The output is a structured JSON evaluation plan.
-
-\textbf{Stage 2 --- Judge (Plan Review).}
-The Judge evaluates the Router's plan across four dimensions: checkpoint verdict reasonableness, authenticity severity consistency, expert selection appropriateness, and weight allocation. If rejected, the Judge provides feedback and the Router revises the plan. This iterative process runs for up to two rounds, ensuring evaluation plans are rigorous before execution.
-
-\textbf{Stage 3 --- Expert Execution.}
-Seven specialized expert models are available:
-
-\begin{itemize}
-    \item \textbf{Fine-Grained Classifier} (EVA-02~\citep{fang2023eva}): predicts class identity with top-5 probabilities.
-    \item \textbf{Open-Vocabulary Detector} (Grounding DINO~\citep{liu2023grounding}): detects and localizes class-relevant objects.
-    \item \textbf{Animal Pose Auditor} (ViTPose~\citep{xu2022vitpose}): audits 17 keypoints for biological plausibility.
-    \item \textbf{Depth Auditor} (DepthAnything~\citep{ranftl2021midas}): exposes geometric melting and spatial inconsistencies.
-    \item \textbf{Boundary Auditor} (SAM~\citep{kirillov2023sam}): segments instances to audit topological connectivity.
-    \item \textbf{Perceptual Quality Auditor} (Q-Insight): detects graphics-level distortions via vision-language modeling.
-    \item \textbf{Text Auditor} (PP-OCRv3): detects and evaluates visible text regions.
-\end{itemize}
-
-Experts execute in parallel with dependency resolution (e.g., Grounding DINO provides bounding boxes for SAM). Each produces a standardized \emph{testimony bundle} with structured evidence.
-
-\textbf{Stage 4 --- Reflector (Final Scoring).}
-The Reflector synthesizes the Router's plan, all expert testimonies, and taxonomy knowledge into final Alignment and Authenticity scores. It incorporates \emph{expert blind spot warnings}---explicit statements of each expert's limitations---ensuring that expert silence is not misinterpreted as absence of defects. When enabled, three human-annotated reference images (covering low/mid/high quality segments of the same super-category) are provided as scoring anchors for calibration.
-
-\section{Experiments}
-
-\subsection{Experimental Setup}
-
-\textbf{Evaluated Models.}
-We evaluate five state-of-the-art c2i models spanning a range of quality levels:
-(i)~DiT-XL/2-G~\citep{peebles2023dit} (cfg=1.50, FID=2.27),
-(ii)~VAR-d24~\citep{tian2024visual} (FID=2.09),
-(iii)~iMF-XL/2~\citep{han2024improved} (FID=1.54),
-(iv)~iMF-XL-FD-loss (FD-loss post-trained, FID=0.72), and
-(v)~JiT-H-FD-loss (FD-loss post-trained, FID=0.72).
-
-\textbf{THEMIS Configuration.}
-All experiments use async mode with 20 concurrent API calls, 8-GPU preset, session mode, reference image anchoring, and checklist annotation. Each model's test set contains 500--1000 images. The system is run three independent times (denoted ref\_1, ref\_2, ref\_3) to assess stability.
-
-\textbf{Human Annotation.}
-Six human annotators independently score each image on the same 0--5 Alignment and Authenticity scales. Three annotators' scores are averaged for primary comparison; inter-annotator agreement is measured across all six.
-
-\textbf{Evaluation Metrics.}
-We assess THEMIS along two axes:
-\begin{itemize}
-    \item \textbf{Per-image stability}: ICC$_{2,1}$ (two-way random, absolute agreement) across three system runs for each individual image, measuring whether the system produces consistent scores for the same image.
-    \item \textbf{Per-image system--human consistency}: Pearson $r$ between system scores (per run) and individual human annotator scores across all images, measuring whether the system agrees with humans on a per-image basis.
-    \item \textbf{Dataset-level consistency}: Composite score (mean Alignment $\times$ mean Authenticity) correlation between system and human judgments across the five models, measuring whether the system reproduces human-perceived quality rankings at the dataset level.
-\end{itemize}
-
-\subsection{Per-Image Stability Analysis}
-
-We first examine whether THEMIS produces consistent scores when run multiple times on the same images. Table~\ref{tab:stability} reports the ICC$_{2,1}$ and coefficient of variation (CV) across three independent system runs, alongside the corresponding human inter-annotator agreement.
-
-\begin{table}[t]
-\centering
-\caption{Per-image stability: system internal consistency (3 runs) vs.\ human inter-annotator agreement (3 annotators). ICC$_{2,1}$ measures absolute agreement; CV measures relative dispersion.}
-\label{tab:stability}
-\small
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Dataset} & \multicolumn{2}{c}{\textbf{Alignment ICC / CV}} & \multicolumn{2}{c}{\textbf{Authenticity ICC / CV}} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
- & System & Human & System & Human \\
-\midrule
-DiT      & 0.836 / 0.156 & 0.822 / 0.142 & 0.755 / 0.165 & 0.764 / 0.148 \\
-iMF      & 0.820 / 0.140 & 0.782 / 0.148 & 0.720 / 0.170 & 0.700 / 0.187 \\
-VAR      & 0.812 / 0.150 & 0.810 / 0.127 & 0.722 / 0.161 & 0.745 / 0.146 \\
-iMF-FD   & 0.826 / 0.116 & 0.805 / 0.105 & 0.710 / 0.147 & 0.708 / 0.153 \\
-JiT-FD   & 0.822 / 0.127 & 0.834 / 0.106 & 0.735 / 0.152 & 0.731 / 0.145 \\
-\midrule
-\textbf{Mean} & \textbf{0.823 / 0.138} & \textbf{0.811 / 0.125} & \textbf{0.728 / 0.159} & \textbf{0.730 / 0.156} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The system exhibits high internal consistency across all five datasets. For Alignment, the mean ICC$_{2,1}$ is 0.823, which is \emph{comparable to} the human inter-annotator ICC of 0.811. For Authenticity, the system ICC of 0.728 is essentially identical to the human ICC of 0.730. This demonstrates that THEMIS is at least as reproducible as human evaluation---a critical property for any automated metric.
-
-Notably, the system's CV values (0.138 for Alignment, 0.159 for Authenticity) are slightly higher than human CV values (0.125 and 0.156 respectively), indicating that the system has marginally more relative variability across runs. However, this is expected given that the system involves stochastic elements (LLM sampling, GPU non-determinism), and the absolute ICC values remain high.
-
-Figure~\ref{fig:stability} visualizes the stability comparison across all datasets, showing that system and human stability profiles are closely aligned.
+Figure~\ref{fig:crossmodel_scatter} visualizes system-human agreement across five c2i models (min-max normalized to [0,1]). THEMIS (a) achieves NRMSE$=$0.046, closely tracking human judgments; FID (b) yields NRMSE$=$0.301, with iMF-XL-FD and JiT-H-FD collapsing to the same point despite different human scores.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{Figures/stability_comparison_DiT.png}
-\caption{Stability comparison for the DiT dataset. Left: system ICC across 3 runs; Right: human ICC across 3 annotators. The similar patterns confirm that THEMIS achieves human-level reproducibility.}
-\label{fig:stability}
+\includegraphics[width=\linewidth]{Figures/crossmodel_scatter.png}
+\caption{System-Human agreement across five c2i models. Scores are min-max normalized to [0,1].}
+\label{fig:crossmodel_scatter}
 \end{figure}
 
-\subsection{Per-Image System--Human Consistency}
+\input{section/RelatedWork}
 
-We now evaluate whether THEMIS agrees with human judgments on individual images. Table~\ref{tab:perimage} reports the average pairwise Pearson $r$ between each system run and each human annotator, computed across all images in each dataset.
+\input{section/Limitations_of_FID}
 
-\begin{table}[t]
-\centering
-\caption{Per-image system--human consistency: average pairwise Pearson $r$ between system runs (3) and human annotators (3) across all images. ICC$_{2,1}$ (avg-vs-avg) measures absolute agreement between system and human mean scores.}
-\label{tab:perimage}
-\small
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Dataset} & \multicolumn{2}{c}{\textbf{Alignment}} & \multicolumn{2}{c}{\textbf{Authenticity}} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
- & Pearson $r$ & ICC$_{2,1}$ & Pearson $r$ & ICC$_{2,1}$ \\
-\midrule
-DiT      & 0.697 & 0.779 & 0.681 & 0.787 \\
-iMF      & 0.704 & 0.804 & 0.658 & 0.792 \\
-VAR      & 0.680 & 0.770 & 0.636 & 0.753 \\
-iMF-FD   & 0.662 & 0.758 & 0.649 & 0.775 \\
-JiT-FD   & 0.692 & 0.774 & 0.662 & 0.778 \\
-\midrule
-\textbf{Mean} & \textbf{0.687} & \textbf{0.777} & \textbf{0.657} & \textbf{0.777} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\input{section/Methodology}
 
-The results reveal a consistent pattern across all five datasets. For Alignment, the mean per-image Pearson $r$ between system and human is 0.687, indicating moderate-to-strong linear association. For Authenticity, the mean Pearson $r$ is 0.657. While these per-image correlations are lower than the human--human pairwise correlations (mean $r \approx 0.81$ for Alignment, $0.73$ for Authenticity), this gap is expected: the system and humans use fundamentally different evaluation mechanisms (multi-expert pipeline vs.\ direct visual perception), and the system's scores are anchored to expert model outputs rather than subjective judgment.
-
-More importantly, the ICC$_{2,1}$ values (absolute agreement) average 0.777 for both Alignment and Authenticity, indicating that despite different evaluation mechanisms, the system's scores are \emph{numerically close} to human scores on average. This is a stronger result than correlation alone, as ICC accounts for both correlation and systematic bias.
-
-Figure~\ref{fig:scatter_dit} shows the per-image scatter plots for the DiT dataset, illustrating the system--human agreement pattern. Each point represents one image, with the system's 3-run average on the x-axis and the human 3-annotator average on the y-axis.
-
-\begin{figure}[t]
-\centering
-\begin{minipage}{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/scatter_alignment_DiT.png}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/scatter_artifact_DiT.png}
-\end{minipage}
-\caption{Per-image system vs.\ human scores for the DiT dataset. Left: Alignment ($r = 0.787$); Right: Authenticity ($r = 0.811$). The strong linear trends confirm that THEMIS tracks human judgment at the individual image level.}
-\label{fig:scatter_dit}
-\end{figure}
-
-The scatter plots reveal that the system tends to assign slightly lower scores than humans (visible as points below the diagonal), a conservative bias we discuss in Section~\ref{sec:bias}. Despite this bias, the tight clustering around the regression line confirms strong rank-order agreement.
-
-\subsection{Dataset-Level Consistency}
-
-While per-image analysis measures granular agreement, dataset-level consistency evaluates whether THEMIS reproduces human-perceived quality rankings across models. Table~\ref{tab:dataset} presents the composite scores (mean Alignment $\times$ mean Authenticity) for all five models.
-
-\begin{table}[t]
-\centering
-\caption{Dataset-level composite scores (mean Alignment $\times$ mean Authenticity) for system and human evaluations. Both produce identical model rankings.}
-\label{tab:dataset}
-\small
-\begin{tabular}{lccccccc}
-\toprule
-\textbf{Model} & \textbf{FID} & \multicolumn{2}{c}{\textbf{Alignment}} & \multicolumn{2}{c}{\textbf{Authenticity}} & \multicolumn{2}{c}{\textbf{Composite}} \\
-\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8}
- & & Sys & Human & Sys & Human & Sys & Human \\
-\midrule
-iMF-XL/2       & 1.54 & 3.77 & 3.87 & 2.69 & 2.93 & 10.14 & 11.35 \\
-DiT-XL/2-G     & 2.27 & 3.77 & 3.90 & 2.85 & 3.12 & 10.72 & 12.14 \\
-VAR-d24        & 2.09 & 3.82 & 3.93 & 2.82 & 3.05 & 10.78 & 11.99 \\
-iMF-XL-FD      & 0.72 & 3.96 & 3.98 & 2.94 & 3.17 & 11.64 & 12.62 \\
-JiT-H-FD       & 0.72 & 3.91 & 3.99 & 2.91 & 3.17 & 11.36 & 12.63 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Both THEMIS and human evaluations produce the \emph{identical} model quality ranking:
-\begin{center}
-iMF-XL/2 $\prec$ DiT-XL/2-G $\approx$ VAR-d24 $\prec$ JiT-H-FD $\prec$ iMF-XL-FD
-\end{center}
-
-The dataset-level Pearson correlation between system and human composite scores is $r = 0.97$, and the Spearman rank correlation is $\rho = 1.00$, confirming perfect rank agreement. This demonstrates that THEMIS faithfully reproduces human-perceived quality differences at the dataset level.
-
-Crucially, THEMIS provides \emph{finer quantitative differentiation} than FID. Consider the top-ranked models: FID assigns identical scores to iMF-XL-FD and JiT-H-FD (both 0.72), making them indistinguishable. In contrast, THEMIS separates them via both Alignment (3.96 vs.\ 3.91) and Authenticity (2.94 vs.\ 2.91) dimensions, with the composite score reflecting a meaningful gap (11.64 vs.\ 11.36) that aligns with human assessments (12.62 vs.\ 12.63). Similarly, while FID places VAR-d24 (2.09) between DiT-XL/2-G (2.27) and iMF-XL/2 (1.54), THEMIS reveals that DiT and VAR are nearly equivalent in quality (composite: 10.72 vs.\ 10.78), a nuance that FID's coarser granularity obscures.
-
-\subsection{Cross-Metric Correlation Analysis}
-
-To rigorously evaluate whether THEMIS aligns better with human judgment than FID does, we compute three complementary metrics: Spearman's rank correlation ($\rho$), Pearson's linear correlation ($r$), and normalized root mean square error (NRMSE). These metrics assess rank agreement, spacing fidelity, and absolute fit, respectively.
-
-\textbf{Preprocessing.}
-Since FID is ``lower is better'' while Human and Ours scores are ``higher is better,'' we negate FID ($-$FID) so all metrics share the same direction (higher = better) before computing correlations. For NRMSE, we apply min-max normalization to scale all three metrics to $[0, 1]$:
-\begin{equation}
-x_{\text{norm}} = \frac{x - \min(x)}{\max(x) - \min(x)}
-\end{equation}
-This normalization is necessary because FID (range $[0.72, 2.27]$), Human composite scores (range $[11.34, 12.62]$), and Ours composite scores (range $[10.10, 11.49]$) have different scales and units. Without normalization, the absolute error would be dominated by scale differences rather than actual disagreement.
-
-Table~\ref{tab:correlation} presents the model rankings and cross-metric correlation results.
-
-\begin{table}[t]
-\centering
-\caption{Model rankings and cross-metric correlation with human judgment. Rankings are computed such that rank 1 = best. Spearman $\rho$ measures rank correlation; Pearson $r$ measures linear correlation (spacing fidelity); NRMSE measures absolute fit after min-max normalization to $[0, 1]$.}
-\label{tab:correlation}
-\small
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Model} & \textbf{FID Rank} & \textbf{Human Rank} & \textbf{Ours Rank} \\
-\midrule
-DiT-XL/2-G (cfg=1.50) & 5 & 4 & 4 \\
-VAR-d24               & 4 & 3 & 3 \\
-iMF-XL/2              & 3 & 5 & 5 \\
-iMF-XL-FD-loss        & 1.5 & 1 & 1 \\
-JiT-H-FD-loss         & 1.5 & 2 & 2 \\
-\midrule
-\multicolumn{4}{c}{\textit{Correlation with Human Judgment}} \\
-\midrule
-\textbf{Metric} & \textbf{Spearman $\rho$} & \textbf{Pearson $r$} & \textbf{NRMSE} \\
-\midrule
-FID ($-$FID) & 0.6669 & 0.6690 & 0.3347 \\
-Ours         & \textbf{1.0000} & \textbf{0.9969} & \textbf{0.0374} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The results demonstrate that THEMIS outperforms FID on all three metrics:
-
-\textbf{(1) Perfect rank agreement.}
-THEMIS achieves Spearman $\rho = 1.000$ with human judgment, indicating perfect rank correlation. In contrast, FID achieves only $\rho = 0.667$, revealing systematic ranking errors. The most striking example is iMF-XL/2: FID ranks it 3rd (FID = 1.54, relatively low), but human evaluators rank it last (composite score = 11.34, the lowest). THEMIS correctly identifies this discrepancy and ranks iMF-XL/2 last, matching human judgment. This failure of FID stems from its Gaussian assumption violation: iMF-XL/2 generates images with diverse but valid visual manifestations that create a multi-modal feature distribution, causing FID to underestimate the true quality gap.
-
-\textbf{(2) Superior spacing fidelity.}
-THEMIS achieves Pearson $r = 0.997$ with human judgment, indicating that not only does it rank models correctly, but the \emph{magnitude of quality differences} also closely matches human perception. For example, where human evaluators perceive a large gap between iMF-XL-FD (12.62) and iMF-XL/2 (11.34) — a difference of 1.28 — THEMIS reflects this with a composite score gap of 1.39 (11.49 vs.\ 10.10). FID, by contrast, shows only a 0.82 difference (0.72 vs.\ 1.54), failing to capture the full extent of the quality gap. The Pearson $r$ of 0.669 for FID indicates substantial deviation from human-perceived spacing.
-
-\textbf{(3) Minimal absolute error.}
-After min-max normalization to $[0, 1]$, THEMIS achieves NRMSE = 0.037, which is approximately \emph{9 times lower} than FID's NRMSE of 0.335. This confirms that THEMIS not only ranks correctly and preserves spacing, but also produces scores that are numerically close to human judgments in absolute terms. The normalized values (Table~\ref{tab:normalized}) illustrate this: THEMIS scores closely track human scores across all five models, while FID scores deviate substantially, particularly for iMF-XL/2 (FID: 0.471, Human: 0.000).
-
-\begin{table}[t]
-\centering
-\caption{Min-max normalized scores (0 = worst, 1 = best). THEMIS scores closely track human scores, while FID deviates substantially.}
-\label{tab:normalized}
-\small
-\begin{tabular}{lccc}
-\toprule
-\textbf{Model} & \textbf{FID ($-$FID)} & \textbf{Human} & \textbf{Ours} \\
-\midrule
-DiT-XL/2-G (cfg=1.50) & 0.000 & 0.430 & 0.446 \\
-VAR-d24               & 0.116 & 0.508 & 0.482 \\
-iMF-XL/2              & 0.471 & 0.000 & 0.000 \\
-iMF-XL-FD-loss        & 1.000 & 1.000 & 1.000 \\
-JiT-H-FD-loss         & 1.000 & 0.984 & 0.906 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-In summary, THEMIS demonstrates near-perfect alignment with human judgment across all three evaluation axes: rank correlation ($\rho = 1.000$), spacing fidelity ($r = 0.997$), and absolute fit (NRMSE = 0.037). FID, by contrast, exhibits systematic ranking errors, poor spacing fidelity, and large absolute deviations. These results confirm that THEMIS is a substantially more reliable and human-aligned evaluation metric for c2i generative models.
-
-\subsection{Sample Size Robustness}
-
-A practical evaluation metric must produce stable and consistent results across different dataset sizes. To assess this, we evaluate THEMIS on the VAR-d24 model under six different sample sizes: 200, 400, 500, 600, 800, and 1000 images, all drawn from the same 100 ImageNet classes (with 2, 4, 5, 6, 8, and 10 images per class respectively). This design isolates the effect of sample size while holding class diversity constant.
-
-Table~\ref{tab:sample_size_stability} reports the per-image ICC$_{2,1}$ (absolute agreement) across three runs for both the system and human annotators.
-
-\begin{table}[t]
-\centering
-\caption{Per-image ICC$_{2,1}$ (absolute agreement) across three runs at different sample sizes. All experiments use 100 classes with varying images per class. At $N{=}200$ (2 images/class), authenticity assessment is notably less stable for both system and humans.}
-\label{tab:sample_size_stability}
-\small
-\begin{tabular}{lccccc}
-\toprule
-\textbf{$N$} & \textbf{Img/Class} & \multicolumn{2}{c}{\textbf{System ICC$_{2,1}$}} & \multicolumn{2}{c}{\textbf{Human ICC$_{2,1}$}} \\
-\cmidrule(lr){3-4} \cmidrule(lr){5-6}
- & & Align & Authenticity & Align & Authenticity \\
-\midrule
-200  & 2  & 0.875 & \textbf{0.689} & 0.812 & \textbf{0.699} \\
-400  & 4  & 0.823 & 0.713 & 0.826 & 0.765 \\
-500  & 5  & 0.820 & 0.704 & 0.821 & 0.737 \\
-600  & 6  & 0.822 & 0.735 & 0.836 & 0.754 \\
-800  & 8  & 0.815 & 0.729 & 0.817 & 0.753 \\
-1000 & 10 & 0.812 & 0.722 & 0.810 & 0.745 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The results reveal a clear pattern: \textbf{authenticity assessment at $N{=}200$ is markedly less stable}. At 200 images (2 per class), the system's authenticity ICC drops to 0.689, well below the 0.704--0.735 range observed at $N \geq 400$. Human authenticity ICC follows the same trend (0.699 at $N{=}200$ vs.\ 0.737--0.765 at larger sizes). This indicates that with only 2 images per class, the limited sample fails to adequately represent the class's visual diversity, making authenticity assessment --- which relies on detecting subtle structural defects that vary across instances --- particularly noisy. Notably, alignment ICC at $N{=}200$ is actually \emph{higher} (0.875) than at larger sizes, likely because fewer images per class reduces the variance in class representation, making class conformance easier to assess consistently.
-
-Table~\ref{tab:sample_size_means} reports the mean Alignment and Authenticity scores at each sample size.
-
-\begin{table}[t]
-\centering
-\caption{Mean scores at different sample sizes. Both system and human scores stabilize as $N$ increases, with scores at $N \geq 400$ closely matching the full-set ($N{=}1000$) values.}
-\label{tab:sample_size_means}
-\small
-\begin{tabular}{lcccc}
-\toprule
-\textbf{$N$} & \multicolumn{2}{c}{\textbf{System Mean}} & \multicolumn{2}{c}{\textbf{Human Mean}} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
- & Align & Authenticity & Align & Authenticity \\
-\midrule
-200  & 3.81 & \textbf{2.91} & 3.94 & \textbf{3.11} \\
-400  & 3.79 & 2.87 & 3.89 & 3.07 \\
-500  & 3.79 & 2.83 & 3.92 & 3.05 \\
-600  & 3.79 & 2.81 & 3.91 & 3.05 \\
-800  & 3.82 & 2.81 & 3.94 & 3.04 \\
-1000 & 3.82 & 2.82 & 3.93 & 3.05 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Both system and human scores exhibit clear convergence as sample size increases. For the system, Alignment stabilizes at $\sim$3.79--3.82 and Authenticity at $\sim$2.81--2.83 for $N \geq 400$, closely matching the full-set values (3.82 and 2.82). For human evaluators, Alignment stabilizes at $\sim$3.89--3.94 and Authenticity at $\sim$3.04--3.07. The most notable deviation occurs at $N{=}200$: artifact scores are inflated (system: 2.91 vs.\ 2.82; human: 3.11 vs.\ 3.05), reflecting the same sampling noise that reduces ICC at this size. With only 2 images per class, the sample may over-represent easier or higher-quality instances, leading to systematically higher artifact scores.
-
-In summary, THEMIS demonstrates robust stability for $N \geq 400$ (4 images per class across 100 classes), with both stability (ICC) and consistency (mean scores) converging to the full-set values. At $N{=}200$, artifact assessment becomes unreliable for both system and humans, suggesting a practical minimum of $\sim$400 images (4 per class) for robust evaluation.
-
-\subsection{Distribution-Level Agreement}
-
-Beyond per-image and dataset-level analysis, we examine whether the system and human score distributions match across the full range of quality. Figure~\ref{fig:distribution} shows the overlay distributions for the DiT dataset.
-
-\begin{figure}[t]
-\centering
-\begin{minipage}{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/dist_alignment_DiT.png}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/dist_artifact_DiT.png}
-\end{minipage}
-\caption{Score distribution comparison for the DiT dataset. The system and human distributions are closely aligned in shape and central tendency, confirming that THEMIS captures the full quality spectrum.}
-\label{fig:distribution}
-\end{figure}
-
-The overlay distributions show that system and human scores share similar shapes, central tendencies, and spreads. The system distributions are slightly shifted toward lower values, reflecting the conservative bias discussed below. Despite this shift, the distributional overlap is substantial, confirming that THEMIS captures the full quality spectrum rather than clustering around specific score ranges.
-
-\subsection{System Bias Analysis}
-\label{sec:bias}
-
-Table~\ref{tab:bias} quantifies the systematic bias between system and human scores across all datasets.
-
-\begin{table}[t]
-\centering
-\caption{System--human bias analysis. Negative mean diff indicates the system scores lower than humans. The bias is consistent across all datasets.}
-\label{tab:bias}
-\small
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Dataset} & \multicolumn{2}{c}{\textbf{Alignment Diff}} & \multicolumn{2}{c}{\textbf{Authenticity Diff}} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
- & Mean & Median & Mean & Median \\
-\midrule
-DiT      & $-$0.13 & $-$0.16 & $-$0.27 & $-$0.18 \\
-iMF      & $-$0.11 & $-$0.17 & $-$0.25 & $-$0.20 \\
-VAR      & $-$0.11 & $-$0.16 & $-$0.23 & $-$0.18 \\
-iMF-FD   & $-$0.08 & $-$0.15 & $-$0.24 & $-$0.18 \\
-JiT-FD   & $-$0.08 & $-$0.15 & $-$0.26 & $-$0.21 \\
-\midrule
-\textbf{Mean} & $\mathbf{-}$\textbf{0.10} & $\mathbf{-}$\textbf{0.16} & $\mathbf{-}$\textbf{0.25} & $\mathbf{-}$\textbf{0.19} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-THEMIS exhibits a consistent, small negative bias: the system scores approximately 0.10 points lower on Alignment ($\sim$3\% relative) and 0.25 points lower on Authenticity ($\sim$8\% relative) across all datasets. This bias is \emph{consistent} (not variable), as evidenced by the high correlations in Tables~\ref{tab:perimage} and~\ref{tab:dataset}, and stems from the LLM's tendency toward stricter criterion application when evaluating against explicit diagnostic checkpoints.
-
-This conservative bias is preferable to human evaluation's known issues with fatigue, inconsistency, and subjective drift. Moreover, the bias is small enough that it does not affect ranking decisions (Spearman $\rho = 1.0$), and can be corrected via calibration if absolute score alignment is required.
-
-\subsection{Summary of Findings}
-
-Our experiments demonstrate that THEMIS achieves three key properties:
-
-\textbf{(1) High per-image stability.}
-The system's internal consistency (mean ICC = 0.82 for Alignment, 0.73 for Authenticity) matches or exceeds human inter-annotator agreement (ICC = 0.81 and 0.73 respectively), confirming that THEMIS is a reproducible evaluation tool.
-
-\textbf{(2) Strong system--human consistency.}
-At the per-image level, THEMIS achieves mean Pearson $r = 0.69$ for Alignment and $0.66$ for Authenticity, with ICC$_{2,1} = 0.78$ for both dimensions. At the dataset level, the composite score correlation reaches Pearson $r = 0.97$ and Spearman $\rho = 1.00$, confirming perfect rank agreement with human judgments.
-
-\textbf{(3) Finer-grained discrimination than FID.}
-While both THEMIS and FID produce identical model rankings, THEMIS provides dual-dimensional scores that reveal meaningful quality differences invisible to FID's single scalar (e.g., separating iMF-XL-FD and JiT-H-FD, which FID cannot distinguish).
+\input{section/Experiment}
 
 \section{Conclusion}
 
-We presented THEMIS, an agentic evaluation framework for class-to-image generative models that addresses the Gaussian assumption violation inherent in FID. Through a four-stage pipeline combining LLM-based reasoning with seven specialized expert models, THEMIS provides interpretable, dual-dimensional quality scores (Alignment and Authenticity) that demonstrate strong agreement with human judgment (dataset-level composite $r = 0.97$, $\rho = 1.0$; per-image ICC = 0.78) while offering finer-grained model discrimination. Our experiments on five state-of-the-art models with six human annotators confirm that THEMIS produces identical rankings to FID while revealing meaningful quality differences that FID cannot resolve, with system stability matching human inter-annotator agreement. Future work will extend THEMIS to text-to-image evaluation and explore automated taxonomy enrichment.
+We presented THEMIS, an agentic evaluation framework for class-to-image generative models focusing not only on taxonomy class alignment but also on complete image authenticity. Its four-stage pipeline---combining multi-agent collaboration, specialized vision experts, multi-round feedback, and self-reflection---produces disentangled Alignment and Authenticity scores that align closely with human judgment while providing interpretable, per-image evidence beyond FID's single scalar. Though the agentic pipeline incurs higher cost than distribution-level metrics, our analysis shows that it is worthy for interpretability and system-human consistency. Our experiments also prove that 500 images are sufficient for stable and reproducible evaluation.
 
 \bibliography{themis}
+
+\input{section/Appendix}
 
 \end{document}
