@@ -529,6 +529,48 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 }"""
 
 
+_REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-reflection on your initial assessment. You have just completed a preliminary evaluation of an AI-generated image. Now critically review your own assessment and produce the final, revised evaluation.
+
+**Self-Reflection Checklist:**
+1. Score-Reasoning Consistency: Do your scores align with your reasoning?
+   - If your alignment_reasoning describes checkpoint mismatches but alignment_score is high → lower it.
+   - If your artifact_reasoning describes severe issues but artifact_score is high → lower it.
+   - Look for contradictions between the reasoning text and the numerical scores.
+
+2. Expert Evidence Utilization: Did you properly consider ALL expert testimony?
+   - Were there classifier results (top-3 labels) you ignored or underweighted?
+   - Did the classifier Top-1 match the target class? If not, did you adequately cap alignment?
+   - Were there auxiliary images (depth maps, segmentation masks) you didn't reference?
+   - Did the pose auditor's keypoint analysis reveal structural issues you overlooked?
+
+3. Reference Calibration: If human-scored reference images were provided:
+   - Are your scores consistent with the reference anchors?
+   - If a reference with similar quality has alignment=4.0, is your score in a similar range?
+   - Reference anchors should prevent both inflated and deflated scores.
+
+4. Leniency Bias: Are you rubber-stamping the Router's assessment too readily?
+   - The Router's checkpoint verdicts are preliminary — did you independently verify them?
+   - Did you accept is_present=true without checking expert evidence?
+   - The Router may miss subtle artifacts — did you look for additional issues?
+
+5. Harshness Bias: Are you over-penalizing minor issues?
+   - A minor texture anomaly (severity 1) should not drop artifact_score by more than 0.5.
+   - Multiple minor issues compound, but one minor issue should not dominate.
+   - Pose low-confidence keypoints alone (without visual confirmation) are a weak signal.
+
+6. Checkpoint Review: For each checkpoint:
+   - Did you agree/disagree with the Router's is_present verdict?
+   - If you disagreed, did you explain why?
+   - If the Router was too lenient, did you flag it?
+
+**Output the SAME JSON schema as your initial assessment, with revised scores.**
+Add a "self_reflection_notes" field documenting:
+  - What you changed and why
+  - Which checklist items triggered adjustments
+  - Whether your final scores are higher, lower, or same as initial (with reasoning)
+"""
+
+
 def build_reflector_prompt(
     class_label: str,
     taxonomy_info: dict | None,
@@ -598,6 +640,7 @@ def _calibrate_scores(
     expert_results: dict,
     router_plan: dict | None = None,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
 ) -> dict:
     """Post-process Reflector output with hard rules that cannot be violated.
     These rules were previously in the prompt but are now enforced in code for reliability.
@@ -605,13 +648,15 @@ def _calibrate_scores(
     Args:
         pose_hard_cap: If True, apply hard caps to artifact_score based on pose low-confidence analysis.
                        If False (default), skip pose-based artifact caps to avoid domain-shift bias.
+        enable_classifier_cap: If True (default), cap alignment_score based on fine_grained_classifier
+                               Top-1/Top-3 mismatch. If False, trust the Reflector's judgment entirely.
     """
     alignment_score = result.get("alignment_score", 0.0)
     artifact_score = result.get("artifact_score", 0.0)
     adjustments = []
 
     # --- Alignment calibration based on expert classifier ---
-    if expert_results:
+    if enable_classifier_cap and expert_results:
         for t in expert_results.get("expert_testimonies", []):
             if t.get("expert_id") == "fine_grained_classifier" and t.get("status") == "success":
                 evidence = t.get("evidence", {})
@@ -682,6 +727,92 @@ def _collect_auxiliary_images(expert_results: dict) -> list[str]:
     return paths
 
 
+def _run_self_reflection_round(
+    client: OpenAI,
+    system_message: dict,  # Round 1 system message (unused; kept for API compatibility)
+    user_content: list[dict],
+    round1_result: dict,
+    api_retry: int = 0,
+    temperature: float = 0.5,
+) -> dict | None:
+    """执行 Round 2 Self-Reflection API 调用。
+
+    利用对话历史：[self_reflection_system, round1_user, round1_assistant, round2_user]
+    模型可以看到自己的初步评分并据此修订。
+    """
+    self_reflection_system = {
+        "role": "system",
+        "content": [
+            {
+                "type": "text",
+                "text": _REFLECTOR_SELF_REFLECTION_TEMPLATE,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+    }
+
+    round2_prompt = (
+        "Review your assessment above using the Self-Reflection Checklist. "
+        "Output revised JSON with the same schema, plus a 'self_reflection_notes' field."
+    )
+
+    messages = [
+        self_reflection_system,
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": json.dumps(round1_result, indent=2, ensure_ascii=False)},
+        {"role": "user", "content": round2_prompt},
+    ]
+
+    try:
+        completion = api_call_with_retry(
+            client.chat.completions.create,
+            model=REFLECTOR_MODEL,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+            max_retries=api_retry,
+            label="Reflector-SelfReflection",
+            extra_body={"enable_thinking": False},
+        )
+        raw_content = completion.choices[0].message.content
+        if raw_content is None or raw_content.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+            if reasoning:
+                raw_content = reasoning
+            else:
+                return None
+        result = parse_json_safely(raw_content)
+        return result
+    except Exception as e:
+        print(f"  [WARN] Self-reflection round failed: {type(e).__name__}: {e}")
+        return None
+
+
+def _merge_self_reflection(round1: dict, round2: dict) -> dict:
+    """合并两轮结果。Round 2 的分数优先，但保留 Round 1 的数据用于审计。"""
+    round1_scores = {
+        "alignment_score": round1.get("alignment_score"),
+        "artifact_score": round1.get("artifact_score"),
+    }
+
+    merged = round2.copy()
+    merged["preliminary_scores"] = round1_scores
+    merged["self_reflection_notes"] = round2.get("self_reflection_notes", "")
+
+    r1_align = round1.get("alignment_score", 0)
+    r2_align = round2.get("alignment_score", 0)
+    r1_artifact = round1.get("artifact_score", 0)
+    r2_artifact = round2.get("artifact_score", 0)
+
+    if abs(r1_align - r2_align) > 0.01 or abs(r1_artifact - r2_artifact) > 0.01:
+        merged["score_changes"] = {
+            "alignment_score": f"{r1_align:.2f} → {r2_align:.2f}",
+            "artifact_score": f"{r1_artifact:.2f} → {r2_artifact:.2f}",
+        }
+
+    return merged
+
+
 def run_reflector(
     client: OpenAI,
     image_path: str,
@@ -692,9 +823,11 @@ def run_reflector(
     router_plan: dict | None = None,
     ref_images: list[dict] | None = None,
     enable_checklist: bool = False,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
     temperature: float = 0.5,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
 ) -> dict | None:
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
@@ -796,6 +929,21 @@ def run_reflector(
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
             return None
 
+        # ── Round 2: Self-Reflection ──
+        round2_result = None
+        if enable_self_reflection:
+            round2_result = _run_self_reflection_round(
+                client, system_message, user_content, result,
+                api_retry=api_retry, temperature=temperature,
+            )
+            if round2_result is not None:
+                result = _merge_self_reflection(result, round2_result)
+                print(f"  [INFO] Self-reflection completed. "
+                      f"Alignment: {result.get('alignment_score', 'N/A')}, "
+                      f"Artifact: {result.get('artifact_score', 'N/A')}")
+            else:
+                print(f"  [WARN] Self-reflection round failed, using Round 1 scores")
+
         result["metadata"] = {
             "original_image": image_path,
             "class_id": class_id,
@@ -805,9 +953,13 @@ def run_reflector(
             "ref_images_enabled": bool(ref_images),
             "ref_images_included": [r["image_name"] for r in ref_images] if ref_images else [],
             "checklist_enabled": enable_checklist,
+            "self_reflection_enabled": enable_self_reflection,
+            "self_reflection_succeeded": round2_result is not None if enable_self_reflection else None,
             "reflector_cost_seconds": round(cost_time, 2),
         }
-        result = _calibrate_scores(result, expert_results, router_plan, pose_hard_cap=pose_hard_cap)
+        result = _calibrate_scores(result, expert_results, router_plan,
+                                   pose_hard_cap=pose_hard_cap,
+                                   enable_classifier_cap=enable_classifier_cap)
         if enable_checklist:
             result = _normalize_checklist_output(result, structured_taxonomy_info)
 

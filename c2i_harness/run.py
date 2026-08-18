@@ -111,6 +111,16 @@ Examples:
                         help="Ablation mode: router-only direct scoring, no experts/judge/reflector (default: False)")
     parser.add_argument("--pose-hard-cap", action="store_true", default=False,
                         help="Enable hard caps on artifact_score based on pose low-confidence analysis (disabled by default due to domain-shift concerns)")
+    parser.add_argument("--no-classifier-cap", action="store_false", dest="enable_classifier_cap", default=True,
+                        help="Disable classifier-based alignment capping (Top-1/Top-3 mismatch caps). "
+                             "By default (--enable-classifier-cap), alignment is capped to 2.0 if classifier "
+                             "Top-1 mismatches target, and 1.0 if target not in Top-3. Use --no-classifier-cap "
+                             "to trust the Reflector's judgment entirely without code-level capping.")
+    parser.add_argument("--enable-self-reflection", action="store_true", default=True,
+                        help="Enable Reflector self-reflection (two-round API calls). "
+                             "Default: enabled. Use --no-self-reflection to disable.")
+    parser.add_argument("--no-self-reflection", action="store_false", dest="enable_self_reflection",
+                        help="Disable Reflector self-reflection (single-round mode for faster processing)")
 
     # ── GPU parameters ─────────────────────────────────────────
     parser.add_argument("--gpu-groups", type=int, default=1,
@@ -257,6 +267,8 @@ Examples:
             without_expert=args.without_expert,
             without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
             pose_hard_cap=args.pose_hard_cap,
+            enable_classifier_cap=args.enable_classifier_cap,
+            enable_self_reflection=args.enable_self_reflection,
         )
 
     elif args.mode == "async":
@@ -287,6 +299,8 @@ Examples:
             without_expert=args.without_expert,
             without_expert_dir=WITHOUT_EXPERT_REPORTS_DIR,
             pose_hard_cap=args.pose_hard_cap,
+            enable_classifier_cap=args.enable_classifier_cap,
+            enable_self_reflection=args.enable_self_reflection,
         )
 
     elif args.mode == "batch":
@@ -305,6 +319,7 @@ Examples:
             poll_interval=args.poll_interval,
             step=step,
             pose_hard_cap=args.pose_hard_cap,
+            enable_classifier_cap=args.enable_classifier_cap,
         )
 
     # ── Summary ────────────────────────────────────────────────

@@ -39,6 +39,7 @@ def _run_single_image(
     api_retry: int = 0,
     temp_router: float = 0.0,
     temp_judge: float = 0.0,
+    enable_self_reflection: bool = True,
 ) -> dict | None:
     """Run Router+Judge loop for a single image (synchronous)."""
     print(f"\n{'#'*60}")
@@ -171,6 +172,8 @@ def run_sync_pipeline(
     without_expert: bool = False,
     without_expert_dir: Path | None = None,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode."""
     stats = {
@@ -235,6 +238,7 @@ def run_sync_pipeline(
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
                 api_retry=api_retry, temp_router=temp_router, temp_judge=temp_judge,
+                enable_self_reflection=enable_self_reflection,
             )
             if plan is not None:
                 stats["api_ok"] += 1
@@ -306,6 +310,8 @@ def run_sync_pipeline(
                         api_retry=api_retry,
                         temperature=temp_reflector,
                         pose_hard_cap=pose_hard_cap,
+                        enable_classifier_cap=enable_classifier_cap,
+                        enable_self_reflection=enable_self_reflection,
                     )
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")

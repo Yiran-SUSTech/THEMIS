@@ -19,7 +19,7 @@ from common import (
     load_geneval2_data,
 )
 
-from step0_atomize import atomize_prompt, save_atomized_prompt
+from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
 from step1_router import generate_plan, revise_plan, load_experts_registry
 from step2_judge import review_plan
 from step4_reflector import run_reflector, save_final_report, print_final_summary
@@ -155,6 +155,8 @@ def run_sync_pipeline(
     temp_judge: float = 0.0,
     temp_reflector: float = 0.5,
     final_reports_dir: Path | None = None,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode.
@@ -199,6 +201,13 @@ def run_sync_pipeline(
                 continue
 
             atomized_data = atomize_prompt(prompt_data)
+            save_atomized_prompt(atomized_data, ATOMIZED_DIR, img_id)
+
+            # Step 0d: Enrich with generic taxonomy
+            atomized_data = enrich_with_generic_taxonomy(
+                atomized_data, client,
+                api_retry=api_retry, temperature=0.0,
+            )
             save_atomized_prompt(atomized_data, ATOMIZED_DIR, img_id)
             stats["atomize_ok"] += 1
             print(f"  [Step 0] Atoms: {atomized_data['atom_count']}, "
@@ -280,6 +289,8 @@ def run_sync_pipeline(
                         expert_results=bundle,
                         experts_registry_str=experts_registry_str,
                         router_plan=plan,
+                        ref_image_dir=ref_image_dir,
+                        enable_self_reflection=enable_self_reflection,
                         api_retry=api_retry,
                         temperature=temp_reflector,
                     )

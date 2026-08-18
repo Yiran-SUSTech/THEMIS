@@ -253,6 +253,8 @@ def _sync_reflector(
     api_retry: int = 0,
     temperature: float = 0.5,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> dict | None:
     """Synchronous Reflector for one image. Runs in thread pool."""
     ref_images = None
@@ -274,6 +276,8 @@ def _sync_reflector(
         enable_checklist=enable_checklist,
         api_retry=api_retry,
         pose_hard_cap=pose_hard_cap,
+        enable_classifier_cap=enable_classifier_cap,
+        enable_self_reflection=enable_self_reflection,
     )
     if report is None:
         print(f"  [{img_id}] Reflector FAILED")
@@ -303,6 +307,8 @@ async def _reflector_worker(
     api_retry: int = 0,
     temp_reflector: float = 0.5,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -330,7 +336,8 @@ async def _reflector_worker(
                     expert_results, experts_registry_str, router_plan,
                     final_reports_dir, ref_enable, image_dir,
                     enable_checklist, checklist_dir, api_retry,
-                    temp_reflector, pose_hard_cap,
+                    temp_reflector, pose_hard_cap, enable_classifier_cap,
+                    enable_self_reflection,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -369,6 +376,8 @@ async def _run_full_pipeline(
     checklist_dir: Path | None = None,
     api_retry: int = 0,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> dict:
     run_step4 = final_reports_dir is not None
     stats = {
@@ -430,6 +439,8 @@ async def _run_full_pipeline(
                 enable_checklist, checklist_dir, api_retry,
                 temp_reflector,
                 pose_hard_cap=pose_hard_cap,
+                enable_classifier_cap=enable_classifier_cap,
+                enable_self_reflection=enable_self_reflection,
             ))
         )
 
@@ -577,6 +588,8 @@ async def _run_step4_only(
     checklist_dir: Path | None = None,
     api_retry: int = 0,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
     stats = {"reflector_ok": 0, "reflector_fail": 0}
@@ -616,7 +629,8 @@ async def _run_step4_only(
                 bundle, experts_registry_str, plan, final_reports_dir,
                 ref_enable, image_dir,
                 enable_checklist, checklist_dir, api_retry,
-                temp_reflector, pose_hard_cap,
+                temp_reflector, pose_hard_cap, enable_classifier_cap,
+                enable_self_reflection,
             )
             if report is not None:
                 stats["reflector_ok"] += 1
@@ -719,6 +733,8 @@ def run_async_pipeline(
     without_expert: bool = False,
     without_expert_dir: Path | None = None,
     pose_hard_cap: bool = False,
+    enable_classifier_cap: bool = True,
+    enable_self_reflection: bool = True,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
     # Without-expert ablation mode: router-only direct scoring
@@ -756,6 +772,8 @@ def run_async_pipeline(
             checklist_dir=checklist_dir,
             api_retry=api_retry,
             pose_hard_cap=pose_hard_cap,
+            enable_classifier_cap=enable_classifier_cap,
+            enable_self_reflection=enable_self_reflection,
         ))
 
     if run_step12 and run_step3 and expert_managers:
@@ -783,8 +801,9 @@ def run_async_pipeline(
             checklist_dir=checklist_dir,
             api_retry=api_retry,
             pose_hard_cap=pose_hard_cap,
+            enable_classifier_cap=enable_classifier_cap,
+            enable_self_reflection=enable_self_reflection,
         ))
-
     elif run_step12 and not run_step3:
         client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
         return asyncio.run(_run_step12_only(

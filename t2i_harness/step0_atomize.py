@@ -12,16 +12,23 @@ The output is consumed by downstream T2I evaluation steps (router, experts, scor
 
 import os
 import re
+import sys
 import json
 from pathlib import Path
+from openai import OpenAI
 
 if __name__ != "__main__":
-    import sys
     if sys.stdout.encoding != "utf-8":
         sys.stdout.reconfigure(encoding="utf-8")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 T2I_DIR = Path(__file__).resolve().parent
+
+# Ensure t2i_harness is importable for `from common import ...`
+if str(T2I_DIR) not in sys.path:
+    sys.path.insert(0, str(T2I_DIR))
+
+from common import api_call_with_retry
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
@@ -588,10 +595,12 @@ def atomize_prompt(prompt_data: dict) -> dict:
         # Build object info dict
         if taxonomy_result:
             obj_info = dict(taxonomy_result)
+            obj_info["is_generic"] = False
         else:
             obj_info = {
                 "object_name": obj_name,
                 "class_id": None,
+                "is_generic": True,  # NEW: mark as generic for Step 0d taxonomy generation
                 "class_name": "",
                 "taxonomy_description": "",
                 "diagnostic_checkpoints": {},
@@ -607,6 +616,153 @@ def atomize_prompt(prompt_data: dict) -> dict:
         "atoms": atoms,
         "objects": object_infos,
     }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  JSON Parsing Utilities (mirrors step1_router.py / step2_judge.py)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def clean_json_response(raw_text: str) -> str:
+    text = raw_text.strip()
+    if text.startswith("```json"):
+        text = text[len("```json"):]
+    elif text.startswith("```"):
+        text = text[len("```"):]
+    if text.endswith("```"):
+        text = text[:-len("```")]
+    return text.strip()
+
+
+def parse_json_safely(raw_text: str) -> dict | None:
+    if raw_text is None or raw_text.strip() == "":
+        return None
+    cleaned = clean_json_response(raw_text)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", cleaned)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                return None
+        return None
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Generic Taxonomy Generation (Step 0d)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def generate_generic_taxonomy(
+    client: OpenAI,
+    object_name: str,
+    prompt_text: str,
+    api_retry: int = 0,
+    temperature: float = 0.0,
+) -> dict:
+    """为泛类物体生成通用诊断特征。
+
+    Calls the LLM to produce taxonomy_description and diagnostic_checkpoints
+    for an object that has no ImageNet class_id mapping (is_generic=True).
+    Returns a dict matching the structure produced by link_taxonomy, with
+    is_generic=True and class_name suffixed with "(generic)".
+    """
+    prompt = (
+        f'你是生物分类学专家。给定物体名称 "{object_name}"'
+        f'（来自 prompt: "{prompt_text}"），'
+        '生成简洁但能区分该大类与其他大类的诊断特征。\n\n'
+        '要求：\n'
+        '1. 3-5 个 checkpoint，每个一句话\n'
+        '2. 每个 checkpoint 必须是图片中可视觉验证的特征\n'
+        '3. 不要涉及物种级特征（如特定花纹、颊囊等）\n'
+        '4. 重点：能将该大类与其他易混淆大类区分开的特征\n'
+        '5. 输出 JSON：{"taxonomy_description": "一句话总述", '
+        '"diagnostic_checkpoints": {"部位": "特征描述"}}'
+    )
+
+    messages = [
+        {"role": "system", "content": "You are a biology taxonomy expert. Output JSON only."},
+        {"role": "user", "content": prompt},
+    ]
+
+    try:
+        completion = api_call_with_retry(
+            client.chat.completions.create,
+            model="qwen3.6-plus",
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+            max_retries=api_retry,
+            label="GenericTaxonomy",
+            extra_body={"enable_thinking": False},
+        )
+        raw = completion.choices[0].message.content
+        if raw is None or raw.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+            if reasoning:
+                raw = reasoning
+            else:
+                return {
+                    "object_name": object_name,
+                    "is_generic": True,
+                    "class_id": None,
+                    "class_name": f"{object_name} (generic)",
+                    "taxonomy_description": "",
+                    "diagnostic_checkpoints": {},
+                }
+        result = parse_json_safely(raw)
+        if result is None:
+            return {
+                "object_name": object_name,
+                "is_generic": True,
+                "class_id": None,
+                "class_name": f"{object_name} (generic)",
+                "taxonomy_description": "",
+                "diagnostic_checkpoints": {},
+            }
+        return {
+            "object_name": object_name,
+            "is_generic": True,
+            "class_id": None,
+            "class_name": f"{object_name} (generic)",
+            "taxonomy_description": result.get("taxonomy_description", ""),
+            "diagnostic_checkpoints": result.get("diagnostic_checkpoints", {}),
+        }
+    except Exception as e:
+        print(f"  [WARN] Generic taxonomy generation failed for '{object_name}': {e}")
+        return {
+            "object_name": object_name,
+            "is_generic": True,
+            "class_id": None,
+            "class_name": f"{object_name} (generic)",
+            "taxonomy_description": "",
+            "diagnostic_checkpoints": {},
+        }
+
+
+def enrich_with_generic_taxonomy(
+    atomized_data: dict,
+    client: OpenAI,
+    api_retry: int = 0,
+    temperature: float = 0.0,
+) -> dict:
+    """为 atomized_data 中没有 taxonomy 的泛类物体生成通用诊断特征。
+
+    原地修改 atomized_data["objects"]，为每个 is_generic=True 的物体
+    调用 generate_generic_taxonomy 补全 taxonomy 信息。
+    """
+    objects = atomized_data.get("objects", [])
+    for obj in objects:
+        if obj.get("is_generic", False) and not obj.get("diagnostic_checkpoints"):
+            print(f"  [Step 0d] Generating generic taxonomy for '{obj['object_name']}'...")
+            generated = generate_generic_taxonomy(
+                client, obj["object_name"],
+                atomized_data.get("prompt", ""),
+                api_retry=api_retry,
+                temperature=temperature,
+            )
+            obj.update(generated)
+    return atomized_data
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

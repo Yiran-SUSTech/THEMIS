@@ -121,6 +121,19 @@ Examples:
     parser.add_argument("--temp-reflector", type=float, default=0.5,
                         help="Temperature for Reflector API calls (default: 0.5)")
 
+    # ── Reflector reference image parameters ─────────────────────
+    parser.add_argument("--ref-image-dir", type=str, default="",
+                        help="Directory containing human-scored reference images "
+                             "for Reflector calibration (default: not used)")
+    parser.add_argument("--ref-annotations", type=str,
+                        default="t2i_harness/t2i_ref_annotations.json",
+                        help="Path to human reference annotations JSON")
+    parser.add_argument("--enable-self-reflection", action="store_true", default=True,
+                        help="Enable Reflector self-reflection (two-round API calls). "
+                             "Default: enabled. Use --no-self-reflection to disable.")
+    parser.add_argument("--no-self-reflection", action="store_false", dest="enable_self_reflection",
+                        help="Disable Reflector self-reflection (single-round mode for faster processing)")
+
     args = parser.parse_args()
 
     # ── Resolve paths ──────────────────────────────────────────
@@ -229,6 +242,8 @@ Examples:
             expert_managers=expert_managers,
             step=step,
             final_reports_dir=final_reports_dir,
+            ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
+            enable_self_reflection=args.enable_self_reflection,
             api_retry=args.api_retry,
             temp_router=args.temp_router,
             temp_judge=args.temp_judge,
@@ -251,6 +266,8 @@ Examples:
             api_concurrency=args.api_concurrency,
             step=step,
             final_reports_dir=final_reports_dir,
+            ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
+            enable_self_reflection=args.enable_self_reflection,
             temp_router=args.temp_router,
             temp_judge=args.temp_judge,
             temp_reflector=args.temp_reflector,

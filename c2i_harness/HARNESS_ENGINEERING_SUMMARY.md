@@ -246,3 +246,144 @@ python run.py --mode batch --step 12 --limit 1000
 - **Session 引用验证**：无任何活跃模块导入 `conversation_session`，无 `use_session` 或 `session=None` 残留。
 - **温度参数验证**：`run.py` CLI 参数正确传递到所有 dispatcher 和 step 函数。
 - **函数签名验证**：所有核心函数的 `temperature` 参数已正确添加。
+
+---
+
+## 六、工作流改进（2026-08 更新）
+
+基于 `C2I_WORKFLOW_REVISION.md` 方案，对 Router、Judge、Reflector 三个角色进行了证据驱动和自审机制改进。详见 `C2I_WORKFLOW_REVISION.md`。
+
+### 1. Router — 证据驱动专家验证计划
+
+**改进前**：Router Step 3 基于图中可见实体和硬编码规则选择专家，仅输出 `selected_experts`（专家名 + target_subject）。
+
+**改进后**：Router 先对 Taxonomy checkpoint 做初步判断（Step 1，不变），再基于判断结果制定**证据驱动的专家验证计划**（Step 3 重写）：
+
+- 对每个 checkpoint 判断哪些可以用专家模型求证
+- 对 `is_present=false` 的 checkpoint 强烈建议 `fine_grained_classifier` 验证物种身份
+- 对伪影观察分配 `perceptual_quality_auditor` 或 `topology_boundary_auditor`
+- 无法用专家验证的点列入 `unverifiable_points`
+
+**新输出结构**：
+
+```json
+{
+  "expert_verification_plan": [
+    {
+      "expert_name": "fine_grained_classifier",
+      "target_subject": "monkey",
+      "verification_goals": ["body_structure checkpoint", "facial_features checkpoint"],
+      "reason": "Verify species identity for is_present=false checkpoints",
+      "weight": 1.0
+    }
+  ],
+  "unverifiable_points": ["texture/covering quality cannot be verified by expert models"]
+}
+```
+
+向后兼容：自动生成 `selected_experts` 供 Step 3 Expert 执行使用。
+
+### 2. Judge — 验证覆盖度审查
+
+**新增审查维度**：检查 Router 的 `expert_verification_plan` 完备性：
+
+- 所有关键 taxonomy checkpoint 是否都有专家覆盖（或合理标注为 unverifiable）
+- `verification_goals` 是否与 checkpoint 一一对应
+- `unverifiable_points` 中的点是否确实无法用专家验证
+
+**新输出字段**：
+
+```json
+{
+  "coverage_assessment": {
+    "checkpoints_covered": 8,
+    "checkpoints_total": 10,
+    "artifacts_covered": 2,
+    "artifacts_total": 3,
+    "unverifiable_count": 2
+  }
+}
+```
+
+### 3. Reflector — Self-Reflection 机制（两轮 API 调用）
+
+**改进前**：Reflector 单次 API 调用直接输出最终评分。
+
+**改进后**：采用方案 A（两轮 API 调用）实现 Self-Reflection：
+
+1. **Round 1（初步评分）**：使用原始 Reflector 系统模板，输出 `alignment_score`、`artifact_score` + reasoning
+2. **Round 2（自审修订）**：使用 `_REFLECTOR_SELF_REFLECTION_TEMPLATE`，审查自身 Round 1 输出：
+   - 分数与 reasoning 是否一致
+   - 专家证据是否充分利用
+   - 参考校准是否合理
+   - 是否过于宽松/严格
+   - 每个 checkpoint 的 is_present 判断是否独立验证
+3. **合并**：Round 2 分数优先，Round 1 分数保存在 `preliminary_scores` 供审计
+
+**新输出字段**：
+
+```json
+{
+  "alignment_score": 3.20,
+  "artifact_score": 3.80,
+  "preliminary_scores": {
+    "alignment_score": 3.50,
+    "artifact_score": 4.00
+  },
+  "self_reflection_notes": "Lowered alignment_score from 3.50 to 3.20 because...",
+  "score_changes": {
+    "alignment_score": "3.50 → 3.20",
+    "artifact_score": "4.00 → 3.80"
+  }
+}
+```
+
+**执行顺序**：Round 1（LLM 初步评分）→ Round 2（LLM Self-Reflection）→ `_calibrate_scores`（代码级硬规则）。
+
+### 4. `_calibrate_scores` 开关控制
+
+**改进前**：`_calibrate_scores` 中的分类器封顶和姿态封顶均硬编码启用，无法关闭。
+
+**改进后**：新增 `enable_classifier_cap` 参数（默认 `True`），可通过 CLI 控制：
+
+| 操作 | 参数 | 默认 | 说明 |
+|------|------|------|------|
+| 分类器封顶 | `enable_classifier_cap` | `True` | Top-1 不匹配 → alignment ≤ 2.0；Top-3 不含目标 → alignment ≤ 1.0 |
+| 姿态封顶 | `pose_hard_cap` | `False` | 低置信度关节比例过高时封顶 artifact_score（默认关闭，因 domain-shift 风险） |
+
+使用 `--no-classifier-cap` 可完全信任 Reflector 的判断，不做代码级封顶。
+
+### 5. 新增 CLI 参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--enable-self-reflection` | `True` | 启用 Reflector Self-Reflection（两轮 API 调用，默认开启） |
+| `--no-self-reflection` | - | 禁用 Self-Reflection（单轮模式，节省 API 成本） |
+| `--no-classifier-cap` | - | 禁用分类器封顶，完全信任 Reflector 判断 |
+
+### 6. API 成本影响
+
+| 模式 | API 调用次数/图 | 适用场景 |
+|------|-----------------|----------|
+| 默认（Self-Reflection ON） | 2× Reflector | 高质量评估，默认推荐 |
+| `--no-self-reflection` | 1× Reflector | 快速调试/低成本场景 |
+
+### 7. 更新后的使用示例
+
+```bash
+# 完整流水线 + Self-Reflection（默认）
+python run.py --mode async --step 1234 --limit 100 \
+  --api-concurrency 5 --temp-reflector 0.5
+
+# 禁用 Self-Reflection（快速模式）
+python run.py --mode async --step 1234 --limit 100 \
+  --no-self-reflection
+
+# 禁用分类器封顶（完全信任 LLM 判断）
+python run.py --mode async --step 1234 --limit 100 \
+  --no-classifier-cap
+
+# 同时禁用 Self-Reflection 和分类器封顶
+python run.py --mode sync --step 1234 --image-id IMG_001 \
+  --no-self-reflection --no-classifier-cap
+```

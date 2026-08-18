@@ -14,6 +14,7 @@ import base64
 import time
 from pathlib import Path
 from statistics import mean
+from functools import lru_cache
 from openai import OpenAI
 
 if sys.stdout.encoding != "utf-8":
@@ -32,6 +33,7 @@ from common import api_call_with_retry
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
 EXPERTS_REGISTRY_JSON = PROJECT_ROOT / "expert_registry.json"
+T2I_REF_ANNOTATIONS_JSON = T2I_DIR / "t2i_ref_annotations.json"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -105,6 +107,60 @@ def parse_json_safely(raw_text: str) -> dict | None:
 def load_experts_registry(file_path: str = str(EXPERTS_REGISTRY_JSON)) -> str:
     with open(file_path, "r", encoding="utf-8") as f:
         return json.dumps(json.load(f), indent=2)
+
+
+@lru_cache(maxsize=1)
+def _load_t2i_ref_annotations() -> dict:
+    """加载 T2I 人类打分参考数据。"""
+    if not T2I_REF_ANNOTATIONS_JSON.exists():
+        return {}
+    with open(T2I_REF_ANNOTATIONS_JSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def select_t2i_reference_images(
+    image_dir: Path,
+    prompt_text: str,
+    num_refs: int = 3,
+) -> list[dict]:
+    """选择与当前 prompt 最相似的参考图片。"""
+    annotations = _load_t2i_ref_annotations()
+    if not annotations:
+        return []
+
+    prompt_words = set(prompt_text.lower().split())
+    scored = []
+    for img_name, info in annotations.items():
+        ref_prompt = info.get("prompt", "")
+        ref_words = set(ref_prompt.lower().split())
+        overlap = len(prompt_words & ref_words)
+        if overlap > 0:
+            scored.append((overlap, img_name, info))
+
+    if not scored:
+        scored = [(0, name, info) for name, info in annotations.items()]
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    high = [(s, n, i) for s, n, i in scored if i.get("alignment_score", 0) >= 3.5]
+    mid = [(s, n, i) for s, n, i in scored if 1.5 <= i.get("alignment_score", 0) < 3.5]
+    low = [(s, n, i) for s, n, i in scored if i.get("alignment_score", 0) < 1.5]
+
+    selected = []
+    for bucket in [high, mid, low]:
+        if bucket and len(selected) < num_refs:
+            _, img_name, info = bucket[0]
+            img_path = Path(image_dir) / img_name
+            if img_path.exists():
+                selected.append({
+                    "image_name": img_name,
+                    "image_path": str(img_path),
+                    "alignment_score": info.get("alignment_score", 0),
+                    "authenticity_score": info.get("authenticity_score", 0),
+                    "prompt": info.get("prompt", ""),
+                })
+
+    return selected[:num_refs]
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -264,7 +320,17 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of a T2I image evaluation
   "authenticity_score": 0.0,
   "per_atom_scores": [0.9],
   "key_defects": ["..."]
-}"""
+}
+
+6. HUMAN REFERENCE CALIBRATION:
+   - You will be provided with human-scored reference images.
+   - Use these as calibration anchors: if the target image has similar quality
+     to a reference with alignment_score=4.0, assign a similar alignment_score.
+   - If the target image has similar artifact severity to a reference with
+     authenticity_score=2.0, assign a similar authenticity_score.
+   - References are anchors, not templates. Adjust based on the target's
+     specific features and expert evidence.
+"""
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -277,6 +343,7 @@ def build_reflector_prompt(
     atomized_data: dict,
     expert_results_str: str,
     router_plan: dict | None = None,
+    ref_images: list[dict] | None = None,
 ) -> str:
     """Build the user prompt for the T2I Reflector.
 
@@ -344,7 +411,7 @@ def build_reflector_prompt(
 - Artifact Observations: {json.dumps(artifact_observations, indent=2, ensure_ascii=False)}
 """
 
-    return f"""Review the Router's assessment and expert evidence to produce the final evaluation.
+    prompt = f"""Review the Router's assessment and expert evidence to produce the final evaluation.
 
 **[Context]**
 - Text Prompt: {prompt_text}
@@ -353,6 +420,24 @@ def build_reflector_prompt(
 {router_assessment}
 **[Expert Testimonies]**
 {expert_results_str}"""
+
+    if ref_images:
+        ref_lines = []
+        for ref in ref_images:
+            ref_lines.append(
+                f"  - Image: {ref['image_name']} | "
+                f"Prompt: {ref.get('prompt', 'N/A')} | "
+                f"Human Alignment: {ref['alignment_score']} | "
+                f"Human Authenticity: {ref['authenticity_score']}"
+            )
+        prompt += (
+            "\n\n**[Human-Annotated Reference Images]**\n"
+            "Compare the target image against these references. "
+            "If the target has similar quality, assign a similar score.\n"
+            + "\n".join(ref_lines)
+        )
+
+    return prompt
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -382,23 +467,9 @@ def _calibrate_scores(result: dict) -> dict:
     """
     adjustments = []
 
-    # Get per_atom_scores, falling back to atom_reviews if needed
-    per_atom_scores = result.get("per_atom_scores", [])
-    if not per_atom_scores:
-        atom_reviews = result.get("atom_reviews", [])
-        if atom_reviews:
-            per_atom_scores = [
-                ar.get("atom_score", 0.0)
-                for ar in atom_reviews
-                if isinstance(ar, dict)
-            ]
-            if per_atom_scores:
-                result["per_atom_scores"] = per_atom_scores
-                adjustments.append(
-                    f"per_atom_scores derived from atom_reviews ({len(per_atom_scores)} atoms)"
-                )
-
     # Compute alignment_score from per_atom_scores
+    # (Reflector prompt explicitly requires per_atom_scores in output JSON)
+    per_atom_scores = result.get("per_atom_scores", [])
     computed_alignment = compute_alignment_score(per_atom_scores)
     reflector_alignment = result.get("alignment_score", 0.0)
     try:
@@ -446,6 +517,128 @@ def _collect_auxiliary_images(expert_results: dict) -> list[str]:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Self-Reflection (Round 2)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+_REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-reflection on your initial assessment. You have just completed a preliminary evaluation of an AI-generated image. Now critically review your own assessment and produce the final, revised evaluation.
+
+**Self-Reflection Checklist:**
+1. Score-Reasoning Consistency: Do your scores align with your reasoning?
+   - If your reasoning describes serious issues but the score is high → lower it.
+   - If your reasoning is positive but the score is low → raise it.
+   - Look for contradictions between per_atom_scores and the reasoning text.
+
+2. Expert Evidence Utilization: Did you properly consider ALL expert testimony?
+   - Were there classifier results (top-3 labels) you ignored or underweighted?
+   - Were there detector counts that contradict your atom verdicts?
+   - Were there auxiliary images (depth maps, segmentation masks) you didn't reference?
+
+3. Reference Calibration: If human-scored reference images were provided:
+   - Are your scores consistent with the reference anchors?
+   - If a reference with similar quality has alignment=4.0, is your score in a similar range?
+
+4. Leniency Bias: Are you rubber-stamping the Router's assessment too readily?
+   - The Router's checkpoint verdicts are preliminary — did you independently verify them?
+   - Did you accept is_present=true without checking expert evidence?
+
+5. Harshness Bias: Are you over-penalizing minor issues?
+   - A minor texture anomaly (severity 1) should not drop authenticity_score by more than 0.5.
+   - Multiple minor issues compound, but one minor issue should not dominate.
+
+6. Atom Score Review: For each atom:
+   - Is qa_score justified by the expert evidence (or VLM observation if no expert)?
+   - Is tax_score appropriate? If no taxonomy info, tax_score should be 1.0.
+
+**Output the SAME JSON schema as your initial assessment, with revised scores.**
+Add a "self_reflection_notes" field documenting:
+  - What you changed and why
+  - Which checklist items triggered adjustments
+  - Whether your final scores are higher, lower, or same as initial (with reasoning)
+"""
+
+
+def _run_self_reflection_round(
+    client: OpenAI,
+    system_message: dict,
+    user_content: list[dict],
+    round1_result: dict,
+    api_retry: int = 0,
+    temperature: float = 0.5,
+) -> dict | None:
+    """执行 Round 2 Self-Reflection API 调用。"""
+    self_reflection_system = {
+        "role": "system",
+        "content": [
+            {
+                "type": "text",
+                "text": _REFLECTOR_SELF_REFLECTION_TEMPLATE,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+    }
+
+    round2_prompt = (
+        "Review your assessment above using the Self-Reflection Checklist. "
+        "Output revised JSON with the same schema, plus a 'self_reflection_notes' field."
+    )
+
+    messages = [
+        self_reflection_system,
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": json.dumps(round1_result, indent=2, ensure_ascii=False)},
+        {"role": "user", "content": round2_prompt},
+    ]
+
+    try:
+        completion = api_call_with_retry(
+            client.chat.completions.create,
+            model=REFLECTOR_MODEL,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+            max_retries=api_retry,
+            label="Reflector-SelfReflection",
+            extra_body={"enable_thinking": False},
+        )
+        raw_content = completion.choices[0].message.content
+        if raw_content is None or raw_content.strip() == "":
+            reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+            if reasoning:
+                raw_content = reasoning
+            else:
+                return None
+        result = parse_json_safely(raw_content)
+        return result
+    except Exception as e:
+        print(f"  [WARN] Self-reflection round failed: {type(e).__name__}: {e}")
+        return None
+
+
+def _merge_self_reflection(round1: dict, round2: dict) -> dict:
+    """合并两轮结果。Round 2 的分数优先，但保留 Round 1 的数据用于审计。"""
+    round1_scores = {
+        "alignment_score": round1.get("alignment_score"),
+        "authenticity_score": round1.get("authenticity_score"),
+        "per_atom_scores": round1.get("per_atom_scores", []),
+    }
+
+    merged = round2.copy()
+    merged["preliminary_scores"] = round1_scores
+    merged["self_reflection_notes"] = round2.get("self_reflection_notes", "")
+
+    r1_align = round1.get("alignment_score", 0)
+    r2_align = round2.get("alignment_score", 0)
+    if abs(r1_align - r2_align) > 0.01:
+        merged["score_changes"] = {
+            "alignment_score": f"{r1_align:.2f} → {r2_align:.2f}",
+            "authenticity_score": f"{round1.get('authenticity_score', 0):.2f} → {round2.get('authenticity_score', 0):.2f}",
+        }
+
+    return merged
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Main Reflector Entry Point
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -459,6 +652,8 @@ def run_reflector(
     expert_results: dict,
     experts_registry_str: str,
     router_plan: dict | None = None,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
     temperature: float = 0.5,
 ) -> dict | None:
@@ -467,8 +662,13 @@ def run_reflector(
 
     start_time = time.time()
 
+    ref_images = []
+    if ref_image_dir:
+        ref_images = select_t2i_reference_images(Path(ref_image_dir), prompt_text)
+
     prompt = build_reflector_prompt(
         prompt_text, atomized_data, expert_results_str, router_plan,
+        ref_images=ref_images,
     )
 
     user_content = [
@@ -498,6 +698,22 @@ def run_reflector(
             })
         except Exception as e:
             print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
+
+    for ref in ref_images:
+        try:
+            ref_b64 = encode_image(ref["image_path"])
+            user_content.append({
+                "type": "text",
+                "text": f"[Reference: {ref['image_name']} | "
+                        f"Alignment={ref['alignment_score']} | "
+                        f"Authenticity={ref['authenticity_score']}]",
+            })
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{ref_b64}"},
+            })
+        except Exception as e:
+            print(f"  [WARN] Failed to load reference image {ref['image_path']}: {e}")
 
     system_message = {
         "role": "system",
@@ -561,12 +777,28 @@ def run_reflector(
             print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
             return None
 
+        round2_result = None
+        if enable_self_reflection:
+            round2_result = _run_self_reflection_round(
+                client, system_message, user_content, result,
+                api_retry=api_retry, temperature=temperature,
+            )
+            if round2_result is not None:
+                result = _merge_self_reflection(result, round2_result)
+                print(f"  [INFO] Self-reflection completed. "
+                      f"Alignment: {result.get('alignment_score', 'N/A')}, "
+                      f"Authenticity: {result.get('authenticity_score', 'N/A')}")
+            else:
+                print(f"  [WARN] Self-reflection round failed, using Round 1 scores")
+
         result["metadata"] = {
             "original_image": image_path,
             "prompt_id": prompt_id,
             "prompt_text": prompt_text,
             "auxiliary_images_included": [Path(p).name for p in aux_images],
             "reflector_cost_seconds": round(cost_time, 2),
+            "self_reflection_enabled": enable_self_reflection,
+            "self_reflection_succeeded": round2_result is not None if enable_self_reflection else None,
         }
         result = _calibrate_scores(result)
 

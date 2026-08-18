@@ -121,13 +121,28 @@ def build_judge_prompt(
 3. **Expert Selection:** Is each expert's target_subject compatible with its capabilities? Are critical experts missing?
 4. **Weights:** Do weights reflect structural criticality (class subject > auxiliary)?
 5. **Focus Areas:** Do focus areas cover critical diagnostic features?
+6. **专家验证覆盖度:** 检查 Router 的 expert_verification_plan：
+   1. 所有关键 taxonomy checkpoint 是否都有专家覆盖（或合理标注为 unverifiable）？
+   2. 所有 is_present=false 的 checkpoint，是否有 fine_grained_classifier 或
+      open_vocabulary_detector 提供反证？
+   3. 所有 artifact_observations 是否都有 perceptual_quality_auditor 覆盖？
+   4. verification_goals 是否与 checkpoint_verdicts 中的描述一一对应？
+   5. unverifiable_points 中的点是否确实无法用专家验证？
+   如果覆盖不完整，在 suggestions 中指出缺失的验证目标。
 
 **[Output]**
 Return JSON only:
 {{
   "is_approved": true,
   "reasons_for_rejection": "",
-  "suggestions": []
+  "suggestions": [{{"type": "missing_verification", "point": "str", "recommended_expert": "str"}}],
+  "coverage_assessment": {{
+    "checkpoints_covered": 0,
+    "checkpoints_total": 0,
+    "artifacts_covered": 0,
+    "artifacts_total": 0,
+    "unverifiable_count": 0
+  }}
 }}"""
 
     return prompt, registry_summary

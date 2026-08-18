@@ -20,7 +20,7 @@ from common import (
     load_geneval2_data,
 )
 
-from step0_atomize import atomize_prompt, save_atomized_prompt
+from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
 from step1_router import generate_plan, revise_plan, load_experts_registry
 from step2_judge import review_plan
 from step4_reflector import run_reflector, save_final_report, print_final_summary
@@ -171,6 +171,18 @@ async def _api_worker(
                 await loop.run_in_executor(
                     None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
                 )
+
+                # Step 0d: Enrich with generic taxonomy
+                atomized_data = await loop.run_in_executor(
+                    None,
+                    lambda: enrich_with_generic_taxonomy(
+                        atomized_data, client,
+                        api_retry=api_retry, temperature=0.0,
+                    ),
+                )
+                await loop.run_in_executor(
+                    None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
+                )
                 stats["atomize_ok"] += 1
 
                 # Steps 1+2: Router + Judge
@@ -262,6 +274,8 @@ def _sync_reflector(
     experts_registry_str: str,
     router_plan: dict,
     final_reports_dir: Path,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
     temperature: float = 0.5,
 ) -> dict | None:
@@ -275,6 +289,8 @@ def _sync_reflector(
         expert_results=expert_results,
         experts_registry_str=experts_registry_str,
         router_plan=router_plan,
+        ref_image_dir=ref_image_dir,
+        enable_self_reflection=enable_self_reflection,
         temperature=temperature,
         api_retry=api_retry,
     )
@@ -295,6 +311,8 @@ async def _reflector_worker(
     api_semaphore: asyncio.Semaphore,
     stats: dict,
     done_event: asyncio.Event,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
     temp_reflector: float = 0.5,
 ) -> None:
@@ -322,7 +340,8 @@ async def _reflector_worker(
                     _sync_reflector,
                     client, image_path, img_id, prompt_text, atomized_data,
                     expert_results, experts_registry_str, router_plan,
-                    final_reports_dir, api_retry, temp_reflector,
+                    final_reports_dir, ref_image_dir, enable_self_reflection,
+                    api_retry, temp_reflector,
                 )
                 if report is not None:
                     stats["reflector_ok"] += 1
@@ -357,6 +376,8 @@ async def _run_full_pipeline(
     temp_judge: float = 0.0,
     temp_reflector: float = 0.5,
     cpu_semaphore: object | None = None,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
 ) -> dict:
     """Run full pipeline: Atomize → Router → Judge → Expert → Reflector."""
@@ -418,6 +439,7 @@ async def _run_full_pipeline(
                     reflector_queue, client, experts_registry_str,
                     final_reports_dir, reflector_api_semaphore,
                     stats, reflector_done_event,
+                    ref_image_dir, enable_self_reflection,
                     api_retry, temp_reflector,
                 ))
             )
@@ -482,6 +504,18 @@ async def _run_step12_only(
 
             atomized_data = await loop.run_in_executor(
                 None, atomize_prompt, prompt_data,
+            )
+            await loop.run_in_executor(
+                None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
+            )
+
+            # Step 0d: Enrich with generic taxonomy
+            atomized_data = await loop.run_in_executor(
+                None,
+                lambda: enrich_with_generic_taxonomy(
+                    atomized_data, client,
+                    api_retry=0, temperature=0.0,
+                ),
             )
             await loop.run_in_executor(
                 None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
@@ -581,6 +615,8 @@ async def _run_step4_only(
     approved_dir: Path,
     final_reports_dir: Path,
     api_concurrency: int,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     temp_reflector: float = 0.5,
     api_retry: int = 0,
 ) -> dict:
@@ -632,6 +668,7 @@ async def _run_step4_only(
                 _sync_reflector,
                 client, str(image_path), img_id, prompt_text, atomized_data,
                 bundle, experts_registry_str, plan, final_reports_dir,
+                ref_image_dir, enable_self_reflection,
                 api_retry, temp_reflector,
             )
             if report is not None:
@@ -668,6 +705,8 @@ def run_async_pipeline(
     temp_judge: float = 0.0,
     temp_reflector: float = 0.5,
     cpu_semaphore: object | None = None,
+    ref_image_dir: Path | None = None,
+    enable_self_reflection: bool = True,
     api_retry: int = 0,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
@@ -687,6 +726,8 @@ def run_async_pipeline(
             approved_dir=approved_dir,
             final_reports_dir=final_reports_dir,
             api_concurrency=api_concurrency,
+            ref_image_dir=ref_image_dir,
+            enable_self_reflection=enable_self_reflection,
             temp_reflector=temp_reflector,
             api_retry=api_retry,
         ))
@@ -712,6 +753,8 @@ def run_async_pipeline(
             temp_judge=temp_judge,
             temp_reflector=temp_reflector,
             cpu_semaphore=cpu_semaphore,
+            ref_image_dir=ref_image_dir,
+            enable_self_reflection=enable_self_reflection,
             api_retry=api_retry,
         ))
 

@@ -130,13 +130,41 @@ Scan the ENTIRE image carefully for AI-generation artifacts, including subtle on
 - Pay special attention to: subtle edge bleeding between subject and background, slight texture inconsistencies in skin/fur/feathers, minor perspective warping, faint ghost limbs, small areas of melting or fusion that are easy to overlook.
 - If no artifacts found after thorough inspection, output empty list.
 
-**Step 3 — Expert Selection**
-Select experts from ({expert_ids_str}) based on visible entities and artifact risks. Rules:
-- MUST include "fine_grained_classifier" for the class subject.
-- Include "animal_pose_auditor" ONLY for limbed subjects (people, dogs, cats, etc.), NOT for limbless ones (fish, snakes).
-- Include "image_text_auditor" ONLY if text is visible.
-- Same expert_id may appear multiple times with different `target_subject`.
-- Select 3-8 experts. Specify `target_subject` for each.
+**Step 3 — Expert Verification Plan**
+Based on your preliminary judgments in Steps 1-2, specify which points can be
+verified by expert models. For each verification need:
+
+a) For each Taxonomy checkpoint that you marked is_present=true or is_present=false:
+   - Can an expert model provide hard evidence to confirm/deny your judgment?
+   - If yes, assign the appropriate expert with specific verification_goals.
+
+b) For checkpoints you marked is_present=false (potential mismatch):
+   - Strongly consider assigning "fine_grained_classifier" to verify species identity.
+   - Consider "open_vocabulary_detector" if object presence is in question.
+
+c) For artifact observations you found:
+   - Assign "perceptual_quality_auditor" to verify distortion/artifact severity.
+   - Consider "topology_boundary_auditor" for structural/shape issues.
+
+d) For checkpoints with no expert available:
+   - Leave unassigned. Your visual observation is the primary evidence.
+   - List them in "unverifiable_points".
+
+Expert Capability Mapping:
+  - open_vocabulary_detector: Object detection + bounding boxes
+  - fine_grained_classifier: ImageNet species classification (top-3 labels)
+  - animal_pose_auditor: Limb/keypoint verification (limbed subjects only)
+  - topology_boundary_auditor: Shape/contour verification (segmentation)
+  - geometric_depth_auditor: Spatial relationship verification (depth map)
+  - perceptual_quality_auditor: Artifact/distortion verification
+  - image_text_auditor: Text verification (OCR)
+
+Rules:
+- Select 3-8 experts. Same expert_id may appear with different target_subjects.
+- Each expert entry MUST specify verification_goals (list of checkpoint descriptions).
+- "fine_grained_classifier" is recommended for the class subject.
+- "animal_pose_auditor" ONLY for limbed subjects (people, dogs, cats, etc.).
+- "image_text_auditor" ONLY if text is visible.
 
 **Step 4 — Weights**
 Class subject's experts get higher weights; auxiliary subjects' get lower. All weights positive, sum to 1.0.
@@ -147,7 +175,8 @@ Class subject's experts get higher weights; auxiliary subjects' get lower. All w
   "image_class": "ImageNet class label",
   "checkpoint_verdicts": [{{"checkpoint": "str", "category": "str", "is_testable": bool, "is_present": bool, "reasoning": "str"}}],
   "artifact_observations": [{{"artifact_type": "str", "location": "str", "severity": float, "reasoning": "str"}}],
-  "selected_experts": [{{"expert_name": "str", "target_subject": "str", "reason": "str", "weight": float}}],
+  "expert_verification_plan": [{{"expert_name": "str", "target_subject": "str", "verification_goals": ["str"], "reason": "str", "weight": float}}],
+  "unverifiable_points": ["str"],
   "focus_areas": ["str"],
   "custom_prompts_for_reflector": "str"
 }}"""
@@ -238,8 +267,8 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
     if "image_class" not in plan:
         print("  [WARN] Plan missing 'image_class'")
         return False
-    if "selected_experts" not in plan or not isinstance(plan["selected_experts"], list):
-        print("  [WARN] Plan missing or invalid 'selected_experts'")
+    if "expert_verification_plan" not in plan or not isinstance(plan["expert_verification_plan"], list):
+        print("  [WARN] Plan missing or invalid 'expert_verification_plan'")
         return False
     if "focus_areas" not in plan or not isinstance(plan["focus_areas"], list):
         print("  [WARN] Plan missing or invalid 'focus_areas'")
@@ -287,24 +316,45 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
         "perceptual_quality_auditor",
         "image_text_auditor",
     }
+    # Validate expert_verification_plan entries (new schema)
     total_weight = 0.0
-    for expert in plan["selected_experts"]:
-        if "expert_name" not in expert:
-            print(f"  [WARN] Expert entry missing 'expert_name': {expert}")
+    for ev in plan["expert_verification_plan"]:
+        if "expert_name" not in ev:
+            print(f"  [WARN] expert_verification_plan entry missing 'expert_name': {ev}")
             return False
-        if expert["expert_name"] not in valid_expert_ids:
+        if ev["expert_name"] not in valid_expert_ids:
             print(
-                f"  [WARN] Invalid expert_name '{expert['expert_name']}', "
+                f"  [WARN] Invalid expert_name '{ev['expert_name']}', "
                 f"must be one of: {valid_expert_ids}"
             )
             return False
-        if "target_subject" not in expert or not expert["target_subject"].strip():
-            print(f"  [WARN] Expert '{expert['expert_name']}' missing 'target_subject'")
+        if "target_subject" not in ev or not str(ev.get("target_subject", "")).strip():
+            print(f"  [WARN] Expert '{ev['expert_name']}' missing 'target_subject'")
             return False
-        if "weight" not in expert:
-            print(f"  [WARN] Expert '{expert['expert_name']}' missing 'weight'")
+        if "verification_goals" not in ev or not ev["verification_goals"]:
+            print(f"  [WARN] Expert '{ev['expert_name']}' has no verification_goals")
             return False
-        total_weight += expert["weight"]
+        if "weight" in ev:
+            total_weight += ev["weight"]
+
+    # Backward-compat: validate selected_experts if present
+    if "selected_experts" in plan and isinstance(plan["selected_experts"], list):
+        for expert in plan["selected_experts"]:
+            if "expert_name" not in expert:
+                print(f"  [WARN] selected_experts entry missing 'expert_name': {expert}")
+                return False
+            if expert["expert_name"] not in valid_expert_ids:
+                print(
+                    f"  [WARN] Invalid expert_name '{expert['expert_name']}', "
+                    f"must be one of: {valid_expert_ids}"
+                )
+                return False
+            if "target_subject" not in expert or not expert["target_subject"].strip():
+                print(f"  [WARN] Expert '{expert['expert_name']}' missing 'target_subject'")
+                return False
+            if "weight" not in expert:
+                print(f"  [WARN] Expert '{expert['expert_name']}' missing 'weight'")
+                return False
 
     if abs(total_weight - 1.0) > 0.05:
         print(
@@ -461,6 +511,18 @@ def generate_plan(
         "router_cost_seconds": round(cost_time, 2),
         "plan_valid": validate_plan(plan, experts_registry_str),
     }
+
+    # Backward-compat: generate selected_experts from expert_verification_plan
+    if "expert_verification_plan" in plan and "selected_experts" not in plan:
+        plan["selected_experts"] = [
+            {
+                "expert_name": ev.get("expert_name", ""),
+                "target_subject": ev.get("target_subject", ""),
+                "reason": ev.get("reason", ""),
+                "weight": ev.get("weight", 0.0),
+            }
+            for ev in plan.get("expert_verification_plan", [])
+        ]
 
     return plan
 
