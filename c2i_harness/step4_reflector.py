@@ -734,7 +734,10 @@ def _run_self_reflection_round(
     round1_result: dict,
     api_retry: int = 0,
     temperature: float = 0.5,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = REFLECTOR_MODEL
     """执行 Round 2 Self-Reflection API 调用。
 
     利用对话历史：[self_reflection_system, round1_user, round1_assistant, round2_user]
@@ -766,7 +769,7 @@ def _run_self_reflection_round(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=REFLECTOR_MODEL,
+            model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
             temperature=temperature,
@@ -828,7 +831,10 @@ def run_reflector(
     temperature: float = 0.5,
     pose_hard_cap: bool = False,
     enable_classifier_cap: bool = True,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = REFLECTOR_MODEL
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
@@ -897,7 +903,7 @@ def run_reflector(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=REFLECTOR_MODEL,
+            model=model_name,
             messages=[
                 system_message,
                 {"role": "user", "content": user_content},
@@ -935,6 +941,7 @@ def run_reflector(
             round2_result = _run_self_reflection_round(
                 client, system_message, user_content, result,
                 api_retry=api_retry, temperature=temperature,
+                model_name=model_name,
             )
             if round2_result is not None:
                 result = _merge_self_reflection(result, round2_result)

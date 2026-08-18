@@ -196,7 +196,10 @@ def review_plan(
     experts_registry_str: str,
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = JUDGE_MODEL
     atoms = atomized_data.get("atoms", [])
 
     start_time = time.time()
@@ -224,7 +227,7 @@ def review_plan(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=JUDGE_MODEL,
+            model=model_name,
             messages=[
                 system_message,
                 {

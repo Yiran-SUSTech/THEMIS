@@ -141,6 +141,12 @@ Examples:
                         help="Temperature for Judge API calls (default: 0.0)")
     parser.add_argument("--temp-reflector", type=float, default=0.5,
                         help="Temperature for Reflector API calls (default: 0.5)")
+    parser.add_argument("--model-router", type=str, default="",
+                        help="LLM model name for Router (default: qwen3.6-plus)")
+    parser.add_argument("--model-judge", type=str, default="",
+                        help="LLM model name for Judge (default: qwen3.6-plus)")
+    parser.add_argument("--model-reflector", type=str, default="",
+                        help="LLM model name for Reflector (default: qwen3.7-plus)")
 
     # ── Batch mode parameters ──────────────────────────────────
     parser.add_argument("--batch-dir", type=str, default=str(BATCH_DIR),
@@ -149,6 +155,21 @@ Examples:
                         help="[batch] Seconds between status polls (default: 30)")
 
     args = parser.parse_args()
+
+    # ── Override LLM model names if specified ───────────────────
+    if args.model_router or args.model_judge or args.model_reflector:
+        import step1_router
+        import step2_judge
+        import step4_reflector
+        if args.model_router:
+            step1_router.ROUTER_MODEL = args.model_router
+            print(f"  [CONFIG] Router model overridden to: {args.model_router}")
+        if args.model_judge:
+            step2_judge.JUDGE_MODEL = args.model_judge
+            print(f"  [CONFIG] Judge model overridden to: {args.model_judge}")
+        if args.model_reflector:
+            step4_reflector.REFLECTOR_MODEL = args.model_reflector
+            print(f"  [CONFIG] Reflector model overridden to: {args.model_reflector}")
 
     # ── Resolve paths ──────────────────────────────────────────
     image_dir = Path(args.image_dir)

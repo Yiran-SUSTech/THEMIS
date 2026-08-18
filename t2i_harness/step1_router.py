@@ -478,7 +478,10 @@ def _call_router_api(
     formatted_instructions: str = "",
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = ROUTER_MODEL
     if registry_summary:
         system_message = _build_cached_system_message(
             system_msg, registry_summary, formatted_instructions
@@ -489,7 +492,7 @@ def _call_router_api(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=ROUTER_MODEL,
+            model=model_name,
             messages=[
                 system_message,
                 {
@@ -589,6 +592,7 @@ def generate_plan(
     experts_registry_str: str,
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict | None:
     atoms = atomized_data.get("atoms", [])
     objects_taxonomy = _resolve_objects_taxonomy(atomized_data)
@@ -613,6 +617,7 @@ def generate_plan(
         formatted_instructions=formatted_instructions,
         api_retry=api_retry,
         temperature=temperature,
+        model_name=model_name,
     )
 
     cost_time = time.time() - start_time
@@ -655,6 +660,7 @@ def revise_plan(
     feedback_history: list[dict],
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict | None:
     atoms = atomized_data.get("atoms", [])
     objects_taxonomy = _resolve_objects_taxonomy(atomized_data)
@@ -682,6 +688,7 @@ def revise_plan(
         formatted_instructions=formatted_instructions,
         api_retry=api_retry,
         temperature=temperature,
+        model_name=model_name,
     )
 
     cost_time = time.time() - start_time

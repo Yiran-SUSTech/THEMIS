@@ -157,7 +157,10 @@ def review_plan(
     experts_registry_str: str,
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = JUDGE_MODEL
     taxonomy_info = get_taxonomy_info(class_id)
     if taxonomy_info is None:
         print(f"  [WARN] No taxonomy info for class_id={class_id}, proceeding without prior knowledge.")
@@ -186,7 +189,7 @@ def review_plan(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=JUDGE_MODEL,
+            model=model_name,
             messages=[
                 system_message,
                 {

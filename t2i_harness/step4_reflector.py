@@ -565,8 +565,11 @@ def _run_self_reflection_round(
     round1_result: dict,
     api_retry: int = 0,
     temperature: float = 0.5,
+    model_name: str = "",
 ) -> dict | None:
     """执行 Round 2 Self-Reflection API 调用。"""
+    if not model_name:
+        model_name = REFLECTOR_MODEL
     self_reflection_system = {
         "role": "system",
         "content": [
@@ -593,7 +596,7 @@ def _run_self_reflection_round(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=REFLECTOR_MODEL,
+            model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
             temperature=temperature,
@@ -656,7 +659,10 @@ def run_reflector(
     enable_self_reflection: bool = True,
     api_retry: int = 0,
     temperature: float = 0.5,
+    model_name: str = "",
 ) -> dict | None:
+    if not model_name:
+        model_name = REFLECTOR_MODEL
     expert_results_str = _build_expert_context_str(expert_results, experts_registry_str)
     base64_image = encode_image(image_path)
 
@@ -729,7 +735,7 @@ def run_reflector(
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model=REFLECTOR_MODEL,
+            model=model_name,
             messages=[
                 system_message,
                 {"role": "user", "content": user_content},
@@ -782,6 +788,7 @@ def run_reflector(
             round2_result = _run_self_reflection_round(
                 client, system_message, user_content, result,
                 api_retry=api_retry, temperature=temperature,
+                model_name=model_name,
             )
             if round2_result is not None:
                 result = _merge_self_reflection(result, round2_result)

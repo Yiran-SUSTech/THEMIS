@@ -33,6 +33,8 @@ from common import api_call_with_retry
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
 
+ATOMIZE_MODEL = "qwen3.6-plus"
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Number-word helpers (mirrors GenEval2 benchmark_schema.py)
@@ -659,6 +661,7 @@ def generate_generic_taxonomy(
     prompt_text: str,
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict:
     """为泛类物体生成通用诊断特征。
 
@@ -685,10 +688,13 @@ def generate_generic_taxonomy(
         {"role": "user", "content": prompt},
     ]
 
+    if not model_name:
+        model_name = ATOMIZE_MODEL
+
     try:
         completion = api_call_with_retry(
             client.chat.completions.create,
-            model="qwen3.6-plus",
+            model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
             temperature=temperature,
@@ -745,6 +751,7 @@ def enrich_with_generic_taxonomy(
     client: OpenAI,
     api_retry: int = 0,
     temperature: float = 0.0,
+    model_name: str = "",
 ) -> dict:
     """为 atomized_data 中没有 taxonomy 的泛类物体生成通用诊断特征。
 
@@ -760,6 +767,7 @@ def enrich_with_generic_taxonomy(
                 atomized_data.get("prompt", ""),
                 api_retry=api_retry,
                 temperature=temperature,
+                model_name=model_name,
             )
             obj.update(generated)
     return atomized_data
