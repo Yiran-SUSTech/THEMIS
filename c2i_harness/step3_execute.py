@@ -469,6 +469,16 @@ def execute_plan(
         }
 
     selected_experts = approved_plan.get("selected_experts", [])
+    if not selected_experts and "expert_verification_plan" in approved_plan:
+        selected_experts = [
+            {
+                "expert_name": ev.get("expert_name", ""),
+                "target_subject": ev.get("target_subject", ""),
+                "reason": ev.get("reason", ""),
+                "weight": ev.get("weight", 0.0),
+            }
+            for ev in approved_plan.get("expert_verification_plan", [])
+        ]
     metadata = approved_plan.get("metadata", {})
     image_id = Path(image_path).stem
 
@@ -694,7 +704,10 @@ def collect_required_expert_ids(plans: list[dict]) -> list[str]:
     """Collect the union of all expert IDs needed across all plans."""
     expert_ids = set()
     for plan in plans:
-        for entry in plan.get("selected_experts", []):
+        entries = plan.get("selected_experts", [])
+        if not entries and "expert_verification_plan" in plan:
+            entries = plan.get("expert_verification_plan", [])
+        for entry in entries:
             expert_ids.add(entry["expert_name"])
     return sorted(expert_ids)
 

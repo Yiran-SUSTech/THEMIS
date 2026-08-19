@@ -591,6 +591,17 @@ def revise_plan(
         "revision_feedback_count": len(feedback_history),
     }
 
+    if "expert_verification_plan" in plan and "selected_experts" not in plan:
+        plan["selected_experts"] = [
+            {
+                "expert_name": ev.get("expert_name", ""),
+                "target_subject": ev.get("target_subject", ""),
+                "reason": ev.get("reason", ""),
+                "weight": ev.get("weight", 0.0),
+            }
+            for ev in plan.get("expert_verification_plan", [])
+        ]
+
     return plan
 
 
