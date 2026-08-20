@@ -6,21 +6,341 @@
     "class_id": 144,
     "class_label": "pelican",
     "plan_reference": "approved_plan_000080",
-    "execution_timestamp": "2026-08-18 23:55:09",
+    "execution_timestamp": "2026-08-19 18:03:02",
     "focus_areas": [
-        "Bill morphology and gular pouch presence (corrected verdict)",
-        "Foot-rock interaction and webbing visibility (corrected verdict)",
-        "Species-specific head-bill transition anatomy",
-        "Bounding box priors for segmentation"
+        "Bill coloration accuracy vs. breeding season description",
+        "Foot webbing topology and grounding (requires OVD priors)",
+        "Bill tip 3D structural integrity and geometric connection"
     ],
-    "custom_prompts_for_reflector": "Re-evaluate the bill structure with the understanding that it IS a pelican bill; focus on whether the specific coloration mismatch (pale vs bright breeding colors) constitutes a failure or just a non-breeding state. Verify the feet carefully for webbing since they are visible. Ensure the topology auditor uses the detector's boxes to strictly separate the bill from the head.",
-    "image_description": "A large pelican standing on a rocky outcrop against a clear blue sky. The bird has white plumage on its body and neck, with dark grey/black flight feathers on the wings. It features a long, pale bill and is facing slightly to the right.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Please specifically evaluate if the pale bill color constitutes a 'hallucination' of a non-existent species or simply a non-breeding state that conflicts with the strict 'breeding color' checkpoint. Also, scrutinize the feet for any sign of missing toes or fusion with the rock, ensuring the topology auditor utilized the provided bounding box priors effectively.",
+    "image_description": "A large pelican standing on a rocky outcrop against a clear blue sky. The bird has white plumage on its body and neck, with dark grey/black flight feathers on the wings. It possesses a long, pale bill with a visible gular pouch area. The legs are dark and appear webbed, gripping the rock.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "pelican",
+            "weight": 0.25,
+            "reason": "Mandatory prerequisite expert. Provides BBox priors required by topology_boundary_auditor and ensures fine_grained_classifier avoids background noise (sky/rock).",
+            "status": "success",
+            "execution_time_ms": 15625.84,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "pelican",
+                        "confidence_score": 0.5715,
+                        "bounding_box": [
+                            71,
+                            27,
+                            199,
+                            212
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "bill",
+            "weight": 0.15,
+            "reason": "Superior to perceptual audit for detecting 'geometric melting' and spatial grounding errors at the bill tip, addressing the structural collapse observation.",
+            "status": "success",
+            "execution_time_ms": 75.42,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000080_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 14.6966,
+                    "mean_value": 3.0158,
+                    "std_deviation": 4.7782
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "pelican",
+            "weight": 0.25,
+            "reason": "Primary verification to ensure the image represents a valid pelican species despite the color mismatch in the breeding checkpoint. Relies on OVD priors for clean segmentation.",
+            "status": "success",
+            "execution_time_ms": 134.13,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 144,
+                        "label_name": "pelican",
+                        "logit_score": 7.75
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 146,
+                        "label_name": "albatross, mollymawk",
+                        "logit_score": 3.63
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 128,
+                        "label_name": "black stork, Ciconia nigra",
+                        "logit_score": 3.19
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "pelican feet",
+            "weight": 0.15,
+            "reason": "Directly addresses the 'texture_anomaly' observed at the feet/rock interface. Requires OVD BBoxes to function correctly.",
+            "status": "success",
+            "execution_time_ms": 1305.39,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000080_mask.png",
+                "mask_confidence_score": 1.0021,
+                "prompt_point_used": [
+                    135,
+                    119
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "animal_pose_auditor",
+            "internal_expert_id": "animal_pose_estimator",
+            "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
+            "target_subject": "pelican",
+            "weight": 0.2,
+            "reason": "Audits the structural integrity of the long neck and the grounding of the short legs, which are common failure points in bird generation.",
+            "status": "success",
+            "execution_time_ms": 565.51,
+            "evidence": {
+                "detected_pose_instances": [
+                    {
+                        "instance_id": 1,
+                        "total_keypoints_polled": 17,
+                        "average_instance_confidence": 0.4084,
+                        "keypoints": [
+                            {
+                                "keypoint_id": 0,
+                                "x": 84.32,
+                                "y": 182.16,
+                                "confidence": 0.3572
+                            },
+                            {
+                                "keypoint_id": 1,
+                                "x": 84.33,
+                                "y": 180.93,
+                                "confidence": 0.3456
+                            },
+                            {
+                                "keypoint_id": 2,
+                                "x": 76.6,
+                                "y": 202.4,
+                                "confidence": 0.8016
+                            },
+                            {
+                                "keypoint_id": 3,
+                                "x": 94.97,
+                                "y": 165.23,
+                                "confidence": 0.4208
+                            },
+                            {
+                                "keypoint_id": 4,
+                                "x": 167.52,
+                                "y": 127.26,
+                                "confidence": 0.5031
+                            },
+                            {
+                                "keypoint_id": 5,
+                                "x": 86.83,
+                                "y": 183.78,
+                                "confidence": 0.6071
+                            },
+                            {
+                                "keypoint_id": 6,
+                                "x": 76.52,
+                                "y": 202.37,
+                                "confidence": 0.4426
+                            },
+                            {
+                                "keypoint_id": 7,
+                                "x": 125.73,
+                                "y": 208.24,
+                                "confidence": 0.3941
+                            },
+                            {
+                                "keypoint_id": 8,
+                                "x": 122.26,
+                                "y": 180.7,
+                                "confidence": 0.7403
+                            },
+                            {
+                                "keypoint_id": 9,
+                                "x": 126.11,
+                                "y": 192.03,
+                                "confidence": 0.6071
+                            },
+                            {
+                                "keypoint_id": 10,
+                                "x": 147.2,
+                                "y": 201.05,
+                                "confidence": 0.6858
+                            },
+                            {
+                                "keypoint_id": 11,
+                                "x": 142.02,
+                                "y": 160.39,
+                                "confidence": 0.17
+                            },
+                            {
+                                "keypoint_id": 12,
+                                "x": 137.53,
+                                "y": 181.87,
+                                "confidence": 0.1411
+                            },
+                            {
+                                "keypoint_id": 13,
+                                "x": 141.04,
+                                "y": 201.98,
+                                "confidence": 0.1602
+                            },
+                            {
+                                "keypoint_id": 14,
+                                "x": 144.31,
+                                "y": 165.03,
+                                "confidence": 0.1506
+                            },
+                            {
+                                "keypoint_id": 15,
+                                "x": 138.89,
+                                "y": 184.53,
+                                "confidence": 0.1839
+                            },
+                            {
+                                "keypoint_id": 16,
+                                "x": 116.69,
+                                "y": 206.22,
+                                "confidence": 0.2311
+                            }
+                        ]
+                    }
+                ],
+                "low_confidence_analysis": {
+                    "low_confidence_threshold": 0.5,
+                    "total_keypoints": 17,
+                    "low_confidence_count": 11,
+                    "low_confidence_ratio": 0.6471,
+                    "low_confidence_keypoints": [
+                        {
+                            "keypoint_id": 0,
+                            "name": "Nose",
+                            "region": "Face",
+                            "confidence": 0.3572
+                        },
+                        {
+                            "keypoint_id": 1,
+                            "name": "Left_Eye",
+                            "region": "Face",
+                            "confidence": 0.3456
+                        },
+                        {
+                            "keypoint_id": 3,
+                            "name": "Left_Ear",
+                            "region": "Face",
+                            "confidence": 0.4208
+                        },
+                        {
+                            "keypoint_id": 6,
+                            "name": "Right_Shoulder",
+                            "region": "Front_Limbs",
+                            "confidence": 0.4426
+                        },
+                        {
+                            "keypoint_id": 7,
+                            "name": "Left_Elbow",
+                            "region": "Front_Limbs",
+                            "confidence": 0.3941
+                        },
+                        {
+                            "keypoint_id": 11,
+                            "name": "Left_Hip",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.17
+                        },
+                        {
+                            "keypoint_id": 12,
+                            "name": "Right_Hip",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.1411
+                        },
+                        {
+                            "keypoint_id": 13,
+                            "name": "Left_Knee",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.1602
+                        },
+                        {
+                            "keypoint_id": 14,
+                            "name": "Right_Knee",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.1506
+                        },
+                        {
+                            "keypoint_id": 15,
+                            "name": "Left_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.1839
+                        },
+                        {
+                            "keypoint_id": 16,
+                            "name": "Right_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.2311
+                        }
+                    ],
+                    "affected_body_regions": [
+                        "Hind_Limbs(6 low-conf keypoints)",
+                        "Face(3 low-conf keypoints)",
+                        "Front_Limbs(2 low-conf keypoints)"
+                    ],
+                    "artifact_risk_level": "HIGH",
+                    "risk_reasoning": "65% of keypoints below 0.5 confidence — widespread low-confidence detections. May indicate structural anomalies OR domain-shift effects from AI-generated imagery; requires visual confirmation."
+                },
+                "saved_pose_viz_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/pose_visualizations/000080_pose_viz.png"
+            },
+            "raw_metrics": {
+                "detected_instances_count": 1
+            },
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 5.02,
+        "total_execution_time_ms": 17788.72,
         "failed_expert_ids": []
     }
 }

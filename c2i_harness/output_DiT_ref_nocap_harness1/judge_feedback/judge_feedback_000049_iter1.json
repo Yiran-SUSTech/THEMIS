@@ -2,25 +2,33 @@
     "image_id": "000049",
     "class_label": "green mamba",
     "iteration": 1,
-    "timestamp": "2026-08-18 23:52:53",
+    "timestamp": "2026-08-19 17:59:11",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. The Router identified significant discrepancies in 'Head morphology' (blunt vs. coffin-shaped) and 'Color uniformity' (yellowish head vs. emerald body), marking these checkpoints as `is_present: false`. However, the plan relies on `fine_grained_classifier` to resolve these issues. A standard ImageNet-pretrained classifier outputs a probability distribution over classes; it cannot provide the specific anatomical reasoning (e.g., 'snout is too blunt') or colorimetric analysis required to validate *why* the image fails the specific taxonomy checkpoints. Furthermore, the plan misses the `open_vocabulary_detector`, which is explicitly defined as the 'Bridge' expert necessary to provide bounding box priors for the `topology_boundary_auditor`. Without this precursor, the boundary audit lacks spatial grounding.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'Head is narrow and elongated... coffin-shaped' checkpoint was marked false. While the Fine-Grained Classifier checks species identity, it may not explicitly output morphological geometry metrics. The Perceptual Quality Auditor should be explicitly tasked with verifying the 'coffin-shape' profile against the taxonomy description to confirm if the bluntness is a generation error or a perspective artifact.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "missing_expert_dependency",
+                "point": "Topology Boundary Auditor requires spatial priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` description states it is best for verifying object instances but relies on segmentation. The `open_vocabulary_detector` is defined as the 'primary Bridge expert' to identify WHERE subjects are and serve as the precursor for SAM-based boundary auditing. The current plan skips this step, risking ungrounded segmentation masks."
             },
             {
-                "type": "missing_verification",
-                "point": "The 'Dorsal surface is uniformly bright emerald green' checkpoint was marked false due to yellow tones. The Fine-Grained Classifier is correctly assigned to verify if this coloration is valid for the species (e.g., juvenile variation). Ensure the classifier's output specifically addresses color validity, not just species ID.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "insufficient_verification_logic",
+                "point": "Classifier cannot validate specific anatomical failures",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The `fine_grained_classifier` can only say if the image looks like a 'green mamba' or not. It cannot explain the 'blunt snout' or 'color gradient' artifacts. The `perceptual_quality_auditor` (CoT-enabled VLM) should be tasked with explicitly describing the head shape and color distribution to provide the evidence needed to support the `is_present: false` verdicts for the Head and Color checkpoints."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verification of 'Coffin-shaped' head profile",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The checkpoint regarding the 'coffin-shaped profile' was marked false. The current verification goals for the topology auditor focus on 'silhouette continuity' and 'edge bleeding', not morphological shape analysis. The perceptual auditor should be explicitly prompted to analyze the head geometry against the 'coffin' descriptor."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up photograph of a green snake, likely a Green Mamba, resting among dark green foliage. The snake's head is prominent in the foreground, displaying a yellowish-green hue that transitions to a brighter emerald green along the body. The scales appear smooth and glossy. The eye is large, dark, and round. The background consists of blurred leaves, suggesting an arboreal environment.",
+        "image_description": "A close-up photograph of a green snake, likely a green mamba, resting among dark green foliage. The snake's head is prominent in the foreground, displaying a yellowish-green hue that transitions to a brighter emerald green along the body. The scales appear smooth and glossy. The eye is large, dark, and round. The background consists of blurred leaves, suggesting an arboreal environment.",
         "image_class": "green mamba",
         "checkpoint_verdicts": [
             {
@@ -28,7 +36,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The head shape appears somewhat rounded and blunt rather than distinctly narrow and elongated with a sharp 'coffin-shaped' profile typical of a Green Mamba. The brow ridge is not clearly defined as prominent."
+                "reasoning": "The head shape appears somewhat rounded and blunt rather than distinctly narrow and elongated with a sharp 'coffin-shaped' profile typical of a green mamba. The brow ridge is not clearly defined as prominent."
             },
             {
                 "checkpoint": "Eyes are large and dark with round pupils.",
@@ -49,35 +57,35 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While glossy, the coloration is not 'uniformly bright emerald green'. The head and anterior body show significant yellow/chartreuse tones, deviating from the strict 'emerald' descriptor for the dorsal surface in this specific lighting/angle."
+                "reasoning": "While glossy, the coloration is not uniformly bright emerald green. The head and anterior neck are distinctly yellowish-green/chartreuse, deviating from the 'uniform bright emerald' requirement. There is also a slight gradient rather than uniformity."
             },
             {
                 "checkpoint": "Ventral surface is pale yellow-green to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The ventral surface (belly) is completely occluded by the angle of the snake and the surrounding leaves; it cannot be verified."
+                "reasoning": "The ventral surface (belly) is not visible in this angle; the snake is viewed from a dorsal-lateral perspective."
             },
             {
                 "checkpoint": "Uniform green coloration with no patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "There are no distinct spots, stripes, or bands visible. The color gradient from yellow-green to emerald is natural variation rather than a pattern."
+                "is_present": false,
+                "reasoning": "There is a distinct color variation between the yellow-green head/neck and the greener body. While there are no spots or stripes, the lack of uniformity in shade contradicts the 'uniform green coloration' checkpoint strictly."
             },
             {
                 "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights are visible on the head and body scales, confirming a smooth, glossy texture."
+                "reasoning": "Strong specular highlights are visible on the head and body scales, indicating a highly glossy and smooth texture."
             },
             {
                 "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "Lateral compression is difficult to definitively confirm from this specific frontal-side angle without a clear cross-section view, though the habitat suggests it. Marked untestable due to ambiguity."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body cross-section visible near the neck suggests lateral compression (taller than wide), which is characteristic of arboreal snakes like mambas."
             },
             {
                 "checkpoint": "Tail is long and prehensile.",
@@ -90,15 +98,15 @@
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Snake head and neck junction",
-                "severity": 1.5,
-                "reasoning": "There is a slight softness or 'smearing' in the scale definition where the neck meets the head, which could be motion blur or a minor generation artifact, but looks mostly like photographic focus fall-off."
+                "location": "Snake head and neck transition zone",
+                "severity": 2,
+                "reasoning": "The transition from the yellowish head to the green body lacks the subtle scale-row definition seen in high-resolution macro photography of real snakes. The texture here appears slightly smoothed or 'airbrushed', potentially indicating generative smoothing or low-resolution compression artifacts common in AI images."
             },
             {
-                "artifact_type": "perspective_distortion",
-                "location": "Background leaves",
-                "severity": 1.0,
-                "reasoning": "Some background leaves exhibit slight warping or unnatural blending at the edges, common in AI generations attempting depth of field, though it could also be lens bokeh."
+                "artifact_type": "structural_collapse",
+                "location": "Background foliage edges",
+                "severity": 1,
+                "reasoning": "Some leaf edges in the background exhibit slight melting or indistinct boundaries where they meet the dark void, lacking crisp optical bokeh characteristics. This is a minor artifact but noticeable upon close inspection."
             }
         ],
         "expert_verification_plan": [
@@ -106,86 +114,86 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Confirm species identity as Dendroaspis angusticeps (Green Mamba) vs. other green snakes (e.g., Vine Snake, Green Tree Python).",
-                    "Verify if the yellowish head coloration is within normal variation for the species or indicates a mismatch."
+                    "Confirm species identity as Dendroaspis angusticeps (Green Mamba) vs. other green snakes (e.g., Green Tree Python, Vine Snake).",
+                    "Verify if the yellowish-green head coloration is within natural variation for Green Mambas or indicates a different species/AI error."
                 ],
-                "reason": "The head shape and color gradient raise doubts about the specific 'Green Mamba' classification. A fine-grained classifier is needed to distinguish it from similar arboreal snakes.",
+                "reason": "The head shape and specific shade of green/yellow are critical for distinguishing Green Mambas from lookalikes. The classifier can provide taxonomic ground truth to validate the 'green mamba' label against visual features.",
                 "weight": 0.35
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake head",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake skin texture",
                 "verification_goals": [
-                    "Audit the boundary between the snake's head and the background leaves for fusion or bleeding.",
-                    "Verify the continuity of the scale texture across the head-neck junction."
+                    "Analyze scale pattern continuity across the head-body junction.",
+                    "Detect any unnatural smoothing or lack of micro-texture in the glossy regions.",
+                    "Verify if the glossiness follows physically accurate lighting models for keratinous scales."
                 ],
-                "reason": "To rule out subtle melting artifacts at the subject-background interface and ensure the head structure is topologically sound.",
+                "reason": "To investigate the suspected texture anomaly and ensure the 'glossy' appearance isn't a result of AI-generated plastic-like rendering rather than biological reflectance.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake outline",
                 "verification_goals": [
-                    "Assess if the glossiness on scales is physically consistent with the lighting direction.",
-                    "Evaluate the realism of the eye reflection and pupil shape.",
-                    "Check for global coherence in the foliage rendering."
+                    "Verify the continuity of the snake's silhouette against the background.",
+                    "Check for edge bleeding or fusion between the snake's head and the surrounding leaves.",
+                    "Assess the sharpness of the brow ridge definition."
                 ],
-                "reason": "To perform a holistic quality check on the rendering of glossy surfaces and biological details like the eye, which are common failure points in AI generation.",
+                "reason": "To confirm the structural integrity of the head shape (coffin-profile check) and ensure the subject is cleanly separated from the complex foliage background without generative merging.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "snake",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene composition",
                 "verification_goals": [
-                    "Locate the full extent of the snake body to determine if the tail is truly out of frame or missing/fused.",
-                    "Identify specific leaf types to verify environmental consistency."
+                    "Validate the spatial relationship between the snake and the foreground/background leaves.",
+                    "Ensure the depth of field is consistent with a macro photograph (sharp subject, graduated blur).",
+                    "Check for impossible occlusions where leaves might intersect the snake unnaturally."
                 ],
-                "reason": "To provide bounding box priors for the topology auditor and confirm the spatial completeness of the subject.",
+                "reason": "AI images often struggle with complex occlusion in foliage. Verifying depth consistency helps rule out 'floating' subjects or incorrect layering.",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
             "Ventral surface is pale yellow-green to white.",
-            "Tail is long and prehensile.",
-            "Body is laterally compressed, adapted for arboreal locomotion."
+            "Tail is long and prehensile."
         ],
         "focus_areas": [
-            "Head shape profile (coffin-shape verification)",
-            "Scale texture continuity at the neck",
-            "Color uniformity vs. natural gradient",
-            "Eye realism and reflection"
+            "Head morphology and color gradient accuracy",
+            "Scale texture realism and gloss physics",
+            "Species-specific identification markers"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the head morphology. Does the bluntness of the snout and the yellow coloration suggest this might be a different species (like a Green Vine Snake or a juvenile of another species) rather than an adult Green Mamba? Also, scrutinize the edge of the snake against the dark background for any 'halo' effects or pixel-level fusion.",
+        "custom_prompts_for_reflector": "Focus heavily on the discrepancy between the 'uniform bright emerald green' taxonomy description and the observed yellowish-green head. Is this a valid biological variant for Green Mambas, or does it suggest the image depicts a different species (like a Green Vine Snake or immature python) or is an AI hallucination? Also, scrutinize the 'coffin-shaped' head profile; the image shows a relatively blunt snout which may contradict the specific Green Mamba anatomy.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000049.png",
             "class_id": 64,
             "class_label": "green mamba",
-            "router_cost_seconds": 31.56,
+            "router_cost_seconds": 33.44,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
-                "reason": "The head shape and color gradient raise doubts about the specific 'Green Mamba' classification. A fine-grained classifier is needed to distinguish it from similar arboreal snakes.",
+                "reason": "The head shape and specific shade of green/yellow are critical for distinguishing Green Mambas from lookalikes. The classifier can provide taxonomic ground truth to validate the 'green mamba' label against visual features.",
                 "weight": 0.35
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake head",
-                "reason": "To rule out subtle melting artifacts at the subject-background interface and ensure the head structure is topologically sound.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake skin texture",
+                "reason": "To investigate the suspected texture anomaly and ensure the 'glossy' appearance isn't a result of AI-generated plastic-like rendering rather than biological reflectance.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To perform a holistic quality check on the rendering of glossy surfaces and biological details like the eye, which are common failure points in AI generation.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake outline",
+                "reason": "To confirm the structural integrity of the head shape (coffin-profile check) and ensure the subject is cleanly separated from the complex foliage background without generative merging.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "snake",
-                "reason": "To provide bounding box priors for the topology auditor and confirm the spatial completeness of the subject.",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene composition",
+                "reason": "AI images often struggle with complex occlusion in foliage. Verifying depth consistency helps rule out 'floating' subjects or incorrect layering.",
                 "weight": 0.2
             }
         ]

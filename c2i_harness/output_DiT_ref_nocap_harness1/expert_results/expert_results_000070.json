@@ -6,21 +6,126 @@
     "class_id": 118,
     "class_label": "Dungeness crab, Cancer magister",
     "plan_reference": "approved_plan_000070",
-    "execution_timestamp": "2026-08-18 23:54:51",
+    "execution_timestamp": "2026-08-19 18:02:35",
     "focus_areas": [
-        "Leg joint connectivity in the central cluster",
-        "Texture fidelity of the crushed ice",
-        "Accuracy of dorsal carapace mottling patterns",
-        "Connectivity of limbs to body segments in occluded areas"
+        "Limb counting and joint articulation via VLM inspection",
+        "Claw tip coloration accuracy",
+        "Boundary separation between overlapping subjects",
+        "Distinctness of individual crab instances in the pile"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the junction points where legs meet the body. In AI images of crab piles, legs often 'melt' into the torso or other legs. Verify if the serrated edges of the claws look like distinct geometric teeth or just noisy texture. Check if the ice has realistic refraction or looks like white noise. Specifically validate that the dorsal shells are indeed visible and not hallucinated textures.",
-    "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs are oriented in various directions; while some ventral surfaces are visible, multiple dorsal carapaces are clearly exposed, displaying the characteristic reddish-brown to orange coloration and mottled patterns. Legs and claws are intermingled in a dense arrangement.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on the limb anatomy using visual inspection. AI generators frequently struggle with the exact number of legs on crustaceans (often generating 6 or 8 instead of 5 pairs) or fusing legs together in pile compositions. Verify that the dark tips on the claws are distinct and not bleeding into the white shell. Check if the ice texture looks physically distinct from the crab shells or if there is 'melting' where they touch. Do NOT attempt to use skeletal keypoints; rely on semantic segmentation boundaries and visual counting.",
+    "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs are oriented in various directions, primarily displaying their ventral (underside) surfaces which are cream to orange-white in color. Several robust claws with dark tips and multiple walking legs are visible extending from the bodies. The scene suggests a seafood market or display setting.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "individual crabs",
+            "weight": 0.25,
+            "reason": "Essential precursor for topology auditing in dense piles; provides spatial grounding to distinguish overlapping entities.",
+            "status": "success",
+            "execution_time_ms": 16187.0,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "crabs",
+                        "confidence_score": 0.6383,
+                        "bounding_box": [
+                            0,
+                            0,
+                            255,
+                            256
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "Dungeness crab",
+            "weight": 0.35,
+            "reason": "Primary verification of the class label against the visual evidence of the crab's specific anatomy and coloration.",
+            "status": "success",
+            "execution_time_ms": 120.29,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 115,
+                        "label_name": "sea slug, nudibranch",
+                        "logit_score": 4.11
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 116,
+                        "label_name": "chiton, coat-of-mail shell, sea cradle, polyplacophore",
+                        "logit_score": 4.04
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 66,
+                        "label_name": "horned viper, cerastes, sand viper, horned asp, Cerastes cornutus",
+                        "logit_score": 4.0
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "individual crabs",
+            "weight": 0.2,
+            "reason": "Ensures that the 'pile' consists of discrete objects rather than a topologically confused mass, relying on OVD for initialization.",
+            "status": "success",
+            "execution_time_ms": 1563.07,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000070_mask.png",
+                "mask_confidence_score": 0.9081,
+                "prompt_point_used": [
+                    127,
+                    128
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "crab pile",
+            "weight": 0.2,
+            "reason": "Holistic quality check for boundary bleeding and texture smearing; acts as the primary anatomical verifier for limb counts in absence of specialized pose tools.",
+            "status": "success",
+            "execution_time_ms": 36638.65,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there's no visible noise, blur, or darkening. The image seems slightly compressed, but this isn't a significant issue for the clarity of the subject. The main concern could be the angle and focus, but these don't seem to impact the visibility of the subject.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 6.94,
+        "total_execution_time_ms": 57094.72,
         "failed_expert_ids": []
     }
 }

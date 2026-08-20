@@ -6,21 +6,150 @@
     "class_id": 51,
     "class_label": "triceratops",
     "plan_reference": "approved_plan_000035",
-    "execution_timestamp": "2026-08-18 23:52:50",
+    "execution_timestamp": "2026-08-19 17:59:21",
     "focus_areas": [
-        "Integrity of the rib cage and vertebral column for structural collapse or fusion.",
-        "Sharpness of the horn tips and frill edges.",
-        "Grounding of the feet on the display base, specifically checking for melting/fusion artifacts.",
-        "Boundary definition between individual ribs."
+        "Skeletal accuracy of the frill margin (epoccipitals)",
+        "Proportions of the brow horns relative to the nasal horn",
+        "3D spatial coherence of the limb joints and spinal curvature"
     ],
-    "custom_prompts_for_reflector": "The input image is a photograph of a physical fossil skeleton, not a living animal. Do not penalize the absence of soft tissue features (skin, keratin beak) as they are biologically impossible to see in a skeleton. Focus verification strictly on the anatomical correctness of the bone structure and the photographic quality (lighting, focus, lack of digital artifacts). Pay special attention to the right hind foot for melting into the base and the rib cage for potential fusion.",
-    "image_description": "A museum display of a Triceratops fossil skeleton mounted on a rocky base. The image shows the articulated bones, including the skull with three horns and large frill, rib cage, spine, and limb bones against a dark background.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "The image depicts a fossil skeleton, not a living animal. Therefore, checkpoints regarding soft tissue (skin, beak keratin) are inherently untestable and should be excluded from failure criteria. Focus verification on the osteological features: horn count, frill solidity, and limb proportions. Ensure the 'solid bone' nature of the frill is distinguished from fenestrated ceratopsians. Use geometric_depth_auditor instead of animal_pose_auditor to validate the rigid skeletal structure.",
+    "image_description": "A museum display of a Triceratops skeleton mounted on a rocky base. The fossilized bones are beige/brown, showing the skull with horns and frill, rib cage, spine, and limbs. The background is dark, typical of an exhibition hall.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "triceratops skeleton",
+            "weight": 0.25,
+            "reason": "Required bridge expert to spatially ground the skeleton parts before boundary verification can occur.",
+            "status": "success",
+            "execution_time_ms": 12622.54,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "skeleton",
+                        "confidence_score": 0.7173,
+                        "bounding_box": [
+                            0,
+                            10,
+                            256,
+                            227
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "triceratops skeleton",
+            "weight": 0.3,
+            "reason": "To confirm the specific taxonomic identity of the fossil mount based on frill shape and horn proportions.",
+            "status": "success",
+            "execution_time_ms": 220.02,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 51,
+                        "label_name": "triceratops",
+                        "logit_score": 7.62
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 47,
+                        "label_name": "African chameleon, Chamaeleo chamaeleon",
+                        "logit_score": 4.45
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 43,
+                        "label_name": "frilled lizard, Chlamydosaurus kingi",
+                        "logit_score": 3.04
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "triceratops skeleton",
+            "weight": 0.25,
+            "reason": "Replaces animal_pose_auditor as the subject is a rigid fossil; this expert validates spatial relationships and structural correctness of the bones.",
+            "status": "success",
+            "execution_time_ms": 237.25,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000035_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 15.046,
+                    "mean_value": 5.981,
+                    "std_deviation": 3.7375
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "triceratops skull and frill",
+            "weight": 0.1,
+            "reason": "To detect any potential AI artifacts where bones might merge unnaturally or float apart, now properly grounded by detection priors.",
+            "status": "success",
+            "execution_time_ms": 498.01,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000035_mask.png",
+                "mask_confidence_score": 0.984,
+                "prompt_point_used": [
+                    128,
+                    118
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.1,
+            "reason": "General quality check to ensure the image is a genuine photograph and not a high-fidelity render with subtle lighting flaws.",
+            "status": "success",
+            "execution_time_ms": 6714.78,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there's no visible noise, compression, blur, or significant darkening. The lighting seems adequate for the subject, and the details on the dinosaur skeleton are sharp and clear. There are no signs of pixelation, graininess, or other forms of distortion that would typically indicate a problem with the image.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 10.34,
+        "total_execution_time_ms": 19347.63,
         "failed_expert_ids": []
     }
 }

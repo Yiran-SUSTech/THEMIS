@@ -2,33 +2,31 @@
     "image_id": "000005",
     "class_label": "cock",
     "iteration": 2,
-    "timestamp": "2026-08-18 23:51:39",
+    "timestamp": "2026-08-19 17:57:44",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The `animal_pose_auditor` is excluded despite the subject being a limbed animal (bird) with specific anatomical checkpoints (legs, feet, spurs). Furthermore, the plan incorrectly assigns the verification of the 'missing spur' (an anatomical/structural feature) to the `perceptual_quality_auditor`, which is designed for texture/artifact analysis, not anatomical completeness. The `fine_grained_classifier` is also misconfigured; it cannot verify 'sexual dimorphism features' like combs or wattles as it outputs class probabilities, not feature-level segmentation or detection.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and coverage. The 'Legs... spur' checkpoint was marked as `is_present: false` (unverifiable/missing) by the Router. However, the selected experts do not include a mechanism to rigorously verify this specific anatomical failure. The `open_vocabulary_detector` is tasked with locating legs, but standard OVD models often lack the granularity to detect 'spurs' specifically, leading to potential false negatives or unresolved ambiguity. Furthermore, the `animal_pose_auditor`—the most suitable expert for verifying limb completeness and structural correctness of the legs/tarsus—is completely missing from the plan. Relying on `topology_boundary_auditor` for feet does not cover the tarsal spur. Additionally, the `fine_grained_classifier` is assigned an excessively high weight (0.3) for a binary class verification, while the structural integrity of the limbs (the actual point of failure) is under-weighted.",
         "suggestions": [
             {
                 "type": "missing_expert",
-                "point": "Anatomical verification of legs, feet, and spurs",
+                "point": "Verification of leg anatomy and spur presence",
                 "recommended_expert": "animal_pose_auditor",
-                "reason": "The checkpoint regarding 'Legs are stout... and a prominent posterior spur' and 'Feet are anisodactyl' requires keypoint detection to verify structural correctness and limb count. The current plan relies on perceptual quality for this, which is insufficient for anatomical auditing."
+                "reason": "The `animal_pose_auditor` is explicitly designed to audit biological structural correctness and limb completeness. It should replace or supplement the `open_vocabulary_detector` to definitively determine if the legs are structurally complete or if the spur is missing/malformed, rather than just checking for bounding box presence."
             },
             {
-                "type": "incorrect_verification_goal",
-                "point": "Fine-grained classifier capabilities",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "Remove 'Verify sexual dimorphism features (comb, wattle, plumage)' from the classifier's goals. This expert only confirms the class label (Cock vs Hen vs Other Bird). Feature verification should be handled by the topology/boundary auditor or pose auditor."
+                "type": "weight_adjustment",
+                "point": "Expert weighting imbalance",
+                "recommendation": "Reduce `fine_grained_classifier` weight to 0.1-0.15 and increase `animal_pose_auditor` (or `topology_boundary_auditor` if pose is unavailable) weight to 0.3-0.4. Structural anomalies (missing spurs, malformed legs) are more critical diagnostic features for AI generation quality than basic class confirmation in this context."
             },
             {
-                "type": "incorrect_verification_goal",
-                "point": "Spur visibility analysis",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "Remove 'Determine if the missing spur is a generative omission' from the perceptual auditor. This is an anatomical absence issue, best resolved by the `animal_pose_auditor` checking for expected keypoints. The perceptual auditor should focus on the 'iridescence' and 'texture anomaly' checkpoints."
+                "type": "verification_goal_refinement",
+                "point": "OVD limitation on spurs",
+                "recommendation": "If `open_vocabulary_detector` is retained, refine its goal to 'Detect tarsus region' rather than 'Detect spur', as 'spur' is likely out-of-vocabulary or too fine-grained. The detailed inspection of that region must be handed off to the `animal_pose_auditor` or `perceptual_quality_auditor` with a specific crop."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A rooster (cock) standing in a grassy area with a wire mesh fence and reddish foliage in the background. The bird has brown body plumage, iridescent green/black neck feathers, a red comb and wattle, and yellow legs.",
+        "image_description": "A rooster (cock) standing in a grassy area with a wire mesh fence and reddish foliage in the background. The bird has brown body plumage, iridescent green/black neck feathers, and a bright red comb and wattle. It is facing slightly away from the camera, showing its profile and back.",
         "image_class": "cock",
         "checkpoint_verdicts": [
             {
@@ -36,152 +34,176 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A distinct, bright red, serrated comb is clearly visible on top of the bird's head."
+                "reasoning": "The comb is clearly visible, bright red, and exhibits the characteristic serrated shape on top of the head."
             },
             {
                 "checkpoint": "Wattles are paired fleshy appendages hanging from the lower beak, bright red.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Red wattles are visible hanging below the beak area, consistent with a rooster."
+                "reasoning": "Red wattles are visible hanging below the beak area, consistent with male chicken anatomy."
             },
             {
                 "checkpoint": "Beak is short, curved, and keratinous with a yellow to grey coloration.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The beak appears short, curved, and yellowish-grey, matching the description."
+                "reasoning": "The beak is visible, appears short and curved, and has a pale yellowish-grey tone."
             },
             {
                 "checkpoint": "Eyes are dark and positioned laterally.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A dark eye is visible on the side of the head."
+                "reasoning": "One dark eye is clearly visible on the side of the head."
             },
             {
                 "checkpoint": "Body is compact and robust.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bird exhibits a sturdy, robust build typical of a rooster."
+                "reasoning": "The bird's torso appears solid and proportionate for a rooster."
             },
             {
                 "checkpoint": "Plumage is vivid and iridescent with metallic green, blue, purple, or copper tones on the neck, breast, and tail feathers.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The neck feathers show strong iridescent green/black metallic sheen; body is reddish-brown/copper."
+                "reasoning": "Distinct metallic green/black iridescence is visible on the neck/hackle feathers, contrasting with the brown body."
             },
             {
                 "checkpoint": "Hackle feathers (neck plumage) are elongated, pointed, and glossy, forming a distinctive ruff.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Long, glossy hackle feathers are clearly visible draping over the neck/shoulders."
+                "reasoning": "The neck feathers are long, pointed, and drape down over the shoulders, matching the description of hackles."
             },
             {
                 "checkpoint": "Saddle feathers (lower back) are elongated and flowing.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Elongated feathers are visible on the lower back leading into the tail area."
+                "reasoning": "Feathers on the lower back appear longer and flow towards the tail, consistent with saddle feathers."
             },
             {
                 "checkpoint": "Legs are stout with thick, scaled skin and a prominent posterior spur on the tarsus.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Legs are visible and scaled, but the specific 'prominent posterior spur' is not clearly distinguishable in this resolution/angle; it may be present but obscured or small."
+                "reasoning": "While legs are visible and scaled, the resolution and angle make it impossible to confirm the presence of a 'prominent posterior spur'. The leg structure looks somewhat thin compared to the 'stout' descriptor, but primarily the spur is not verifiable visually."
             },
             {
                 "checkpoint": "Feet are anisodactyl (three toes forward, one backward) with sharp, curved claws.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible foot shows the standard avian arrangement of toes (anisodactyl) with claws."
+                "reasoning": "The visible foot shows the correct toe arrangement (anisodactyl) and claw shape, though detail is slightly soft."
             },
             {
                 "checkpoint": "Tail feathers are long, curved, and iridescent with a characteristic arching posture.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Dark, iridescent tail feathers are visible arching upwards behind the body."
+                "reasoning": "Dark, arching tail feathers are visible behind the body, consistent with rooster morphology."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
                 "location": "Wire fence background",
-                "severity": 1.5,
-                "reasoning": "The wire mesh pattern shows slight irregularities and waviness in line thickness, common in AI generation or compression, but largely coherent."
+                "severity": 2,
+                "reasoning": "The wire mesh pattern becomes inconsistent and slightly melted/warped in the upper right quadrant, losing geometric regularity typical of real chain-link fences."
             },
             {
                 "artifact_type": "blur",
-                "location": "Background foliage",
-                "severity": 1.0,
-                "reasoning": "Background leaves have a slightly painterly/smudged texture rather than crisp botanical detail, suggesting generative smoothing."
+                "location": "Feet and ground contact point",
+                "severity": 2,
+                "reasoning": "The interface between the feet and the grass/dirt is unnaturally soft and lacks distinct shadowing or displacement of grass blades, suggesting slight grounding issues."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "cock",
-                "verification_goals": [
-                    "Locate the rooster within the complex wire fence background",
-                    "Provide bounding box priors for segmentation"
-                ],
-                "reason": "Essential bridge expert to isolate the subject from the cluttered background before boundary auditing can occur.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cock",
                 "verification_goals": [
-                    "Confirm species identification as Gallus gallus domesticus (rooster)",
-                    "Verify sexual dimorphism features (comb, wattle, plumage)"
+                    "Confirm species identity as Gallus gallus domesticus (rooster)"
                 ],
-                "reason": "Primary verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
-                "weight": 0.25
+                "reason": "Primary verification to ensure the image depicts the correct class label at a taxonomical level.",
+                "weight": 0.3
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "cock",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cock_legs_and_feet",
                 "verification_goals": [
-                    "Determine if the missing spur is a generative omission or valid occlusion",
-                    "Assess texture consistency of feathers vs background",
-                    "Evaluate edge sharpness around the comb and wattle"
+                    "Locate bounding boxes for legs and feet to verify presence and count",
+                    "Attempt to detect 'spur' region on tarsus to distinguish occlusion from absence"
                 ],
-                "reason": "To detect subtle blending issues and specifically audit the ambiguous spur checkpoint for anatomical correctness vs visibility.",
+                "reason": "Required precursor for topology auditing; helps resolve the 'unverifiable' status of the spur by confirming if the anatomical region is present but low-res, or missing entirely.",
                 "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "cock",
+                "target_subject": "cock_feet",
                 "verification_goals": [
-                    "Verify separation between bird and wire fence using OVD priors",
-                    "Check continuity of hackle feathers"
+                    "Segment feet using OVD priors to verify distinct toe separation",
+                    "Check boundary sharpness between feet and ground to audit grounding artifacts"
                 ],
-                "reason": "To ensure the bird isn't merging with the complex background fence pattern, relying on OVD for accurate segmentation.",
+                "reason": "To resolve ambiguity regarding foot structure and the observed blur/grounding issues at the contact point.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cock_head_and_background",
+                "verification_goals": [
+                    "Verify integrity of comb and wattle structures (fleshy texture, serration)",
+                    "Analyze wire mesh geometry for melting or perspective distortion"
+                ],
+                "reason": "Covers the specific anatomical checkpoints (comb/wattle) that FGC cannot verify, and audits the background texture anomalies identified in Step 2.",
                 "weight": 0.25
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Leg and foot anatomy (spur visibility)",
-            "Feather texture realism (iridescence)",
-            "Background fence geometry",
-            "Subject-background separation"
+            "Wire fence geometry consistency",
+            "Foot-to-ground interaction realism",
+            "Leg thickness and spur visibility via detection",
+            "Comb and wattle structural integrity"
         ],
-        "custom_prompts_for_reflector": "Please verify if the lack of a visible spur is due to image quality or a generation error. Also, check if the iridescence on the neck looks like natural light reflection or a texture map artifact. Ensure the topology auditor uses the OVD output to correctly segment the rooster against the wire mesh.",
+        "custom_prompts_for_reflector": "Please pay close attention to the background fence pattern; AI often struggles with repeating geometric grids like chain-link. Scrutinize the rooster's legs—specifically use the detector to check if the calcified spur is genuinely missing or just low-resolution. Check if the feet blend too smoothly into the grass (grounding artifact). Verify the comb and wattle have realistic fleshy textures and are not melted into the head.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000005.png",
             "class_id": 7,
             "class_label": "cock",
-            "router_cost_seconds": 30.48,
+            "router_cost_seconds": 32.06,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
-        }
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cock",
+                "reason": "Primary verification to ensure the image depicts the correct class label at a taxonomical level.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cock_legs_and_feet",
+                "reason": "Required precursor for topology auditing; helps resolve the 'unverifiable' status of the spur by confirming if the anatomical region is present but low-res, or missing entirely.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "cock_feet",
+                "reason": "To resolve ambiguity regarding foot structure and the observed blur/grounding issues at the contact point.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cock_head_and_background",
+                "reason": "Covers the specific anatomical checkpoints (comb/wattle) that FGC cannot verify, and audits the background texture anomalies identified in Step 2.",
+                "weight": 0.25
+            }
+        ]
     }
 }

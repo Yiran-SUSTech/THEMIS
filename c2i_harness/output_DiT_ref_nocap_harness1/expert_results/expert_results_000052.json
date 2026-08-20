@@ -6,21 +6,127 @@
     "class_id": 80,
     "class_label": "black grouse",
     "plan_reference": "approved_plan_000052",
-    "execution_timestamp": "2026-08-18 23:53:47",
+    "execution_timestamp": "2026-08-19 18:01:23",
     "focus_areas": [
-        "Structural integrity of wing grounding and limb connectivity",
-        "Topological shape of tail feathers (Lyre vs Generic Fan)",
-        "Symmetry and biological plausibility of red eyebrow combs",
-        "Texture definition of white undertail coverts"
+        "Integrity of the white undertail covert feathers",
+        "Clarity of the red eyebrow combs",
+        "Distinction between tail and wing morphology in the silhouette",
+        "Presence/Absence of feathered legs vs ground fusion",
+        "Overall image sharpness and texture fidelity"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the structural validity of the wings and tail. Verify if the wing tips are biologically connected to the body or if they exhibit melting/fusion artifacts at the ground boundary. Specifically audit the tail shape: does the topology confirm a distinct 'lyre' curve, or is it a fused blob? Additionally, use CoT reasoning to assess if the red eye patches are symmetrical and biologically plausible, as AI often distorts facial symmetry in birds.",
-    "image_description": "A male black grouse (blackcock) in a frontal display posture on a grassy field. The bird exhibits glossy black plumage, prominent red eyebrow combs, and fanned white undertail coverts. The wings are drooped low to the ground.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Please pay close attention to the transition between the black body and the white undertail feathers. In low-resolution AI images, these often merge into a single blob. Verify if the red eye-combs look like natural biological tissue or like painted-on red pixels. Given the extreme blur, distinguish between optical defocus/compression artifacts and generative 'melting'. CRITICAL: Do not accept drooping wings as evidence of a 'lyre-shaped tail'. The tail must be distinctly separate and curved outward. Also, scrutinize the base of the bird for any sign of legs; if it looks like a floating black blob, flag it as a structural collapse.",
+    "image_description": "A male black grouse (blackcock) in a frontal display posture on a grassy field. The bird has glossy black plumage, prominent red eyebrow combs, and fanned white undertail coverts. The wings are drooped downwards in a characteristic lyre-like shape.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "black grouse",
+            "weight": 0.25,
+            "reason": "Required precursor for topology auditing; ensures the boundary auditor targets the correct anatomical regions (coverts vs wings) to verify the lyre-shape claim.",
+            "status": "success",
+            "execution_time_ms": 12729.93,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "grouse",
+                        "confidence_score": 0.8946,
+                        "bounding_box": [
+                            28,
+                            78,
+                            252,
+                            213
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "black grouse",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the image depicts the correct species and sex despite the low resolution and potential anatomical confusion.",
+            "status": "success",
+            "execution_time_ms": 128.91,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 80,
+                        "label_name": "black grouse",
+                        "logit_score": 7.7
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 83,
+                        "label_name": "prairie chicken, prairie grouse, prairie fowl",
+                        "logit_score": 1.58
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 7,
+                        "label_name": "cock",
+                        "logit_score": 1.39
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "white undertail coverts",
+            "weight": 0.2,
+            "reason": "To audit the specific anatomical feature (undertail coverts) which showed signs of texture anomaly/fusion and to resolve the tail/wing conflation issue.",
+            "status": "success",
+            "execution_time_ms": 930.45,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000052_mask.png",
+                "mask_confidence_score": 0.9919,
+                "prompt_point_used": [
+                    140,
+                    145
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "black grouse",
+            "weight": 0.25,
+            "reason": "To determine if the observed blurring, texture fusion, and potential leg collapse are acceptable quality or indicative of generation failure.",
+            "status": "success",
+            "execution_time_ms": 7180.05,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or an image that has been compressed. There's no visible noise, blur, or darkening in the image. The main issue seems to be the compression, as indicated by the slight pixelation and lack of fine detail.",
+                "distortion_class": "compression",
+                "severity_level": "moderate",
+                "severity_score": 0.4
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 10.1,
+        "total_execution_time_ms": 19921.23,
         "failed_expert_ids": []
     }
 }

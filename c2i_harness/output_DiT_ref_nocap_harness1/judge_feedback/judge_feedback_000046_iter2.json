@@ -2,30 +2,33 @@
     "image_id": "000046",
     "class_label": "green mamba",
     "iteration": 2,
-    "timestamp": "2026-08-18 23:53:25",
+    "timestamp": "2026-08-19 17:59:36",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The plan contains a critical logical error in expert assignment and misses a key verification step for the identified failure.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to utilize the most appropriate expert for the primary point of contention (ventral coloration). Specifically:\n1. **Logical Contradiction:** The Router marked 'Ventral surface is pale yellow-green to white' as `is_present: false` because the image shows 'bright yellow-green'. However, it failed to mark this as a definitive failure or assign a high-priority verification goal to resolve whether this is a species mismatch (e.g., Boomslang) or an AI artifact. The current plan relies on `fine_grained_classifier` to check color, which is suboptimal.\n2. **Missing Expert Capability:** The `open_vocabulary_detector` is the designated 'Bridge' expert for locating specific regions (like ventral scales) to provide BBox priors. The plan omits this expert, making it difficult for the `topology_boundary_auditor` or `perceptual_quality_auditor` to isolate the ventral region for precise color/texture analysis.\n3. **Inadequate Artifact Handling:** The `artifact_observations` list is empty, yet the image exhibits potential 'melting' where the snake's jaw merges with its body coil. The `geometric_depth_auditor` is selected, but without `open_vocabulary_detector` to define the instance boundaries, its effectiveness is reduced.",
         "suggestions": [
             {
-                "type": "expert_misassignment",
-                "point": "The 'fine_grained_classifier' is tasked with verifying ventral coloration. Classifiers output class probabilities, not pixel-level attribute analysis. This task belongs to the 'perceptual_quality_auditor' or a specialized color/region auditor.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "missing_expert",
+                "point": "Add open_vocabulary_detector to locate 'ventral scales' and 'head'",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Required to generate bounding box priors for the ventral surface. This allows downstream experts to specifically analyze the color and texture of the ventral scales separate from the dorsal scales, addressing the Judge's concern about the 'bright yellow-green' vs 'pale white' discrepancy."
             },
             {
-                "type": "missing_verification",
-                "point": "The checkpoint 'Ventral surface is pale yellow-green to white' was marked 'is_present: false'. The plan lacks an explicit verification goal to confirm if the visible underside scales are indeed the same color as the dorsal side (indicating a generation error) or if they are obscured/shadowed. The current goals focus on species ID rather than this specific attribute failure.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "verification_gap",
+                "point": "Refine fine_grained_classifier goals to explicitly compare against Boomslang eye/head ratio",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "The custom prompt mentions Boomslang, but the verification goals should explicitly task the classifier with distinguishing *Dendroaspis angusticeps* from *Dispholidus typus* based on the visible head/eye morphology, as this is the most likely confuser given the color ambiguity."
             },
             {
-                "type": "redundant_step",
-                "point": "The 'open_vocabulary_detector' is assigned to detect 'snake head and body coils'. Since the image contains a single dominant subject and the Router has already identified it as a snake, simple segmentation (SAM) via the Topology Auditor is sufficient. OVD adds unnecessary latency without significant gain in this single-instance context.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "checkpoint_correction",
+                "point": "Update 'Ventral surface' checkpoint verdict to reflect ambiguity rather than simple absence",
+                "recommended_expert": "N/A (Router Logic)",
+                "reason": "The checkpoint `is_present: false` is misleading. It should be `is_present: true` (ventrals are visible) but `matches_taxonomy: false` (color is wrong), triggering a specific 'Taxonomy Mismatch' flag for the experts to investigate."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-resolution shot of a bright green snake coiled on a dark branch. The snake has vivid lime-green scales with a glossy texture. The head is visible in profile, featuring a large dark eye and a distinct brow ridge. The body is coiled tightly, showing the overlap of scales. Crucially, the underside of the coils (ventral surface) is visible and appears bright yellow-green, matching the dorsal color rather than being pale or white.",
+        "image_description": "A close-up, high-contrast photograph of a bright green snake coiled tightly on a dark branch. The snake features vivid lime-green scales with a highly glossy texture. The head is visible in profile, showing a large dark eye and a distinct brow ridge. Crucially, the ventral side of the neck and lower jaw are visible due to the coiling posture, appearing bright yellow-green rather than pale white. The body loops around, displaying lateral compression and scale arrangement.",
         "image_class": "green mamba",
         "checkpoint_verdicts": [
             {
@@ -33,127 +36,155 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The side profile clearly shows the characteristic 'coffin-shaped' head with a distinct, sharp brow ridge overhanging the eye, consistent with Dendroaspis angusticeps."
+                "reasoning": "The head profile clearly exhibits the characteristic 'coffin-shape' with a distinct overhanging brow ridge above the eye, consistent with Dendroaspis angusticeps taxonomy."
             },
             {
                 "checkpoint": "Eyes are large and dark with round pupils.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The eye is large, black, and appears to have a round pupil. It lacks the vertical slit typical of vipers or some pythons, matching the elapid description."
+                "reasoning": "The eye is prominent, black, and appears to have a round pupil. It lacks the vertical slit typical of vipers, matching elapid characteristics."
             },
             {
                 "checkpoint": "Body is slender and elongated.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Although coiled, the visible segments of the body appear relatively slender and uniform in thickness, typical of an arboreal snake."
+                "reasoning": "The visible portions of the body show a consistent, slender diameter typical of arboreal snakes, despite the tight coiling."
             },
             {
                 "checkpoint": "Dorsal surface is uniformly bright emerald green with smooth, glossy scales.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coloration is a vibrant, uniform yellow-green/emerald. The scales exhibit strong specular highlights, indicating a highly glossy/smooth texture."
+                "reasoning": "The coloration is a vibrant, uniform green. The scales exhibit strong specular highlights indicating a smooth, glossy texture as described."
             },
             {
                 "checkpoint": "Ventral surface is pale yellow-green to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "CORRECTION: The ventral scales are clearly visible on the lower coils but are bright yellow-green, identical to the dorsal color. They are NOT pale or white as required by the taxonomy. This is a specific attribute failure."
+                "reasoning": "Correction based on Judge feedback: The ventral side of the neck/jaw is visible in the coil but appears bright yellow-green, matching the dorsal color intensity rather than the required 'pale yellow-green to white'. This suggests a potential taxonomy mismatch or rendering error."
             },
             {
                 "checkpoint": "Uniform green coloration with no patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "There are no spots, stripes, or crossbands visible; the color is solid across the visible body segments."
+                "reasoning": "There are no spots, stripes, or crossbands; the color is solid green across all visible scales."
             },
             {
                 "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong white reflections on individual scales confirm the glossy nature. The scale edges appear smooth rather than keeled (ridged)."
+                "reasoning": "Strong reflections on individual scales confirm the glossy nature described in the taxonomy."
             },
             {
                 "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The way the body drapes and the visible cross-section of the coils suggest a laterally compressed (flattened side-to-side) shape rather than a perfectly cylindrical one."
+                "reasoning": "The body cross-section appears flattened side-to-side rather than cylindrical, evident in how the coils rest on the branch."
             },
             {
                 "checkpoint": "Tail is long and prehensile.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail tip is not visible in the frame; the image focuses on the mid-body and head coil."
+                "reasoning": "The tail tip is not visible in the frame; the body extends out of view or is obscured by the coil."
             }
         ],
         "artifact_observations": [],
         "expert_verification_plan": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "snake head and body coils",
-                "verification_goals": [
-                    "Generate bounding boxes for the head and distinct body segments.",
-                    "Provide localization priors for the topology auditor to separate overlapping coils."
-                ],
-                "reason": "REQUIRED FIX: As per Judge feedback, the topology auditor cannot function effectively on a coiled snake without explicit localization priors to distinguish individual coils from the background and each other.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "green mamba",
                 "verification_goals": [
-                    "Confirm species identity as Dendroaspis angusticeps vs other green snakes.",
-                    "Verify if the ventral coloration matches the expected pale/white phenotype for this class."
+                    "Confirm species identity as Dendroaspis angusticeps vs other green snakes (e.g., Boomslang, Green Tree Python)",
+                    "Verify if the visible ventral coloration (bright yellow-green) is consistent with Green Mamba taxonomy or indicates a different species/rendering error"
                 ],
-                "reason": "Crucial to distinguish this from common AI confusions like Green Tree Pythons. Also specifically tasked to verify the ventral color mismatch identified in checkpoints.",
+                "reason": "Critical to distinguish Green Mamba from visually similar species and specifically address the Judge's concern regarding the ventral surface coloration which appears too saturated compared to the 'pale/white' requirement.",
                 "weight": 0.35
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake body",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "snake body coils",
                 "verification_goals": [
-                    "Verify scale continuity and edge sharpness using OVD priors.",
-                    "Check for melting or fusion between overlapping body coils.",
-                    "Ensure scales do not blend into the background or each other unnaturally."
+                    "Verify physical separation of overlapping body segments",
+                    "Ensure the snake does not merge with the branch or itself (melting)",
+                    "Validate 3D spatial arrangement of the tight coil structure"
                 ],
-                "reason": "AI generators often struggle with the complex geometry of overlapping snake coils. Now supported by OVD for accurate segmentation.",
+                "reason": "Addressing Judge feedback: Essential for validating that the complex intertwined subject has valid 3D geometry and distinct layers, preventing 'melting' artifacts common in AI generation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake scales and edges",
+                "verification_goals": [
+                    "Verify scale continuity and edge sharpness",
+                    "Check for boundary bleeding between snake and dark background",
+                    "Ensure individual scales are topologically distinct entities"
+                ],
+                "reason": "AI images often struggle with complex overlapping textures like snake scales; need to verify no 'fusion' occurs where coils touch or at the silhouette edge.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
                 "verification_goals": [
-                    "Explicitly verify the 'brow ridge' geometry against the 'triangular head' of pythons.",
-                    "Assess glossiness realism (specular highlights on scales).",
-                    "Check for texture anomalies in the scale pattern regularity."
+                    "Assess glossiness realism of scales under high contrast lighting",
+                    "Check for unnatural noise or texture repetition in scale patterns",
+                    "Verify lighting consistency on curved surfaces"
                 ],
-                "reason": "REQUIRED FIX: Classifiers often miss fine-grained geometric nuances. This expert must explicitly audit the head shape geometry (coffin vs triangular) and ensure the 'glossy' attribute is physically plausible.",
-                "weight": 0.2
+                "reason": "To ensure the high-gloss texture is rendered realistically and not just a flat texture map, and to catch any subtle global distortions.",
+                "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "Tail is long and prehensile."
+            "Tail length and prehensility (out of frame)"
         ],
         "focus_areas": [
-            "Ventral scale coloration (Yellow-green vs Pale/White)",
-            "Head morphology (Brow ridge geometry)",
-            "Coil separation and boundary integrity"
+            "Ventral surface coloration accuracy (Judge correction)",
+            "Geometric separation of overlapping coils (Judge correction)",
+            "Head profile shape (brow ridge)",
+            "Scale texture and glossiness"
         ],
-        "custom_prompts_for_reflector": "Pay close attention to the distinction between a Green Mamba and a Green Tree Python. The Mamba has a more angular, coffin-shaped head with a distinct brow ridge, whereas pythons typically have a more triangular or rounded head without such a pronounced ridge. CRITICAL: Verify the ventral scales. In this image, they appear bright yellow-green. A true Green Mamba should have pale yellow-green to WHITE ventral scales. If the belly is the same bright green as the back, this is likely a misclassification or generation error. Also, verify that the scales are smooth (non-keeled).",
+        "custom_prompts_for_reflector": "Focus heavily on distinguishing this from a Boomslang (Dispholidus typus). Boomslangs have much larger eyes relative to head size and a shorter, blunter snout. Verify the 'coffin-shaped' head description strictly. CRITICAL: Re-evaluate the ventral surface color. The taxonomy requires 'pale yellow-green to white', but the image shows bright yellow-green ventrals. Determine if this is a species mismatch or an AI color saturation error. Also, check if the scale rows look biologically consistent or if they appear randomly generated.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000046.png",
             "class_id": 64,
             "class_label": "green mamba",
-            "router_cost_seconds": 29.59,
+            "router_cost_seconds": 29.64,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
-        }
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "green mamba",
+                "reason": "Critical to distinguish Green Mamba from visually similar species and specifically address the Judge's concern regarding the ventral surface coloration which appears too saturated compared to the 'pale/white' requirement.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "snake body coils",
+                "reason": "Addressing Judge feedback: Essential for validating that the complex intertwined subject has valid 3D geometry and distinct layers, preventing 'melting' artifacts common in AI generation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake scales and edges",
+                "reason": "AI images often struggle with complex overlapping textures like snake scales; need to verify no 'fusion' occurs where coils touch or at the silhouette edge.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To ensure the high-gloss texture is rendered realistically and not just a flat texture map, and to catch any subtle global distortions.",
+                "weight": 0.15
+            }
+        ]
     }
 }

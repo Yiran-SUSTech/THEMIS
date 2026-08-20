@@ -6,21 +6,122 @@
     "class_id": 147,
     "class_label": "grey whale, gray whale, devilfish, Eschrichtius gibbosus, Eschrichtius rostus',",
     "plan_reference": "approved_plan_000088",
-    "execution_timestamp": "2026-08-18 23:55:38",
+    "execution_timestamp": "2026-08-19 18:03:00",
     "focus_areas": [
-        "Negative verification of dorsal fin and pectoral fins",
-        "Skin texture fidelity (barnacle distribution vs digital noise)",
-        "Water-whale boundary sharpness in splash zone",
-        "Head shape and rostrum arch classification"
+        "Water splash physics and fluid simulation realism",
+        "Skin mottling pattern authenticity (barnacles vs noise)",
+        "Rostrum structural integrity and symmetry",
+        "Edge definition at water-air interface"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the texture of the skin. Real grey whales have very specific, irregular white patches caused by parasites. AI often generates generic 'noise' or uniform speckling. Verify if the white patches look like distinct biological entities (barnacles) or just digital noise. Also, scrutinize the water splash—AI struggles with coherent water droplets; look for smeared or fused water elements. CRITICAL: Use the open vocabulary detector to explicitly confirm there is NO dorsal fin and NO pectoral fins visible; their absence is a key identifier for Grey Whales in this cropped view.",
-    "image_description": "A vertical close-up shot of a grey whale breaching or spy-hopping in deep blue ocean water. The whale's head and upper torso are visible above the surface, oriented vertically with the rostrum pointing upward. The skin is dark grey/black with significant white mottling (barnacles/lice). Water splashes around the base where the body meets the surface.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on the water interaction. AI often generates 'solid' water or plastic-looking splashes. Verify if the foam has volumetric depth. Also, check the barnacle distribution: real grey whales have specific clustering patterns (especially on the head), whereas AI might distribute them uniformly like noise. Ensure the 'arched' mouth doesn't look like a melted deformity.",
+    "image_description": "A close-up, vertical shot of a grey whale breaching or spy-hopping in deep blue ocean water. The whale's head and upper torso are visible above the surface, oriented vertically. The skin is dark grey/black with significant white mottling consistent with barnacles and cyamids. The mouth appears slightly open or the rostrum is arched. Water splashes around the base where the body meets the surface. No dorsal fin is visible on the exposed portion.",
+    "expert_testimonies": [
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "breach_scene",
+            "weight": 0.15,
+            "reason": "Vertical breaches often suffer from depth grounding errors where the subject looks disconnected from the water plane.",
+            "status": "success",
+            "execution_time_ms": 89.89,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000088_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 23.0671,
+                    "mean_value": 9.3261,
+                    "std_deviation": 7.3202
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "grey whale",
+            "weight": 0.35,
+            "reason": "Primary verification needed to ensure the mottling and head shape are taxonomically accurate for a grey whale specifically, not just a generic whale.",
+            "status": "success",
+            "execution_time_ms": 165.52,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 147,
+                        "label_name": "grey whale, gray whale, devilfish, Eschrichtius gibbosus, Eschrichtius rostus',",
+                        "logit_score": 7.45
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 148,
+                        "label_name": "killer whale, killer, orca, grampus, sea wolf, Orcinus orca",
+                        "logit_score": 4.28
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 34,
+                        "label_name": "leatherback turtle, leatherback, leathery turtle, Dermochelys coriacea",
+                        "logit_score": 2.25
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "whale_head",
+            "weight": 0.2,
+            "reason": "To confirm the 'arched rostrum' is a valid biological structure and not a warped generation, and that skin patterns are topologically sound.",
+            "status": "success",
+            "execution_time_ms": 1016.79,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000088_mask.png",
+                "mask_confidence_score": 1.0008,
+                "prompt_point_used": [
+                    128,
+                    128
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "water_whale_interface",
+            "weight": 0.3,
+            "reason": "AI models frequently fail at rendering realistic water displacement and splash physics; this is the highest risk area for artifacts in this specific image.",
+            "status": "success",
+            "execution_time_ms": 26244.56,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be slightly pixelated or compressed, but there's no clear noise, blur, or darkening. The colors are consistent, and the subject is clearly visible. The image seems to have a slight blue tint, which could suggest a filter applied during capture, but it doesn't significantly impact the clarity or visibility of the subject.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 9.39,
+        "total_execution_time_ms": 26252.89,
         "failed_expert_ids": []
     }
 }

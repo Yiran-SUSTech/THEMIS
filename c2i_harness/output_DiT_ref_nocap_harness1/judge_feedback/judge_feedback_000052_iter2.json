@@ -2,33 +2,25 @@
     "image_id": "000052",
     "class_label": "black grouse",
     "iteration": 2,
-    "timestamp": "2026-08-18 23:53:43",
+    "timestamp": "2026-08-19 18:00:08",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and fails to address the most severe visual artifact present in the image. Specifically: 1) The `animal_pose_auditor` is selected for a bird; this expert is explicitly defined as 'NOT for limbless' or non-standard anatomical structures where 17-point keypoint detection fails. Birds often fail standard pose estimators, making this choice scientifically invalid for structural auditing. 2) The plan ignores the obvious 'floating' nature of the subject (lack of ground contact/shadows), which is a primary geometric failure. 3) The `fine_grained_classifier` is likely to fail or provide low confidence due to the severe structural deformation (melting wings), yet it is assigned the highest weight without a fallback for structural validity.",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "expert_replacement",
-                "point": "Replace animal_pose_auditor with geometric_depth_auditor",
-                "recommended_expert": "geometric_depth_auditor",
-                "reason": "The subject exhibits potential 'floating' artifacts (no clear feet/ground contact). The `animal_pose_auditor` is unsuitable for birds/complex poses. A depth map is required to verify if the bird is physically grounded or floating above the grass."
-            },
-            {
                 "type": "missing_verification",
-                "point": "Verify physical grounding and shadow consistency",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "The current plan focuses on wing tips but misses the lack of feet/shadows. The VLM should be prompted to specifically check for 'contact shadows' and 'feet visibility' to confirm if the bird is realistically standing or hallucinated/floating."
+                "point": "The 'structural_collapse' artifact at the lower body/legs (Severity 3) is a critical failure mode for bird generation. While the Perceptual Quality Auditor is tasked with inspecting this, the Topology Boundary Auditor should also be explicitly instructed to verify the connectivity between the bird's body and the ground plane to rule out 'floating' artifacts or background bleeding.",
+                "recommended_expert": "topology_boundary_auditor"
             },
             {
-                "type": "weight_adjustment",
-                "point": "Increase weight of geometric/topological audits",
-                "recommended_expert": "N/A",
-                "reason": "Structural integrity (grounding, wing connectivity) is more critical than species classification in this case, as the image appears structurally compromised. The `fine_grained_classifier` weight (0.3) is too high given the visible deformations."
+                "type": "refinement",
+                "point": "The Fine Grained Classifier weight (0.3) is appropriate, but given the severe blur and potential anatomical confusion (wings vs tail), the Open Vocabulary Detector's role in providing bounding box priors for the specific 'red combs' and 'white coverts' is crucial for the Topology Auditor to function correctly. Ensure the OVD prompt explicitly includes 'red eye patches' and 'white tail feathers' to guide the segmentation.",
+                "recommended_expert": "open_vocabulary_detector"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A male black grouse (blackcock) in a frontal display posture on a grassy field. The bird exhibits glossy black plumage, prominent red eyebrow combs, and fanned white undertail coverts. The wings are drooped low to the ground.",
+        "image_description": "A male black grouse (blackcock) in a frontal display posture on a grassy field. The bird has glossy black plumage, prominent red eyebrow combs, and fanned white undertail coverts. The wings are drooped downwards in a characteristic lyre-like shape.",
         "image_class": "black grouse",
         "checkpoint_verdicts": [
             {
@@ -43,143 +35,168 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The beak is completely obscured by the angle of the head and the shadow/plumage; it is impossible to verify shape or color."
+                "reasoning": "The beak is completely obscured by the angle of the head and the forward-facing display posture; it is not visible in the image."
             },
             {
                 "checkpoint": "Body is robust and stocky.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The central body mass appears round and compact, consistent with the stocky build of a grouse."
+                "reasoning": "The central body mass appears compact, round, and heavy-set, consistent with a stocky game bird."
             },
             {
                 "checkpoint": "Male (blackcock) exhibits striking bluish-black plumage with iridescent green and purple sheen on the neck and breast.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The plumage is predominantly black with visible specular highlights suggesting a glossy/iridescent texture typical of the species."
+                "reasoning": "The plumage is predominantly black with visible specular highlights suggesting a glossy, iridescent texture typical of the species."
             },
             {
                 "checkpoint": "Most distinctive feature is the white undertail coverts forming a bright white patch visible in flight and during display.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A fan of distinct white feathers is visible at the rear/tail area, contrasting sharply with the black body."
+                "reasoning": "A fan of bright white feathers is clearly visible extending upwards from the rear of the bird, matching the undertail covert display."
             },
             {
                 "checkpoint": "Female (greyhen) is mottled brown and buff with cryptic camouflage patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The subject is clearly a male; female characteristics are not applicable to this instance."
+                "reasoning": "The subject is clearly a male blackcock; female characteristics are not applicable to this specific instance."
             },
             {
                 "checkpoint": "Legs and feet are feathered (adaptation for cold climates).",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The legs and feet are entirely hidden beneath the body and the low-hanging wings; no skin or feathering on limbs is visible."
+                "reasoning": "While the legs are partially obscured by the low camera angle and body posture, the visible lower portion appears as a smooth, dark stump fused with the ground rather than showing distinct feathered tarsi. This suggests a potential generation artifact where limb detail was lost or melted."
             },
             {
                 "checkpoint": "Tail is short and rounded; male tail feathers curve outward in a lyre shape during display.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the white undertail coverts are fanned, the actual black tail feathers forming the 'lyre' shape are not clearly distinguishable or structured correctly; the rear silhouette looks more like a generic fan than a specific lyre shape."
+                "reasoning": "Correction based on Judge feedback: The visible 'lyre' silhouette is formed by the drooping wings, not the tail feathers. The actual tail appears to be obscured by the white undertail coverts or is not displaying the characteristic outward curve. Conflating wings with tail is an anatomical error."
             },
             {
                 "checkpoint": "Wings are broad and rounded for short, explosive flights.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The wings are visible drooping downwards on either side, appearing broad and consistent with the species' anatomy."
+                "reasoning": "The visible black appendages (wings) appear broad and rounded at the tips as they hang downwards, consistent with the species' wing morphology."
             }
         ],
         "artifact_observations": [
             {
+                "artifact_type": "blur",
+                "location": "Entire image",
+                "severity": 3,
+                "reasoning": "The image suffers from significant global blur and low resolution, likely due to compression or being a small crop. Fine feather textures are lost, appearing smudged rather than distinct."
+            },
+            {
                 "artifact_type": "texture_anomaly",
-                "location": "White undertail feathers",
-                "severity": 2.0,
-                "reasoning": "The white feathers appear somewhat fused and lack individual strand definition, looking slightly like a solid white mask rather than distinct plumage."
+                "location": "White undertail coverts",
+                "severity": 2,
+                "reasoning": "The white feathers appear somewhat fused and lack individual strand definition, looking slightly like a solid white shape rather than distinct plumage, though this may be exacerbated by the general blur."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Wing tips / lower body boundary",
-                "severity": 2.5,
-                "reasoning": "The edges where the black wings meet the ground are blurry and indistinct, suggesting potential melting or lack of clear grounding."
+                "location": "Lower body/legs",
+                "severity": 3,
+                "reasoning": "The transition from the black body to the ground lacks defined leg structures. The area appears as a singular dark mass without clear separation of feathered legs, indicating potential melting or fusion with the background."
             }
         ],
         "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "black grouse",
+                "verification_goals": [
+                    "Locate bounding boxes for 'black grouse', 'white undertail coverts', and 'red eyebrow combs'",
+                    "Provide spatial priors for topology boundary auditor"
+                ],
+                "reason": "Required precursor for topology auditing; ensures the boundary auditor targets the correct anatomical regions (coverts vs wings) to verify the lyre-shape claim.",
+                "weight": 0.25
+            },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "black grouse",
                 "verification_goals": [
                     "Confirm species identity as Black Grouse (Lyrurus tetrix)",
-                    "Verify male sex characteristics (plumage color)"
+                    "Verify male sex characteristics (bluish-black plumage, red combs)"
                 ],
-                "reason": "Primary verification to ensure the image represents the correct taxonomic class and sex.",
+                "reason": "Primary verification to ensure the image depicts the correct species and sex despite the low resolution and potential anatomical confusion.",
                 "weight": 0.3
             },
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "black grouse",
-                "verification_goals": [
-                    "Verify structural integrity of wings and limb grounding",
-                    "Check for biological connectivity of wing tips to body"
-                ],
-                "reason": "Addresses Judge feedback regarding structural collapse at wing tips; best suited to detect if wings/limbs are biologically connected rather than just visually blurry.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "tail feathers",
+                "target_subject": "white undertail coverts",
                 "verification_goals": [
-                    "Segment tail feathers to determine if they form distinct 'lyre' curves or a fused blob",
-                    "Audit structural integrity of white undertail coverts"
+                    "Verify boundary sharpness between white coverts and black body",
+                    "Check for structural continuity of the feather fan",
+                    "Distinguish tail feathers from wing feathers in the silhouette"
                 ],
-                "reason": "Directly addresses the ambiguous tail shape checkpoint and texture anomaly by verifying topological connectivity of the tail structure.",
+                "reason": "To audit the specific anatomical feature (undertail coverts) which showed signs of texture anomaly/fusion and to resolve the tail/wing conflation issue.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "red eyebrow combs",
-                "verification_goals": [
-                    "Verify symmetry and biological plausibility of red caruncles",
-                    "Assess edge sharpness between bird and background"
-                ],
-                "reason": "Replaces open_vocabulary_detector for facial features; VLM-based reasoning is required to verify symmetry and biological correctness of small attributes.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
                 "target_subject": "black grouse",
                 "verification_goals": [
-                    "Locate and provide bounding box priors for the entire bird subject"
+                    "Assess severity of global blur and compression artifacts",
+                    "Verify if white undertail coverts are distinct feathers or melted texture",
+                    "Inspect lower body for leg/ground fusion artifacts"
                 ],
-                "reason": "Serves as the bridge expert to provide segmentation priors for the topology and pose auditors.",
-                "weight": 0.1
+                "reason": "To determine if the observed blurring, texture fusion, and potential leg collapse are acceptable quality or indicative of generation failure.",
+                "weight": 0.25
             }
         ],
         "unverifiable_points": [
             "Beak is short, curved, and dark.",
-            "Legs and feet are feathered (adaptation for cold climates).",
             "Female (greyhen) is mottled brown and buff with cryptic camouflage patterning."
         ],
         "focus_areas": [
-            "Structural integrity of wing grounding and limb connectivity",
-            "Topological shape of tail feathers (Lyre vs Generic Fan)",
-            "Symmetry and biological plausibility of red eyebrow combs",
-            "Texture definition of white undertail coverts"
+            "Integrity of the white undertail covert feathers",
+            "Clarity of the red eyebrow combs",
+            "Distinction between tail and wing morphology in the silhouette",
+            "Presence/Absence of feathered legs vs ground fusion",
+            "Overall image sharpness and texture fidelity"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the structural validity of the wings and tail. Verify if the wing tips are biologically connected to the body or if they exhibit melting/fusion artifacts at the ground boundary. Specifically audit the tail shape: does the topology confirm a distinct 'lyre' curve, or is it a fused blob? Additionally, use CoT reasoning to assess if the red eye patches are symmetrical and biologically plausible, as AI often distorts facial symmetry in birds.",
+        "custom_prompts_for_reflector": "Please pay close attention to the transition between the black body and the white undertail feathers. In low-resolution AI images, these often merge into a single blob. Verify if the red eye-combs look like natural biological tissue or like painted-on red pixels. Given the extreme blur, distinguish between optical defocus/compression artifacts and generative 'melting'. CRITICAL: Do not accept drooping wings as evidence of a 'lyre-shaped tail'. The tail must be distinctly separate and curved outward. Also, scrutinize the base of the bird for any sign of legs; if it looks like a floating black blob, flag it as a structural collapse.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000052.png",
             "class_id": 80,
             "class_label": "black grouse",
-            "router_cost_seconds": 33.06,
+            "router_cost_seconds": 34.65,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
-        }
+        },
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "black grouse",
+                "reason": "Required precursor for topology auditing; ensures the boundary auditor targets the correct anatomical regions (coverts vs wings) to verify the lyre-shape claim.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "black grouse",
+                "reason": "Primary verification to ensure the image depicts the correct species and sex despite the low resolution and potential anatomical confusion.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "white undertail coverts",
+                "reason": "To audit the specific anatomical feature (undertail coverts) which showed signs of texture anomaly/fusion and to resolve the tail/wing conflation issue.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "black grouse",
+                "reason": "To determine if the observed blurring, texture fusion, and potential leg collapse are acceptable quality or indicative of generation failure.",
+                "weight": 0.25
+            }
+        ]
     }
 }

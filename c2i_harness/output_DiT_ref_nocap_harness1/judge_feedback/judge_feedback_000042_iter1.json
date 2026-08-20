@@ -2,27 +2,25 @@
     "image_id": "000042",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-18 23:52:38",
+    "timestamp": "2026-08-19 17:58:23",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' section. The Router marked the checkpoint 'Ventral surface is pale pink to white' as 'is_testable: false' and 'is_present: false' with the reasoning that it is obscured. However, the provided image clearly shows the snake's body twisted such that the ventral (belly) side is fully visible along the lower curve of the coil. This indicates a failure in the initial visual assessment by the Router, leading to an incorrect exclusion of a key diagnostic feature from verification. Additionally, the plan lacks a specific geometric audit for the tail tip, which appears fused with background debris in the image.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to select the necessary expert to resolve it. The Router marked the checkpoint 'Ventral surface is pale pink to white' as 'is_testable: false' because it claimed the ventral side was obscured. However, the provided image clearly shows the snake's body twisted, exposing the ventral (belly) scales which appear reddish/orange, not pale pink/white. This is a direct visual contradiction to the taxonomy description that must be audited, not ignored. Furthermore, the plan relies solely on a 'fine_grained_classifier' for species ID, but given the strong visual evidence of incorrect ventral coloration (a key differentiator), a 'perceptual_quality_auditor' or specific attribute verification is needed to confirm this mismatch rather than just relying on a black-box class label prediction.",
         "suggestions": [
             {
-                "type": "incorrect_verdict_correction",
-                "point": "The checkpoint 'Ventral surface is pale pink to white' is actually visible in the image due to the animal's posture. The Router incorrectly marked it as untestable/obscured.",
-                "recommended_expert": "fine_grained_classifier or perceptual_quality_auditor",
-                "action": "Update the verdict to 'is_testable: true' and add a verification goal to confirm the ventral coloration matches the species description (pale pink/white vs. uniform brown)."
+                "type": "missing_verification",
+                "point": "Ventral surface coloration audit",
+                "recommended_expert": "perceptual_quality_auditor"
             },
             {
-                "type": "missing_verification",
-                "point": "The tail tip appears to merge with a brown leaf/debris artifact on the ground. The current plan checks general topology but does not specifically address the anatomical correctness of the tail termination.",
-                "recommended_expert": "topology_boundary_auditor",
-                "action": "Add a specific verification goal to the topology_boundary_auditor to segment the tail tip and verify it is a distinct biological structure separate from the background leaf litter."
+                "type": "checkpoint_correction",
+                "point": "Update 'Ventral surface' checkpoint to is_testable=true and is_present=false (or mismatched)",
+                "recommended_expert": "N/A (Router Logic Update)"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales is coiled on a grey, textured stone surface. The animal has a slender, cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a snake.",
+        "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales coiled on a grey, textured stone surface. The animal has a slender cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a snake.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -37,7 +35,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A tiny dark spot consistent with a minute eye is visible on the side of the head, fitting the 'barely visible' criteria."
+                "reasoning": "A tiny dark spot consistent with a minute eye is visible on the side of the head; it is not prominent, fitting the 'barely visible' criteria."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
@@ -51,7 +49,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal color is a uniform rich reddish-brown/copper tone."
+                "reasoning": "The dorsal color is a uniform rich reddish-brown/copper tone, matching the taxonomy perfectly."
             },
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
@@ -65,21 +63,21 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights indicate a very smooth, glossy texture. Faint longitudinal lines suggest regular scale rows."
+                "reasoning": "Strong specular highlights are visible along the curves of the body, indicating a very smooth, glossy scale texture typical of this species."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The color is solid and uniform with no spots, stripes, or bands."
+                "reasoning": "The coloration is solid and uniform with no spots, stripes, or bands visible."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The posterior end of the animal tapers slightly but ends in a short, rounded tip rather than a long, thin whip-like tail."
+                "reasoning": "The posterior end of the animal tapers quickly to a blunt tip, consistent with the 'short and blunt' tail description."
             }
         ],
         "artifact_observations": [],
@@ -89,29 +87,31 @@
                 "target_subject": "thunder snake",
                 "verification_goals": [
                     "Confirm species identity as Carphophis amoenus vs. similar limbless lizards (e.g., Anguis fragilis) or other worm snakes.",
-                    "Verify taxonomic consistency with the provided class label."
+                    "Verify reddish-brown uniform coloration matches class label."
                 ],
-                "reason": "The subject visually resembles a Slow Worm (limbless lizard) as much as a Thunder Snake. High-level classification is needed to distinguish between these biologically distinct but morphologically similar groups.",
+                "reason": "The subject visually resembles a Slow Worm (limbless lizard). A fine-grained classifier is essential to distinguish between the target snake species and morphologically similar lizards based on subtle scale/head features.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
                 "verification_goals": [
-                    "Verify the continuity of the body segments to ensure no fusion artifacts where the coil overlaps.",
-                    "Check boundary sharpness against the stone background to rule out edge bleeding."
+                    "Verify the continuity of the snake's body against the stone background.",
+                    "Check for edge bleeding or fusion where the glossy scales meet the rough stone texture.",
+                    "Ensure the coil structure is physically plausible without self-intersection errors."
                 ],
-                "reason": "AI generators often struggle with self-occluding tubular objects; verifying that the overlapping body parts are distinct and not melted together is crucial.",
+                "reason": "Glossy subjects on textured backgrounds are prone to segmentation errors and edge melting in AI generation. This expert will verify the physical separation and structural integrity of the coils.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "scale texture",
                 "verification_goals": [
-                    "Analyze the glossiness and scale pattern for naturalistic variation vs. procedural repetition.",
-                    "Detect any subtle texture smearing or plastic-like artifacts common in AI reptiles."
+                    "Audit the realism of the glossy scale reflections.",
+                    "Check for texture anomalies or 'smearing' in the high-contrast highlight areas.",
+                    "Verify the stone texture consistency around the subject."
                 ],
-                "reason": "Smooth, glossy textures are prone to looking like plastic in AI images. An expert audit ensures the reflectance properties match biological reality.",
+                "reason": "AI often struggles with rendering consistent specular highlights on cylindrical organic forms. This auditor will check if the glossiness looks like real wet/smooth scales or artificial plastic smearing.",
                 "weight": 0.3
             }
         ],
@@ -120,34 +120,34 @@
         ],
         "focus_areas": [
             "Species differentiation (Snake vs. Limbless Lizard)",
-            "Body continuity at overlap points",
-            "Scale texture realism"
+            "Scale texture realism and glossiness",
+            "Body boundary integrity against background"
         ],
-        "custom_prompts_for_reflector": "Please verify if the head shape and eye placement are consistent with *Carphophis amoenus* specifically, or if they lean more towards *Anguis fragilis* (Slow Worm). Also, check the tail termination point closely—is it anatomically correct for a snake or does it look truncated?",
+        "custom_prompts_for_reflector": "Please pay close attention to the distinction between a thunder snake and a slow worm (Anguis fragilis). While they look similar, the thunder snake is a true snake. Verify if the head shape and scale arrangement align with Ophidia (snakes) rather than Sauria (lizards). Also, scrutinize the contact points between the snake and the rock for any signs of digital fusion or lack of shadow.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000042.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 22.99,
+            "router_cost_seconds": 24.68,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "thunder snake",
-                "reason": "The subject visually resembles a Slow Worm (limbless lizard) as much as a Thunder Snake. High-level classification is needed to distinguish between these biologically distinct but morphologically similar groups.",
+                "reason": "The subject visually resembles a Slow Worm (limbless lizard). A fine-grained classifier is essential to distinguish between the target snake species and morphologically similar lizards based on subtle scale/head features.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
-                "reason": "AI generators often struggle with self-occluding tubular objects; verifying that the overlapping body parts are distinct and not melted together is crucial.",
+                "reason": "Glossy subjects on textured backgrounds are prone to segmentation errors and edge melting in AI generation. This expert will verify the physical separation and structural integrity of the coils.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "scale texture",
-                "reason": "Smooth, glossy textures are prone to looking like plastic in AI images. An expert audit ensures the reflectance properties match biological reality.",
+                "reason": "AI often struggles with rendering consistent specular highlights on cylindrical organic forms. This auditor will check if the glossiness looks like real wet/smooth scales or artificial plastic smearing.",
                 "weight": 0.3
             }
         ]

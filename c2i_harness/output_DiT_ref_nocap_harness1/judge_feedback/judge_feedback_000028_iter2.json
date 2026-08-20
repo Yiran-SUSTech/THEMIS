@@ -2,25 +2,33 @@
     "image_id": "000028",
     "class_label": "common iguana, iguana, Iguana iguana",
     "iteration": 2,
-    "timestamp": "2026-08-18 23:52:47",
+    "timestamp": "2026-08-19 17:58:56",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The `fine_grained_classifier` is tasked with verifying the species identity of an albino/leucistic iguana. Standard ImageNet-pretrained classifiers (like the one described) rely heavily on color and texture features and will almost certainly fail to classify a non-standard color morph correctly, likely misidentifying it as a different lizard or 'unknown'. Relying on this expert for 'species confirmation' is scientifically invalid for this specific instance. Additionally, the plan misses the opportunity to use the `animal_pose_auditor` to verify limb count and structure, which was flagged as a potential 'structural collapse' in the artifact observations. The `topology_boundary_auditor` can check boundaries, but only the pose auditor can validate the biological correctness of the limbs (e.g., ensuring 5 digits if visible, or valid joint angles).",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is tasked with verifying coloration, but standard ImageNet-trained classifiers often fail to distinguish between valid morphological variations (e.g., melanistic or desaturated adults) and AI color hallucinations. A specific check for 'color consistency with lighting' is missing.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "expert_replacement",
+                "point": "Remove fine_grained_classifier for species verification of color morphs.",
+                "recommended_expert": "None (Rely on structural features via topology/pose)",
+                "reason": "Classifiers trained on standard datasets cannot reliably identify albino/leucistic variants. Species ID should be derived from structural morphology (crest, head shape) verified by human review or structural experts, not color-dependent classification."
             },
             {
-                "type": "refinement",
-                "point": "The 'open_vocabulary_detector' should explicitly include 'dewlap' and 'subtympanic shield' in its detection targets if possible, or rely on the 'topology_boundary_auditor' to segment the head region specifically, rather than just the whole iguana, to resolve the 'unresolved anatomy' verdicts.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_verification",
+                "point": "Limb anatomy and digit count verification.",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "The artifact observation notes 'structural collapse' in the front limb. The `animal_pose_auditor` is specifically designed to detect keypoints and audit biological structural correctness (limbs/digits). It is superior to `topology_boundary_auditor` for verifying if the limb structure is biologically valid vs. melted."
+            },
+            {
+                "type": "verification_goal_adjustment",
+                "point": "Update open_vocabulary_detector goals.",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Add goal: 'Detect specific body parts (head, tail, limbs) individually' to provide finer-grained priors for the pose auditor, rather than just a single bounding box for the whole iguana."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A large, greyish-brown iguana is lying flat on a patch of green grass in an outdoor enclosure. The background features rocky terrain and tree trunks. The iguana is positioned horizontally, displaying its dorsal crest and long tail.",
+        "image_description": "A pale, cream-colored iguana (likely an albino or leucistic morph) is lying prone on a patch of green grass. The background features a rocky wall and tree trunks with dappled sunlight. The iguana's body is oriented horizontally, head to the right, tail extending left. The lighting creates strong shadows across the scene.",
         "image_class": "common iguana",
         "checkpoint_verdicts": [
             {
@@ -28,145 +36,171 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The head is visible but appears flattened against the ground due to the angle. The 'triangular' shape is distorted by perspective, and the dewlap is not clearly distinguishable as a hanging fold; it blends into the neck/chest area."
+                "reasoning": "The head is visible but appears flattened against the ground due to the angle. While a dewlap area exists, it is not 'prominent' or hanging freely as described in the taxonomy; it looks compressed or indistinct in this pose."
             },
             {
                 "checkpoint": "Eyes are large with round pupils and golden irises.",
                 "category": "Head_and_Face",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The eye is visible but lacks the specific detail of 'golden irises' and 'round pupils'. It appears as a dark, somewhat indistinct spot, possibly due to resolution or AI generation smoothing."
+                "reasoning": "The eye is visible but lacks sufficient resolution to verify pupil shape (round) or iris color (golden). It appears as a dark spot without discernible internal detail."
             },
             {
                 "checkpoint": "A large circular subtympanic shield (scale) is present below the tympanum.",
                 "category": "Head_and_Face",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The side of the head is visible, but the specific anatomical feature of the subtympanic shield is not resolved. The texture in that area is generic scaly noise rather than a distinct large circular plate."
+                "reasoning": "The resolution is too low to distinguish specific scale patterns like the subtympanic shield. The jawline is visible but lacks fine textural definition."
             },
             {
                 "checkpoint": "Body is robust.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body appears thick and substantial, consistent with a mature iguana."
+                "reasoning": "The torso appears thick and substantial, consistent with a robust body structure, despite the prone posture."
             },
             {
                 "checkpoint": "Coloration is bright green in juveniles, becoming darker green to greyish-green in adults with broad black bands on the body and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The coloration is predominantly greyish-brown/tan, lacking the characteristic 'greyish-green' hue or distinct 'broad black bands' described for adults. It looks more like a desaturated or incorrect color palette."
+                "reasoning": "The iguana is distinctly pale yellow/cream/white, not green or greyish-green. This indicates a color morph (albino/leucistic) rather than the standard wild-type coloration described in the checkpoint."
             },
             {
                 "checkpoint": "Row of enlarged, spine-like scales running from the nape along the midline of the back to the tail base, forming a serrated crest.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal crest is clearly visible and runs along the spine, appearing serrated and prominent."
+                "reasoning": "A distinct row of spines is clearly visible running down the center of the back and continuing onto the tail, matching the description of a serrated crest."
             },
             {
                 "checkpoint": "Skin is covered in small, granular scales with larger, plate-like scales on the head.",
                 "category": "Body_and_Plumage",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The skin texture appears somewhat uniform and 'mushy' rather than distinct granular scales. The transition to plate-like scales on the head is not sharp or well-defined."
+                "reasoning": "While general scaly texture is apparent, the distinction between 'small granular' body scales and 'larger plate-like' head scales cannot be verified at this resolution."
             },
             {
                 "checkpoint": "Limbs are long and muscular with five clawed digits on each foot.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The limbs are partially obscured by grass and shadow. Where visible, the digits are not clearly defined as 'five clawed digits'; they appear fused or blurry."
+                "reasoning": "The limbs are tucked close to the body or obscured by grass/shadows. Digits and claws are not clearly visible for counting or structural verification."
             },
             {
                 "checkpoint": "Tail is laterally compressed and longer than body, used for balance and defense.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail is long and extends behind the body. While lateral compression is hard to judge from a top-down view, the length proportion is correct."
+                "reasoning": "The tail is clearly visible, extends significantly beyond the body length, and exhibits the characteristic tapering and slight lateral compression typical of iguanas."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "entire body surface",
+                "location": "Grass surrounding the iguana's belly",
                 "severity": 2,
-                "reasoning": "The scale texture lacks the crisp, individual definition of real reptile skin. It has a slightly painted or smoothed appearance, especially on the flanks."
+                "reasoning": "The interface between the iguana's lower body and the grass shows slight blending/melting. Individual grass blades near the contact point lack sharp occlusion boundaries, appearing slightly smeared into the subject's outline."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "head and neck junction",
-                "severity": 2,
-                "reasoning": "The connection between the head and the body/neck lacks clear anatomical definition. The dewlap area merges unnaturally with the chest."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "limbs and feet",
+                "location": "Front right limb area",
                 "severity": 3,
-                "reasoning": "The feet appear to sink into the grass without clear contact points or toe separation, suggesting a lack of precise geometric grounding."
+                "reasoning": "The front right limb appears anatomically ambiguous; it seems to merge with the chest/grass without a clear joint structure or distinct digit separation, suggesting potential generative confusion in limb placement."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "iguana",
-                "verification_goals": [
-                    "Confirm species identity as Iguana iguana vs other lizard species",
-                    "Verify if coloration matches adult common iguana phenotypes"
-                ],
-                "reason": "Crucial to verify if the grey/brown coloration is a valid morph or an AI error, and to confirm species despite anatomical ambiguities.",
-                "weight": 0.35
-            },
-            {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "iguana",
                 "verification_goals": [
-                    "Locate iguana bounding box to separate subject from complex grass background",
-                    "Identify limb regions for targeted quality audit"
+                    "Locate the iguana and provide bounding box priors for segmentation",
+                    "Verify presence of distinct limbs despite occlusion"
                 ],
-                "reason": "Required precursor to provide spatial priors for topology auditing and to isolate the subject from the occluding grass.",
+                "reason": "Essential bridge expert to define the subject's location before boundary auditing, especially given the noted blending with grass. Provides BBox priors required for topology_boundary_auditor.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "iguana",
+                "verification_goals": [
+                    "Verify clean segmentation boundary between iguana belly and grass using detector priors",
+                    "Check for continuity of the dorsal crest spines",
+                    "Audit limb integrity and separation from body/grass"
+                ],
+                "reason": "To address the observed texture anomaly at the belly-grass interface and potential structural collapse of the front limb. Segmentation will reveal if the subject is a coherent physical entity.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "iguana",
+                "verification_goals": [
+                    "Confirm species identity as Iguana iguana based on morphology (crest, head shape, body proportions)",
+                    "Verify taxonomic classification despite non-standard coloration"
+                ],
+                "reason": "The subject deviates significantly from standard green/grey taxonomy. Classifier needed to confirm it is indeed a common iguana based on structural features, not color.",
                 "weight": 0.25
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "iguana limbs and skin",
+                "target_subject": "entire image",
                 "verification_goals": [
-                    "Analyze scale granularity vs AI smoothing",
-                    "Verify if limb termination points are structurally plausible or exhibit melting artifacts",
-                    "Detect texture inconsistencies in head vs body"
+                    "Assess overall sharpness and noise levels",
+                    "Evaluate lighting consistency between subject and environment",
+                    "Check for subtle generation artifacts in scale texture and color morph validity"
                 ],
-                "reason": "Replaces animal_pose_auditor for reptiles; specifically tasked with checking digit structure and texture fidelity where pose models fail.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "iguana outline",
-                "verification_goals": [
-                    "Verify separation of dewlap from chest using detection priors",
-                    "Check continuity of dorsal crest",
-                    "Audit boundary between feet and grass"
-                ],
-                "reason": "To resolve ambiguity regarding dewlap visibility and foot-ground interaction, now supported by OVD priors.",
-                "weight": 0.2
+                "reason": "Holistic quality assessment for low-resolution details that prevented verification of eyes/scales. Also evaluates if pale coloration is visually consistent or indicative of artifact.",
+                "weight": 0.25
             }
         ],
-        "unverifiable_points": [],
-        "focus_areas": [
-            "Head anatomy (dewlap, subtympanic shield)",
-            "Scale texture fidelity",
-            "Limb digit definition and grounding",
-            "Coloration accuracy"
+        "unverifiable_points": [
+            "Eye pupil shape and iris color (resolution limit)",
+            "Subtympanic shield presence (resolution limit)",
+            "Specific scale type differentiation (granular vs plate-like)",
+            "Limb digit count and claw visibility (occlusion)"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the head region. Does the AI fail to render the subtympanic shield and dewlap correctly? Is the grey coloration a hallucination or a valid variant? Check if the feet are melting into the grass. Note: Do not use pose estimation; rely on perceptual quality and boundary analysis for limb verification.",
+        "focus_areas": [
+            "Color morph validation (visual consistency vs AI error)",
+            "Limb anatomy and fusion detection via segmentation",
+            "Boundary sharpness at subject-ground contact points",
+            "Dorsal crest continuity and structure",
+            "Species confirmation via morphological features"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on verifying if the pale coloration is biologically plausible through visual consistency checks rather than taxonomic classification. Pay special attention to the front limb region for signs of fusion or missing anatomy using segmentation masks. Evaluate whether the lack of visible digits is due to pose/occlusion or genuine structural omission. Confirm species identity based solely on structural morphology (crest, head shape, body proportions) ignoring color deviation.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000028.png",
             "class_id": 39,
             "class_label": "common iguana, iguana, Iguana iguana",
-            "router_cost_seconds": 31.86,
+            "router_cost_seconds": 33.82,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
-        }
+        },
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "iguana",
+                "reason": "Essential bridge expert to define the subject's location before boundary auditing, especially given the noted blending with grass. Provides BBox priors required for topology_boundary_auditor.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "iguana",
+                "reason": "To address the observed texture anomaly at the belly-grass interface and potential structural collapse of the front limb. Segmentation will reveal if the subject is a coherent physical entity.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "iguana",
+                "reason": "The subject deviates significantly from standard green/grey taxonomy. Classifier needed to confirm it is indeed a common iguana based on structural features, not color.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality assessment for low-resolution details that prevented verification of eyes/scales. Also evaluates if pale coloration is visually consistent or indicative of artifact.",
+                "weight": 0.25
+            }
+        ]
     }
 }

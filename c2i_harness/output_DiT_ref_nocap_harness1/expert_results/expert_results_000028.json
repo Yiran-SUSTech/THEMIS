@@ -6,21 +6,127 @@
     "class_id": 39,
     "class_label": "common iguana, iguana, Iguana iguana",
     "plan_reference": "approved_plan_000028",
-    "execution_timestamp": "2026-08-18 23:52:50",
+    "execution_timestamp": "2026-08-19 17:59:47",
     "focus_areas": [
-        "Head anatomy (dewlap, subtympanic shield)",
-        "Scale texture fidelity",
-        "Limb digit definition and grounding",
-        "Coloration accuracy"
+        "Color morph validation (visual consistency vs AI error)",
+        "Limb anatomy and fusion detection via segmentation",
+        "Boundary sharpness at subject-ground contact points",
+        "Dorsal crest continuity and structure",
+        "Species confirmation via morphological features"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the head region. Does the AI fail to render the subtympanic shield and dewlap correctly? Is the grey coloration a hallucination or a valid variant? Check if the feet are melting into the grass. Note: Do not use pose estimation; rely on perceptual quality and boundary analysis for limb verification.",
-    "image_description": "A large, greyish-brown iguana is lying flat on a patch of green grass in an outdoor enclosure. The background features rocky terrain and tree trunks. The iguana is positioned horizontally, displaying its dorsal crest and long tail.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on verifying if the pale coloration is biologically plausible through visual consistency checks rather than taxonomic classification. Pay special attention to the front limb region for signs of fusion or missing anatomy using segmentation masks. Evaluate whether the lack of visible digits is due to pose/occlusion or genuine structural omission. Confirm species identity based solely on structural morphology (crest, head shape, body proportions) ignoring color deviation.",
+    "image_description": "A pale, cream-colored iguana (likely an albino or leucistic morph) is lying prone on a patch of green grass. The background features a rocky wall and tree trunks with dappled sunlight. The iguana's body is oriented horizontally, head to the right, tail extending left. The lighting creates strong shadows across the scene.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "iguana",
+            "weight": 0.25,
+            "reason": "Essential bridge expert to define the subject's location before boundary auditing, especially given the noted blending with grass. Provides BBox priors required for topology_boundary_auditor.",
+            "status": "success",
+            "execution_time_ms": 13894.58,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "iguana",
+                        "confidence_score": 0.368,
+                        "bounding_box": [
+                            0,
+                            116,
+                            216,
+                            167
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "iguana",
+            "weight": 0.25,
+            "reason": "The subject deviates significantly from standard green/grey taxonomy. Classifier needed to confirm it is indeed a common iguana based on structural features, not color.",
+            "status": "success",
+            "execution_time_ms": 131.89,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 975,
+                        "label_name": "lakeside, lakeshore",
+                        "logit_score": 5.35
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 649,
+                        "label_name": "megalith, megalithic structure",
+                        "logit_score": 4.19
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 979,
+                        "label_name": "valley, vale",
+                        "logit_score": 3.82
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "iguana",
+            "weight": 0.25,
+            "reason": "To address the observed texture anomaly at the belly-grass interface and potential structural collapse of the front limb. Segmentation will reveal if the subject is a coherent physical entity.",
+            "status": "success",
+            "execution_time_ms": 798.29,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000028_mask.png",
+                "mask_confidence_score": 0.9814,
+                "prompt_point_used": [
+                    108,
+                    141
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.25,
+            "reason": "Holistic quality assessment for low-resolution details that prevented verification of eyes/scales. Also evaluates if pale coloration is visually consistent or indicative of artifact.",
+            "status": "success",
+            "execution_time_ms": 12305.6,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, indicating that there is no significant noise, compression, blur, or darken. The colors are natural, and the details of the iguana and grass are visible without any noticeable artifacts or pixelation.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 14.56,
+        "total_execution_time_ms": 26212.77,
         "failed_expert_ids": []
     }
 }

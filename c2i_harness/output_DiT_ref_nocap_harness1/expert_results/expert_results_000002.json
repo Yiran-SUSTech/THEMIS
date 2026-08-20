@@ -6,25 +6,79 @@
     "class_id": 4,
     "class_label": "hammerhead, hammerhead shark",
     "plan_reference": "approved_plan_000002",
-    "execution_timestamp": "2026-08-18 23:51:00",
+    "execution_timestamp": "2026-08-19 17:58:47",
     "focus_areas": [
-        "Cephalofoil geometry and symmetry",
-        "Fin-to-body connectivity",
-        "Eye placement accuracy",
-        "Underwater lighting consistency"
+        "Cephalofoil connection point to the body (topology)",
+        "Volumetric depth of the hammer-head (geometry)",
+        "Texture consistency of skin vs background (perceptual quality)",
+        "Bounding box precision for anatomical segmentation (detection)"
     ],
-    "custom_prompts_for_reflector": "Pay close attention to the connection point where the wide head meets the narrow body. In AI images, this junction sometimes lacks anatomical continuity or looks 'pinched' unnaturally. Also verify that the eyes are truly at the tips and not just painted on the top surface.",
-    "image_description": "An underwater photograph showing a hammerhead shark swimming over a sandy seabed. The shark is viewed from a high-angle, rear-three-quarter perspective, clearly displaying its distinctive T-shaped head (cephalofoil), tall dorsal fin, and pectoral fins. The water is somewhat murky with a greenish-blue tint.",
+    "custom_prompts_for_reflector": "Focus heavily on the junction where the wide head meets the narrow body. In AI generations, this area often lacks proper anatomical blending or looks like two separate objects pasted together. Also, verify that the 'hammer' has actual thickness/depth and isn't just a flat paddle. Specifically check the skin texture: does it look like 'smooth plastic' (AI artifact) or naturally obscured by water? Use the detector's bounding box to ensure the topology auditor isn't hallucinating boundaries in the murky water.",
+    "image_description": "An underwater photograph showing a hammerhead shark swimming over a sandy seabed. The shark is viewed from a high angle, displaying its characteristic T-shaped head (cephalofoil), tall dorsal fin, and pectoral fins. The water is somewhat murky with a greenish-blue tint.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "hammerhead shark",
+            "weight": 0.25,
+            "reason": "Essential prerequisite for topology auditing. Provides spatial coordinates to ensure the topology_boundary_auditor analyzes the correct instance and can detect floating parts or fusion artifacts relative to the body.",
+            "status": "success",
+            "execution_time_ms": 15861.67,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "hammerhead shark",
+                        "confidence_score": 0.8903,
+                        "bounding_box": [
+                            4,
+                            12,
+                            217,
+                            202
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "hammerhead shark",
+            "weight": 0.25,
+            "reason": "AI often renders the hammerhead 'T' shape as a flat texture. Depth auditing confirms volumetric correctness and prevents 'cardboard cutout' generations.",
+            "status": "success",
+            "execution_time_ms": 99.55,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000002_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 16.4457,
+                    "mean_value": 6.1666,
+                    "std_deviation": 4.2631
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "hammerhead shark",
-            "weight": 0.35,
-            "reason": "Primary verification to ensure the generated image matches the specific taxonomic label provided.",
+            "weight": 0.1,
+            "reason": "Secondary verification to ensure taxonomic correctness after structural integrity is confirmed by other experts.",
             "status": "success",
-            "execution_time_ms": 427.78,
+            "execution_time_ms": 216.69,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -52,45 +106,20 @@
             "traceback": null
         },
         {
-            "expert_id": "geometric_depth_auditor",
-            "internal_expert_id": "monocular_depth_estimator",
-            "model_name": "Depth_Anything_V1_FP16_MACA",
-            "target_subject": "hammerhead shark",
-            "weight": 0.2,
-            "reason": "Confirms the subject exists in a coherent 3D space and isn't a flat texture map pasted on a background.",
-            "status": "success",
-            "execution_time_ms": 469.84,
-            "evidence": {
-                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000002_depth.png",
-                "depth_statistics": {
-                    "min_value": 0.0,
-                    "max_value": 16.4457,
-                    "mean_value": 6.1666,
-                    "std_deviation": 4.2631
-                }
-            },
-            "raw_metrics": {
-                "input_resolution": "518x518",
-                "output_resolution": "256x256"
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "hammerhead shark",
             "weight": 0.25,
-            "reason": "AI generators often struggle with the complex geometry of the hammerhead's head and fin connections; segmentation ensures structural integrity.",
+            "reason": "Hammerhead heads are complex shapes prone to AI topology errors. With detector priors, this audit ensures structural integrity and valid connectivity of the 'T' shape.",
             "status": "success",
-            "execution_time_ms": 607.84,
+            "execution_time_ms": 1003.48,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000002_mask.png",
-                "mask_confidence_score": 0.9792,
+                "mask_confidence_score": 0.9815,
                 "prompt_point_used": [
-                    128,
-                    128
+                    110,
+                    107
                 ]
             },
             "raw_metrics": {},
@@ -101,11 +130,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "hammerhead shark",
-            "weight": 0.2,
-            "reason": "To distinguish between natural environmental degradation (murky water) and AI generation artifacts.",
+            "target_subject": "hammerhead shark skin and seabed",
+            "weight": 0.15,
+            "reason": "Addresses Judge feedback on 'unverifiable' points. The VLM can detect subtle texture anomalies (lack of micro-detail) that indicate generative smoothing even when resolution is low.",
             "status": "success",
-            "execution_time_ms": 7070.07,
+            "execution_time_ms": 22753.04,
             "evidence": {
                 "thinking_trajectory": "The image appears to be taken underwater, which naturally introduces some level of noise and blur due to the water's interference with light. The image seems slightly pixelated, but there are no clear signs of compression, darkening, or significant blur. The image quality is not perfect, but it is clear enough to identify the subject.",
                 "distortion_class": "noise",
@@ -118,10 +147,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 7083.05,
+        "total_execution_time_ms": 39628.92,
         "failed_expert_ids": []
     }
 }

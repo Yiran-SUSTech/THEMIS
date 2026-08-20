@@ -6,22 +6,136 @@
     "class_id": 144,
     "class_label": "pelican",
     "plan_reference": "approved_plan_000083",
-    "execution_timestamp": "2026-08-18 23:55:15",
+    "execution_timestamp": "2026-08-19 18:03:14",
     "focus_areas": [
-        "Bill morphology and pouch definition",
-        "Feather boundary sharpness against background",
-        "Anatomical correctness of leg-webbing (if visible)",
-        "Water texture naturalness",
-        "Foot-sand interface for melting artifacts"
+        "Feather edge definition and separation between black and white plumage.",
+        "Leg and foot anatomy clarity, specifically webbing visibility and joint articulation.",
+        "Spatial separation between overlapping birds in the flock.",
+        "Bill color uniformity and gradient consistency."
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the pelicans' feet and the sand to detect any 'melting' effects common in AI generations. Additionally, scrutinize the black flight feathers for texture consistency—AI often struggles to render distinct feather vanes in high-contrast dark areas. Pay special attention to whether the open_vocabulary_detector successfully isolates each bird before topology auditing proceeds.",
-    "image_description": "A group of Australian Pelicans standing on a sandy beach near the water's edge. The birds display characteristic white plumage with black flight feathers and long, pale pinkish bills with prominent gular pouches. One pelican stands centrally facing left, while others are positioned in the foreground and background.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on the interface between the black flight feathers and white body plumage; AI often blurs this transition. Scrutinize the feet of the background birds—are they distinct digits or melted stumps? Verify if the bill color is uniformly pink or if there are unnatural gradients. Use the open vocabulary detector results to ensure the topology auditor segments each bird individually without merging them.",
+    "image_description": "A group of Australian Pelicans standing on a sandy shore next to blue water. The birds feature white plumage with black flight feathers, long pinkish bills with prominent gular pouches, and short legs. One pelican stands centrally facing left, while others are positioned in the foreground and background.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "pelican flock",
+            "weight": 0.3,
+            "reason": "Primary Bridge expert required to provide precise region proposals for the topology auditor, preventing fusion errors in the multi-object flock.",
+            "status": "success",
+            "execution_time_ms": 16050.01,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "flock",
+                        "confidence_score": 0.3594,
+                        "bounding_box": [
+                            0,
+                            68,
+                            255,
+                            248
+                        ]
+                    },
+                    {
+                        "matched_query_token": "pelican flock",
+                        "confidence_score": 0.3385,
+                        "bounding_box": [
+                            0,
+                            77,
+                            92,
+                            250
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 2
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "pelican",
+            "weight": 0.25,
+            "reason": "Verifies species authenticity and specifically audits the bill color consistency mentioned in the custom prompt.",
+            "status": "success",
+            "execution_time_ms": 187.42,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 144,
+                        "label_name": "pelican",
+                        "logit_score": 7.35
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 975,
+                        "label_name": "lakeside, lakeshore",
+                        "logit_score": 3.54
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 978,
+                        "label_name": "seashore, coast, seacoast, sea-coast",
+                        "logit_score": 3.46
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "pelican flock",
+            "weight": 0.2,
+            "reason": "Addresses observed texture anomalies and potential merging of subjects; relies on OVD for accurate instance separation.",
+            "status": "success",
+            "execution_time_ms": 1160.87,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000083_mask.png",
+                "mask_confidence_score": 0.9218,
+                "prompt_point_used": [
+                    127,
+                    158
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.25,
+            "reason": "Replaces animal_pose_auditor for avian anatomy checks; provides holistic quality assessment of structural collapse and texture issues.",
+            "status": "success",
+            "execution_time_ms": 9359.69,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The colors are vibrant, and the details in the pelicans and the background are sharp. The image seems to have been taken in good lighting conditions, which enhances the clarity.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 4.86,
+        "total_execution_time_ms": 25419.21,
         "failed_expert_ids": []
     }
 }

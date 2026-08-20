@@ -2,30 +2,33 @@
     "image_id": "000014",
     "class_label": "brambling, Fringilla montifringilla",
     "iteration": 1,
-    "timestamp": "2026-08-18 23:50:53",
+    "timestamp": "2026-08-19 17:56:57",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and checkpoint verification. The Router identified that the bird lacks 'breeding male' traits (black head, bright orange breast) and correctly classified it as female/non-breeding based on visual evidence (brownish-grey, buff-orange). However, it selected the `fine_grained_classifier` to verify the species as 'brambling'. Standard fine-grained classifiers are typically trained on dominant/male specimens or general class labels and may flag the duller female plumage as a mismatch or confuse it with similar species (e.g., female Chaffinch) if not explicitly prompted for sex-specific variants. More importantly, the plan fails to utilize the `open_vocabulary_detector` to specifically localize and verify the *absence* of male markers or the *presence* of specific female markers (like the pale supercilium) which distinguishes it from other finches. The `animal_pose_auditor` is also risky for small passerines where toe resolution is low; relying on it without a prior segmentation step from `open_vocabulary_detector` or `topology_boundary_auditor` to isolate the feet may lead to false negatives due to background clutter.",
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection and checkpoint verification. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless' but implies a focus on standard 17-point skeletal mapping which is often optimized for mammals/humans or specific large animals; applying it to a small passerine's fine toe anatomy (anisodactyl grip) is risky without explicit confirmation of avian capability. More importantly, the plan fails to address the visual evidence of potential artifacts: the bird's feet appear to merge with the branch (lack of distinct shadow/contact point), and the background bokeh shows structural inconsistencies (branch discontinuity). The `topology_boundary_auditor` is selected, but the `geometric_depth_auditor` is missing, which is crucial for verifying if the bird is physically sitting *on* the branch or floating/bleeding into it. Additionally, the `fine_grained_classifier` weight is high, but the image strongly resembles a Chaffinch (*Fringilla coelebs*) female rather than a Brambling, requiring rigorous taxonomic differentiation that a simple classifier might miss without specific comparative prompting.",
         "suggestions": [
             {
+                "type": "missing_expert",
+                "point": "Geometric grounding of feet on branch",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The bird's feet appear to lack clear contact shadows and may be bleeding into the branch. A depth map is needed to verify physical separation and grounding."
+            },
+            {
+                "type": "refinement",
+                "point": "Taxonomic differentiation",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "Ensure the classifier is specifically prompted to distinguish between *Fringilla montifringilla* (Brambling) and *Fringilla coelebs* (Chaffinch), as they are visually similar and the image lacks definitive Brambling markers (e.g., pure white rump is not visible, wing bars are ambiguous)."
+            },
+            {
                 "type": "missing_verification",
-                "point": "Verification of sex-specific plumage markers (female vs. male)",
-                "recommended_expert": "open_vocabulary_detector"
-            },
-            {
-                "type": "expert_selection_error",
-                "point": "Fine-grained classifier may fail on non-breeding/female plumage if not robust to intra-class variance",
-                "recommended_expert": "perceptual_quality_auditor"
-            },
-            {
-                "type": "missing_step",
-                "point": "Lack of segmentation prior for pose auditing on small limbs",
-                "recommended_expert": "topology_boundary_auditor"
+                "point": "Background structural integrity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The background branches show breaks and illogical connections behind the bird. The auditor should specifically check for 'background melting' or inconsistent depth ordering in the vegetation."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A small passerine bird, identified as a brambling (Fringilla montifringilla), is perched on a thin, light-colored branch. The bird displays non-breeding or female plumage characteristics: brownish-grey upperparts, a buff-orange breast and underparts, and a pale head with dark streaking. It has a short, conical bill that appears greyish-yellow with a dark tip. The background is a soft-focus blur of green and brown vegetation.",
+        "image_description": "A small passerine bird, identified as a brambling (Fringilla montifringilla), is perched on a thin, light-colored branch. The bird displays non-breeding or female plumage characteristics: brownish-grey upperparts, a buff-orange breast and underparts, and a pale supercilium. It has a short, conical bill that appears greyish with a dark tip. The background is a soft-focus blur of green and brown vegetation.",
         "image_class": "brambling",
         "checkpoint_verdicts": [
             {
@@ -33,49 +36,49 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bill is clearly visible, short, and conical. The coloration is greyish-yellow with a dark tip, consistent with a non-breeding male or female in winter plumage."
+                "reasoning": "The bill is clearly visible, short, and conical. The coloration is greyish with a darker tip, consistent with winter/non-breeding plumage."
             },
             {
                 "checkpoint": "Eyes are dark and round, positioned laterally.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The eye is clearly visible, dark, round, and positioned on the side of the head as expected for a passerine."
+                "reasoning": "The eye is visible, dark, round, and positioned on the side of the head as expected for a passerine."
             },
             {
                 "checkpoint": "Breeding male has a black head and throat.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bird in the image does not have a black head and throat; it has a pale, streaked head. This indicates it is likely a female or non-breeding male, so this specific breeding male trait is absent."
+                "reasoning": "The bird in the image does not have a black head and throat; it exhibits the brownish/grey head pattern of a female or non-breeding male. This is a valid biological state, not an error, but strictly speaking, the 'breeding male' feature is absent."
             },
             {
                 "checkpoint": "Body is compact and rounded.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bird's body shape is visibly compact and rounded, typical of finches."
+                "reasoning": "The bird's silhouette is compact and rounded, typical of finches."
             },
             {
                 "checkpoint": "Breeding male has bright orange-rufous breast and underparts with black upperparts and bold white shoulder patches and rump.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The plumage shown is duller brownish-grey with buff-orange underparts, not the high-contrast black and bright orange of a breeding male."
+                "reasoning": "The bird lacks the high-contrast black/orange/white breeding male plumage. It shows duller brownish-grey upperparts and buff-orange underparts."
             },
             {
                 "checkpoint": "Female and non-breeding male exhibit duller brownish-grey upperparts with buff-orange underparts.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible plumage matches this description perfectly: brownish-grey back/wings and buff-orange breast/belly."
+                "reasoning": "The plumage colors match this description perfectly: brownish-grey back/wings and buff-orange chest/belly."
             },
             {
                 "checkpoint": "Plumage texture is soft and slightly fluffy with a matte finish.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The feather texture appears soft and natural with a matte finish, lacking artificial shine or plastic-like smoothing."
+                "reasoning": "The feather texture appears soft and natural, lacking the plastic sheen often seen in AI generations."
             },
             {
                 "checkpoint": "Wings are moderately long with pointed primaries.",
@@ -89,14 +92,14 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The bird is perched, not in flight. While white wing bars are partially visible on the folded wing, the 'flight display' aspect and outer tail feathers cannot be fully verified in this static pose."
+                "reasoning": "The bird is perched, not in flight. While white wing bars are partially visible on the folded wing, the 'flight display' and 'outer tail feathers' cannot be fully verified in this static pose."
             },
             {
                 "checkpoint": "Legs are pinkish-brown with slender toes and small claws adapted for perching.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The legs gripping the branch are visible, appearing pinkish-brown with slender toes wrapping around the perch."
+                "reasoning": "The legs and feet are visible gripping the branch. They appear pinkish-brown and structurally correct with distinct toes."
             }
         ],
         "artifact_observations": [],
@@ -106,39 +109,39 @@
                 "target_subject": "brambling",
                 "verification_goals": [
                     "Confirm species identity as Fringilla montifringilla",
-                    "Distinguish from similar finch species (e.g., chaffinch)"
+                    "Verify plumage matches female/non-breeding male phenotype"
                 ],
-                "reason": "Primary verification to ensure the generated image represents the correct taxonomic class label given the subtle differences between finch species.",
+                "reason": "Primary verification to ensure the generated image is taxonomically accurate and not a hallucinated hybrid or wrong finch species.",
                 "weight": 0.4
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "brambling",
                 "verification_goals": [
-                    "Verify limb connectivity and toe structure on branch",
-                    "Check for anatomical correctness of wing folding"
+                    "Verify leg/toe anatomy and grip on branch",
+                    "Check wing structure and primary feather alignment"
                 ],
-                "reason": "To ensure the perching posture and limb anatomy are biologically valid and not distorted by AI generation.",
+                "reason": "Bird feet and wing folds are common failure points in AI generation; need to verify biological correctness of the perch grip.",
                 "weight": 0.3
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "brambling",
-                "verification_goals": [
-                    "Audit feather texture for melting or smearing",
-                    "Check edge definition between bird and background"
-                ],
-                "reason": "To detect subtle texture anomalies or boundary bleeding common in AI-generated birds.",
-                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "brambling",
                 "verification_goals": [
-                    "Verify continuity of body outline",
-                    "Check for floating feathers or disconnected parts"
+                    "Audit boundary sharpness between bird feathers and background",
+                    "Verify continuity of wing and tail feathers"
                 ],
-                "reason": "To ensure the bird is a single coherent entity without topological errors.",
+                "reason": "To detect subtle edge bleeding or melting where the complex feather edges meet the bokeh background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "brambling",
+                "verification_goals": [
+                    "Assess feather texture realism and matte finish",
+                    "Check for unnatural smoothing or noise patterns"
+                ],
+                "reason": "Holistic quality check to ensure the 'soft and fluffy' texture requirement is met without AI artifacts.",
                 "weight": 0.1
             }
         ],
@@ -146,41 +149,41 @@
             "Flight displays distinctive white wing bars and white outer tail feathers"
         ],
         "focus_areas": [
-            "Species identification accuracy",
-            "Feather texture realism",
-            "Limb-to-branch interaction"
+            "Feet and toe interaction with the branch",
+            "Feather edge definition against the blurred background",
+            "Bill shape and coloration accuracy"
         ],
-        "custom_prompts_for_reflector": "Verify if the plumage pattern specifically matches a non-breeding brambling versus a female chaffinch, as these are often confused. Check closely for any fusion between the toes and the branch surface.",
+        "custom_prompts_for_reflector": "Please verify if the bird's feet show the correct number of toes (anisodactyl arrangement: three forward, one back) and if the grip on the branch looks physically plausible. Also, confirm that the transition from the sharp focus of the bird to the bokeh background is natural and not indicative of segmentation errors.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000014.png",
             "class_id": 10,
             "class_label": "brambling, Fringilla montifringilla",
-            "router_cost_seconds": 29.91,
+            "router_cost_seconds": 32.42,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "brambling",
-                "reason": "Primary verification to ensure the generated image represents the correct taxonomic class label given the subtle differences between finch species.",
+                "reason": "Primary verification to ensure the generated image is taxonomically accurate and not a hallucinated hybrid or wrong finch species.",
                 "weight": 0.4
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "brambling",
-                "reason": "To ensure the perching posture and limb anatomy are biologically valid and not distorted by AI generation.",
+                "reason": "Bird feet and wing folds are common failure points in AI generation; need to verify biological correctness of the perch grip.",
                 "weight": 0.3
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "brambling",
-                "reason": "To detect subtle texture anomalies or boundary bleeding common in AI-generated birds.",
-                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "brambling",
-                "reason": "To ensure the bird is a single coherent entity without topological errors.",
+                "reason": "To detect subtle edge bleeding or melting where the complex feather edges meet the bokeh background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "brambling",
+                "reason": "Holistic quality check to ensure the 'soft and fluffy' texture requirement is met without AI artifacts.",
                 "weight": 0.1
             }
         ]

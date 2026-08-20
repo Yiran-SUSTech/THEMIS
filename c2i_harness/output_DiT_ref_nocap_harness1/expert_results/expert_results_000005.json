@@ -6,21 +6,126 @@
     "class_id": 7,
     "class_label": "cock",
     "plan_reference": "approved_plan_000005",
-    "execution_timestamp": "2026-08-18 23:51:43",
+    "execution_timestamp": "2026-08-19 17:58:47",
     "focus_areas": [
-        "Leg and foot anatomy (spur visibility)",
-        "Feather texture realism (iridescence)",
-        "Background fence geometry",
-        "Subject-background separation"
+        "Wire fence geometry consistency",
+        "Foot-to-ground interaction realism",
+        "Leg thickness and spur visibility via detection",
+        "Comb and wattle structural integrity"
     ],
-    "custom_prompts_for_reflector": "Please verify if the lack of a visible spur is due to image quality or a generation error. Also, check if the iridescence on the neck looks like natural light reflection or a texture map artifact. Ensure the topology auditor uses the OVD output to correctly segment the rooster against the wire mesh.",
-    "image_description": "A rooster (cock) standing in a grassy area with a wire mesh fence and reddish foliage in the background. The bird has brown body plumage, iridescent green/black neck feathers, a red comb and wattle, and yellow legs.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Please pay close attention to the background fence pattern; AI often struggles with repeating geometric grids like chain-link. Scrutinize the rooster's legs—specifically use the detector to check if the calcified spur is genuinely missing or just low-resolution. Check if the feet blend too smoothly into the grass (grounding artifact). Verify the comb and wattle have realistic fleshy textures and are not melted into the head.",
+    "image_description": "A rooster (cock) standing in a grassy area with a wire mesh fence and reddish foliage in the background. The bird has brown body plumage, iridescent green/black neck feathers, and a bright red comb and wattle. It is facing slightly away from the camera, showing its profile and back.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "cock_legs_and_feet",
+            "weight": 0.25,
+            "reason": "Required precursor for topology auditing; helps resolve the 'unverifiable' status of the spur by confirming if the anatomical region is present but low-res, or missing entirely.",
+            "status": "success",
+            "execution_time_ms": 15679.39,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "cock_legs_and_feet",
+                        "confidence_score": 0.4241,
+                        "bounding_box": [
+                            80,
+                            61,
+                            179,
+                            247
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "cock",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the image depicts the correct class label at a taxonomical level.",
+            "status": "success",
+            "execution_time_ms": 143.93,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 7,
+                        "label_name": "cock",
+                        "logit_score": 7.04
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 8,
+                        "label_name": "hen",
+                        "logit_score": 5.42
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 86,
+                        "label_name": "partridge",
+                        "logit_score": 4.59
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "cock_feet",
+            "weight": 0.2,
+            "reason": "To resolve ambiguity regarding foot structure and the observed blur/grounding issues at the contact point.",
+            "status": "success",
+            "execution_time_ms": 788.29,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000005_mask.png",
+                "mask_confidence_score": 0.9857,
+                "prompt_point_used": [
+                    129,
+                    154
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "cock_head_and_background",
+            "weight": 0.25,
+            "reason": "Covers the specific anatomical checkpoints (comb/wattle) that FGC cannot verify, and audits the background texture anomalies identified in Step 2.",
+            "status": "success",
+            "execution_time_ms": 20984.25,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-defined, but there are no obvious signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the chicken and the fence are sharp. There's a slight green tint that could suggest a minor color balance issue, but overall, the image seems to have been taken with good quality.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 11.91,
+        "total_execution_time_ms": 38176.8,
         "failed_expert_ids": []
     }
 }

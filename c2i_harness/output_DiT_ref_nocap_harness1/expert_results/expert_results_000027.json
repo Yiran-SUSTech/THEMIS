@@ -6,21 +6,140 @@
     "class_id": 39,
     "class_label": "common iguana, iguana, Iguana iguana",
     "plan_reference": "approved_plan_000027",
-    "execution_timestamp": "2026-08-18 23:52:53",
+    "execution_timestamp": "2026-08-19 17:59:44",
     "focus_areas": [
-        "Eye iris color accuracy (Teal vs Golden)",
-        "Skin texture saturation and pattern regularity",
-        "Dorsal crest spine continuity",
-        "Subtympanic shield structural integrity"
+        "Eye iris color accuracy (Cyan vs Golden) - Taxonomic vs Artifact",
+        "Scale texture realism and banding patterns",
+        "Dorsal crest structural integrity",
+        "Limb-digit depth separation from branch (Melting detection)"
     ],
-    "custom_prompts_for_reflector": "Pay special attention to the eye color. Is the teal/cyan iris a valid variation for Iguana iguana or a definitive AI artifact? Also, evaluate if the green skin tone is biologically plausible or if it exhibits the 'uniform noise' pattern typical of diffusion models. Ensure the Open Vocabulary Detector's bounding boxes are used to guide the Perceptual Quality Auditor's analysis of the iris and skin texture.",
-    "image_description": "A close-up, high-angle shot of a green iguana perched on a branch. The image focuses heavily on the head and upper torso. The iguana has vibrant green skin with some greyish tones on the snout, a prominent dewlap, and a visible dorsal crest. The eye is strikingly bright teal/green. The background is blurred foliage and a fence.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Please pay special attention to the eye color. Common iguanas typically have golden or amber eyes; this image shows a bright cyan/teal eye. Use the fine_grained_classifier to determine if this indicates a different species or is an AI error. Also, use the geometric_depth_auditor to rigorously check the forelimb-branch interface for melting, as topology alone may miss depth-ordering failures. Evaluate the uniformity of the green scales—real iguanas usually have some banding or color variation.",
+    "image_description": "A close-up, side-profile view of a green iguana perched on a branch. The image focuses heavily on the head, neck, and upper torso. Visible features include the characteristic dorsal crest spines, a large subtympanic shield, a dewlap, and textured green scales. The eye is prominent with a vivid cyan/green iris. The background is blurred (bokeh), showing hints of foliage and a structure.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "iguana head and eye",
+            "weight": 0.3,
+            "reason": "Essential precursor step. Precise bounding boxes for the anomalous eye and shield are required for the Perceptual Auditor to measure color histograms accurately and for the Classifier to focus on diagnostic features. Weight increased as per Judge feedback.",
+            "status": "success",
+            "execution_time_ms": 14609.64,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "and",
+                        "confidence_score": 0.4707,
+                        "bounding_box": [
+                            69,
+                            29,
+                            255,
+                            255
+                        ]
+                    },
+                    {
+                        "matched_query_token": "iguana head and eye",
+                        "confidence_score": 0.3045,
+                        "bounding_box": [
+                            148,
+                            93,
+                            165,
+                            117
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 2
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "forelimb and branch",
+            "weight": 0.2,
+            "reason": "Replaces Topology Auditor for this specific task. Depth analysis is superior for detecting 'melting' where the limb merges into the branch, distinguishing it from simple boundary blur.",
+            "status": "success",
+            "execution_time_ms": 104.38,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000027_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 17.4531,
+                    "mean_value": 8.7552,
+                    "std_deviation": 6.5478
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "common iguana",
+            "weight": 0.3,
+            "reason": "Primary taxonomic verification. Must determine if the cyan eye represents a different species or a generation artifact, addressing the specific logical gap identified by the Judge.",
+            "status": "success",
+            "execution_time_ms": 212.61,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 39,
+                        "label_name": "common iguana, iguana, Iguana iguana",
+                        "logit_score": 7.31
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 47,
+                        "label_name": "African chameleon, Chamaeleo chamaeleon",
+                        "logit_score": 6.29
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 43,
+                        "label_name": "frilled lizard, Chlamydosaurus kingi",
+                        "logit_score": 4.43
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "common iguana",
+            "weight": 0.2,
+            "reason": "Holistic quality check focusing on the suspected color artifacts (cyan eye) and texture inconsistencies (plastic-looking skin), utilizing precise localization from OVD.",
+            "status": "success",
+            "execution_time_ms": 13281.86,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The focus on the iguana's face suggests that the image was taken with a high-resolution camera, and the colors are vibrant, indicating good quality.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 5.28,
+        "total_execution_time_ms": 27899.86,
         "failed_expert_ids": []
     }
 }

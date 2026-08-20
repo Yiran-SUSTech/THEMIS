@@ -2,35 +2,33 @@
     "image_id": "000027",
     "class_label": "common iguana, iguana, Iguana iguana",
     "iteration": 1,
-    "timestamp": "2026-08-18 23:52:12",
+    "timestamp": "2026-08-19 17:58:11",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and 'Expert Verification Plan'. The Router marked the 'Eye iris color' checkpoint as `is_present: false` due to the teal color, yet failed to assign any expert to definitively verify if this is an AI artifact or a biological anomaly. Furthermore, the plan relies on `fine_grained_classifier` to 'confirm presence of subtympanic shield', which is outside the scope of a classification model (which outputs class probabilities, not anatomical part detection). The `open_vocabulary_detector` is underutilized; it should be the primary tool to locate the eye and shield for subsequent auditing, rather than just providing 'priors'.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to utilize the most appropriate expert for the primary anomaly detected. Specifically: 1) The Router marked the 'Eye color' checkpoint as `is_present: false` due to color mismatch (Cyan vs Golden). However, it failed to assign the `fine_grained_classifier` (a ViT trained on ImageNet) to verify if this specific eye color corresponds to a valid biological variant or species misclassification, instead relegating it to the `perceptual_quality_auditor` which is less capable of taxonomic distinction. 2) The `open_vocabulary_detector` is assigned a low weight (0.15) and generic goals, despite being the necessary precursor to isolate the eye and scales for detailed auditing. 3) The plan misses the opportunity to use `geometric_depth_auditor` to verify the 'melting' artifact at the limb-branch interface, relying solely on topology which checks connectivity but not necessarily depth-ordering errors.",
         "suggestions": [
             {
-                "type": "logic_correction",
-                "point": "Re-evaluate the 'Eye iris color' checkpoint verdict. Instead of marking it 'false' immediately, mark it as 'requires_verification' and assign the Perceptual Quality Auditor to specifically analyze the spectral properties of the iris against known biological ranges.",
-                "recommended_expert": "perceptual_quality_auditor"
-            },
-            {
-                "type": "expert_capability_mismatch",
-                "point": "Remove 'Confirm presence of subtympanic shield' from the Fine Grained Classifier's goals. Classifiers cannot detect specific anatomical parts. Move this goal to the Open Vocabulary Detector (to locate) and Topology Boundary Auditor (to verify structure).",
-                "recommended_expert": "open_vocabulary_detector"
-            },
-            {
                 "type": "missing_verification",
-                "point": "The 'Skin texture saturation' artifact needs explicit verification. The current plan mentions it but lacks a specific goal for the Perceptual Quality Auditor to compare the texture frequency spectrum against real reptile skin datasets to rule out diffusion noise.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "point": "Taxonomic validation of eye color anomaly",
+                "recommended_expert": "fine_grained_classifier",
+                "detail": "The fine_grained_classifier should explicitly target the 'eye region' to determine if the cyan iris indicates a different species (e.g., a stylized render or different lizard) rather than just an artifact. Currently, it is only used for general species ID."
             },
             {
-                "type": "workflow_optimization",
-                "point": "The Open Vocabulary Detector should be weighted higher or placed first in the execution chain. Its bounding boxes for 'eye' and 'dewlap' are prerequisites for the Topology and Perceptual auditors to function correctly on those specific regions.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "expert_swap",
+                "point": "Depth verification of limb-branch fusion",
+                "recommended_expert": "geometric_depth_auditor",
+                "detail": "Replace or augment the topology_boundary_auditor's role in checking the 'forelimb/branch interface' with the geometric_depth_auditor. Topology checks if they are connected; Depth checks if the limb is physically *in front* of the branch or melting *into* it, which is the specific nature of the reported artifact."
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Increase priority of Open Vocabulary Detector",
+                "recommended_expert": "open_vocabulary_detector",
+                "detail": "Increase weight to >0.25. Precise bounding boxes for the 'eye' and 'subtympanic shield' are prerequisites for the Perceptual Auditor to accurately measure color histograms and texture frequencies. Without precise localization, the perceptual audit may sample background noise."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-angle shot of a green iguana perched on a branch. The image focuses heavily on the head and upper torso. The iguana has vibrant green skin with some greyish tones on the snout, a prominent dewlap, and a visible dorsal crest. The eye is strikingly bright teal/green. The background is blurred foliage and a fence.",
+        "image_description": "A close-up, side-profile view of a green iguana perched on a branch. The image focuses heavily on the head, neck, and upper torso. Visible features include the characteristic dorsal crest spines, a large subtympanic shield, a dewlap, and textured green scales. The eye is prominent with a golden/green iris. The background is blurred (bokeh), showing hints of foliage and a structure.",
         "image_class": "common iguana",
         "checkpoint_verdicts": [
             {
@@ -38,83 +36,83 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head shape is clearly triangular and the dewlap is prominently displayed hanging from the throat area."
+                "reasoning": "The head shape is clearly triangular and robust. A distinct fold of skin (dewlap) is visible hanging from the lower jaw/throat area."
             },
             {
                 "checkpoint": "Eyes are large with round pupils and golden irises.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the eye is large and the pupil appears round, the iris color is a vivid, unnatural teal/cyan rather than the taxonomically correct golden/brown hue. This suggests an AI artifact or stylization."
+                "reasoning": "While the eye is large and the pupil appears round, the iris color is a vivid, unnatural teal/cyan rather than the biologically accurate golden/amber described in the taxonomy. This suggests a potential AI artifact or stylization."
             },
             {
                 "checkpoint": "A large circular subtympanic shield (scale) is present below the tympanum.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The large, circular scale characteristic of the subtympanic shield is clearly visible on the side of the jaw/cheek area."
+                "reasoning": "The large, circular scale located behind the jaw angle (subtympanic shield) is clearly visible and correctly positioned relative to the ear region."
             },
             {
                 "checkpoint": "Body is robust.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the torso appears thick and muscular, consistent with a robust body structure."
+                "reasoning": "The visible portion of the torso appears thick and muscular, consistent with a robust reptilian body."
             },
             {
                 "checkpoint": "Coloration is bright green in juveniles, becoming darker green to greyish-green in adults with broad black bands on the body and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The coloration is a uniform, highly saturated electric green. It lacks the natural variation, greyish tones, or distinct broad black bands described in the taxonomy for adults, appearing more like a digital render than a biological specimen."
+                "reasoning": "The iguana is a uniform, highly saturated bright green. It lacks the 'broad black bands' typically seen on the body and tail of mature common iguanas, and the green is unnaturally uniform without the expected greyish transition."
             },
             {
                 "checkpoint": "Row of enlarged, spine-like scales running from the nape along the midline of the back to the tail base, forming a serrated crest.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal crest spines are clearly visible running down the neck and back, matching the description of a serrated crest."
+                "reasoning": "The distinctive row of spike-like scales (dorsal crest) is clearly visible running down the neck and onto the back."
             },
             {
                 "checkpoint": "Skin is covered in small, granular scales with larger, plate-like scales on the head.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The texture differentiation between the granular body scales and the larger plates on the snout/jaw is visible, though the rendering has a slightly 'waxy' or overly smooth AI-generated quality."
+                "reasoning": "The texture differentiation is evident: smaller, pebbled scales on the body and larger, smoother plates on the snout and cheek areas."
             },
             {
                 "checkpoint": "Limbs are long and muscular with five clawed digits on each foot.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The limbs are largely obscured by the angle and the branch; specific digit count and claw details are not clearly resolvable in this crop."
+                "reasoning": "The limbs are largely obscured by the angle and the branch. While a forelimb is partially visible, the digits and claws are not clearly resolved enough to count or verify anatomy strictly."
             },
             {
                 "checkpoint": "Tail is laterally compressed and longer than body, used for balance and defense.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail is mostly out of frame or obscured; its full length and lateral compression cannot be verified."
+                "reasoning": "The tail is almost entirely out of frame or obscured by the foreground branch; only the very base might be implied but is not testable."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Entire body surface",
-                "severity": 2,
-                "reasoning": "The skin texture exhibits a uniform, hyper-saturated green sheen that lacks the subtle micro-variations of real reptile skin. It resembles a procedural texture map rather than biological tissue."
-            },
-            {
-                "artifact_type": "other",
                 "location": "Eye iris",
                 "severity": 3,
-                "reasoning": "The iris color is an intense, glowing cyan/teal. While some iguanas have green eyes, this specific neon shade is highly characteristic of AI generation hallucinations or fantasy stylization, deviating from the 'golden' ground truth."
+                "reasoning": "The iris color is a flat, glowing cyan/teal which does not match the biological reality of a golden/amber iguana eye. It looks like a digital recoloring or generation error."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Body scales",
+                "severity": 2,
+                "reasoning": "The green coloration is excessively uniform and saturated, lacking the natural variation, dirt, or banding patterns expected in a wild or captive adult iguana. It has a 'plastic' or 'painted' look."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Jaw/Dewlap junction",
-                "severity": 1,
-                "reasoning": "The transition between the lower jaw scales and the dewlap skin is slightly muddy and lacks crisp anatomical definition, suggesting minor generative blending issues."
+                "location": "Forelimb/Branch interface",
+                "severity": 2,
+                "reasoning": "The connection between the visible forelimb and the branch it rests on is slightly ambiguous; the toes seem to merge slightly with the wood texture rather than gripping it distinctly."
             }
         ],
         "expert_verification_plan": [
@@ -123,7 +121,7 @@
                 "target_subject": "common iguana",
                 "verification_goals": [
                     "Verify species identity as Iguana iguana",
-                    "Confirm presence of subtympanic shield"
+                    "Confirm presence of subtympanic shield and dorsal crest"
                 ],
                 "reason": "Primary verification to ensure the subject is indeed a common iguana and not a hybrid or different lizard species, given the unusual eye color.",
                 "weight": 0.35
@@ -132,11 +130,11 @@
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "common iguana",
                 "verification_goals": [
-                    "Analyze eye iris color realism vs AI artifact",
-                    "Evaluate skin texture saturation and uniformity",
-                    "Check for waxy/melting appearance in scales"
+                    "Analyze eye iris color realism vs biological norm",
+                    "Evaluate scale texture uniformity and saturation levels",
+                    "Check for melting at limb-branch interface"
                 ],
-                "reason": "Crucial for validating the suspected texture anomalies and the unnatural eye color observed in Step 2.",
+                "reason": "To specifically audit the suspected color artifacts (cyan eye) and texture inconsistencies (plastic-looking skin) identified in Step 2.",
                 "weight": 0.3
             },
             {
@@ -144,20 +142,20 @@
                 "target_subject": "common iguana",
                 "verification_goals": [
                     "Verify continuity of dorsal crest spines",
-                    "Check boundary sharpness between dewlap and neck",
-                    "Segment head plates vs body granules"
+                    "Check boundary sharpness between dewlap and chest",
+                    "Segment limb digits to check for fusion with branch"
                 ],
-                "reason": "To confirm the structural integrity of the crest and the anatomical correctness of the scale transitions which appeared slightly soft.",
+                "reason": "To verify that the complex structures (spines, dewlap) are topologically sound and not merging into the background or body incorrectly.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "common iguana",
+                "target_subject": "iguana head",
                 "verification_goals": [
                     "Locate and bound the eye region",
                     "Locate and bound the subtympanic shield"
                 ],
-                "reason": "Provide precise localization for the perceptual auditor to focus on the specific anomalous regions (eye, shield).",
+                "reason": "Provide precise bounding boxes for the perceptual auditor to focus on the specific anomalous regions (eye, shield).",
                 "weight": 0.15
             }
         ],
@@ -166,16 +164,17 @@
             "Tail is laterally compressed and longer than body, used for balance and defense."
         ],
         "focus_areas": [
-            "Eye iris color accuracy (Teal vs Golden)",
-            "Skin texture saturation and pattern regularity",
-            "Dorsal crest spine continuity"
+            "Eye iris color accuracy (Cyan vs Golden)",
+            "Scale texture realism and banding patterns",
+            "Dorsal crest structural integrity",
+            "Limb-digit separation from branch"
         ],
-        "custom_prompts_for_reflector": "Pay special attention to the eye color. Is the teal/cyan iris a valid variation for Iguana iguana or a definitive AI artifact? Also, evaluate if the green skin tone is biologically plausible or if it exhibits the 'uniform noise' pattern typical of diffusion models.",
+        "custom_prompts_for_reflector": "Please pay special attention to the eye color. Common iguanas typically have golden or amber eyes; this image shows a bright cyan/teal eye. Determine if this is a valid genetic mutation, a lighting artifact, or an AI generation error. Also, evaluate the uniformity of the green scales—real iguanas usually have some banding or color variation, whereas this one appears airbrushed.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000027.png",
             "class_id": 39,
             "class_label": "common iguana, iguana, Iguana iguana",
-            "router_cost_seconds": 32.15,
+            "router_cost_seconds": 33.75,
             "plan_valid": true
         },
         "selected_experts": [
@@ -188,19 +187,19 @@
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "common iguana",
-                "reason": "Crucial for validating the suspected texture anomalies and the unnatural eye color observed in Step 2.",
+                "reason": "To specifically audit the suspected color artifacts (cyan eye) and texture inconsistencies (plastic-looking skin) identified in Step 2.",
                 "weight": 0.3
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "common iguana",
-                "reason": "To confirm the structural integrity of the crest and the anatomical correctness of the scale transitions which appeared slightly soft.",
+                "reason": "To verify that the complex structures (spines, dewlap) are topologically sound and not merging into the background or body incorrectly.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "common iguana",
-                "reason": "Provide precise localization for the perceptual auditor to focus on the specific anomalous regions (eye, shield).",
+                "target_subject": "iguana head",
+                "reason": "Provide precise bounding boxes for the perceptual auditor to focus on the specific anomalous regions (eye, shield).",
                 "weight": 0.15
             }
         ]

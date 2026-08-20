@@ -2,25 +2,33 @@
     "image_id": "000079",
     "class_label": "spoonbill",
     "iteration": 1,
-    "timestamp": "2026-08-18 23:54:26",
+    "timestamp": "2026-08-19 18:00:52",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The `animal_pose_auditor` is explicitly defined as 'ONLY for limbed subjects' and 'NOT for limbless', but more importantly, standard pose auditors (like OpenPose or similar keypoint detectors) are typically trained on humans or quadrupeds and often fail to provide valid keypoints for avian anatomy (wings/neck) without specific bird-trained models. Even if it supports birds, the primary issue is the lack of an `open_vocabulary_detector`. The plan attempts to use `fine_grained_classifier` to verify species traits, but without a bounding box prior from a detector, the classifier may attend to the background (water) or incorrect regions. Furthermore, the `topology_boundary_auditor` requires instance segmentation which usually relies on detection priors. The plan misses the 'Bridge' expert (`open_vocabulary_detector`) which is essential for grounding the subsequent segmentation and classification tasks.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is tasked with verifying species traits (pink legs/bill), but the 'open_vocabulary_detector' should also be explicitly tasked to locate and verify the presence of the 'crest' mentioned in the taxonomy. While the Router marked it as absent, an explicit detection attempt (or lack thereof) by OVD would strengthen the negative verification.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "missing_expert",
+                "point": "Missing Open Vocabulary Detector for spatial grounding",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The plan lacks the primary 'Bridge' expert. Before running `topology_boundary_auditor` or focusing the `fine_grained_classifier`, the system must first locate the spoonbill using `open_vocabulary_detector` to generate BBox priors. This ensures that boundary audits and classification focus on the correct object instance."
             },
             {
-                "type": "refinement",
-                "point": "The 'perceptual_quality_auditor' is correctly assigned to the water background. However, given the 'structural_collapse' artifact at the bill tip, the 'topology_boundary_auditor' should be explicitly instructed to check for 'meniscus realism' in its goals, which is already implied but could be more specific.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "expert_capability_mismatch",
+                "point": "Animal Pose Auditor suitability for Avian Anatomy",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The `animal_pose_auditor` is noted as best for 'limbed subjects' and auditing 'complete limbs'. Birds have wings, not arms/legs in the mammalian sense. Unless the auditor is specifically bird-keypoint trained, it will likely fail or return noise. It is safer to rely on `perceptual_quality_auditor` (CoT-VLM) to reason about anatomical plausibility (neck curve, wing attachment) rather than rigid keypoint detection for this specific class."
+            },
+            {
+                "type": "verification_gap",
+                "point": "Leg color and structure verification",
+                "recommended_expert": "open_vocabulary_detector + topology_boundary_auditor",
+                "reason": "The checkpoint regarding 'Legs are long and dark grey to black' was marked false due to pink legs. To verify if this is a species trait (Roseate Spoonbills have pink legs) or an artifact, we need to segment the legs specifically. The current plan relies on general pose auditing. Adding `open_vocabulary_detector` with prompt 'legs' allows `topology_boundary_auditor` to isolate the legs for precise color/structure analysis."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A Roseate Spoonbill wading in dark blue rippling water. The bird has a white body with distinct pink plumage on its wings and back. It possesses a long, pale, spatulate bill held low near the water surface. The legs are partially submerged and appear pinkish-red. The neck is extended forward rather than retracted.",
+        "image_description": "A Roseate Spoonbill wading in dark, rippling water. The bird has a white body with distinct pink plumage on its wings and back. It features a long, pale, spatulate bill held low near the water surface. The legs are partially submerged and appear pinkish-red. The neck is extended forward rather than retracted.",
         "image_class": "spoonbill",
         "checkpoint_verdicts": [
             {
@@ -35,7 +43,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bill in the image is predominantly pale pinkish-grey or flesh-colored, lacking the distinct black/grey base and yellow tip described in the general taxonomy (though consistent with some Roseate Spoonbill variations, it deviates from the specific checkpoint text provided)."
+                "reasoning": "The bill in the image is predominantly pale pinkish-grey or horn-colored. It lacks the distinct black/grey base with a sharp yellow tip described in the specific checkpoint text, although this coloration is valid for some spoonbill species (like the Roseate), it mismatches the specific 'black/grey with yellow tip' descriptor provided."
             },
             {
                 "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
@@ -49,28 +57,28 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bird displays a mix of white body plumage and significant pink accents on the wings and back, matching the description for species with colored accents."
+                "reasoning": "The bird displays a mix of white body plumage and significant pink accents on the wings and back, fitting the description perfectly."
             },
             {
                 "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body proportions are consistent with a medium-large wading bird; wings appear broad and folded against the body."
+                "reasoning": "The body proportions are consistent with a medium-large wading bird. While not in full flight, the folded wings suggest breadth."
             },
             {
                 "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The bird is not in flight; it is wading. Therefore, primary feathers in flight configuration cannot be verified."
+                "reasoning": "The bird is wading, not in flight. The primaries are folded against the body and not distinctly visible as separate colored flight feathers in an extended wing configuration."
             },
             {
                 "checkpoint": "Legs are long and dark grey to black adapted for wading.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the legs are long and adapted for wading, they appear pinkish-red in the water, contradicting the 'dark grey to black' color specification in the checkpoint."
+                "reasoning": "The visible portions of the legs (thighs/lower legs above water) appear pinkish-red, matching the plumage accents, rather than the 'dark grey to black' specified in the checkpoint."
             },
             {
                 "checkpoint": "Neck is long and S-curved.",
@@ -84,7 +92,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The bird is standing/wading, not flying. Flight posture is impossible to verify."
+                "reasoning": "The bird is standing/wading in water, not flying. Therefore, the flight posture cannot be evaluated."
             }
         ],
         "artifact_observations": [
@@ -92,13 +100,13 @@
                 "artifact_type": "texture_anomaly",
                 "location": "Water surface around legs and reflection",
                 "severity": 2,
-                "reasoning": "The water texture immediately surrounding the legs and the reflection of the pink plumage appears slightly smeared and lacks the crisp refraction expected of real water, suggesting minor generative blending issues."
+                "reasoning": "The reflection of the pink plumage in the water is somewhat smeared and lacks the crisp distortion expected from the specific ripple pattern seen elsewhere. The transition between the leg and the water surface is slightly soft."
             },
             {
                 "artifact_type": "structural_collapse",
                 "location": "Bill tip and water interface",
                 "severity": 1,
-                "reasoning": "The very tip of the bill seems to merge slightly with the water surface tension without a clear meniscus or displacement, appearing somewhat soft."
+                "reasoning": "The very tip of the bill seems to merge slightly with the water surface tension without a clear meniscus or splash, appearing slightly 'melted' into the liquid."
             }
         ],
         "expert_verification_plan": [
@@ -106,84 +114,84 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "spoonbill",
                 "verification_goals": [
-                    "Confirm species identification as Roseate Spoonbill vs. other spoonbill species based on pink plumage and bill color.",
-                    "Verify if the pale bill color is taxonomically valid for the identified species."
+                    "Confirm species identification as Roseate Spoonbill based on pink plumage and bill shape.",
+                    "Verify if the pale bill color is consistent with the identified species."
                 ],
-                "reason": "Crucial to determine if the color deviations (pink legs, pale bill) are species-specific traits or AI hallucinations.",
+                "reason": "To confirm the specific species identity which explains the pink plumage and pale bill, validating the deviations from the generic 'black/yellow' bill checkpoint.",
                 "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Verify anatomical correctness of the neck curvature and head connection.",
+                    "Check for valid limb structure despite water occlusion."
+                ],
+                "reason": "To ensure the S-curve of the neck and the connection of the head to the body are biologically plausible and not distorted by AI generation.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "spoonbill",
                 "verification_goals": [
-                    "Audit the boundary between the bill tip and the water surface for melting/fusion.",
-                    "Verify the segmentation of the legs within the water to ensure they are continuous and not dissolving."
+                    "Audit the boundary sharpness between the white/pink plumage and the dark water.",
+                    "Verify the continuity of the bill structure."
                 ],
-                "reason": "To confirm the structural integrity of the subject where it interacts with the complex water background.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "water_background",
-                "verification_goals": [
-                    "Analyze the water texture for consistency and natural refraction patterns.",
-                    "Check for smearing artifacts in the pink reflection on the water."
-                ],
-                "reason": "Water is a common failure point for AI; need to verify if the ripples and reflections are physically plausible.",
+                "reason": "To detect potential edge bleeding or fusion artifacts where the light-colored bird meets the dark water background.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "spoonbill",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "water_reflection",
                 "verification_goals": [
-                    "Locate the bill and legs precisely to assist the topology auditor.",
-                    "Detect presence of any unintended extra limbs or floating parts."
+                    "Analyze the realism of the water ripples and the bird's reflection.",
+                    "Check for texture inconsistencies in the feather rendering."
                 ],
-                "reason": "Provides bounding box priors for detailed boundary auditing of the wading posture.",
+                "reason": "To specifically audit the suspected texture anomalies in the water and the subtle melting at the bill tip.",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Wings are broad with colored primary feathers visible in flight.",
-            "Flight posture features neck retraction in S-curve."
+            "Flight posture features neck retraction in S-curve (Subject is not in flight)",
+            "Wings are broad with colored primary feathers visible in flight (Subject is not in flight)"
         ],
         "focus_areas": [
-            "Bill color and shape accuracy relative to species standards.",
-            "Leg color verification (pink vs. black/grey).",
-            "Water-subject interaction boundaries (feet and bill tip).",
-            "Plumage texture consistency (white to pink gradient)."
+            "Bill morphology and coloration accuracy",
+            "Plumage color distribution (pink vs white)",
+            "Water-reflection interaction realism",
+            "Leg color verification"
         ],
-        "custom_prompts_for_reflector": "Please specifically evaluate if the pink coloration of the legs and the pale coloration of the bill are consistent with a Roseate Spoonbill (Platalea ajaja), as these differ from the generic 'black/grey legs' and 'yellow-tipped bill' descriptions in the general taxonomy. Also, assess the realism of the water refraction around the submerged legs.",
+        "custom_prompts_for_reflector": "Please verify if the pale, horn-colored bill is a valid trait for the specific species of spoonbill depicted (likely Roseate), contrasting it with the generic taxonomy description of a black/grey bill with a yellow tip. Also, assess if the pink coloration of the legs is biologically accurate for this species or an artifact.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000079.png",
             "class_id": 129,
             "class_label": "spoonbill",
-            "router_cost_seconds": 30.33,
+            "router_cost_seconds": 31.07,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "spoonbill",
-                "reason": "Crucial to determine if the color deviations (pink legs, pale bill) are species-specific traits or AI hallucinations.",
+                "reason": "To confirm the specific species identity which explains the pink plumage and pale bill, validating the deviations from the generic 'black/yellow' bill checkpoint.",
                 "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "spoonbill",
+                "reason": "To ensure the S-curve of the neck and the connection of the head to the body are biologically plausible and not distorted by AI generation.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "spoonbill",
-                "reason": "To confirm the structural integrity of the subject where it interacts with the complex water background.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "water_background",
-                "reason": "Water is a common failure point for AI; need to verify if the ripples and reflections are physically plausible.",
+                "reason": "To detect potential edge bleeding or fusion artifacts where the light-colored bird meets the dark water background.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "spoonbill",
-                "reason": "Provides bounding box priors for detailed boundary auditing of the wading posture.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "water_reflection",
+                "reason": "To specifically audit the suspected texture anomalies in the water and the subtle melting at the bill tip.",
                 "weight": 0.2
             }
         ]

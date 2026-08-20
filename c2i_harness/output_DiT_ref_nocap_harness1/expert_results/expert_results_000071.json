@@ -6,20 +6,153 @@
     "class_id": 118,
     "class_label": "Dungeness crab, Cancer magister",
     "plan_reference": "approved_plan_000071",
-    "execution_timestamp": "2026-08-18 23:54:51",
+    "execution_timestamp": "2026-08-19 18:02:52",
     "focus_areas": [
-        "Carapace texture realism (plastic-like smoothness vs natural shell)",
-        "Leg attachment points (potential fusion/melting)",
-        "Species-specific morphological features (symmetrical claws) despite cooking coloration"
+        "Species confirmation despite cooked coloration",
+        "Limb count via OVD + topology segmentation (replacing pose auditor)",
+        "Texture realism of exoskeleton",
+        "Structural coherence at limb attachments",
+        "Spatial grounding within bowl",
+        "Biological validity of 'unequal claws' checkpoint for Dungeness species"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the crab legs and the main body shell. AI generators often struggle with the complex geometry of decapod limb attachments, resulting in 'melting' or ambiguous joints. Also, evaluate if the 'cooked' appearance is biologically plausible for a Dungeness crab (uniform orange-red) versus a generic crab texture map applied to a Dungeness shape. Specifically verify if the carapace texture lacks natural micro-details indicative of AI smoothing.",
-    "image_description": "A cooked Dungeness crab served in a metal bowl with broth and white chunks (likely tofu or radish). The crab is bright orange-red, indicating it has been boiled or steamed. It sits on a wooden table next to a small white dish containing salt or seasoning.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus verification on whether the cooked appearance masks AI artifacts. Specifically: 1) Does the uniform orange color lack natural speckling/variegation expected in real cooked Dungeness? 2) Are limb joints anatomically precise or subtly fused? 3) Is the bowl's perspective geometrically consistent with the crab's placement? Prioritize fine_grained_classifier for species/claw symmetry validation and open_vocabulary_detector + topology_boundary_auditor pipeline for limb counting (replacing invalid animal_pose_auditor). Explicitly assess if 'unequal claws' is a taxonomy error for Cancer magister.",
+    "image_description": "A cooked Dungeness crab served in a metal bowl with yellowish broth or butter. The crab is bright orange-red, indicating it has been boiled or steamed. It is positioned centrally in the bowl, surrounded by what appears to be lemon wedges and possibly other seafood components. The background shows a wooden table surface and a small white dish.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "crab limbs and body",
+            "weight": 0.25,
+            "reason": "Required precursor for topology auditing. Must identify limb locations before segmentation can verify count and structural integrity, replacing invalid animal_pose_auditor.",
+            "status": "success",
+            "execution_time_ms": 11025.36,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "crab",
+                        "confidence_score": 0.579,
+                        "bounding_box": [
+                            51,
+                            62,
+                            247,
+                            246
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "bowl and crab spatial relationship",
+            "weight": 0.05,
+            "reason": "Perspective distortion noted; depth audit ensures physical plausibility of crab-in-bowl composition.",
+            "status": "success",
+            "execution_time_ms": 142.0,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000071_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 18.0964,
+                    "mean_value": 10.2628,
+                    "std_deviation": 4.7444
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "Dungeness crab",
+            "weight": 0.35,
+            "reason": "Critical to confirm the subject is indeed a Dungeness crab and not another crab species, especially since color cues are altered by cooking. Also needed to resolve the biological accuracy of the 'unequal claws' checkpoint.",
+            "status": "success",
+            "execution_time_ms": 194.49,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 118,
+                        "label_name": "Dungeness crab, Cancer magister",
+                        "logit_score": 7.62
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 121,
+                        "label_name": "king crab, Alaska crab, Alaskan king crab, Alaska king crab, Paralithodesamtschatica',",
+                        "logit_score": 4.86
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 119,
+                        "label_name": "rock crab, Cancer irroratus",
+                        "logit_score": 4.83
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "crab body and legs",
+            "weight": 0.2,
+            "reason": "Primary tool for verifying limb count and structural coherence after OVD localization. Replaces animal_pose_auditor for invertebrate anatomy validation.",
+            "status": "success",
+            "execution_time_ms": 469.74,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000071_mask.png",
+                "mask_confidence_score": 0.9756,
+                "prompt_point_used": [
+                    149,
+                    154
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.15,
+            "reason": "Holistic quality check needed for suspected texture anomalies and structural collapses identified in artifact scan.",
+            "status": "success",
+            "execution_time_ms": 30543.42,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, indicating that there is no noise, compression, blur, or darken. The focus is on the crab, which is presented in a clean and appealing manner. The colors are vibrant, and the details are sharp, suggesting that the image was taken with good quality.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 5.87,
+        "total_execution_time_ms": 41586.06,
         "failed_expert_ids": []
     }
 }

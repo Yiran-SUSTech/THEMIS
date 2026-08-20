@@ -6,21 +6,127 @@
     "class_id": 150,
     "class_label": "sea lion",
     "plan_reference": "approved_plan_000092",
-    "execution_timestamp": "2026-08-18 23:55:43",
+    "execution_timestamp": "2026-08-19 18:03:38",
     "focus_areas": [
-        "Neck/Shoulder anatomy definition",
-        "Foreflipper edge sharpness and contact shadow against rock",
-        "Ear pinnae visibility confirmation",
-        "Physical grounding of body mass on rock surface"
+        "External ear pinnae visibility",
+        "Foreflipper edge definition against rock",
+        "Neck-to-head anatomical transition",
+        "Whisker detail and rendering",
+        "Head morphology consistency with male sea lion"
     ],
-    "custom_prompts_for_reflector": "Please specifically analyze the transition zone between the sea lion's neck and chest. Does the fur texture flow naturally, or does it look like a smoothing artifact? Also, examine the contact point of the foreflipper on the rock—is there a realistic compression shadow indicating weight, or does the flipper appear to float/merge with the stone? Verify if the depth map supports a solid physical interaction between the animal and the substrate.",
-    "image_description": "A close-up, high-angle shot of a sea lion resting on a rocky surface. The animal is lying on its side with its head tucked down and eyes closed. A large foreflipper is prominently displayed in the foreground, draped over the rock. The fur appears short, coarse, and golden-brown. The background consists of out-of-focus grey rocks.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on the boundary between the foreflipper and the rock surface using the provided bounding box priors. Does the flipper look like a solid object resting on the stone, or does it appear to sink into it? Verify if the visible ear flap is anatomically correctly placed relative to the eye and jawline. Additionally, assess if the general head shape, despite the angle, is consistent with a male sea lion to support the fine-grained classification.",
+    "image_description": "A close-up, high-angle shot of a sea lion resting on a rocky surface. The animal is lying on its side with its head tucked down and eyes closed. A large foreflipper is prominently displayed in the foreground, draped over the rock. The fur appears short, coarse, and brownish-tan. The background consists of out-of-focus grey rocks.",
+    "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "sea lion",
+            "weight": 0.2,
+            "reason": "Essential bridge expert to provide BBox priors for the topology_boundary_auditor, specifically targeting the 'flipper-rock interface' artifact identified in observations.",
+            "status": "success",
+            "execution_time_ms": 14060.27,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "lion",
+                        "confidence_score": 0.886,
+                        "bounding_box": [
+                            0,
+                            35,
+                            255,
+                            218
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "sea lion",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the generated image aligns with the 'sea lion' class label and distinguishes it from similar pinnipeds. Also addresses Judge feedback to verify head morphology consistency for the 'is_present=false' sagittal crest checkpoint.",
+            "status": "success",
+            "execution_time_ms": 167.51,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 150,
+                        "label_name": "sea lion",
+                        "logit_score": 7.53
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 103,
+                        "label_name": "platypus, duckbill, duckbilled platypus, duck-billed platypus, Ornithorhyhus anatinus',",
+                        "logit_score": 2.19
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 5,
+                        "label_name": "electric ray, crampfish, numbfish, torpedo",
+                        "logit_score": 2.12
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "sea lion",
+            "weight": 0.25,
+            "reason": "Replaces animal_pose_auditor per Judge feedback. Uses segmentation to audit the structural integrity of the flipper and the observed fusion artifacts at the rock interface and neck.",
+            "status": "success",
+            "execution_time_ms": 1260.6,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000092_mask.png",
+                "mask_confidence_score": 0.9699,
+                "prompt_point_used": [
+                    127,
+                    126
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "sea lion",
+            "weight": 0.25,
+            "reason": "Holistic quality check to catch low-severity artifacts and validate flipper structure visually, addressing the limitation of pose auditors for pinnipeds.",
+            "status": "success",
+            "execution_time_ms": 8004.23,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, showing a seal resting on a rock. There are no visible signs of noise, compression, blur, or darken. The image seems to have a natural color palette, and the details of the seal's fur and the texture of the rock are distinguishable.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 9.22,
+        "total_execution_time_ms": 28698.86,
         "failed_expert_ids": []
     }
 }

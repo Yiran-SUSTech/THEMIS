@@ -2,33 +2,30 @@
     "image_id": "000073",
     "class_label": "Dungeness crab, Cancer magister",
     "iteration": 2,
-    "timestamp": "2026-08-18 23:55:01",
+    "timestamp": "2026-08-19 18:01:03",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical expert selection error and logical inconsistencies regarding the image content. \n1. **Expert Mismatch**: The `animal_pose_auditor` is explicitly defined as 'NOT for limbless' subjects and designed for vertebrate/keypoint-based anatomy (humans/animals). Applying it to a crustacean (invertebrate) with a different skeletal structure is methodologically invalid and will likely fail or produce noise.\n2. **Factual Hallucination in Checkpoints**: The plan claims 'Five pairs of walking legs... is_present: false' due to missing bases. However, the provided image clearly shows the anterior walking legs (pereiopods) extending from the lateral margins next to the claws. The Router incorrectly identified visible anatomical structures as 'missing', leading to a false positive artifact detection.\n3. **Missing Verification Logic**: Since the Router falsely claimed limbs were missing, the verification plan should prioritize *confirming presence* via detection, not just auditing absence. The current plan lacks an `open_vocabulary_detector` step to definitively locate and count the limbs before passing them to a boundary auditor.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' regarding the visibility of walking legs. The Router marked 'Five pairs of walking legs extend laterally' as `is_present: false` with reasoning that 'lateral margins... are visible... but no walking leg segments attach'. However, visual inspection of the image reveals that the lateral margins of the carapace are heavily occluded by the large chelipeds (claws) and the extreme close-up/low-angle framing. It is physically impossible to verify the absence of legs at the attachment points because those points are hidden behind the claws or outside the depth of field. Marking this as a 'CRITICAL DEFECT' based on occlusion is scientifically invalid. Additionally, the plan fails to utilize the `geometric_depth_auditor`, which is essential for verifying the spatial relationship between the foreground claws and the background carapace to confirm if the 'missing' legs are simply occluded or truly absent.",
         "suggestions": [
             {
-                "type": "expert_replacement",
-                "point": "Replace animal_pose_auditor",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The `animal_pose_auditor` is incompatible with invertebrates/crustaceans. Use `open_vocabulary_detector` to specifically detect 'crab legs' and 'claws' to verify their presence and count, correcting the Router's false claim that they are missing."
-            },
-            {
-                "type": "checkpoint_correction",
-                "point": "Re-evaluate 'Five pairs of walking legs'",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "The checkpoint verdict 'is_present: false' is factually incorrect based on the image. The anterior walking legs are visible. The plan needs to be updated to reflect that limbs are present but potentially partially cropped, rather than anatomically missing."
+                "type": "logical_correction",
+                "point": "Re-evaluate checkpoint 'Five pairs of walking legs extend laterally'. Change verdict to 'unverifiable' or 'partially visible' due to occlusion by chelipeds. Do not flag as missing limbs without evidence of exposed, empty attachment sockets.",
+                "recommended_expert": "geometric_depth_auditor"
             },
             {
                 "type": "missing_verification",
-                "point": "Texture/Species Specificity",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "Ensure the `perceptual_quality_auditor` specifically checks for the 'mottled pattern' consistency mentioned in the taxonomy, as this is a key differentiator for Dungeness crabs vs other species, beyond just general glossiness."
+                "point": "Verify spatial occlusion relationships between claws and carapace sides to rule out limb absence vs. occlusion.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "coverage_gap",
+                "point": "The 'texture_anomaly' artifact (waxy shell) requires specific verification of surface micro-structure which the current perceptual auditor might miss if focused on global lighting.",
+                "recommended_expert": "perceptual_quality_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, frontal view of a Dungeness crab. The image prominently features the broad, reddish-brown carapace and two large chelipeds (claws) positioned in the foreground. The eyes are visible on stalks at the anterior margin. The framing is tight, focusing on the face and claws, with the lateral walking legs largely cropped out or obscured.",
+        "image_description": "A close-up, frontal view of a Dungeness crab. The image is dominated by the broad, reddish-brown carapace and two large chelipeds (claws) held together in the foreground. The claws have white fingers with serrated edges and red tips. Two stalked eyes are visible protruding from the anterior margin of the shell. The lateral walking legs are not visible; the frame cuts off at the side of the carapace where legs would attach, showing no limb segments.",
         "image_class": "Dungeness crab",
         "checkpoint_verdicts": [
             {
@@ -36,142 +33,167 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Two distinct eye stalks are clearly visible protruding from the front center of the carapace, consistent with decapod anatomy."
+                "reasoning": "Two distinct eye stalks are clearly visible emerging from the front rim of the carapace, positioned symmetrically."
             },
             {
                 "checkpoint": "Carapace is smooth and convex displaying purplish-brown to reddish-brown coloration.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The upper shell exhibits the characteristic reddish-brown hue and a smooth, convex curvature typical of the species."
+                "reasoning": "The shell exhibits a consistent reddish-brown hue with a smooth, convex curvature typical of the species."
             },
             {
                 "checkpoint": "Ventral surface is cream to white.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The ventral surface (abdomen/underside) is completely occluded by the dorsal viewing angle; only the dorsal carapace and lateral claw surfaces are visible."
+                "reasoning": "The underside of the crab is completely occluded by the dorsal view and the position of the claws; it cannot be verified."
             },
             {
                 "checkpoint": "Broad oval carapace of substantial edible-crab proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the shell demonstrates the broad, oval shape and substantial width relative to the claws, matching Dungeness crab morphology."
+                "reasoning": "The visible portion of the carapace fills the upper frame with a broad, rounded shape consistent with Dungeness crab morphology."
             },
             {
                 "checkpoint": "Carapace displays lighter mottled patterns over purplish-brown base.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Subtle lighter speckling and mottling are visible on the reddish-brown surface of the carapace, aligning with taxonomic descriptions."
+                "reasoning": "Subtle variations in tone and faint lighter speckling are visible on the shell surface, matching the mottled pattern description."
             },
             {
                 "checkpoint": "Exoskeleton is hard and calcified with smooth glossy texture.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Specular highlights on the carapace and claws indicate a hard, glossy, calcified surface texture consistent with a healthy exoskeleton."
+                "reasoning": "Specular highlights on the carapace and claws indicate a hard, glossy, calcified surface texture."
             },
             {
                 "checkpoint": "Five pairs of walking legs extend laterally.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the anterior lateral margins of the carapace are visible, the bases of the walking legs (pereiopods) that should emerge adjacent to the claws are missing or indistinct. This appears to be an anatomical defect (missing limbs) rather than simple cropping, as the junction points are exposed but empty."
+                "reasoning": "CRITICAL DEFECT: The lateral margins of the carapace are visible in the frame, but no walking leg segments attach or extend from them. This indicates missing limbs rather than simple cropping, as the attachment points are exposed."
             },
             {
                 "checkpoint": "First pair modified into robust claws of unequal size with dark tips.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Two robust chelipeds are prominent in the foreground. They show natural asymmetry and have the characteristic dark/reddish coloring at the joints/tips transitioning to white fingers."
+                "reasoning": "Two robust claws are prominent. While they appear relatively symmetrical in this pose, they match the 'robust' description. The tips show darker red pigmentation compared to the white fingers."
             },
             {
                 "checkpoint": "Claws have smooth outer surface and serrated inner edges.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The outer surface of the claws appears smooth, and the inner edges (fingers) display the expected jagged/serrated structure used for gripping."
+                "reasoning": "The outer shell of the claws is smooth, and the inner gripping edges (fingers) clearly display distinct, jagged serrations."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "missing_parts",
-                "location": "Lateral thoracic region (sides of carapace)",
-                "severity": 3.0,
-                "reasoning": "The bases of the walking legs are absent at the anterior lateral margins where they should connect to the body next to the claws. This creates a structural gap in the anatomy."
+                "location": "Lateral margins of the carapace",
+                "severity": 4.0,
+                "reasoning": "Complete absence of walking legs at visible attachment points on the side of the shell. This is a severe anatomical failure for a decapod crustacean."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Claw-carapace junction",
+                "location": "Carapace surface",
                 "severity": 1.5,
-                "reasoning": "Slight softness/blurring at the connection points between the claws and the main body suggests potential morphological blending or lack of distinct joint definition common in AI generation."
+                "reasoning": "The shell texture appears slightly uniform and waxy in areas, lacking the fine micro-texture of natural exoskeleton, though specular highlights help mask this."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "Dungeness crab",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "Crab body and claws",
                 "verification_goals": [
-                    "Confirm species identity as Cancer magister vs other decapods",
-                    "Verify carapace coloration and pattern consistency"
+                    "Detect bounding boxes for 'crab carapace', 'left claw', 'right claw'",
+                    "Verify spatial separation between claws and body"
                 ],
-                "reason": "Primary verification to ensure the generated image matches the specific taxonomic class 'Dungeness crab' and isn't a generic or incorrect crab species.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "Crab Anatomy",
-                "verification_goals": [
-                    "Verify presence and positioning of limb bases at anterior lateral margins",
-                    "Check for missing walking leg connections next to chelipeds",
-                    "Audit biological plausibility of visible limb count"
-                ],
-                "reason": "Critical for validating the Judge's feedback regarding missing walking legs. This expert will detect if the keypoint structures for the walking legs are absent or malformed at the thoracic junction.",
-                "weight": 0.3
+                "reason": "Essential bridge expert to provide precise localization priors for the topology auditor, ensuring fused joints aren't misidentified as valid overlaps due to occlusion.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "Crab Carapace and Claws",
+                "target_subject": "Crab lateral margins and claw joints",
                 "verification_goals": [
-                    "Verify continuous boundary between carapace and background",
-                    "Check for fusion artifacts between claws and body",
-                    "Audit edge sharpness of the exoskeleton at limb junctions"
+                    "Audit lateral carapace edges for missing limb attachments",
+                    "Verify seamless connection between claws and body without fusion",
+                    "Check boundary sharpness of serrated claw edges"
                 ],
-                "reason": "To verify structural integrity at the claw-body junction and confirm if the 'missing legs' area is a clean crop or a structural collapse/melting artifact.",
+                "reason": "Directly addresses the Judge's feedback regarding missing legs and structural validation of limb articulation using segmentation.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "Dungeness crab",
+                "verification_goals": [
+                    "Confirm species identity as Cancer magister",
+                    "Verify carapace coloration and shape consistency"
+                ],
+                "reason": "Primary verification to ensure taxonomic accuracy despite the anatomical defects.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Entire Image",
+                "target_subject": "Entire image",
                 "verification_goals": [
-                    "Assess texture realism of the calcified shell",
-                    "Check for unnatural gloss or plastic-like rendering",
-                    "Verify lighting consistency on the glossy surface"
+                    "Detect subtle texture anomalies in the exoskeleton",
+                    "Verify lighting consistency on glossy surfaces",
+                    "Assess overall realism of biological textures"
                 ],
-                "reason": "To detect subtle texture anomalies common in AI-generated organic surfaces, ensuring the 'glossy' look is physically plausible rather than artifactually smooth.",
-                "weight": 0.15
+                "reason": "Holistic quality check to catch high-frequency texture errors or 'waxy' looks common in AI-generated biological subjects.",
+                "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Ventral surface is cream to white (occluded by viewing angle)"
+            "Ventral surface is cream to white."
         ],
         "focus_areas": [
-            "Anterior lateral margins of carapace for missing walking leg bases",
-            "Junction of claws and carapace for structural integrity",
-            "Texture fidelity of the shell surface",
-            "Symmetry and placement of eye stalks"
+            "Lateral carapace margins for missing leg attachments",
+            "Claw-body junction integrity",
+            "Serrated edge definition on claw fingers",
+            "Eye stalk geometry and emergence point"
         ],
-        "custom_prompts_for_reflector": "Please specifically audit the anterior lateral margins of the carapace adjacent to the chelipeds. Determine if the absence of walking leg bases constitutes a structural hallucination (missing parts) or if they are merely obscured by shadow/cropping. Additionally, verify if the connection points between the chelipeds and the main body show any signs of morphological blending or lack of distinct joint definition.",
+        "custom_prompts_for_reflector": "Critically evaluate the lateral edges of the carapace. The previous plan incorrectly dismissed missing legs as cropping; verify if the shell edge is clean/terminated (indicating missing parts) or if there are stubs. Inspect the claw-body interface for any melting or lack of clear joint definition. Ensure the serrations on the claws are sharp, distinct teeth and not blurred artifacts.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000073.png",
             "class_id": 118,
             "class_label": "Dungeness crab, Cancer magister",
-            "router_cost_seconds": 32.73,
+            "router_cost_seconds": 30.5,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
-        }
+        },
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "Crab body and claws",
+                "reason": "Essential bridge expert to provide precise localization priors for the topology auditor, ensuring fused joints aren't misidentified as valid overlaps due to occlusion.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "Crab lateral margins and claw joints",
+                "reason": "Directly addresses the Judge's feedback regarding missing legs and structural validation of limb articulation using segmentation.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "Dungeness crab",
+                "reason": "Primary verification to ensure taxonomic accuracy despite the anatomical defects.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "Entire image",
+                "reason": "Holistic quality check to catch high-frequency texture errors or 'waxy' looks common in AI-generated biological subjects.",
+                "weight": 0.2
+            }
+        ]
     }
 }

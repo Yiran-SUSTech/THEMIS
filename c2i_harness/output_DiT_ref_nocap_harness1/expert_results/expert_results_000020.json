@@ -6,21 +6,121 @@
     "class_id": 35,
     "class_label": "mud turtle",
     "plan_reference": "approved_plan_000020",
-    "execution_timestamp": "2026-08-18 23:52:03",
+    "execution_timestamp": "2026-08-19 17:57:27",
     "focus_areas": [
-        "Species identification resolution (Mud Turtle vs Box Turtle) based on retraction capability",
-        "Validation of limb/head absence via open-vocabulary detection",
-        "Carapace keel structure and dome shape geometry",
-        "Shell-boundary integration with background debris"
+        "Carapace ridge definition and symmetry",
+        "Shell surface texture realism",
+        "Boundary separation from background clutter"
     ],
-    "custom_prompts_for_reflector": "Focus analysis on resolving the biological contradiction: Mud Turtles cannot fully retract, yet this specimen appears to do so. Use fine_grained_classifier to determine if this is actually a Box Turtle (which can retract) mislabeled as Mud Turtle. Simultaneously use open_vocabulary_detector to confirm limbs are genuinely absent/retracted and not missing due to generation failure. Verify keel geometry via perceptual_quality_auditor, not classifier. Prioritize species ID over soft-tissue checkpoints since they are occluded.",
-    "image_description": "A top-down view of a small, dark-shelled turtle situated on a forest floor covered in dry leaves, twigs, and sparse green vegetation. The turtle's head and limbs appear fully retracted into the shell, leaving only the carapace visible.",
-    "expert_testimonies": [],
+    "custom_prompts_for_reflector": "Focus heavily on the carapace details since the head and limbs are hidden. Does the shell geometry strictly adhere to mud turtle morphology (3 keels, oval shape)? Are the textures on the shell consistent with biological keratin/scute patterns, or do they look like noise/smearing? Check if the lighting on the 'glossy' parts makes physical sense relative to the environment.",
+    "image_description": "A top-down view of a small turtle, likely a mud turtle, situated on a forest floor covered in dry leaves, twigs, and sparse green vegetation. The turtle's carapace is dark, oval-shaped, and appears slightly glossy with visible longitudinal ridges (keels). The head and limbs are retracted or obscured by the shell and surrounding debris, making them difficult to see clearly.",
+    "expert_testimonies": [
+        {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "turtle",
+            "weight": 0.35,
+            "reason": "Primary verification needed to ensure the generated image matches the specific 'mud turtle' class label rather than a generic turtle, especially given the limited visible anatomy.",
+            "status": "success",
+            "execution_time_ms": 195.97,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 35,
+                        "label_name": "mud turtle",
+                        "logit_score": 5.4
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 36,
+                        "label_name": "terrapin",
+                        "logit_score": 4.76
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 37,
+                        "label_name": "box turtle, box tortoise",
+                        "logit_score": 4.68
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "turtle and ground",
+            "weight": 0.2,
+            "reason": "To resolve the ambiguity at the shell-ground interface and confirm the turtle is sitting ON the ground rather than blending into it.",
+            "status": "success",
+            "execution_time_ms": 250.82,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000020_depth.png",
+                "depth_statistics": {
+                    "min_value": 2.3583,
+                    "max_value": 15.0078,
+                    "mean_value": 9.607,
+                    "std_deviation": 3.5804
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "turtle shell",
+            "weight": 0.25,
+            "reason": "To address the observed texture anomalies and potential merging of leaves with the shell edge, ensuring structural integrity of the main subject.",
+            "status": "success",
+            "execution_time_ms": 459.31,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000020_mask.png",
+                "mask_confidence_score": 0.9672,
+                "prompt_point_used": [
+                    128,
+                    128
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.2,
+            "reason": "Holistic quality check to validate if the 'slight gloss' and ridge details are photorealistic or exhibit AI-style smoothing/painting artifacts.",
+            "status": "success",
+            "execution_time_ms": 3348.22,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The image seems to have a natural color palette, and the details on the turtle's shell and surrounding environment are distinguishable.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        }
+    ],
     "execution_summary": {
-        "total_experts_planned": 0,
-        "successful_experts": 0,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 9.85,
+        "total_execution_time_ms": 3359.54,
         "failed_expert_ids": []
     }
 }

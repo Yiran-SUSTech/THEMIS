@@ -6,24 +6,78 @@
     "class_id": 106,
     "class_label": "wombat",
     "plan_reference": "approved_plan_000063",
-    "execution_timestamp": "2026-08-18 23:53:52",
+    "execution_timestamp": "2026-08-19 18:02:02",
     "focus_areas": [
-        "Fur texture realism vs. plastic smoothing",
-        "Rock geometry consistency",
-        "Anatomical plausibility of the curled posture"
+        "Facial feature accuracy (nose texture, ear shape, head proportions)",
+        "Fur texture realism and edge definition against rocks",
+        "Rock geometry and contact shadows in foreground"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the transition zone between the animal's fur and the surrounding rocks. AI often struggles with the occlusion boundaries of furry animals in dark cavities. Also, scrutinize the rock texture for 'noise-like' repetition which is common in generative models when rendering stone.",
-    "image_description": "A close-up, high-angle shot of a wombat curled up inside a rocky burrow entrance. The animal's coarse, grey-brown fur is visible, along with its broad head and small ears. It appears to be sleeping or resting in a tight space surrounded by rough stone textures.",
+    "custom_prompts_for_reflector": "Since the face is now confirmed visible, prioritize auditing the specific anatomical details of the head: is the nose truly bare and leathery? Are the ears correctly rounded and positioned? Check if the 'barrel' body shape transitions naturally into the shadows without merging artifacts. Verify that the rocks do not exhibit 'mushy' geometry typical of diffusion models.",
+    "image_description": "A close-up, high-angle shot of a wombat resting inside a rocky burrow entrance. The animal's head is clearly visible in the foreground, facing slightly downward and to the right, showing its broad blunt shape, small eyes, rounded ears, and large bare nose. The body is stocky and barrel-shaped, filling the dark cavity behind the head. Visible fur is coarse, thick, and greyish-brown. Surrounding rocks are textured, grey, and form a natural archway over the animal.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "wombat",
+            "weight": 0.2,
+            "reason": "Required precursor step to establish object localization for the topology_boundary_auditor as per strategic instructions.",
+            "status": "success",
+            "execution_time_ms": 16104.9,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "wombat",
+                        "confidence_score": 0.5482,
+                        "bounding_box": [
+                            10,
+                            11,
+                            249,
+                            185
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "burrow_environment",
+            "weight": 0.15,
+            "reason": "To confirm the scene has valid 3D structure and the animal is physically grounded within the environment.",
+            "status": "success",
+            "execution_time_ms": 112.42,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000063_depth.png",
+                "depth_statistics": {
+                    "min_value": 5.8171,
+                    "max_value": 16.3746,
+                    "mean_value": 11.4491,
+                    "std_deviation": 2.3153
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "wombat",
-            "weight": 0.4,
-            "reason": "Primary verification to ensure the generated image is taxonomically correct and not a bear or badger mimic.",
+            "weight": 0.3,
+            "reason": "Primary verification needed to ensure taxonomic correctness now that the face is confirmed visible.",
             "status": "success",
-            "execution_time_ms": 141.13,
+            "execution_time_ms": 206.64,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -54,17 +108,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "wombat_body",
-            "weight": 0.3,
-            "reason": "Curled poses are prone to topological errors where limbs fuse into the body incorrectly; this auditor checks structural integrity.",
+            "target_subject": "wombat",
+            "weight": 0.15,
+            "reason": "Crucial for detecting if the body shape is a result of topological errors where limbs merge into the body incorrectly in the shadows.",
             "status": "success",
-            "execution_time_ms": 418.84,
+            "execution_time_ms": 1043.66,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000063_mask.png",
-                "mask_confidence_score": 0.9768,
+                "mask_confidence_score": 0.9774,
                 "prompt_point_used": [
-                    128,
-                    128
+                    129,
+                    98
                 ]
             },
             "raw_metrics": {},
@@ -75,11 +129,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "rock_texture",
-            "weight": 0.3,
-            "reason": "To validate the subtle texture anomalies observed in the background rocks and the fur-rock boundary.",
+            "target_subject": "wombat_face_and_fur",
+            "weight": 0.2,
+            "reason": "To validate specific facial textures and edge quality now that these features are testable.",
             "status": "success",
-            "execution_time_ms": 7095.0,
+            "execution_time_ms": 14270.47,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-defined, but there are some minor pixelation and graininess that could suggest a slight noise or compression. The lighting seems adequate, and the subject is distinguishable, but no significant blur, darkening, or obvious distortion is apparent.",
                 "distortion_class": "noise",
@@ -92,10 +146,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 3,
-        "successful_experts": 3,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 7109.2,
+        "total_execution_time_ms": 36035.29,
         "failed_expert_ids": []
     }
 }

@@ -6,14 +6,16 @@
     "class_id": 52,
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "plan_reference": "approved_plan_000043",
-    "execution_timestamp": "2026-08-18 23:53:01",
+    "execution_timestamp": "2026-08-19 18:00:03",
     "focus_areas": [
-        "Scale texture definition vs. AI smoothing",
-        "Text integrity in bottom right corner",
-        "Species-specific head shape confirmation"
+        "Scale texture glossiness and regularity",
+        "Head-to-body transition smoothness",
+        "Coil overlap boundaries for fusion artifacts",
+        "Watermark text legibility and structure",
+        "Presence and morphology of minute eyes"
     ],
-    "custom_prompts_for_reflector": "Please pay close attention to the transition between the snake's body and the soil. In AI images, this boundary often bleeds. Also, analyze the text in the corner: is it a mirrored watermark (suggesting a real photo that was flipped) or nonsensical gibberish (suggesting AI generation)?",
-    "image_description": "A close-up photograph of a small, reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and a uniform coloration. A watermark is visible in the bottom right corner.",
+    "custom_prompts_for_reflector": "Please pay special attention to the intersection points of the snake's coils. AI models often struggle with occlusion in coiled subjects, leading to 'melting' where one part of the body merges into another. Verify if the scales maintain their directional flow across these intersections. Additionally, use the image_text_auditor to rigorously analyze the watermark; if it is nonsensical, note it as a strong indicator of generative origin. Finally, zoom in on the head region to confirm the eyes are present but minute, as AI often omits them or makes them too large for this specific species.",
+    "image_description": "A close-up photograph of a small, reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and uniform coloration. A distorted watermark text string is visible in the bottom right corner.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
@@ -21,9 +23,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "snake",
             "weight": 0.2,
-            "reason": "Provides bounding box priors to ensure the topology auditor focuses on the correct instance.",
+            "reason": "Provides spatial grounding for the topology auditor to check coil integrity.",
             "status": "success",
-            "execution_time_ms": 13543.31,
+            "execution_time_ms": 14613.64,
             "evidence": {
                 "detected_objects": [
                     {
@@ -60,9 +62,9 @@
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "snake",
             "weight": 0.35,
-            "reason": "Primary verification to ensure the image actually depicts the specific target species and not a look-alike.",
+            "reason": "Primary verification for species ID and specific confirmation of the 'minute eyes' checkpoint which is subtle and prone to AI error.",
             "status": "success",
-            "execution_time_ms": 248.2,
+            "execution_time_ms": 113.01,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -90,14 +92,34 @@
             "traceback": null
         },
         {
+            "expert_id": "image_text_auditor",
+            "internal_expert_id": "image_text_auditor",
+            "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
+            "target_subject": "watermark",
+            "weight": 0.2,
+            "reason": "Specifically tasked to audit the identified text gibberish artifact, replacing the perceptual auditor for this specific task as per Judge feedback.",
+            "status": "success",
+            "execution_time_ms": 422.55,
+            "evidence": {
+                "full_extracted_text": "",
+                "blocks": []
+            },
+            "raw_metrics": {
+                "detected_text_blocks": 0,
+                "inference_time_seconds": 0.0
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "snake body",
-            "weight": 0.2,
-            "reason": "AI often struggles with the occlusion boundaries of slender objects like snakes against complex backgrounds like soil.",
+            "weight": 0.25,
+            "reason": "To ensure the 'worm-like' body does not suffer from melting or fusion artifacts where coils overlap.",
             "status": "success",
-            "execution_time_ms": 886.17,
+            "execution_time_ms": 1057.26,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000043_mask.png",
                 "mask_confidence_score": 0.9711,
@@ -109,32 +131,13 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire image",
-            "weight": 0.25,
-            "reason": "To distinguish between a legitimate photo with a weird watermark and an AI generation failure.",
-            "status": "success",
-            "execution_time_ms": 3845.18,
-            "evidence": {
-                "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or compression. There's no visible noise, blur, or darkening in the image. The colors appear consistent, and the details on the snake and surrounding environment are clear enough.",
-                "distortion_class": "compression",
-                "severity_level": "slight",
-                "severity_score": 0.2
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
         }
     ],
     "execution_summary": {
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 17396.55,
+        "total_execution_time_ms": 15680.09,
         "failed_expert_ids": []
     }
 }
