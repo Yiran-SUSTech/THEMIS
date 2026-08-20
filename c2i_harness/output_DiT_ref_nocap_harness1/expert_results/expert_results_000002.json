@@ -6,25 +6,25 @@
     "class_id": 4,
     "class_label": "hammerhead, hammerhead shark",
     "plan_reference": "approved_plan_000002",
-    "execution_timestamp": "2026-08-19 17:58:47",
+    "execution_timestamp": "2026-08-20 16:00:41",
     "focus_areas": [
-        "Cephalofoil connection point to the body (topology)",
-        "Volumetric depth of the hammer-head (geometry)",
-        "Texture consistency of skin vs background (perceptual quality)",
-        "Bounding box precision for anatomical segmentation (detection)"
+        "Cephalofoil structural integrity and connection to body",
+        "Eye position verification at lateral tips via detection",
+        "Geometric proportion of hammer width vs body length",
+        "Dorsal fin edge definition vs background"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the junction where the wide head meets the narrow body. In AI generations, this area often lacks proper anatomical blending or looks like two separate objects pasted together. Also, verify that the 'hammer' has actual thickness/depth and isn't just a flat paddle. Specifically check the skin texture: does it look like 'smooth plastic' (AI artifact) or naturally obscured by water? Use the detector's bounding box to ensure the topology auditor isn't hallucinating boundaries in the murky water.",
-    "image_description": "An underwater photograph showing a hammerhead shark swimming over a sandy seabed. The shark is viewed from a high angle, displaying its characteristic T-shaped head (cephalofoil), tall dorsal fin, and pectoral fins. The water is somewhat murky with a greenish-blue tint.",
+    "custom_prompts_for_reflector": "Prioritize verifying the connectivity of the cephalofoil to the main body using topology auditing with OVD priors. Use geometric depth analysis to validate the hammer-head proportions as a proxy for species identification, given the blur prevents reliable texture-based classification. Specifically zoom in on the lateral tips of the head to check for eye presence, as this was previously unverified.",
+    "image_description": "An underwater photograph of a hammerhead shark swimming over a sandy seabed. The image is viewed from a high-angle rear-side perspective, showing the dorsal surface, the distinctive T-shaped cephalofoil, and the tall first dorsal fin. The water is murky with a greenish-blue tint, causing significant blur and low contrast.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "hammerhead shark",
-            "weight": 0.25,
-            "reason": "Essential prerequisite for topology auditing. Provides spatial coordinates to ensure the topology_boundary_auditor analyzes the correct instance and can detect floating parts or fusion artifacts relative to the body.",
+            "weight": 0.3,
+            "reason": "Essential to localize the blurry subject for downstream auditors and specifically verify the 'eyes' checkpoint which was marked false due to visibility issues.",
             "status": "success",
-            "execution_time_ms": 15861.67,
+            "execution_time_ms": 15016.1,
             "evidence": {
                 "detected_objects": [
                     {
@@ -51,9 +51,9 @@
             "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "hammerhead shark",
             "weight": 0.25,
-            "reason": "AI often renders the hammerhead 'T' shape as a flat texture. Depth auditing confirms volumetric correctness and prevents 'cardboard cutout' generations.",
+            "reason": "Replaces reliance on fine-grained classifier for species ID; uses geometric proportions (hammer width) which are more robust to blur than texture-based classification.",
             "status": "success",
-            "execution_time_ms": 99.55,
+            "execution_time_ms": 421.45,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000002_depth.png",
                 "depth_statistics": {
@@ -71,49 +71,14 @@
             "traceback": null
         },
         {
-            "expert_id": "fine_grained_classifier",
-            "internal_expert_id": "fine_grained_classifier",
-            "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "hammerhead shark",
-            "weight": 0.1,
-            "reason": "Secondary verification to ensure taxonomic correctness after structural integrity is confirmed by other experts.",
-            "status": "success",
-            "execution_time_ms": 216.69,
-            "evidence": {
-                "top3_candidates": [
-                    {
-                        "rank": 1,
-                        "class_index": 4,
-                        "label_name": "hammerhead, hammerhead shark",
-                        "logit_score": 7.65
-                    },
-                    {
-                        "rank": 2,
-                        "class_index": 3,
-                        "label_name": "tiger shark, Galeocerdo cuvieri",
-                        "logit_score": 1.98
-                    },
-                    {
-                        "rank": 3,
-                        "class_index": 2,
-                        "label_name": "great white shark, white shark, man-eater, man-eating shark, Carcharodon caharias',",
-                        "logit_score": 1.58
-                    }
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "hammerhead shark",
             "weight": 0.25,
-            "reason": "Hammerhead heads are complex shapes prone to AI topology errors. With detector priors, this audit ensures structural integrity and valid connectivity of the 'T' shape.",
+            "reason": "Requires OVD priors to function effectively on blurry subject; verifies structural integrity of the hammer shape.",
             "status": "success",
-            "execution_time_ms": 1003.48,
+            "execution_time_ms": 1127.27,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000002_mask.png",
                 "mask_confidence_score": 0.9815,
@@ -130,11 +95,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "hammerhead shark skin and seabed",
-            "weight": 0.15,
-            "reason": "Addresses Judge feedback on 'unverifiable' points. The VLM can detect subtle texture anomalies (lack of micro-detail) that indicate generative smoothing even when resolution is low.",
+            "target_subject": "hammerhead shark",
+            "weight": 0.2,
+            "reason": "Holistic quality check to ensure blur is environmental and not a sign of structural collapse or generation failure.",
             "status": "success",
-            "execution_time_ms": 22753.04,
+            "execution_time_ms": 7732.73,
             "evidence": {
                 "thinking_trajectory": "The image appears to be taken underwater, which naturally introduces some level of noise and blur due to the water's interference with light. The image seems slightly pixelated, but there are no clear signs of compression, darkening, or significant blur. The image quality is not perfect, but it is clear enough to identify the subject.",
                 "distortion_class": "noise",
@@ -147,10 +112,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 5,
-        "successful_experts": 5,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 39628.92,
+        "total_execution_time_ms": 34157.44,
         "failed_expert_ids": []
     }
 }

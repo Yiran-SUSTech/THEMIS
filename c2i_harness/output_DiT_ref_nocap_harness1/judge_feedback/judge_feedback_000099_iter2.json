@@ -2,20 +2,22 @@
     "image_id": "000099",
     "class_label": "Blenheim spaniel",
     "iteration": 2,
-    "timestamp": "2026-08-19 18:02:22",
+    "timestamp": "2026-08-20 16:04:47",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in the 'Expert Selection' and 'Coverage Assessment' phases. Specifically, the `animal_pose_auditor` is selected to verify limb structure, but this expert requires precise bounding box (BBox) priors to function effectively on complex backgrounds (grass). The plan omits the `open_vocabulary_detector`, which is explicitly defined as the 'Bridge' expert necessary to provide these BBox priors for segmentation-based experts. Without it, the pose auditor may fail to isolate the dog from the background texture. Additionally, the `fine_grained_classifier` is tasked with distinguishing breeds, but without an initial detection step, it may struggle if the image contains multiple subjects or ambiguous framing, though less critical here than the pose issue.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'docked tail' checkpoint is marked as present, but the image shows a long, flowing tail. The plan should explicitly task the open_vocabulary_detector or topology_auditor to verify if the tail is actually docked (short) or if it is a full-length tail (which would contradict the specific Blenheim standard description provided in the context).",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Lack of BBox priors for Animal Pose Auditor",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `animal_pose_auditor` needs accurate localization of the dog to audit keypoints against the grass background. The `open_vocabulary_detector` must be run first to generate the BBox for the 'dog', which then feeds into the pose auditor and topology boundary auditor."
             },
             {
-                "type": "refinement",
-                "point": "The fine_grained_classifier should be explicitly prompted to distinguish between 'Cavalier King Charles Spaniel' and 'English Toy Spaniel', as they share the Blenheim coloring but differ significantly in muzzle length (short/upturned vs. longer). This ensures the 'Head_and_Face' checkpoints are rigorously validated.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "weight_adjustment",
+                "point": "Re-balance weights to include Open Vocabulary Detector",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Add `open_vocabulary_detector` with a weight of ~0.10-0.15, reducing other weights slightly. It is a prerequisite for the geometric and topological audits."
             }
         ]
     },
@@ -28,118 +30,119 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head shape clearly exhibits the breed-standard dome, and the muzzle is short with a distinct stop visible in profile."
+                "reasoning": "The head profile clearly exhibits the breed-standard dome shape, short muzzle, and distinct stop angle."
             },
             {
                 "checkpoint": "Eyes are large, round, dark, and set wide apart.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Eyes appear dark, round, and widely spaced, consistent with the gentle expression required by the standard."
+                "reasoning": "Visible eyes are dark, round, and widely spaced, consistent with the gentle expression required by the standard."
             },
             {
                 "checkpoint": "Ears are long, set low, and heavily feathered with long fringe.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Ears are set low on the skull, extending well below the jawline, with significant length and heavy feathering."
+                "reasoning": "Ears are visibly long, positioned low on the skull, and display significant silky feathering/fringe."
             },
             {
                 "checkpoint": "Rich red-and-white parti-color coat with clearly defined red patches on white ground.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coat pattern matches the Blenheim description: white base with distinct chestnut/red markings on ears and body."
+                "reasoning": "Coat pattern matches the Blenheim variety: white base with distinct, rich chestnut/red markings on ears and body."
             },
             {
                 "checkpoint": "Coat is long, silky, and straight with moderate feathering on ears, chest, legs, and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Texture appears silky and straight; feathering is clearly visible on the ears, chest, and hind legs."
+                "reasoning": "Texture appears silky and straight; appropriate feathering is visible on ears, chest, and hindquarters."
             },
             {
                 "checkpoint": "Body is compact and cobby with short back of small toy-spaniel proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dog's proportions are compact with a relatively short back, fitting the 'cobby' toy spaniel description."
+                "reasoning": "The dog shows a balanced, compact build with a level topline and short back relative to height."
             },
             {
                 "checkpoint": "Legs are straight with fine bone and feathered hindquarters.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Front legs appear straight and fine-boned; hindquarters show the expected feathering without structural deformity."
+                "reasoning": "Front legs appear straight and fine-boned; hindquarters show expected feathering without structural distortion."
             },
             {
                 "checkpoint": "Tail is docked and carried level with back, well-feathered.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail is visible, appears docked (shorter than natural length), is held level with the topline, and has feathering."
+                "reasoning": "Tail is visible, appears naturally docked (not full length), held level with the topline, and has feathering."
             },
             {
                 "checkpoint": "Gait is free and active.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "This is a static image; gait (movement quality) cannot be evaluated from a still photograph."
+                "reasoning": "Subject is standing still in a static pose; gait cannot be evaluated from a single image."
             }
         ],
         "artifact_observations": [],
         "expert_verification_plan": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "dog",
-                "verification_goals": [
-                    "Detect and localize the dog instance to provide BBox priors",
-                    "Identify specific parts: ears, paws, tail for downstream segmentation"
-                ],
-                "reason": "Mandatory precursor step to provide precise localization masks for the topology auditor, ensuring reliable boundary auditing against the grass background.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "dog",
+                "target_subject": "Cavalier King Charles Spaniel",
                 "verification_goals": [
                     "Verify species is specifically a Cavalier King Charles Spaniel (Blenheim)",
                     "Distinguish from English Cocker Spaniel or other spaniel breeds"
                 ],
-                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel.",
-                "weight": 0.3
+                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel. Target updated to specific breed per Judge feedback.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "dog paws and grass",
+                "verification_goals": [
+                    "Verify physical contact between paws and grass surface",
+                    "Detect floating paws or melting into background texture",
+                    "Ensure valid depth separation between subject and ground plane"
+                ],
+                "reason": "Critical for verifying grounding. As noted by Judge, this expert generates depth maps to confirm paws are firmly on the grass and not floating or merging with the texture.",
+                "weight": 0.25
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "dog",
                 "verification_goals": [
-                    "Verify limb count and structural integrity (4 legs)",
-                    "Check for anatomical correctness in leg joints and paw placement",
-                    "Validate tail attachment and verify docked nature (truncated but plausible)"
+                    "Verify leg straightness and fine bone structure",
+                    "Confirm anatomical correctness of the standing pose",
+                    "Check for limb fusion or extra limbs"
                 ],
-                "reason": "Crucial for detecting common AI errors like extra limbs or malformed joints, and specifically verifying the anatomical plausibility of the docked tail structure.",
-                "weight": 0.2
+                "reason": "Audits biological structural correctness of limbs and ensures no AI artifacts like melting paws or extra legs.",
+                "weight": 0.15
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "dog",
+                "target_subject": "dog tail and ears",
                 "verification_goals": [
-                    "Audit boundary sharpness between ear feathering and background using detector priors",
-                    "Check for fusion of legs/paws with grass",
-                    "Verify continuity of the coat texture without melting"
+                    "Verify tail tip is a closed, natural boundary (docked integrity)",
+                    "Check boundary sharpness between feathered ears and background",
+                    "Ensure coat continuity without floating parts"
                 ],
-                "reason": "Long-haired breeds are prone to edge bleeding; this expert uses detector masks to verify physical separation from the complex grass background.",
+                "reason": "Specifically targets the 'docked tail' checkpoint to verify it is a natural boundary and not an artifact of generation truncation, plus ear feathering edges.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_image",
+                "target_subject": "dog coat",
                 "verification_goals": [
-                    "Detect subtle texture anomalies in fur rendering",
-                    "Check for lighting inconsistencies between subject and grass",
-                    "Identify any warping in the facial features"
+                    "Check for texture anomalies in the silky coat",
+                    "Verify lighting consistency on the grass and dog",
+                    "Detect subtle warping in face or eyes"
                 ],
-                "reason": "Holistic quality check to catch high-frequency noise or unnatural smoothing often found in AI generations.",
+                "reason": "Holistic quality check to catch subtle rendering issues common in AI-generated animal fur.",
                 "weight": 0.1
             }
         ],
@@ -147,50 +150,51 @@
             "Gait is free and active"
         ],
         "focus_areas": [
-            "Interface between long ear hair and grass background (fusion risk)",
-            "Paw-to-ground contact points for realism",
-            "Anatomical plausibility of the docked tail stump",
-            "Consistency of red patch color saturation"
+            "Paw-ground contact and shadow alignment",
+            "Tail docking boundary integrity",
+            "Ear feathering definition against background",
+            "Red patch clarity and color saturation",
+            "Eye symmetry and reflection"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the interface between the dog's long ear hair and the grass background, as this is a common failure point for AI generators (melting/fusion). Also verify that the 'docked' tail looks naturally truncated rather than accidentally omitted or morphologically strange. Ensure the open_vocabulary_detector successfully isolates the dog before topology auditing begins.",
+        "custom_prompts_for_reflector": "Focus heavily on the transition between the red patches and white fur; AI often blurs these boundaries. Verify that the 'dock' of the tail looks natural and not abruptly cut off by generation errors. Check if the feathering on the legs merges unnaturally with the grass. CRITICAL: Use geometric depth analysis to confirm paws are physically grounded on the grass plane and not floating.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000099.png",
             "class_id": 156,
             "class_label": "Blenheim spaniel",
-            "router_cost_seconds": 28.79,
+            "router_cost_seconds": 28.87,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "dog",
-                "reason": "Mandatory precursor step to provide precise localization masks for the topology auditor, ensuring reliable boundary auditing against the grass background.",
-                "weight": 0.25
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "Cavalier King Charles Spaniel",
+                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel. Target updated to specific breed per Judge feedback.",
+                "weight": 0.35
             },
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "dog",
-                "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel.",
-                "weight": 0.3
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "dog paws and grass",
+                "reason": "Critical for verifying grounding. As noted by Judge, this expert generates depth maps to confirm paws are firmly on the grass and not floating or merging with the texture.",
+                "weight": 0.25
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "dog",
-                "reason": "Crucial for detecting common AI errors like extra limbs or malformed joints, and specifically verifying the anatomical plausibility of the docked tail structure.",
-                "weight": 0.2
+                "reason": "Audits biological structural correctness of limbs and ensures no AI artifacts like melting paws or extra legs.",
+                "weight": 0.15
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "dog",
-                "reason": "Long-haired breeds are prone to edge bleeding; this expert uses detector masks to verify physical separation from the complex grass background.",
+                "target_subject": "dog tail and ears",
+                "reason": "Specifically targets the 'docked tail' checkpoint to verify it is a natural boundary and not an artifact of generation truncation, plus ear feathering edges.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_image",
-                "reason": "Holistic quality check to catch high-frequency noise or unnatural smoothing often found in AI generations.",
+                "target_subject": "dog coat",
+                "reason": "Holistic quality check to catch subtle rendering issues common in AI-generated animal fur.",
                 "weight": 0.1
             }
         ]

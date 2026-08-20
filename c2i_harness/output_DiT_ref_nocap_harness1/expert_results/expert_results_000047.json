@@ -6,24 +6,63 @@
     "class_id": 64,
     "class_label": "green mamba",
     "plan_reference": "approved_plan_000047",
-    "execution_timestamp": "2026-08-19 17:59:25",
+    "execution_timestamp": "2026-08-20 16:03:52",
     "focus_areas": [
-        "Head morphology and scale texture fidelity",
-        "Boundary separation between snake and substrate",
-        "Species-specific coloration accuracy"
+        "Objective verification of missing facial features via detection",
+        "Geometric proof of body cross-section shape",
+        "Topology validation of head-neck boundary with segmentation priors"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the head region. Does the snout shape and eye placement definitively identify this as a mamba, or could it be a generic 'green snake' generation? Scrutinize the transition between the glossy scales and the matte wood for any haloing or fusion artifacts.",
-    "image_description": "A close-up photograph of a green snake, identified as a green mamba, coiled on a textured piece of light brown wood or bark. The snake's head is facing the camera with a glossy appearance, and its body curves behind it. The background is a soft-focus blur of earthy tones.",
+    "custom_prompts_for_reflector": "Focus heavily on validating the absence of eyes and snout using detection results. Use the depth map to conclusively prove the body is cylindrical rather than laterally compressed. Ensure the topology auditor uses the OVD bounding boxes to avoid analyzing background noise. The combination of failed detection + cylindrical geometry + boundary melting should definitively confirm this is an AI-generated artifact rather than a valid green mamba.",
+    "image_description": "A close-up photograph of a green snake, identified as a green mamba, coiled on a textured wooden branch. The snake's head is facing forward with a glossy appearance, and its body curves behind it. The scales appear smooth and reflective.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "snake head and eyes",
+            "weight": 0.35,
+            "reason": "To rigorously audit the 'is_present=false' verdicts for facial features. If the detector returns no boxes for eyes/snout, it confirms structural collapse. Also serves as the necessary bridge for segmentation experts.",
+            "status": "success",
+            "execution_time_ms": 14780.1,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "head",
+                        "confidence_score": 0.4215,
+                        "bounding_box": [
+                            15,
+                            0,
+                            255,
+                            190
+                        ]
+                    },
+                    {
+                        "matched_query_token": "head",
+                        "confidence_score": 0.324,
+                        "bounding_box": [
+                            13,
+                            0,
+                            255,
+                            255
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 2
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "geometric_depth_auditor",
             "internal_expert_id": "monocular_depth_estimator",
             "model_name": "Depth_Anything_V1_FP16_MACA",
-            "target_subject": "scene geometry",
+            "target_subject": "snake body cross-section",
             "weight": 0.2,
-            "reason": "To ensure the coiling posture is physically plausible and the background blur corresponds to a valid depth map.",
+            "reason": "To provide geometric proof for the 'lateral compression' checkpoint. A depth map will objectively distinguish between a round cylinder (incorrect) and a compressed ellipse (correct for mamba).",
             "status": "success",
-            "execution_time_ms": 100.04,
+            "execution_time_ms": 97.83,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000047_depth.png",
                 "depth_statistics": {
@@ -45,10 +84,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "green mamba",
-            "weight": 0.35,
-            "reason": "Critical to distinguish the specific 'green mamba' class from visually similar green serpents, especially given the ambiguous head shape in the image.",
+            "weight": 0.1,
+            "reason": "To determine if this is a valid but poorly rendered mamba or a hallucinated hybrid. Low confidence would support the artifact observations.",
             "status": "success",
-            "execution_time_ms": 250.06,
+            "execution_time_ms": 219.42,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -79,17 +118,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "snake body contours",
-            "weight": 0.2,
-            "reason": "AI images often struggle with the precise boundary where a glossy object meets a textured surface; this ensures the snake isn't 'melting' into the wood.",
+            "target_subject": "snake head and body",
+            "weight": 0.25,
+            "reason": "With OVD priors, this expert can efficiently confirm if the object boundaries are physically valid or if there is AI-generated fusion/melting at the head-neck junction.",
             "status": "success",
-            "execution_time_ms": 977.44,
+            "execution_time_ms": 847.02,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000047_mask.png",
-                "mask_confidence_score": 0.9793,
+                "mask_confidence_score": 0.969,
                 "prompt_point_used": [
-                    128,
-                    128
+                    135,
+                    95
                 ]
             },
             "raw_metrics": {},
@@ -100,11 +139,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "snake skin texture",
-            "weight": 0.25,
-            "reason": "To validate if the 'plastic' look of the scales is a compression artifact or a generative failure in rendering reptile skin micro-texture.",
+            "target_subject": "entire image",
+            "weight": 0.1,
+            "reason": "Final quality filter to catch any remaining degradations not covered by geometric/topological audits.",
             "status": "success",
-            "execution_time_ms": 5665.89,
+            "execution_time_ms": 14465.48,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the snake's scales and the wood texture are sharp. There are no indications that the image has been altered or compressed, and the overall quality seems consistent.",
                 "distortion_class": "null",
@@ -117,10 +156,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 5675.57,
+        "total_execution_time_ms": 29261.9,
         "failed_expert_ids": []
     }
 }

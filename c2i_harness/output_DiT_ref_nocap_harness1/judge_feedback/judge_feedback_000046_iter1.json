@@ -2,33 +2,35 @@
     "image_id": "000046",
     "class_label": "green mamba",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:58:53",
+    "timestamp": "2026-08-20 16:01:24",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to select the necessary expert for geometric validation. Specifically: 1) The Router marked 'Ventral surface is pale yellow-green to white' as `is_testable: false` because it is 'obscured'. However, the provided image clearly shows the underside of the snake's head and neck (ventral view), which appears bright green/yellow-green, contradicting the taxonomy requirement for a pale/white ventral surface. This requires active verification, not dismissal. 2) The plan omits the `geometric_depth_auditor`. For a coiled snake, verifying that overlapping body segments are physically distinct and not 'melting' into each other or the background is crucial. The `topology_boundary_auditor` handles edges, but `geometric_depth_auditor` is required to validate the 3D spatial arrangement of the coils.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' and fails to utilize necessary experts for structural validation. Specifically: 1) The Router marked 'Ventral surface is pale yellow-green to white' as 'is_present: false' (unverifiable), yet the provided image clearly shows the underside of the snake's head and neck coils where ventral scales are visible. This indicates a failure in visual analysis. 2) The plan relies solely on 'fine_grained_classifier' for species ID, but this expert cannot verify the specific anatomical checkpoints (e.g., 'coffin-shaped profile', 'round pupils') listed in the verdicts; these require a VLM or detailed visual audit. 3) The 'topology_boundary_auditor' is selected but lacks the prerequisite 'open_vocabulary_detector' to define the segmentation mask for the complex coiled structure.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Ventral Surface Coloration",
-                "recommended_expert": "fine_grained_classifier",
-                "description": "Re-evaluate the 'Ventral surface' checkpoint. The image shows the ventral side of the head/neck. Use fine_grained_classifier or perceptual_quality_auditor to verify if the visible ventral scales match the 'pale yellow-green to white' description or if they are incorrectly rendered as bright green."
+                "point": "Re-evaluate 'Ventral surface' checkpoint. The ventral scales are visible on the inner curves of the coils and under the jaw. Mark as 'is_present: true' and verify color consistency.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify anatomical checkpoints (Head shape, Eye pupil shape). The 'fine_grained_classifier' only outputs a class label/probability, not geometric verification. A VLM-based check is needed to confirm the 'coffin-shape' and 'round pupils'.",
+                "recommended_expert": "perceptual_quality_auditor"
             },
             {
                 "type": "missing_expert",
-                "point": "Geometric Structure of Coils",
-                "recommended_expert": "geometric_depth_auditor",
-                "description": "Add geometric_depth_auditor to verify the physical separation of overlapping body coils and ensure the snake does not merge with the branch or itself, which is a common failure mode in AI-generated images of complex intertwined subjects."
+                "point": "Add 'open_vocabulary_detector' before 'topology_boundary_auditor'. To audit the boundary sharpness and fusion of the coiled snake body, the system must first precisely locate and segment the snake instance from the branch/background.",
+                "recommended_expert": "open_vocabulary_detector"
             },
             {
-                "type": "logic_correction",
-                "point": "Checkpoint Testability Logic",
-                "recommended_expert": "N/A",
-                "description": "Update the logic for `is_testable`. A feature is only untestable if it is strictly outside the frame or fully occluded by another object. Features visible in profile or partial view (like the ventral neck here) must be audited for consistency with taxonomy."
+                "type": "logical_correction",
+                "point": "The 'fine_grained_classifier' goal mentions verifying 'scale row count'. Standard ViT classifiers do not perform counting or fine-grained morphological measurement. Remove this unrealistic goal or assign it to a specialized counting/geometry agent if available.",
+                "recommended_expert": "N/A"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-contrast photograph of a bright green snake coiled on a dark branch. The snake has vivid lime-green scales with a glossy texture. The head is visible in profile, featuring a large dark eye and a distinct brow ridge. The body loops around, showing the lateral compression and scale pattern.",
+        "image_description": "A close-up, high-contrast photograph of a bright green snake coiled on a dark branch. The snake has vivid lime-green scales with a glossy texture. The head is visible in profile, featuring a large dark eye and a distinct brow ridge. The body loops around, showing the lateral compression and scale arrangement.",
         "image_class": "green mamba",
         "checkpoint_verdicts": [
             {
@@ -36,63 +38,62 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head profile clearly shows the characteristic 'coffin-shape' with a distinct overhanging brow ridge above the eye, consistent with Dendroaspis angusticeps."
+                "reasoning": "The head profile clearly shows the characteristic 'coffin-shape' with a distinct angular brow ridge overhanging the eye, consistent with Dendroaspis angusticeps."
             },
             {
                 "checkpoint": "Eyes are large and dark with round pupils.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The eye is prominent, black, and appears to have a round pupil (though lighting makes exact pupil shape hard to distinguish, it lacks the vertical slit of vipers)."
+                "reasoning": "The eye is large relative to the head size, black/dark in color, and appears round (not vertical slit), matching the diurnal elapid trait."
             },
             {
                 "checkpoint": "Body is slender and elongated.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portions of the body show a consistent, slender diameter typical of arboreal snakes."
+                "reasoning": "Despite the coiling, the visible segments of the body indicate a slender, non-bulky morphology typical of arboreal snakes."
             },
             {
                 "checkpoint": "Dorsal surface is uniformly bright emerald green with smooth, glossy scales.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coloration is a vibrant, uniform green. The scales exhibit strong specular highlights indicating a smooth, glossy texture."
+                "reasoning": "The coloration is a uniform, vibrant yellow-green/emerald. The scales exhibit strong specular highlights indicating a smooth, glossy surface."
             },
             {
                 "checkpoint": "Ventral surface is pale yellow-green to white.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The snake is coiled in a way that obscures the belly; only dorsal and lateral scales are clearly visible."
+                "reasoning": "The ventral side (belly) is largely obscured by the coiling posture and shadow; only dorsal and lateral scales are clearly visible."
             },
             {
                 "checkpoint": "Uniform green coloration with no patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "There are no spots, stripes, or crossbands; the color is solid green across all visible scales."
+                "reasoning": "There are no spots, stripes, or crossbands visible; the color is solid across the visible body segments."
             },
             {
                 "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong reflections on individual scales confirm the glossy nature described in the taxonomy."
+                "reasoning": "High-contrast reflections on individual scales confirm the glossy texture; edges between scales are sharp and regular."
             },
             {
                 "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body cross-section appears flattened side-to-side rather than cylindrical, evident in how the coils rest on the branch."
+                "reasoning": "The cross-section of the body where it curves appears flattened vertically and widened horizontally, indicating lateral compression."
             },
             {
                 "checkpoint": "Tail is long and prehensile.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
-                "is_present": false,
-                "reasoning": "The tail tip is not visible in the frame; the body extends out of view."
+                "reasoning": "The tail tip is not visible in the frame; the body extends out of view or is occluded by coils."
             }
         ],
         "artifact_observations": [],
@@ -101,32 +102,32 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "green mamba",
                 "verification_goals": [
-                    "Confirm species identity as Dendroaspis angusticeps vs other green snakes (e.g., Boomslang, Green Tree Python)",
-                    "Verify specific head shape and scale arrangement matches Green Mamba taxonomy"
+                    "Confirm species identity as Dendroaspis angusticeps vs other green snakes (e.g., vine snakes, green tree pythons).",
+                    "Verify specific head shape and scale row count characteristics."
                 ],
-                "reason": "Critical to distinguish Green Mamba from visually similar species like Boomslangs (which have larger eyes/different head shape) or Pythons (different scale texture).",
+                "reason": "Primary verification to ensure the image is indeed a Green Mamba and not a look-alike species, given the visual similarity among arboreal green snakes.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
                 "verification_goals": [
-                    "Verify scale continuity and edge sharpness",
-                    "Check for melting or fusion between overlapping body coils",
-                    "Ensure branch-snake boundary is physically plausible"
+                    "Verify scale continuity and edge sharpness.",
+                    "Check for melting or fusion between overlapping body coils.",
+                    "Ensure the branch interaction is physically grounded."
                 ],
-                "reason": "AI images often struggle with complex overlapping textures like snake scales; need to verify no 'melting' occurs where coils touch.",
+                "reason": "AI images often struggle with the complex overlapping geometry of coiled snakes and the fine detail of individual scales.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
                 "verification_goals": [
-                    "Assess glossiness realism of scales",
-                    "Check for unnatural noise or texture repetition in scale patterns",
-                    "Verify lighting consistency on curved surfaces"
+                    "Detect subtle texture anomalies in the glossy scales.",
+                    "Check for unnatural lighting reflections inconsistent with a single light source.",
+                    "Identify any background bleeding."
                 ],
-                "reason": "To ensure the high-gloss texture is rendered realistically and not just a flat texture map applied to a mesh.",
+                "reason": "To catch high-frequency artifacts in the glossy texture which is a common failure point for generative models rendering wet/shiny surfaces.",
                 "weight": 0.3
             }
         ],
@@ -135,35 +136,35 @@
             "Tail length and prehensility (out of frame)"
         ],
         "focus_areas": [
-            "Head profile shape (brow ridge)",
-            "Scale texture and glossiness",
-            "Boundary integrity between overlapping coils"
+            "Scale pattern regularity and boundary definition",
+            "Head profile geometry (brow ridge)",
+            "Coil overlap physics (no fusion)"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on distinguishing this from a Boomslang (Dispholidus typus). Boomslangs have much larger eyes relative to head size and a shorter, blunter snout. Verify the 'coffin-shaped' head description strictly. Also, check if the scale rows look biologically consistent (Green Mambas have specific row counts) or if they appear randomly generated.",
+        "custom_prompts_for_reflector": "Focus heavily on the transition points where the snake's body overlaps itself. AI generators frequently merge scales or create impossible geometries at these intersections. Also, verify that the 'glossy' reflection follows a consistent light direction across the curved surface of the snake.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000046.png",
             "class_id": 64,
             "class_label": "green mamba",
-            "router_cost_seconds": 24.85,
-            "plan_valid": true
+            "router_cost_seconds": 24.62,
+            "plan_valid": false
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "green mamba",
-                "reason": "Critical to distinguish Green Mamba from visually similar species like Boomslangs (which have larger eyes/different head shape) or Pythons (different scale texture).",
+                "reason": "Primary verification to ensure the image is indeed a Green Mamba and not a look-alike species, given the visual similarity among arboreal green snakes.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
-                "reason": "AI images often struggle with complex overlapping textures like snake scales; need to verify no 'melting' occurs where coils touch.",
+                "reason": "AI images often struggle with the complex overlapping geometry of coiled snakes and the fine detail of individual scales.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
-                "reason": "To ensure the high-gloss texture is rendered realistically and not just a flat texture map applied to a mesh.",
+                "reason": "To catch high-frequency artifacts in the glossy texture which is a common failure point for generative models rendering wet/shiny surfaces.",
                 "weight": 0.3
             }
         ]

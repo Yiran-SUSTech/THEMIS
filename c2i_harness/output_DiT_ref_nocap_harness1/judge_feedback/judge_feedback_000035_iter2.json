@@ -2,20 +2,20 @@
     "image_id": "000035",
     "class_label": "triceratops",
     "iteration": 2,
-    "timestamp": "2026-08-19 17:58:49",
+    "timestamp": "2026-08-20 16:01:22",
     "judge_verdict": {
         "is_approved": true,
         "reasons_for_rejection": "",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is tasked with verifying taxonomic identity (Triceratops vs. Torosaurus/Styracosaurus). However, standard ImageNet-trained classifiers often fail on skeletal mounts or specific paleontological distinctions. It is recommended to explicitly instruct the 'open_vocabulary_detector' to verify the absence of fenestrations (holes) in the frill, which is the primary diagnostic feature distinguishing Triceratops from Chasmosaurines, ensuring the 'solid bone' checkpoint is rigorously tested.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "The 'open_vocabulary_detector' is tasked with detecting 'holes' in the frill. While it can locate the frill, standard object detectors do not explicitly output 'absence of material' (holes) as a class. The plan should clarify that this expert provides the BBox for the frill, which the 'topology_boundary_auditor' or 'geometric_depth_auditor' will then analyze for internal voids/continuity.",
+                "recommended_expert": "topology_boundary_auditor"
             },
             {
-                "type": "optimization",
-                "point": "The 'perceptual_quality_auditor' is assigned a low weight (0.1). Given that museum lighting can create complex shadows that AI models often mishandle (e.g., inconsistent shadow direction between the frill and the wall), consider increasing its weight or adding a specific goal to check for 'shadow consistency relative to light source' to prevent subtle compositing artifacts.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "refinement",
+                "point": "The 'fine_grained_classifier' target is 'triceratops skeleton'. Standard ImageNet classifiers are trained on living animals or generic objects, not specifically skeletal mounts. It may misclassify this as 'fossil', 'bone', or 'museum exhibit' rather than the species. The verification goal should be adjusted to accept broader related classes (e.g., 'dinosaur', 'fossil') or rely more heavily on the structural audits.",
+                "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
@@ -28,106 +28,107 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skeletal mount clearly displays the characteristic three-horn arrangement: two long brow horns and one shorter nasal horn."
+                "reasoning": "The skeleton clearly displays the characteristic three-horn arrangement: two large brow horns and one smaller nasal horn."
             },
             {
                 "checkpoint": "Beak is parrot-like with a sharp, keratinous cutting edge.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The checkpoint specifies a 'keratinous cutting edge' (soft tissue/beak). As this is a skeleton, only the bony rostral bone is visible; the keratinous sheath is missing by definition of it being a fossil."
+                "reasoning": "This is a skeleton; the keratinous beak (soft tissue) is not preserved or visible, only the underlying rostral bone."
             },
             {
                 "checkpoint": "Body is quadrupedal with columnar, elephant-like limbs.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skeleton is mounted in a quadrupedal stance with thick, pillar-like limb bones consistent with ceratopsian anatomy."
+                "reasoning": "The skeletal structure shows four sturdy, pillar-like legs supporting the body mass."
             },
             {
                 "checkpoint": "Enormous bony frill (neck shield) extending posteriorly from the skull, with width dramatically exceeding the skull itself.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The large parietal-squamosal frill is clearly visible extending behind the skull, significantly wider than the facial portion of the skull."
+                "reasoning": "The large fenestrated frill structure is clearly visible behind the skull."
             },
             {
                 "checkpoint": "Frill is solid bone with a smooth outer surface and possible epoccipital (marginal) bumps.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The frill appears as a solid bony structure (not fenestrated like Chasmosaurus) with visible marginal ossifications (epoccipitals) along the edge."
+                "is_present": false,
+                "reasoning": "The checkpoint specifies 'solid bone' (implying non-fenestrated), but the image shows a Triceratops frill with large openings (fenestrae), which is anatomically correct for the species but contradicts the specific 'solid' descriptor in the prompt."
             },
             {
                 "checkpoint": "Skin is inferred to have been covered in large, hexagonal scales with possible quill-like structures along the back and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "This is a skeletal mount; no skin, scales, or quills are preserved or visible."
+                "reasoning": "As a skeleton, no skin, scales, or quills are visible."
             },
             {
                 "checkpoint": "Forelimbs are shorter than hindlimbs creating a sloping backline.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The mounting clearly shows the forelimbs are shorter than the hindlimbs, resulting in the characteristic downward slope of the torso towards the head."
+                "reasoning": "The skeletal mount exhibits the correct proportion where the front legs are shorter than the rear legs."
             },
             {
                 "checkpoint": "Tail is short and stout.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The caudal vertebrae visible at the rear of the mount form a relatively short, thick tail structure compared to other dinosaur groups."
+                "reasoning": "The tail vertebrae are visible and appear relatively short and thick compared to other dinosaur types."
             }
         ],
         "artifact_observations": [],
         "expert_verification_plan": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "triceratops skeleton",
-                "verification_goals": [
-                    "Detect and localize the triceratops skull, frill, and limb segments to provide bounding box priors for downstream topology auditing."
-                ],
-                "reason": "Required bridge expert to spatially ground the skeleton parts before boundary verification can occur.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "triceratops skeleton",
                 "verification_goals": [
-                    "Verify the skeletal morphology corresponds to Triceratops horridus/prorsus rather than other ceratopsians like Torosaurus or Styracosaurus."
+                    "Confirm the subject is a ceratopsian dinosaur skeleton, specifically Triceratops."
                 ],
-                "reason": "To confirm the specific taxonomic identity of the fossil mount based on frill shape and horn proportions.",
-                "weight": 0.3
+                "reason": "To verify the high-level classification of the skeletal subject against the ImageNet class.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "triceratops skeleton",
+                "verification_goals": [
+                    "Ensure individual bones are distinct and not fused or melting into each other.",
+                    "Verify the separation between the skeleton and the background/rock base."
+                ],
+                "reason": "Replaces animal_pose_auditor. Skeletal integrity (rib count, vertebrae connection) is a topological problem. This expert ensures bones are distinct entities and not fused/melted.",
+                "weight": 0.25
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "triceratops skeleton",
                 "verification_goals": [
-                    "Verify the 3D structural integrity and depth separation of the skeletal elements.",
-                    "Confirm the physical plausibility of the mount's pose and limb articulation without relying on soft-tissue keypoints."
+                    "Verify that the ribs and spine are physically separated and not 'melting' into each other or the background rock.",
+                    "Check spatial grounding of the feet on the rocky base."
                 ],
-                "reason": "Replaces animal_pose_auditor as the subject is a rigid fossil; this expert validates spatial relationships and structural correctness of the bones.",
+                "reason": "Addresses the coverage gap for skeletal articulation. A depth map is superior to simple boundary segmentation for verifying physical separation of overlapping bones.",
                 "weight": 0.25
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "triceratops skull and frill",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "triceratops frill",
                 "verification_goals": [
-                    "Ensure the frill is a single continuous bony structure without floating fragments or reconstruction gaps.",
-                    "Verify the connection between the skull and the cervical vertebrae using BBox priors from open_vocabulary_detector."
+                    "Detect 'holes' or 'fenestrae' in the frill region to confirm visual reality contradicts the 'solid bone' prompt constraint.",
+                    "Verify the presence of the three distinct horns."
                 ],
-                "reason": "To detect any potential AI artifacts where bones might merge unnaturally or float apart, now properly grounded by detection priors.",
-                "weight": 0.1
+                "reason": "Specifically targets the anatomical contradiction noted in checkpoints (solid vs. fenestrated). Provides object detection evidence for the 'is_present: false' verdict on the solid frill checkpoint.",
+                "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
                 "verification_goals": [
-                    "Check for lighting inconsistencies between the skeleton and the background.",
-                    "Verify texture realism of the bone surface versus the rock base."
+                    "Assess overall texture consistency of the bone surfaces.",
+                    "Check for lighting inconsistencies or unnatural shadows typical of AI generation."
                 ],
-                "reason": "General quality check to ensure the image is a genuine photograph and not a high-fidelity render with subtle lighting flaws.",
+                "reason": "General quality check for photographic realism vs. AI generation artifacts.",
                 "weight": 0.1
             }
         ],
@@ -136,49 +137,50 @@
             "Skin is inferred to have been covered in large, hexagonal scales with possible quill-like structures along the back and tail."
         ],
         "focus_areas": [
-            "Skeletal accuracy of the frill margin (epoccipitals)",
-            "Proportions of the brow horns relative to the nasal horn",
-            "3D spatial coherence of the limb joints and spinal curvature"
+            "Skeletal articulation and joint connectivity via depth/topology",
+            "Frill topology (solid vs. fenestrated) verification",
+            "Bone texture and surface detail realism",
+            "Separation of overlapping bones (ribs/spine)"
         ],
-        "custom_prompts_for_reflector": "The image depicts a fossil skeleton, not a living animal. Therefore, checkpoints regarding soft tissue (skin, beak keratin) are inherently untestable and should be excluded from failure criteria. Focus verification on the osteological features: horn count, frill solidity, and limb proportions. Ensure the 'solid bone' nature of the frill is distinguished from fenestrated ceratopsians. Use geometric_depth_auditor instead of animal_pose_auditor to validate the rigid skeletal structure.",
+        "custom_prompts_for_reflector": "Focus on the anatomical correctness of the skeleton using geometric and topological analysis. Verify that the frill structure contains fenestrae (holes) as seen in the image, contradicting the 'solid' prompt. Ensure ribs and vertebrae are distinct physical objects with valid depth separation, not melted together. Check if the lighting on the bones matches a single light source typical of museum photography.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000035.png",
             "class_id": 51,
             "class_label": "triceratops",
-            "router_cost_seconds": 29.77,
+            "router_cost_seconds": 29.0,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "triceratops skeleton",
-                "reason": "Required bridge expert to spatially ground the skeleton parts before boundary verification can occur.",
-                "weight": 0.25
-            },
-            {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "triceratops skeleton",
-                "reason": "To confirm the specific taxonomic identity of the fossil mount based on frill shape and horn proportions.",
-                "weight": 0.3
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "triceratops skeleton",
-                "reason": "Replaces animal_pose_auditor as the subject is a rigid fossil; this expert validates spatial relationships and structural correctness of the bones.",
+                "reason": "To verify the high-level classification of the skeletal subject against the ImageNet class.",
                 "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "triceratops skull and frill",
-                "reason": "To detect any potential AI artifacts where bones might merge unnaturally or float apart, now properly grounded by detection priors.",
-                "weight": 0.1
+                "target_subject": "triceratops skeleton",
+                "reason": "Replaces animal_pose_auditor. Skeletal integrity (rib count, vertebrae connection) is a topological problem. This expert ensures bones are distinct entities and not fused/melted.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "triceratops skeleton",
+                "reason": "Addresses the coverage gap for skeletal articulation. A depth map is superior to simple boundary segmentation for verifying physical separation of overlapping bones.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "triceratops frill",
+                "reason": "Specifically targets the anatomical contradiction noted in checkpoints (solid vs. fenestrated). Provides object detection evidence for the 'is_present: false' verdict on the solid frill checkpoint.",
+                "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire image",
-                "reason": "General quality check to ensure the image is a genuine photograph and not a high-fidelity render with subtle lighting flaws.",
+                "reason": "General quality check for photographic realism vs. AI generation artifacts.",
                 "weight": 0.1
             }
         ]

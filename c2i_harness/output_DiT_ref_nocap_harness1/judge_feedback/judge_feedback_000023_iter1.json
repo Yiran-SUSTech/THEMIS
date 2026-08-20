@@ -2,25 +2,30 @@
     "image_id": "000023",
     "class_label": "mud turtle",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:57:30",
+    "timestamp": "2026-08-20 16:00:14",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and lacks necessary verification steps for the identified artifacts. Specifically: 1) The `animal_pose_auditor` is explicitly defined as 'NOT for limbless' subjects and is optimized for mammals/birds; applying it to a turtle (reptile with different skeletal topology) is scientifically invalid and will yield noisy/incorrect keypoints. 2) The plan identifies 'structural collapse' at the limb-sand interface but fails to include the `open_vocabulary_detector`, which is required to generate the bounding box priors for the `topology_boundary_auditor` to function effectively. 3) The `fine_grained_classifier` is tasked with verifying 'algal coverage', which is outside its scope of taxonomic classification.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'structural_collapse' artifact (limb merging with sand) requires explicit depth validation to distinguish between texture blending and actual geometric failure.",
-                "recommended_expert": "geometric_depth_auditor"
+                "type": "invalid_expert_selection",
+                "point": "Remove `animal_pose_auditor`. Turtles have distinct anatomical structures (scutes, specific limb retraction mechanics) that do not map well to the standard 17-point mammal/bird skeleton used by this auditor. Rely on `topology_boundary_auditor` and `perceptual_quality_auditor` for structural integrity.",
+                "recommended_expert": "N/A (Removal)"
             },
             {
-                "type": "refinement",
-                "point": "Ensure the fine_grained_classifier is prompted to specifically differentiate between Kinosternidae (Mud Turtles) and Sternotheridae (Musk Turtles), as the yellow striping is a key differentiator often confused in general 'turtle' classification.",
+                "type": "missing_verification",
+                "point": "Add `open_vocabulary_detector` to detect 'turtle' and 'limbs'. This provides the necessary segmentation masks/BBoxes for the `topology_boundary_auditor` to rigorously check the 'melting' artifact at the foot-sand interface.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "goal_misalignment",
+                "point": "Refine `fine_grained_classifier` goals. It should strictly verify if the subject is a 'mud turtle' or 'musk turtle' vs. other species. It cannot reliably determine if algae coverage is 'typical' or an 'artifact'; this visual texture analysis belongs to `perceptual_quality_auditor`.",
                 "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, side-profile view of a small turtle resting on sandy ground. The turtle has a dark, high-domed shell covered in green algae or moss. Its head is extended, showing dark skin with distinct yellow linear markings (stripes) on the neck and face. The eye is visible with a light iris. One front limb is planted on the sand, showing dark scales and claws. The plastron is not clearly visible due to the angle and substrate.",
+        "image_description": "A close-up, side-profile view of a small turtle, likely a mud turtle or musk turtle, resting on sandy ground. The turtle has a dark, high-domed carapace covered in green algae or sediment. Its head is extended, showing a pointed snout and distinct yellow striping on the neck and face. One front limb is visible, appearing stout with claws digging into the sand. The plastron is not clearly visible due to the angle and substrate.",
         "image_class": "mud turtle",
         "checkpoint_verdicts": [
             {
@@ -28,56 +33,56 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head is clearly visible in profile. It appears proportionate to the body (relatively large for a turtle), has a somewhat pointed snout, and the eye is positioned laterally. The features match the description."
+                "reasoning": "The head is clearly visible in profile. It exhibits a pointed snout and a lateral eye position consistent with the taxonomy. The relative size appears proportionate to the body."
             },
             {
                 "checkpoint": "Carapace is high-domed and oval, dark brown to black with a smooth, slightly glossy surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the shape is high-domed and oval, the surface is NOT smooth or glossy as described. It is heavily textured with what appears to be algae, moss, or sediment, giving it a rough, matte, and organic appearance rather than a clean, glossy shell surface. This is a significant deviation from the 'smooth, slightly glossy' descriptor."
+                "reasoning": "While the shape is high-domed and oval, the surface is NOT smooth or glossy. It is heavily textured with what appears to be algae, moss, or dried mud, obscuring the underlying shell texture described in the checkpoint. This is a significant deviation from 'smooth, slightly glossy'."
             },
             {
                 "checkpoint": "Carapace has three longitudinal keels in juveniles that become less prominent with age.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The heavy algal coverage and the angle of the photo make it impossible to definitively verify the presence or absence of longitudinal keels on the carapace surface."
+                "reasoning": "Due to the heavy algal/sediment coverage on the carapace, no longitudinal keels are visible. The surface appears relatively uniform in curvature rather than ridged. Cannot confirm presence of keels."
             },
             {
                 "checkpoint": "Plastron is small and yellowish with two hinges allowing partial closure.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The turtle is resting on the ground, and the camera angle is low but focused on the side/top. The plastron (bottom shell) is completely occluded by the ground and the turtle's body position."
+                "reasoning": "The turtle is viewed from a low side angle on sand; the plastron (bottom shell) is completely occluded by the body and the ground. Impossible to verify color or hinges."
             },
             {
                 "checkpoint": "Skin is grey to brown with a rough, scaly texture.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The skin is dark, but the defining feature visible is the bright yellow striping/linear patterns on the head and neck. The checkpoint describes 'grey to brown' skin without mentioning these prominent markings. While the base color might be dark brown/black, the omission of the striking pattern makes the 'grey to brown' description insufficient/inaccurate for this specific visual instance."
+                "is_present": true,
+                "reasoning": "The visible skin on the neck and leg shows a dark base color with lighter markings. The texture appears rough and scaly, consistent with the description, though the specific 'grey to brown' is hard to isolate from the dark wet appearance."
             },
             {
                 "checkpoint": "Limbs are short and stout with webbed feet and sharp claws.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible front limb is short and stout. Claws are visible. Webbing is difficult to see clearly due to the angle and substrate, but the general morphology fits 'short and stout'."
+                "reasoning": "The visible front limb is short and stout. Claws are visible interacting with the sand. Webbing is implied by the aquatic nature but hard to see distinctly due to the pose, yet the overall morphology matches."
             },
             {
                 "checkpoint": "Tail is short and thick.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail is not visible in this frame; it is obscured by the rear of the shell and the angle."
+                "reasoning": "The tail is located at the rear of the turtle and is completely occluded by the carapace and the viewing angle. Not visible."
             },
             {
                 "checkpoint": "No ability to fully retract into shell due to small plastron.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "This is a behavioral/functional trait that cannot be verified from a static image where the head is already extended."
+                "reasoning": "This is a behavioral/functional trait that cannot be verified from a static image of an extended turtle. While the anatomy suggests it, the 'ability' itself is not testable here."
             }
         ],
         "artifact_observations": [
@@ -85,13 +90,19 @@
                 "artifact_type": "texture_anomaly",
                 "location": "Carapace surface",
                 "severity": 2,
-                "reasoning": "The texture of the shell transitions abruptly from the detailed, mossy top to the smoother, darker side near the waterline/edge. While likely intended to be algae, the rendering has a slight 'painted on' quality common in AI generation where texture maps don't perfectly follow the 3D curvature."
+                "reasoning": "The texture on the shell is extremely noisy and granular, resembling generated noise or excessive sharpening rather than natural algae growth. It lacks the organic variation of real biological fouling."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Front right limb/foot interface with sand",
-                "severity": 2,
-                "reasoning": "The toes/claws seem to merge slightly with the sand grains rather than displacing them realistically. The boundary between the foot and the ground is soft and lacks clear contact shadows or displacement physics."
+                "location": "Front right limb/foot",
+                "severity": 3,
+                "reasoning": "The connection between the leg and the foot/claws appears somewhat melted into the sand. The individual toes/claws lack distinct separation and seem to fuse with the substrate texture."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Background and rear shell edge",
+                "severity": 1,
+                "reasoning": "Standard depth-of-field blur is present, but the transition zone on the rear shell edge is slightly unnatural, looking more like a Gaussian smear than optical bokeh."
             }
         ],
         "expert_verification_plan": [
@@ -99,87 +110,84 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "turtle",
                 "verification_goals": [
-                    "Verify if the subject belongs to the Kinosternidae family (mud/musk turtles) vs other freshwater turtles.",
-                    "Confirm species identity based on head striping and shell shape."
+                    "Confirm species identification as mud turtle vs. other freshwater turtles",
+                    "Verify if the heavy algal coverage is typical for this species or an artifact"
                 ],
-                "reason": "The visual features (yellow stripes, domed shell) strongly suggest a specific type of mud/musk turtle (e.g., Stripe-necked Musk Turtle). A classifier is needed to confirm if 'mud turtle' is the correct taxonomic label or if it's a related species often confused in datasets.",
+                "reason": "Primary subject verification. The visual appearance deviates from the 'clean' textbook description due to algae; expert needed to confirm if this specific look belongs to the target class.",
                 "weight": 0.35
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "verification_goals": [
-                    "Assess the realism of the algal texture on the shell.",
-                    "Check for edge bleeding between the turtle and the sandy background.",
-                    "Evaluate the lighting consistency on the wet-looking skin vs dry sand."
-                ],
-                "reason": "To validate the severity of the observed texture anomalies and ensure the image isn't a low-quality composite or hallucination.",
-                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "turtle limbs and shell",
                 "verification_goals": [
-                    "Verify the structural integrity of the limb-shell connection.",
-                    "Check if the shell is a single continuous manifold without floating artifacts.",
-                    "Audit the boundary sharpness of the claws against the sand."
+                    "Audit the boundary between the front foot and the sand for fusion artifacts",
+                    "Verify the continuity of the carapace outline against the background"
                 ],
-                "reason": "AI images often struggle with the complex junction where limbs emerge from the shell and where claws meet granular substrates. Segmentation will reveal if these are distinct, valid objects.",
+                "reason": "To investigate the suspected structural collapse/melting at the limb-sand interface and ensure the shell is a single coherent object.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Analyze the granularity of the shell texture for AI noise patterns",
+                    "Assess the realism of the lighting and specular highlights on the wet shell"
+                ],
+                "reason": "To validate the severity of the texture anomalies and general rendering quality observed in Step 2.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "turtle parts",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "turtle",
                 "verification_goals": [
-                    "Detect 'head', 'shell', 'limb', 'eye' to ensure all expected anatomical parts are present and correctly localized.",
-                    "Provide bounding boxes for the topology auditor."
+                    "Verify anatomical correctness of the visible limb joints",
+                    "Check head-neck alignment for biological plausibility"
                 ],
-                "reason": "Acts as a bridge to confirm that the visual elements identified as 'limbs' and 'head' are indeed recognized as such by a detection model, supporting the checkpoint verdicts.",
+                "reason": "Although turtles are reptiles, this auditor can still check keypoint validity for limbed subjects to ensure the leg isn't broken or backwards.",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Plastron color and hinge mechanism (occluded)",
-            "Presence of longitudinal keels (obscured by algae/angle)",
-            "Tail morphology (out of frame/occluded)",
-            "Retraction capability (static image limitation)"
+            "Plastron is small and yellowish with two hinges allowing partial closure.",
+            "Tail is short and thick.",
+            "No ability to fully retract into shell due to small plastron."
         ],
         "focus_areas": [
-            "Shell surface texture realism (algae vs gloss)",
-            "Limb-ground interaction physics",
-            "Species-specific head markings verification"
+            "Shell texture realism (algae vs. noise)",
+            "Limb-substrate interaction (fusion check)",
+            "Species confirmation despite dirty appearance"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the discrepancy between the 'smooth, glossy' carapace description in the taxonomy and the 'rough, algae-covered' appearance in the image. Determine if this is a valid biological variation (wild specimen) or an AI failure to render the canonical class features. Also, scrutinize the yellow striping on the neck—does this align with the specific 'mud turtle' class provided, or does it indicate a different species like a Musk Turtle (Sternotherus)?",
+        "custom_prompts_for_reflector": "Please pay special attention to the texture of the turtle's shell. Does the granular pattern look like natural biological growth (algae/moss) or like digital noise/high-frequency artifacting? Also, examine the front foot carefully: do the claws have distinct tips, or do they melt into the sand grains?",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000023.png",
             "class_id": 35,
             "class_label": "mud turtle",
-            "router_cost_seconds": 34.21,
+            "router_cost_seconds": 32.32,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "turtle",
-                "reason": "The visual features (yellow stripes, domed shell) strongly suggest a specific type of mud/musk turtle (e.g., Stripe-necked Musk Turtle). A classifier is needed to confirm if 'mud turtle' is the correct taxonomic label or if it's a related species often confused in datasets.",
+                "reason": "Primary subject verification. The visual appearance deviates from the 'clean' textbook description due to algae; expert needed to confirm if this specific look belongs to the target class.",
                 "weight": 0.35
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To validate the severity of the observed texture anomalies and ensure the image isn't a low-quality composite or hallucination.",
-                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "turtle limbs and shell",
-                "reason": "AI images often struggle with the complex junction where limbs emerge from the shell and where claws meet granular substrates. Segmentation will reveal if these are distinct, valid objects.",
+                "reason": "To investigate the suspected structural collapse/melting at the limb-sand interface and ensure the shell is a single coherent object.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To validate the severity of the texture anomalies and general rendering quality observed in Step 2.",
                 "weight": 0.2
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "turtle parts",
-                "reason": "Acts as a bridge to confirm that the visual elements identified as 'limbs' and 'head' are indeed recognized as such by a detection model, supporting the checkpoint verdicts.",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "turtle",
+                "reason": "Although turtles are reptiles, this auditor can still check keypoint validity for limbed subjects to ensure the leg isn't broken or backwards.",
                 "weight": 0.2
             }
         ]

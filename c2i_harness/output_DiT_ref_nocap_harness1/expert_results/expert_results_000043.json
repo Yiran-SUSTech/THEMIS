@@ -6,26 +6,27 @@
     "class_id": 52,
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "plan_reference": "approved_plan_000043",
-    "execution_timestamp": "2026-08-19 18:00:03",
+    "execution_timestamp": "2026-08-20 16:03:02",
     "focus_areas": [
-        "Scale texture glossiness and regularity",
-        "Head-to-body transition smoothness",
-        "Coil overlap boundaries for fusion artifacts",
-        "Watermark text legibility and structure",
-        "Presence and morphology of minute eyes"
+        "Scale texture fidelity and glossiness",
+        "Head-to-body transition smoothness and eye structure",
+        "Watermark text integrity",
+        "Coil topology and background separation",
+        "Ventral color visibility in inter-coil gaps",
+        "Body continuity at obscured tail region"
     ],
-    "custom_prompts_for_reflector": "Please pay special attention to the intersection points of the snake's coils. AI models often struggle with occlusion in coiled subjects, leading to 'melting' where one part of the body merges into another. Verify if the scales maintain their directional flow across these intersections. Additionally, use the image_text_auditor to rigorously analyze the watermark; if it is nonsensical, note it as a strong indicator of generative origin. Finally, zoom in on the head region to confirm the eyes are present but minute, as AI often omits them or makes them too large for this specific species.",
-    "image_description": "A close-up photograph of a small, reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and uniform coloration. A distorted watermark text string is visible in the bottom right corner.",
+    "custom_prompts_for_reflector": "Focus heavily on the micro-texture of the scales. Real thunder snakes have very specific smooth, polished scales. AI often generates 'waxy' or 'plastic' looking skin instead of individual scales. Scrutinize the watermark text; if it's nonsensical, it's a strong indicator of AI generation. Verify that the eye is actually a biological structure and not just a painted-on dark spot. Check any visible gaps between coils for pale ventral coloring. Ensure the body does not abruptly terminate in a way that suggests a generation error rather than natural occlusion.",
+    "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and uniform coloration. A distorted watermark is visible in the bottom right corner.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "snake",
-            "weight": 0.2,
-            "reason": "Provides spatial grounding for the topology auditor to check coil integrity.",
+            "weight": 0.15,
+            "reason": "Used strictly as a bridging tool to provide bounding box priors for the topology auditor and locate the text artifact, NOT for morphological analysis.",
             "status": "success",
-            "execution_time_ms": 14613.64,
+            "execution_time_ms": 14615.31,
             "evidence": {
                 "detected_objects": [
                     {
@@ -62,9 +63,9 @@
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "snake",
             "weight": 0.35,
-            "reason": "Primary verification for species ID and specific confirmation of the 'minute eyes' checkpoint which is subtle and prone to AI error.",
+            "reason": "Primary verification needed to ensure the image represents the specific class label and not a generic brown snake.",
             "status": "success",
-            "execution_time_ms": 113.01,
+            "execution_time_ms": 148.27,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -92,34 +93,14 @@
             "traceback": null
         },
         {
-            "expert_id": "image_text_auditor",
-            "internal_expert_id": "image_text_auditor",
-            "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
-            "target_subject": "watermark",
-            "weight": 0.2,
-            "reason": "Specifically tasked to audit the identified text gibberish artifact, replacing the perceptual auditor for this specific task as per Judge feedback.",
-            "status": "success",
-            "execution_time_ms": 422.55,
-            "evidence": {
-                "full_extracted_text": "",
-                "blocks": []
-            },
-            "raw_metrics": {
-                "detected_text_blocks": 0,
-                "inference_time_seconds": 0.0
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "snake body",
-            "weight": 0.25,
-            "reason": "To ensure the 'worm-like' body does not suffer from melting or fusion artifacts where coils overlap.",
+            "target_subject": "snake_body",
+            "weight": 0.2,
+            "reason": "Correctly selected for coiled body topology; additionally tasked with verifying structural continuity at the tail end to validate the 'unverifiable' checkpoint.",
             "status": "success",
-            "execution_time_ms": 1057.26,
+            "execution_time_ms": 872.53,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000043_mask.png",
                 "mask_confidence_score": 0.9711,
@@ -131,13 +112,32 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire_image",
+            "weight": 0.3,
+            "reason": "Replaces OVD for head anatomy verification as per Judge feedback; also tasked with checking ventral color gaps and general artifact quality.",
+            "status": "success",
+            "execution_time_ms": 7802.81,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or compression. There's no visible noise, blur, or darkening in the image. The colors appear consistent, and the details on the snake and surrounding environment are clear enough.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
         }
     ],
     "execution_summary": {
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 15680.09,
+        "total_execution_time_ms": 22427.29,
         "failed_expert_ids": []
     }
 }

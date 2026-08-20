@@ -2,25 +2,33 @@
     "image_id": "000074",
     "class_label": "Dungeness crab, Cancer magister",
     "iteration": 2,
-    "timestamp": "2026-08-19 18:01:02",
+    "timestamp": "2026-08-20 16:03:28",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address critical visual artifacts present in the image and lacks necessary expert coverage for quality assurance. Specifically: 1) The `artifact_observations` list is empty despite visible 'melting' and topological errors where crab legs merge with the tub walls and other crabs. 2) The `perceptual_quality_auditor` is missing from the expert selection, leaving these structural degradations unchecked. 3) The `open_vocabulary_detector` is assigned an invalid verification goal ('Five pairs of walking legs') which the Router correctly identified as untestable due to occlusion; this creates a logical contradiction in the plan.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fusion' artifact observation (severity 3.0) regarding the crab pile is assigned to the topology_boundary_auditor, but the perceptual_quality_auditor should also explicitly verify this as a structural degradation/artifact.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "missing_expert",
+                "point": "Visual artifacts (leg/tub fusion, blurry boundaries)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The image shows signs of generative 'melting' where limbs blend into the container. The perceptual quality auditor is required to catch these high-level structural distortions before geometric auditing."
             },
             {
-                "type": "optimization",
-                "point": "The open_vocabulary_detector is not explicitly selected in the final plan. While fine_grained_classifier handles species ID, open_vocabulary_detector is recommended as a precursor to topology_boundary_auditor for multi-instance scenes (piled crabs) to provide bounding box priors for accurate segmentation.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "logical_contradiction",
+                "point": "Open Vocabulary Detector Goal: 'Five pairs of walking legs'",
+                "recommended_action": "Remove or modify goal",
+                "reason": "The Router marked the checkpoint 'Five pairs of walking legs' as `is_testable: false` due to occlusion. Assigning this as a verification goal to the OVD is contradictory and will yield unreliable results. The OVD should instead focus on detecting 'claws' and 'visible leg segments' to support the Topology Auditor."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Boundary sharpness between crabs and tub",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "Ensure the topology auditor explicitly checks the interface between the crab pile and the white tub rim, as there appears to be bleeding/fusion in that region."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A white rectangular plastic tub containing a pile of approximately six to eight Dungeness crabs. The crabs are stacked on top of each other, displaying their characteristic broad, oval, purplish-brown carapaces. Several legs and claws are visible protruding from the pile, though many are obscured by the stacking arrangement. A faint watermark text is visible in the bottom right corner.",
+        "image_description": "A white rectangular plastic tub containing a pile of approximately six to eight Dungeness crabs. The crabs are stacked on top of each other, displaying their characteristic broad, oval, purplish-brown carapaces. Several legs and claws are visible protruding from the pile, though many are obscured by the stacking arrangement.",
         "image_class": "Dungeness crab",
         "checkpoint_verdicts": [
             {
@@ -28,80 +36,87 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The eyes are not clearly visible in this image due to the angle of the crabs (mostly dorsal view) and the fact that they are piled together; the anterior margins are largely obscured or facing away/down."
+                "reasoning": "The crabs are viewed primarily from a dorsal/top-down angle and are piled together; the anterior margin where eyes would be located is either facing away or obscured by other crabs/tub walls."
             },
             {
                 "checkpoint": "Carapace is smooth and convex displaying purplish-brown to reddish-brown coloration.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible carapaces clearly show the correct purplish-brown hue and smooth, convex shape typical of Dungeness crabs."
+                "reasoning": "Multiple carapaces are clearly visible in the center and foreground, exhibiting the correct convex shape and distinct purplish-brown hue typical of the species."
             },
             {
                 "checkpoint": "Ventral surface is cream to white.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The crabs are primarily shown from the dorsal (top) side. While some undersides might be peeking through gaps, the ventral surface is not sufficiently visible to verify coloration reliably."
+                "reasoning": "The crabs are positioned dorsal-side up; the ventral (belly) side is completely occluded by the tub bottom or other crabs."
             },
             {
                 "checkpoint": "Broad oval carapace of substantial edible-crab proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Multiple crabs display the distinct broad, oval shape consistent with the species description."
+                "reasoning": "The visible shells clearly show the broad, oval geometry consistent with adult Dungeness crabs."
             },
             {
                 "checkpoint": "Carapace displays lighter mottled patterns over purplish-brown base.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Subtle lighter mottling and texture variations are visible on the dark brown shells, matching the biological description."
+                "reasoning": "Subtle variations in tone and lighter speckling/mottling are visible on the shell surfaces, matching the taxonomic description."
             },
             {
                 "checkpoint": "Exoskeleton is hard and calcified with smooth glossy texture.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shells exhibit specular highlights indicating a hard, glossy, calcified surface."
+                "reasoning": "Specular highlights on the carapaces indicate a hard, glossy, calcified surface texture."
             },
             {
                 "checkpoint": "Five pairs of walking legs extend laterally.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "Due to the dense piling of the crabs, it is impossible to count five distinct pairs of legs on any single individual subject."
+                "reasoning": "While some legs are visible, it is impossible to verify 'five pairs' for any individual crab due to severe occlusion from stacking. We cannot confirm the full count for a single subject."
             },
             {
                 "checkpoint": "First pair modified into robust claws of unequal size with dark tips.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Several claws are visible among the pile, showing the robust structure and dark tips characteristic of the species."
+                "reasoning": "Robust claws with dark tips are visible on the right side of the pile and peeking out from the left, consistent with chelipeds."
             },
             {
                 "checkpoint": "Claws have smooth outer surface and serrated inner edges.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "While claws are visible, the resolution and angle do not allow for verification of fine details like serrated inner edges."
+                "reasoning": "Resolution and angle do not permit verification of fine details like serrated inner edges; only the general shape and color are visible."
             }
         ],
-        "artifact_observations": [
+        "artifact_observations": [],
+        "expert_verification_plan": [
             {
-                "artifact_type": "text_gibberish",
-                "location": "Bottom right corner",
-                "severity": 2.0,
-                "reasoning": "Faint white text/watermark ('www...') is visible in the bottom right corner, which is an unauthorized artifact not part of the natural scene."
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "stacked crabs",
+                "verification_goals": [
+                    "Verify physical separation between overlapping crabs to detect melting/fusion artifacts.",
+                    "Confirm spatial grounding of crabs within the tub boundaries."
+                ],
+                "reason": "Critical for verifying that the piled subjects are distinct 3D entities and not merging into one another or the container, addressing the primary structural risk in this composition.",
+                "weight": 0.35
             },
             {
-                "artifact_type": "fusion",
-                "location": "Center pile of crabs",
-                "severity": 3.0,
-                "reasoning": "Some crab boundaries appear slightly blurred or fused where they overlap, particularly in the central stack, suggesting potential AI generation artifacts in limb/carapace separation."
-            }
-        ],
-        "expert_verification_plan": [
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "crab limbs and carapaces",
+                "verification_goals": [
+                    "Verify topological connectivity of visible limbs to their respective bodies.",
+                    "Audit boundary sharpness between overlapping crabs to ensure no blurred edges or floating parts."
+                ],
+                "reason": "Essential for confirming that limbs attach logically to bodies without generative blurring or detachment, specifically targeting the occlusion-heavy regions.",
+                "weight": 0.3
+            },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "Dungeness crab",
@@ -110,101 +125,65 @@
                     "Broad oval carapace of substantial edible-crab proportions.",
                     "Carapace displays lighter mottled patterns over purplish-brown base."
                 ],
-                "reason": "Primary verification of species identity based on shell morphology and coloration patterns.",
-                "weight": 0.35
+                "reason": "Primary verification of species identity based on dominant visual features (carapace shape and color). Weight reduced per judge feedback as species ID is visually obvious.",
+                "weight": 0.2
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "crab pile",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "crab parts",
                 "verification_goals": [
-                    "Boundary separation between stacked crabs",
-                    "Leg/claw anatomical correctness where visible"
+                    "Five pairs of walking legs extend laterally.",
+                    "First pair modified into robust claws of unequal size with dark tips."
                 ],
-                "reason": "To verify physical separation of overlapping crabs and detect fusion/melting artifacts at contact points, addressing the Judge's concern about structural integrity in stacked subjects.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "image_text_auditor",
-                "target_subject": "bottom right corner",
-                "verification_goals": [
-                    "Text/Watermark Artifact ('www...')"
-                ],
-                "reason": "To detect and evaluate the unauthorized text/watermark artifact identified in the bottom right corner, as requested by the Judge.",
+                "reason": "To locate and bound specific limb instances amidst the occlusion to verify if valid anatomical structures exist even if partially hidden.",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "plastic tub and crabs",
-                "verification_goals": [
-                    "Geometric consistency of the container",
-                    "Spatial relationship between crabs and tub interior"
-                ],
-                "reason": "To confirm crabs are physically situated inside the tub rather than floating or merging with the rim, addressing the Judge's note about container spatial context.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "verification_goals": [
-                    "Exoskeleton is hard and calcified with smooth glossy texture",
-                    "Shell texture consistency across multiple subjects"
-                ],
-                "reason": "To verify that the glossy texture is physically consistent and not an AI-generated artifact, and to assess overall perceptual quality including lighting coherence.",
-                "weight": 0.1
             }
         ],
         "unverifiable_points": [
             "Eyes are stalked and protrude from anterior carapace margin.",
             "Ventral surface is cream to white.",
-            "Claws have smooth outer surface and serrated inner edges.",
-            "Five pairs of walking legs extend laterally."
+            "Claws have smooth outer surface and serrated inner edges."
         ],
         "focus_areas": [
-            "Boundary sharpness and physical separation between overlapping crabs",
-            "Presence and nature of watermark/text artifact in bottom right",
-            "Spatial grounding of crabs within the plastic tub container",
-            "Consistency of glossy shell texture and lighting across all visible subjects"
+            "Geometric separation of stacked subjects",
+            "Topological connectivity of limbs to carapaces",
+            "Species confirmation via carapace morphology",
+            "Limb integrity check despite occlusion"
         ],
-        "custom_prompts_for_reflector": "Verify if the stacking arrangement of the crabs creates any impossible overlaps or fused boundaries using topology analysis. Check if the lighting on the glossy shells is consistent with a single light source and if shadows fall correctly within the tub. Confirm that the visible claws attach naturally to the carapace without floating or merging artifacts. Specifically audit the bottom-right corner for text artifacts and assess whether the crabs are properly contained within the tub's 3D space rather than intersecting its walls unnaturally.",
+        "custom_prompts_for_reflector": "Focus heavily on the interfaces between overlapping crabs. Verify that there is no 'melting' or texture bleeding where one crab touches another. Ensure that any visible leg segments clearly originate from a body mass and do not appear to float in the gaps between shells. Confirm the specific purplish-brown hue is consistent with Cancer magister.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000074.png",
             "class_id": 118,
             "class_label": "Dungeness crab, Cancer magister",
-            "router_cost_seconds": 32.83,
+            "router_cost_seconds": 28.5,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "Dungeness crab",
-                "reason": "Primary verification of species identity based on shell morphology and coloration patterns.",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "stacked crabs",
+                "reason": "Critical for verifying that the piled subjects are distinct 3D entities and not merging into one another or the container, addressing the primary structural risk in this composition.",
                 "weight": 0.35
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "crab pile",
-                "reason": "To verify physical separation of overlapping crabs and detect fusion/melting artifacts at contact points, addressing the Judge's concern about structural integrity in stacked subjects.",
-                "weight": 0.25
+                "target_subject": "crab limbs and carapaces",
+                "reason": "Essential for confirming that limbs attach logically to bodies without generative blurring or detachment, specifically targeting the occlusion-heavy regions.",
+                "weight": 0.3
             },
             {
-                "expert_name": "image_text_auditor",
-                "target_subject": "bottom right corner",
-                "reason": "To detect and evaluate the unauthorized text/watermark artifact identified in the bottom right corner, as requested by the Judge.",
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "Dungeness crab",
+                "reason": "Primary verification of species identity based on dominant visual features (carapace shape and color). Weight reduced per judge feedback as species ID is visually obvious.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "crab parts",
+                "reason": "To locate and bound specific limb instances amidst the occlusion to verify if valid anatomical structures exist even if partially hidden.",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "plastic tub and crabs",
-                "reason": "To confirm crabs are physically situated inside the tub rather than floating or merging with the rim, addressing the Judge's note about container spatial context.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To verify that the glossy texture is physically consistent and not an AI-generated artifact, and to assess overall perceptual quality including lighting coherence.",
-                "weight": 0.1
             }
         ]
     }

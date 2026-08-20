@@ -2,15 +2,20 @@
     "image_id": "000064",
     "class_label": "wombat",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:59:41",
+    "timestamp": "2026-08-20 16:02:24",
     "judge_verdict": {
         "is_approved": true,
         "reasons_for_rejection": "",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'unverifiable' status of the nose and claws relies heavily on visual occlusion. While correct for this specific image, adding an open_vocabulary_detector step could definitively confirm that no hallucinated nose/claws are present in the grass area (negative constraint verification).",
+                "point": "The 'open_vocabulary_detector' is missing from the expert plan. While not strictly required for single-subject classification, it provides necessary bounding box priors for the 'topology_boundary_auditor' to accurately segment the dark fur against the complex grass background.",
                 "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "verification_optimization",
+                "point": "The 'animal_pose_auditor' is selected with high weight (0.25). Given the subject is heavily occluded by grass and in a compact posture, standard 17-keypoint detection may fail or yield low confidence. The plan should explicitly instruct this expert to focus on 'gross limb count' and 'structural continuity' rather than precise joint localization.",
+                "recommended_expert": "animal_pose_auditor"
             }
         ]
     },
@@ -23,63 +28,63 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head structure is clearly broad and blunt. One rounded ear is distinctly visible on the right side. The eye is small and barely visible due to the angle and fur, consistent with the description."
+                "reasoning": "The head shape is visibly broad and blunt. One rounded ear is clearly visible on the right side. The eye is small and barely visible due to the angle and fur, consistent with the description."
             },
             {
                 "checkpoint": "Nose is large, bare, and pigmented.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The wombat's head is angled down into the grass, completely occluding the nose from view. It is impossible to verify the nose characteristics."
+                "reasoning": "The nose is completely obscured by the grass and the angle of the head facing down into the ground. It is impossible to verify its size, texture, or pigmentation."
             },
             {
                 "checkpoint": "Facial features are small relative to broad head.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the face (ear, eye area) confirms that features are compact relative to the massive width of the skull/head."
+                "reasoning": "The visible portion of the face (ear, eye area) appears small relative to the massive width of the skull/head structure."
             },
             {
                 "checkpoint": "Fur is coarse and thick, ranging from sandy brown to dark grey or black.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The fur texture appears wiry, thick, and coarse. The color is a dark greyish-brown, fitting the 'dark grey' range perfectly."
+                "reasoning": "The fur texture appears wiry, coarse, and thick. The color is a dark greyish-brown, fitting the 'dark grey' range of the taxonomy."
             },
             {
                 "checkpoint": "Body exhibits robust barrel-shaped form resembling a small bear.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The torso is distinctly cylindrical and heavy-set, matching the 'barrel-shaped' and 'small bear' comparison accurately."
+                "reasoning": "The torso is distinctly cylindrical and barrel-shaped, lacking a defined neck, strongly matching the 'small bear' comparison."
             },
             {
                 "checkpoint": "Body is stocky and heavy-set with a substantial, ground-hugging build.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The animal sits very low to the ground with no visible neck extension, confirming a ground-hugging, stocky build."
+                "reasoning": "The animal sits very low to the ground with a wide stance, indicating a heavy-set, stocky build."
             },
             {
                 "checkpoint": "Short powerful limbs with broad feet equipped with strong digging claws on forefeet.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the shoulder mass suggests powerful limbs, the paws and claws are buried in the grass or obscured by the body angle. Specific verification of 'broad feet' and 'claws' is not possible."
+                "reasoning": "While the limbs are short, the specific details of 'broad feet' and 'strong digging claws' are obscured by the grass and the animal's posture. The paws are not clearly resolved enough to confirm claw presence."
             },
             {
                 "checkpoint": "Tail is vestigial and inconspicuous.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The rear of the animal is rounded and smooth; there is no protruding tail visible, which aligns with the 'vestigial/inconspicuous' description."
+                "reasoning": "No tail is visible protruding from the rear; the rump is smooth and rounded, consistent with a vestigial tail."
             },
             {
                 "checkpoint": "Body exhibits low center of gravity with quadrupedal plantigrade stance.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The overall posture is extremely low to the ground, indicating a low center of gravity typical of a burrowing quadruped."
+                "reasoning": "The belly is nearly touching the grass, demonstrating an extremely low center of gravity typical of wombats."
             }
         ],
         "artifact_observations": [],
@@ -89,69 +94,86 @@
                 "target_subject": "wombat",
                 "verification_goals": [
                     "Confirm species identity as Vombatus ursinus or related wombat species",
-                    "Verify coarse fur texture consistency with marsupial biology"
+                    "Verify coarse fur texture and barrel-shaped body morphology"
                 ],
-                "reason": "Primary verification to ensure the image is indeed a wombat and not a look-alike (e.g., badger or bear cub) given the partial occlusion of facial features.",
-                "weight": 0.4
+                "reason": "Primary verification of the class label and key morphological traits (barrel body, coarse fur) against ImageNet training data.",
+                "weight": 0.35
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "wombat fur and grass interface",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "wombat",
                 "verification_goals": [
-                    "Check for edge bleeding between dark fur and green grass",
-                    "Verify fur strand coherence vs. smearing artifacts",
-                    "Detect any unnatural blending in the shadowed underbelly area"
+                    "Verify quadrupedal stance and limb count",
+                    "Check for structural integrity of the barrel-shaped torso",
+                    "Confirm low center of gravity alignment"
                 ],
-                "reason": "Dark furry subjects against complex grass backgrounds are prone to segmentation errors and texture melting in AI generation.",
-                "weight": 0.3
+                "reason": "Wombats are limbed mammals; this expert ensures the AI hasn't generated extra limbs or melted the sturdy legs into the body.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "wombat body contour",
+                "target_subject": "wombat",
                 "verification_goals": [
-                    "Verify the continuity of the barrel-shaped body outline",
-                    "Ensure no floating fur patches or disconnected limb segments",
-                    "Check if the ear connects naturally to the head mass"
+                    "Audit boundary sharpness between coarse fur and grass background",
+                    "Verify continuity of the barrel-shaped body without floating segments",
+                    "Check for edge bleeding in the dark fur regions"
                 ],
-                "reason": "To confirm the structural integrity of the 'barrel' shape and ensure the occluded limbs haven't resulted in topological errors like missing legs or fused body parts.",
-                "weight": 0.3
+                "reason": "Dark fur against green grass is a common failure point for segmentation boundaries in AI images; need to ensure no haloing or fusion.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "wombat",
+                "verification_goals": [
+                    "Inspect fur texture for repetitive patterns or smearing",
+                    "Check for unnatural blurring around the head/ears",
+                    "Verify lighting consistency on the barrel body"
+                ],
+                "reason": "Holistic check for subtle texture anomalies in the wiry fur which is difficult to render realistically.",
+                "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Nose is large, bare, and pigmented.",
-            "Short powerful limbs with broad feet equipped with strong digging claws on forefeet."
+            "Nose is large, bare, and pigmented (occluded by grass/angle)",
+            "Strong digging claws on forefeet (obscured by vegetation)"
         ],
         "focus_areas": [
-            "Fur texture realism (wiry vs. plastic/smooth)",
-            "Integration of subject with grass (occlusion handling)",
-            "Anatomical correctness of the visible ear and head slope"
+            "Fur texture realism (coarse/wiry vs smooth/plastic)",
+            "Boundary separation between dark animal and green grass",
+            "Anatomical correctness of the head/ear placement"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the transition zone where the dark fur meets the green grass. AI often struggles with dark-on-green contrast, creating halos or melting effects. Also, scrutinize the visible ear; ensure it has internal structure and isn't just a flat triangle pasted onto the head. Verify that the 'barrel' shape doesn't look like a distorted sphere.",
+        "custom_prompts_for_reflector": "Focus heavily on the transition zone between the wombat's dark fur and the surrounding grass. AI often struggles with dark subjects on complex backgrounds, creating 'halo' effects or melting the fur into the blades of grass. Also, scrutinize the ear shape; AI wombats sometimes generate pointed cat-like ears instead of the characteristic rounded wombat ears.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000064.png",
             "class_id": 106,
             "class_label": "wombat",
-            "router_cost_seconds": 26.99,
+            "router_cost_seconds": 28.35,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "wombat",
-                "reason": "Primary verification to ensure the image is indeed a wombat and not a look-alike (e.g., badger or bear cub) given the partial occlusion of facial features.",
-                "weight": 0.4
+                "reason": "Primary verification of the class label and key morphological traits (barrel body, coarse fur) against ImageNet training data.",
+                "weight": 0.35
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "wombat fur and grass interface",
-                "reason": "Dark furry subjects against complex grass backgrounds are prone to segmentation errors and texture melting in AI generation.",
-                "weight": 0.3
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "wombat",
+                "reason": "Wombats are limbed mammals; this expert ensures the AI hasn't generated extra limbs or melted the sturdy legs into the body.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "wombat body contour",
-                "reason": "To confirm the structural integrity of the 'barrel' shape and ensure the occluded limbs haven't resulted in topological errors like missing legs or fused body parts.",
-                "weight": 0.3
+                "target_subject": "wombat",
+                "reason": "Dark fur against green grass is a common failure point for segmentation boundaries in AI images; need to ensure no haloing or fusion.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "wombat",
+                "reason": "Holistic check for subtle texture anomalies in the wiry fur which is difficult to render realistically.",
+                "weight": 0.2
             }
         ]
     }

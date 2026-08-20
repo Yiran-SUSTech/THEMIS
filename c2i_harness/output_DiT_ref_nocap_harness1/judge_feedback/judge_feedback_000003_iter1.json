@@ -2,30 +2,25 @@
     "image_id": "000003",
     "class_label": "hammerhead, hammerhead shark",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:56:54",
+    "timestamp": "2026-08-20 15:59:23",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The plan contains a critical logical error in Expert Selection: it assigns the 'animal_pose_auditor' to a hammerhead shark. The expert registry explicitly states this tool is 'ONLY for limbed subjects. NOT for limbless (fish, snakes).' Sharks are fish and lack the tetrapod limb structure required for this auditor's 17-keypoint detection logic. Additionally, the plan fails to utilize the 'open_vocabulary_detector', which is defined as the necessary precursor ('Bridge') for segmentation-based boundary auditing.",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "invalid_expert_assignment",
-                "point": "Remove 'animal_pose_auditor' from the verification plan.",
-                "recommended_expert": "N/A (Replace with geometric checks via perceptual_quality_auditor or topology_boundary_auditor)"
-            },
-            {
                 "type": "missing_verification",
-                "point": "The 'topology_boundary_auditor' requires bounding box priors to function effectively as per its description. The plan skips the prerequisite detection step.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "The 'geometric_depth_auditor' is assigned to the shark subject, but its primary function is scene-level depth mapping. It may fail to detect subtle 'sticker-like' artifacts on the silhouette itself without a precise mask.",
+                "recommended_expert": "topology_boundary_auditor (ensure it receives BBox priors from open_vocabulary_detector if available, or explicitly instruct it to check for edge halos against the background)"
             },
             {
-                "type": "coverage_gap",
-                "point": "Verify if the 'fine_grained_classifier' can reliably distinguish species from a low-light silhouette. If confidence is low, rely more heavily on the 'perceptual_quality_auditor' to check for structural plausibility of the cephalofoil ratio rather than taxonomic ID.",
+                "type": "optimization",
+                "point": "The plan correctly identifies that color and texture checkpoints are unverifiable due to backlighting. However, the 'fine_grained_classifier' might struggle with a pure silhouette. If the classifier returns low confidence, the 'perceptual_quality_auditor' should be tasked to specifically look for 'shape anomalies' rather than just noise.",
                 "recommended_expert": "perceptual_quality_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A low-light, underwater photograph showing the silhouette of a hammerhead shark swimming near the surface. The shark is backlit by blue ambient light, creating a strong contrast against the darker water and rocky background. A bright artificial light source is visible in the lower right corner.",
+        "image_description": "A low-light, underwater photograph showing the silhouette of a hammerhead shark swimming near the surface. The shark is backlit by blue ambient light, creating a strong contrast against the darker water and rocky substrate below. A bright artificial light source is visible in the bottom right corner.",
         "image_class": "hammerhead",
         "checkpoint_verdicts": [
             {
@@ -40,35 +35,35 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Due to the backlighting and silhouette nature of the image, internal facial features like eyes are not resolvable."
+                "reasoning": "Due to the backlighting and silhouette nature of the image, internal facial features like eyes are not visible."
             },
             {
                 "checkpoint": "Nostrils are positioned near the lateral margins of the cephalofoil.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Nostrils are microscopic details impossible to see in this low-resolution, backlit silhouette."
+                "reasoning": "Nostrils are microscopic details impossible to resolve in this low-resolution, backlit silhouette."
             },
             {
                 "checkpoint": "Anterior margin of the cephalofoil is straight to slightly curved with a central indentation in some species.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The leading edge of the hammer is visible against the lighter water; it appears relatively straight/curved consistent with the species, though fine detail is limited."
+                "reasoning": "The leading edge of the hammer is visible against the lighter water; it appears relatively straight/curved consistent with the genus, though specific indentation is hard to confirm due to resolution."
             },
             {
                 "checkpoint": "Body is streamlined and laterally compressed.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The overall profile shows the typical fusiform, compressed body shape of a shark."
+                "reasoning": "The overall profile shows the typical fusiform shark body shape."
             },
             {
                 "checkpoint": "Dorsal coloration is grey to brownish with white ventral surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The subject is a dark silhouette; no color information (grey/brown/white) is visible."
+                "reasoning": "The subject is a dark silhouette; no color information (grey/brown/white) is discernible."
             },
             {
                 "checkpoint": "Skin is covered in dermal denticles with a rough texture.",
@@ -99,59 +94,47 @@
                 "reasoning": "The tail fin silhouette shows the characteristic heterocercal shape with a longer upper lobe."
             }
         ],
-        "artifact_observations": [
-            {
-                "artifact_type": "blur",
-                "location": "entire_image",
-                "severity": 2,
-                "reasoning": "The image suffers from significant motion blur and low-light noise, likely due to the photographic conditions rather than AI generation, but it affects structural clarity."
-            },
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "background_rocks",
-                "severity": 1,
-                "reasoning": "The rocks in the background appear somewhat smudged and lack distinct geological texture, potentially indicating generative smoothing or heavy compression."
-            }
-        ],
+        "artifact_observations": [],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "hammerhead_shark",
+                "target_subject": "hammerhead shark",
                 "verification_goals": [
-                    "Confirm species identity as hammerhead shark based on silhouette proportions",
-                    "Distinguish between potential look-alike species (e.g., bonnethead vs. great hammerhead) if possible"
+                    "Confirm species classification as hammerhead shark based on silhouette morphology",
+                    "Distinguish between potential look-alikes or malformed AI generations"
                 ],
-                "reason": "Primary verification of class label against the visual evidence, even in silhouette form.",
+                "reason": "Primary verification to ensure the silhouette is taxonomically correct despite lack of detail.",
                 "weight": 0.4
             },
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "hammerhead_shark",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "hammerhead shark",
                 "verification_goals": [
-                    "Verify anatomical correctness of fin placement and head-to-body ratio",
-                    "Check for limb/fin fusion or structural impossibilities in the silhouette"
+                    "Verify the continuity of the cephalofoil (hammer head) connection to the body",
+                    "Check for floating fins or disconnected body parts common in AI silhouettes",
+                    "Audit the smoothness of the outline against the background"
                 ],
-                "reason": "Ensure the shark's anatomy follows biological rules despite the low visibility.",
+                "reason": "Silhouettes are prone to 'melting' edges or disconnected limbs; topology audit ensures structural integrity.",
                 "weight": 0.3
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_scene",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "hammerhead shark",
                 "verification_goals": [
-                    "Assess if blur and noise patterns are consistent with real photography vs. AI generation artifacts",
-                    "Evaluate lighting consistency between the shark and the environment"
+                    "Verify the shark is spatially grounded in the water column and not floating on the background texture",
+                    "Check for perspective distortion in the fin proportions relative to the body"
                 ],
-                "reason": "Critical for distinguishing between a poor-quality real photo and an AI-generated image mimicking low quality.",
+                "reason": "Ensures the subject exists in a valid 3D space and isn't a 2D sticker artifact.",
                 "weight": 0.2
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "hammerhead_shark",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
                 "verification_goals": [
-                    "Verify the continuity of the shark's outline against the background",
-                    "Check for edge bleeding or merging with the water/rocks"
+                    "Assess noise levels and compression artifacts in the dark regions",
+                    "Check for unnatural glowing edges (haloing) around the silhouette"
                 ],
-                "reason": "Silhouettes are prone to boundary errors in AI generation; this ensures the object is distinct.",
+                "reason": "Low light images often hide generation artifacts in noise; this auditor checks for synthetic noise patterns.",
                 "weight": 0.1
             }
         ],
@@ -162,42 +145,41 @@
             "Skin is covered in dermal denticles with a rough texture."
         ],
         "focus_areas": [
-            "Silhouette integrity of the cephalofoil",
-            "Fin morphology and placement accuracy",
-            "Lighting physics and shadow consistency",
-            "Background texture realism"
+            "Cephalofoil (hammer head) shape and symmetry",
+            "Fin connectivity and placement",
+            "Silhouette edge sharpness vs background"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the 'silhouette test'. AI often struggles with accurate negative space around complex shapes like hammerhead heads. Verify if the connection between the head and body looks biologically plausible or if there is subtle warping. Also, analyze the light source in the bottom right—does it cast realistic reflections or scattering in the water that matches the shark's position?",
+        "custom_prompts_for_reflector": "Focus heavily on the geometry of the hammer-head. AI often generates hammerheads with asymmetrical heads or heads that merge weirdly into the spine. Verify the 'T' shape is distinct and biologically plausible. Also check if the dorsal fin looks like it belongs to the same animal or was pasted on.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000003.png",
             "class_id": 4,
             "class_label": "hammerhead, hammerhead shark",
-            "router_cost_seconds": 32.25,
+            "router_cost_seconds": 30.12,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "hammerhead_shark",
-                "reason": "Primary verification of class label against the visual evidence, even in silhouette form.",
+                "target_subject": "hammerhead shark",
+                "reason": "Primary verification to ensure the silhouette is taxonomically correct despite lack of detail.",
                 "weight": 0.4
             },
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "hammerhead_shark",
-                "reason": "Ensure the shark's anatomy follows biological rules despite the low visibility.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "hammerhead shark",
+                "reason": "Silhouettes are prone to 'melting' edges or disconnected limbs; topology audit ensures structural integrity.",
                 "weight": 0.3
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_scene",
-                "reason": "Critical for distinguishing between a poor-quality real photo and an AI-generated image mimicking low quality.",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "hammerhead shark",
+                "reason": "Ensures the subject exists in a valid 3D space and isn't a 2D sticker artifact.",
                 "weight": 0.2
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "hammerhead_shark",
-                "reason": "Silhouettes are prone to boundary errors in AI generation; this ensures the object is distinct.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Low light images often hide generation artifacts in noise; this auditor checks for synthetic noise patterns.",
                 "weight": 0.1
             }
         ]

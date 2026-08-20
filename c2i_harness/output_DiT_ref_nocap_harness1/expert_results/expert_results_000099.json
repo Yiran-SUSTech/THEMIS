@@ -6,41 +6,38 @@
     "class_id": 156,
     "class_label": "Blenheim spaniel",
     "plan_reference": "approved_plan_000099",
-    "execution_timestamp": "2026-08-19 18:03:44",
+    "execution_timestamp": "2026-08-20 16:06:27",
     "focus_areas": [
-        "Interface between long ear hair and grass background (fusion risk)",
-        "Paw-to-ground contact points for realism",
-        "Anatomical plausibility of the docked tail stump",
-        "Consistency of red patch color saturation"
+        "Paw-ground contact and shadow alignment",
+        "Tail docking boundary integrity",
+        "Ear feathering definition against background",
+        "Red patch clarity and color saturation",
+        "Eye symmetry and reflection"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the dog's long ear hair and the grass background, as this is a common failure point for AI generators (melting/fusion). Also verify that the 'docked' tail looks naturally truncated rather than accidentally omitted or morphologically strange. Ensure the open_vocabulary_detector successfully isolates the dog before topology auditing begins.",
+    "custom_prompts_for_reflector": "Focus heavily on the transition between the red patches and white fur; AI often blurs these boundaries. Verify that the 'dock' of the tail looks natural and not abruptly cut off by generation errors. Check if the feathering on the legs merges unnaturally with the grass. CRITICAL: Use geometric depth analysis to confirm paws are physically grounded on the grass plane and not floating.",
     "image_description": "A full-body profile shot of a Blenheim spaniel (Cavalier King Charles Spaniel) standing on a green grass lawn. The dog features the characteristic white coat with rich chestnut/red patches, long feathered ears, and a docked tail held level with the back.",
     "expert_testimonies": [
         {
-            "expert_id": "open_vocabulary_detector",
-            "internal_expert_id": "open_vocabulary_detector",
-            "model_name": "GroundingDINO_ONNX",
-            "target_subject": "dog",
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "dog paws and grass",
             "weight": 0.25,
-            "reason": "Mandatory precursor step to provide precise localization masks for the topology auditor, ensuring reliable boundary auditing against the grass background.",
+            "reason": "Critical for verifying grounding. As noted by Judge, this expert generates depth maps to confirm paws are firmly on the grass and not floating or merging with the texture.",
             "status": "success",
-            "execution_time_ms": 15745.25,
+            "execution_time_ms": 87.4,
             "evidence": {
-                "detected_objects": [
-                    {
-                        "matched_query_token": "dog",
-                        "confidence_score": 0.9339,
-                        "bounding_box": [
-                            0,
-                            42,
-                            213,
-                            213
-                        ]
-                    }
-                ]
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000099_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 21.1932,
+                    "mean_value": 11.8212,
+                    "std_deviation": 6.7843
+                }
             },
             "raw_metrics": {
-                "detected_count": 1
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
             },
             "error": null,
             "traceback": null
@@ -49,11 +46,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "dog",
-            "weight": 0.3,
-            "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel.",
+            "target_subject": "Cavalier King Charles Spaniel",
+            "weight": 0.35,
+            "reason": "Primary verification to ensure the generated image matches the specific 'Blenheim spaniel' class label rather than a generic spaniel. Target updated to specific breed per Judge feedback.",
             "status": "success",
-            "execution_time_ms": 138.01,
+            "execution_time_ms": 143.63,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -85,10 +82,10 @@
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
             "target_subject": "dog",
-            "weight": 0.2,
-            "reason": "Crucial for detecting common AI errors like extra limbs or malformed joints, and specifically verifying the anatomical plausibility of the docked tail structure.",
+            "weight": 0.15,
+            "reason": "Audits biological structural correctness of limbs and ensures no AI artifacts like melting paws or extra legs.",
             "status": "success",
-            "execution_time_ms": 501.19,
+            "execution_time_ms": 892.63,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -223,17 +220,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "dog",
+            "target_subject": "dog tail and ears",
             "weight": 0.15,
-            "reason": "Long-haired breeds are prone to edge bleeding; this expert uses detector masks to verify physical separation from the complex grass background.",
+            "reason": "Specifically targets the 'docked tail' checkpoint to verify it is a natural boundary and not an artifact of generation truncation, plus ear feathering edges.",
             "status": "success",
-            "execution_time_ms": 1090.65,
+            "execution_time_ms": 1420.3,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000099_mask.png",
-                "mask_confidence_score": 0.9656,
+                "mask_confidence_score": 0.9553,
                 "prompt_point_used": [
-                    106,
-                    127
+                    128,
+                    128
                 ]
             },
             "raw_metrics": {},
@@ -244,11 +241,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire_image",
+            "target_subject": "dog coat",
             "weight": 0.1,
-            "reason": "Holistic quality check to catch high-frequency noise or unnatural smoothing often found in AI generations.",
+            "reason": "Holistic quality check to catch subtle rendering issues common in AI-generated animal fur.",
             "status": "success",
-            "execution_time_ms": 7287.81,
+            "execution_time_ms": 27245.3,
             "evidence": {
                 "thinking_trajectory": "The image appears to have a slight pixelation or compression, which is not immediately obvious but is noticeable upon close inspection. The colors seem consistent, and there's no significant noise or blur. The image quality seems adequate for viewing the subject clearly.",
                 "distortion_class": "compression",
@@ -264,7 +261,7 @@
         "total_experts_planned": 5,
         "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 30358.61,
+        "total_execution_time_ms": 27347.71,
         "failed_expert_ids": []
     }
 }

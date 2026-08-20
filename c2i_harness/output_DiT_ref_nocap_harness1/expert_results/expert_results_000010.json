@@ -6,25 +6,25 @@
     "class_id": 10,
     "class_label": "brambling, Fringilla montifringilla",
     "plan_reference": "approved_plan_000010",
-    "execution_timestamp": "2026-08-19 17:58:25",
+    "execution_timestamp": "2026-08-20 16:00:51",
     "focus_areas": [
-        "Species identification (Brambling vs Chaffinch) via OVD and Classifier",
-        "Plumage color accuracy (Non-breeding/Female traits)",
-        "Foot/Branch interaction topology with OVD priors",
-        "Bottom edge text artifact verification via Image Text Auditor"
+        "Species differentiation (Brambling vs Chaffinch) via spatial feature detection",
+        "Foot/Branch interaction integrity via topology auditing",
+        "Bottom edge text artifact analysis via OCR",
+        "Feather texture realism"
     ],
-    "custom_prompts_for_reflector": "Please verify if the orange patch on the shoulder and the white rump area are distinct enough to confirm Brambling over Chaffinch using the Open Vocabulary Detector. Also, use the Image Text Auditor to determine if the bottom text strip is a watermark or generation noise. Ensure the Topology Boundary Auditor uses the OVD bounding boxes to accurately segment the feet/branch interface.",
-    "image_description": "A small passerine bird, identified as a Brambling (likely female or non-breeding male), perched on a thin, mossy branch. The bird displays brownish-grey upperparts, a buff-orange breast, and distinct black wings with white wing bars and an orange shoulder patch. The background is a soft, out-of-focus grey-green bokeh. There is a strip of illegible text/artifacts along the bottom edge.",
+    "custom_prompts_for_reflector": "Please pay close attention to the distinction between a female Brambling and a female Chaffinch. The key differentiator is often the rump (white in Brambling, greenish in Chaffinch) and the lack of white outer tail feathers in Chaffinch. Use the open_vocabulary_detector to specifically locate the white rump and wing bars. Also, investigate the garbled text at the bottom using the image_text_auditor—is it a sign of a cropped AI generation or a dataset artifact? Verify that the legs are structurally connected to the branch without fusion artifacts using the topology_boundary_auditor.",
+    "image_description": "A small passerine bird, identified as a Brambling (Fringilla montifringilla) in non-breeding or female plumage, perched on a thin, mossy branch. The bird displays brownish-grey upperparts, a buff-orange breast, and distinct black wings with white wing bars. A prominent strip of illegible, garbled text artifacts is visible along the bottom right edge of the image.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "bird",
-            "weight": 0.3,
-            "reason": "Required to provide precise localization of diagnostic plumage features for species verification and to serve as the necessary precursor for the Topology Boundary Auditor.",
+            "weight": 0.25,
+            "reason": "Spatial verification of diagnostic features (white rump, white wing bars) is needed to distinguish from Chaffinch. A classifier alone may miss localized pattern errors.",
             "status": "success",
-            "execution_time_ms": 15809.94,
+            "execution_time_ms": 15252.6,
             "evidence": {
                 "detected_objects": [
                     {
@@ -50,10 +50,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "bird",
-            "weight": 0.25,
-            "reason": "Crucial to verify if the specific plumage details definitively classify this as a Brambling versus a look-alike.",
+            "weight": 0.35,
+            "reason": "Crucial to distinguish Brambling from the visually similar Common Chaffinch, especially given the non-breeding plumage which can be confusing.",
             "status": "success",
-            "execution_time_ms": 185.86,
+            "execution_time_ms": 144.32,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -81,34 +81,14 @@
             "traceback": null
         },
         {
-            "expert_id": "image_text_auditor",
-            "internal_expert_id": "image_text_auditor",
-            "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
-            "target_subject": "bottom_edge_text",
-            "weight": 0.15,
-            "reason": "Mandatory for verifying the nature of the observed gibberish text artifact, which Perceptual Quality Auditor cannot do specifically.",
-            "status": "success",
-            "execution_time_ms": 192.4,
-            "evidence": {
-                "full_extracted_text": "",
-                "blocks": []
-            },
-            "raw_metrics": {
-                "detected_text_blocks": 0,
-                "inference_time_seconds": 0.0
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "bird_feet_and_branch",
+            "target_subject": "bird",
             "weight": 0.2,
-            "reason": "AI often struggles with the complex topology of bird feet grasping irregular branches; needs OVD priors to ensure accurate segmentation.",
+            "reason": "Replaces animal_pose_auditor. Avian anatomy (wings/tarsi) is not supported by standard pose models. Topology auditor verifies limb connectivity and boundary sharpness effectively.",
             "status": "success",
-            "execution_time_ms": 1311.91,
+            "execution_time_ms": 1022.62,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000010_mask.png",
                 "mask_confidence_score": 0.9605,
@@ -122,14 +102,34 @@
             "traceback": null
         },
         {
+            "expert_id": "image_text_auditor",
+            "internal_expert_id": "image_text_auditor",
+            "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
+            "target_subject": "bottom_edge_artifact",
+            "weight": 0.1,
+            "reason": "Specialized tool required for the prominent garbled text artifact identified in observations. Perceptual auditor is insufficient for text-specific analysis.",
+            "status": "success",
+            "execution_time_ms": 254.65,
+            "evidence": {
+                "full_extracted_text": "",
+                "blocks": []
+            },
+            "raw_metrics": {
+                "detected_text_blocks": 0,
+                "inference_time_seconds": 0.0
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "entire_image",
             "weight": 0.1,
-            "reason": "To ensure the plumage texture is natural and assess general image degradation.",
+            "reason": "Holistic quality filter to ensure the 'soft' texture is biological fluffiness and not AI smoothing, complementing the specific text audit.",
             "status": "success",
-            "execution_time_ms": 12258.09,
+            "execution_time_ms": 8008.06,
             "evidence": {
                 "thinking_trajectory": "The image appears to be slightly compressed, as indicated by the pixelation around the edges and the overall image quality. There are no visible signs of noise, blur, or darken. The image seems clear and well-defined, but there's a slight reduction in detail that could suggest compression.",
                 "distortion_class": "compression",
@@ -145,7 +145,7 @@
         "total_experts_planned": 5,
         "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 30947.52,
+        "total_execution_time_ms": 30789.44,
         "failed_expert_ids": []
     }
 }

@@ -6,25 +6,54 @@
     "class_id": 52,
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "plan_reference": "approved_plan_000042",
-    "execution_timestamp": "2026-08-19 17:59:40",
+    "execution_timestamp": "2026-08-20 16:03:00",
     "focus_areas": [
-        "Ventral surface coloration verification (Reddish vs Pale)",
-        "Species differentiation (Snake vs. Limbless Lizard)",
-        "Scale texture realism and glossiness",
-        "Body boundary integrity against background"
+        "Structural verification of limb absence (Snake vs. Legless Lizard)",
+        "Scale texture consistency and glossiness",
+        "Body continuity at coil intersections",
+        "Indirect ventral color inference via shadow analysis"
     ],
-    "custom_prompts_for_reflector": "Please pay close attention to the distinction between a thunder snake and a slow worm (Anguis fragilis). While they look similar, the thunder snake is a true snake. Verify if the head shape and scale arrangement align with Ophidia (snakes) rather than Sauria (lizards). CRITICAL: Scrutinize the exposed belly scales. The taxonomy requires them to be pale pink/white, but they appear reddish-brown in the image. Confirm this color mismatch definitively. Also, check contact points between the snake and the rock for any signs of digital fusion or lack of shadow.",
-    "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales coiled on a grey, textured stone surface. The animal has a slender cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a snake.",
+    "custom_prompts_for_reflector": "CRITICAL: Do not rely solely on fine-grained classification for species ID. The primary verification must be structural: use open_vocabulary_detector to explicitly search for 'limbs', 'forelegs', or 'hindlegs'. A positive detection confirms it is a legless lizard (fail); negative detection supports snake identity (pass). Additionally, use perceptual_quality_auditor to analyze shadows under the coils—while the ventral surface isn't directly visible, an unnaturally black/dark underside would indicate an AI artifact inconsistent with the 'pale pink/white' taxonomy. Verify scale glossiness follows body curvature naturally.",
+    "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales is coiled on a grey, textured stone surface. The animal has a slender cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a legless lizard more than a typical snake due to its specific scale texture and body proportions.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "reptile limbs",
+            "weight": 0.4,
+            "reason": "Addressing Judge feedback: Standard classifiers cannot reliably distinguish thunder snakes from slow worms. Open-vocabulary detection for limbs provides definitive structural evidence (limbs = lizard, no limbs = snake).",
+            "status": "success",
+            "execution_time_ms": 16175.89,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "limbs",
+                        "confidence_score": 0.8192,
+                        "bounding_box": [
+                            4,
+                            66,
+                            239,
+                            239
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "thunder snake",
-            "weight": 0.35,
-            "reason": "The subject visually resembles a Slow Worm (limbless lizard). A fine-grained classifier is essential to distinguish between the target snake species and morphologically similar lizards based on subtle scale/head features.",
+            "weight": 0.25,
+            "reason": "Supplementary verification for species identity. While less reliable than limb detection for this specific distinction, it provides a baseline classification confidence.",
             "status": "success",
-            "execution_time_ms": 141.54,
+            "execution_time_ms": 178.1,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -56,16 +85,16 @@
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "snake body",
-            "weight": 0.3,
-            "reason": "Glossy subjects on textured backgrounds are prone to segmentation errors and edge melting in AI generation. This expert will verify the physical separation and structural integrity of the coils.",
+            "weight": 0.2,
+            "reason": "AI generators often struggle with the self-occlusion of coiled snakes, leading to melting at contact points. Topology audit ensures physical integrity.",
             "status": "success",
-            "execution_time_ms": 1037.61,
+            "execution_time_ms": 852.73,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000042_mask.png",
-                "mask_confidence_score": 0.9995,
+                "mask_confidence_score": 1.0013,
                 "prompt_point_used": [
-                    128,
-                    128
+                    121,
+                    152
                 ]
             },
             "raw_metrics": {},
@@ -76,11 +105,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "ventral surface",
-            "weight": 0.35,
-            "reason": "Addressing Judge feedback: The ventral surface is visible and appears incorrect (reddish instead of pale). This expert must verify the specific attribute mismatch that disqualifies the image from the taxonomy.",
+            "target_subject": "scale texture and ventral shadow",
+            "weight": 0.15,
+            "reason": "Addresses Judge feedback regarding ventral surface. While direct verification is impossible, this auditor can check for indirect evidence of correct ventral coloring via shadow analysis and verify scale texture realism.",
             "status": "success",
-            "execution_time_ms": 14113.02,
+            "execution_time_ms": 6977.75,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, with no visible noise, compression, blur, or darkening. The subject, a snake, is in focus, and the background is not overly detailed but is legible enough to identify the texture of the surface it's on. There are no signs of distortion that would typically obscure or alter the image significantly.",
                 "distortion_class": "null",
@@ -93,10 +122,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 3,
-        "successful_experts": 3,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 14121.35,
+        "total_execution_time_ms": 23164.57,
         "failed_expert_ids": []
     }
 }

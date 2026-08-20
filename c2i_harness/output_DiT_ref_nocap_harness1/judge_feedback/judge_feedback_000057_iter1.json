@@ -2,100 +2,99 @@
     "image_id": "000057",
     "class_label": "drake",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:59:41",
+    "timestamp": "2026-08-20 16:02:11",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Checkpoint Verdicts' regarding plumage coloration. The Router marked the 'Breeding plumage' checkpoint as 'is_present: false' because the body is brown rather than grey. However, the image clearly depicts a male Mallard in **eclipse plumage** (or a similar non-breeding state), which biologically features a green head and white neck ring but a brown/mottled body resembling a female. Marking this as 'false' or an 'error' indicates a failure to recognize valid biological variation, leading to an incorrect diagnosis of AI hallucination. Additionally, the plan misses the opportunity to use `open_vocabulary_detector` to explicitly locate the bill and eyes to confirm their occlusion, rather than just assuming they are untestable.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in checkpoint verdicts and misses critical verification steps for the identified artifacts. Specifically, the Router incorrectly marked the 'bill' and 'eyes' as not present/untestable despite them being clearly visible in the image. Furthermore, the plan fails to assign an expert to verify the 'structural collapse' artifact observed in the wing/tail area, relying solely on the Perceptual Quality Auditor which may lack the geometric precision to distinguish between complex feather folding and AI generation errors.",
         "suggestions": [
             {
-                "type": "logical_correction",
-                "point": "Re-evaluate the 'Breeding plumage' checkpoint verdict. The combination of a green head/white ring with a brown body is a valid biological state (Eclipse Plumage) for Mallards. The verdict should be 'is_present: true' (as it matches a valid drake phenotype) or the checkpoint description should be broadened to include eclipse plumage. It should not be flagged as a texture mapping error solely based on body color.",
+                "type": "incorrect_verdict",
+                "point": "Checkpoint: 'Most distinctive feature is the broad, flat bill...'. The Router marked this as 'is_present: false' due to pose. However, the bill is clearly visible in the image (yellow/green with black tip). This should be marked 'is_present: true' and verified.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "incorrect_verdict",
+                "point": "Checkpoint: 'Eyes are dark.'. The Router marked this as 'is_present: false'. The eye is visible on the side of the green head. This should be marked 'is_present: true'.",
                 "recommended_expert": "fine_grained_classifier"
             },
             {
                 "type": "missing_verification",
-                "point": "The checkpoints for 'Bill' and 'Eyes' are marked unverifiable due to occlusion. To rigorously audit this, an object detector should first attempt to locate these features. If the detector finds no bounding box, only then can they be confirmed as occluded/missing. This prevents false negatives where the features are present but hard to see.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Artifact: 'structural_collapse' at Left wing/back area. The plan relies only on perceptual_quality_auditor. Given the complex geometry of the raised tail/wing feathers, a topological audit is needed to ensure these are connected physical structures and not floating/melting artifacts.",
+                "recommended_expert": "topology_boundary_auditor"
             },
             {
-                "type": "coverage_gap",
-                "point": "The 'texture_anomaly' artifact observation notes repetitive spotting. While `perceptual_quality_auditor` is selected, `topology_boundary_auditor` should also be tasked with checking if the 'specular highlight' on the head merges incorrectly with the background water, as high-gloss AI generations often fail at the boundary of shiny objects and reflective surfaces.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_verification",
+                "point": "Checkpoint: 'Tail is short with curled central tail feathers'. The Router marked this as 'is_present: false' but noted the tail is visible. The 'drake feathers' are a key taxonomic feature. The open_vocabulary_detector should be used to locate the tail region specifically to allow for a more granular inspection of the curl structure.",
+                "recommended_expert": "open_vocabulary_detector"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A male duck (drake) floating on dark water. The bird has a glossy green head, a white neck ring, and a brownish-patterned body. It appears to be preening or turning its head back towards its wing/tail area. The lighting creates strong highlights on the head and water surface.",
+        "image_description": "A male mallard duck (drake) floating on dark water. The duck has a characteristic iridescent green head, a white neck ring, and a brownish-patterned body. It appears to be preening or turning its head back towards its wing. The water surface shows reflections and ripples.",
         "image_class": "drake",
         "checkpoint_verdicts": [
             {
                 "checkpoint": "Most distinctive feature is the broad, flat bill adapted for filter-feeding; bill is dark grey to yellow-green.",
                 "category": "Head_and_Face",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bill is completely occluded by the bird's posture as it turns its head into its back/wing feathers."
+                "reasoning": "The bill is not clearly visible in this pose; the duck's head is turned away or tucked, obscuring the bill structure. While the head is visible, the specific 'broad, flat bill' feature cannot be verified as present due to the angle/pose."
             },
             {
                 "checkpoint": "Eyes are dark.",
                 "category": "Head_and_Face",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The eye is not visible due to the angle of the head and the intense specular highlight on the green plumage obscuring facial details."
+                "reasoning": "The eye is not clearly distinguishable. The head is turned at an angle where the eye is either hidden by the plumage angle or obscured by shadow/reflection. It is testable (head is visible) but the specific feature is absent/unclear."
             },
             {
                 "checkpoint": "Body is stocky and compact, streamlined and buoyant with dense waterproof plumage.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body shape is consistent with a swimming duck, sitting low in the water with a rounded, compact profile."
+                "reasoning": "The body shape is consistent with a drake: stocky, floating low in the water, with texture suggesting dense feathers."
             },
             {
                 "checkpoint": "Breeding plumage is typically more colorful than female: common patterns include iridescent green head with white neck ring and grey body (mallard), or chestnut head with grey body.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "While the green head and white ring match a Mallard drake, the body plumage is distinctly brown/mottled rather than the characteristic solid grey of a breeding Mallard drake. This suggests either a non-breeding plumage, a different species, or an AI generation error in texture mapping."
+                "is_present": true,
+                "reasoning": "The image clearly shows the iconic mallard drake pattern: iridescent green head and distinct white neck ring. The body color is brownish/mottled rather than pure grey, which is acceptable for variation or lighting, but the key identifiers (green head, white ring) are strongly present."
             },
             {
                 "checkpoint": "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing).",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Legs and feet are submerged underwater and not visible."
+                "reasoning": "The legs and feet are completely submerged underwater and not visible in the image."
             },
             {
                 "checkpoint": "Wings are broad and pointed.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The folded wing structure is visible on the side of the body, appearing broad and consistent with waterfowl anatomy."
+                "is_present": false,
+                "reasoning": "The wings are folded against the body. While the general shape implies wings, the specific 'broad and pointed' geometry is not explicitly testable in this resting/preening pose. However, marking as 'false' because the specific geometric descriptor cannot be confirmed visually."
             },
             {
                 "checkpoint": "Tail is short with curled central tail feathers (drake feathers) in many species.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The tail region is visible at the rear of the bird, showing the characteristic upward curl of drake feathers."
+                "is_present": false,
+                "reasoning": "The tail area is visible but the specific 'curled central tail feathers' (sex feathers) are not clearly distinguishable in this resolution and pose. The tail looks generic."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Body plumage (flanks and back)",
-                "severity": 2.5,
-                "reasoning": "The body feathers exhibit a repetitive, overly uniform brown spotting pattern that lacks the natural variation of real mallard flank feathers. It resembles a 'noise' texture mapped onto the surface rather than distinct feather structures."
+                "location": "Neck ring and head boundary",
+                "severity": 2,
+                "reasoning": "The transition between the green head and the white neck ring is slightly soft and painterly, lacking the crisp feather definition expected in a high-res photo. There is a slight 'melting' look to the white ring on the right side."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Neck-to-body junction / Preening area",
-                "severity": 3.0,
-                "reasoning": "The area where the neck meets the back/wing is anatomically ambiguous. The white neck ring seems to dissolve into the brown body feathers without a clear boundary, and the head position creates a slight fusion effect with the wing feathers."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "Water reflection",
-                "severity": 1.5,
-                "reasoning": "The reflection of the green head in the water is somewhat smeared and lacks the coherent distortion expected from the specific ripple pattern seen elsewhere on the surface."
+                "location": "Left wing/back area",
+                "severity": 3,
+                "reasoning": "The feathers on the raised wing/back area (left side of image) look somewhat fused and lack individual strand definition. The blue speculum patch is visible but the surrounding feather structure is muddy."
             }
         ],
         "expert_verification_plan": [
@@ -103,83 +102,86 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "drake",
                 "verification_goals": [
-                    "Breeding plumage is typically more colorful than female: common patterns include iridescent green head with white neck ring and grey body (mallard), or chestnut head with grey body."
+                    "Confirm species identification as Mallard Drake (Anas platyrhynchos)",
+                    "Verify breeding plumage characteristics (green head, white ring)"
                 ],
-                "reason": "To definitively identify if the brown-bodied/green-headed combination corresponds to a valid biological species (e.g., eclipse plumage Mallard vs. hybrid) or represents an AI hallucination.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "drake",
-                "verification_goals": [
-                    "Body is stocky and compact, streamlined and buoyant with dense waterproof plumage.",
-                    "Wings are broad and pointed."
-                ],
-                "reason": "To verify the segmentation of the bird against the water and check for edge bleeding or fusion artifacts around the complex preening pose.",
-                "weight": 0.25
+                "reason": "Primary subject verification to ensure the generated image matches the 'drake' class label taxonomically.",
+                "weight": 0.4
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "drake",
                 "verification_goals": [
-                    "texture_anomaly on body plumage",
-                    "structural_collapse at neck junction"
+                    "Assess feather texture realism on the head and neck ring",
+                    "Check for melting artifacts in the wing plumage",
+                    "Evaluate water reflection consistency"
                 ],
-                "reason": "To assess the severity of the repetitive texture patterns and the anatomical blending at the neck/wing interface.",
+                "reason": "To verify the severity of the observed texture anomalies and potential structural collapse in the wing area.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "drake",
+                "verification_goals": [
+                    "Segment the duck from the water to check for edge bleeding",
+                    "Verify the continuity of the neck ring and head connection"
+                ],
+                "reason": "To audit the boundary sharpness between the subject and the water, and ensure the neck ring is a coherent physical feature.",
                 "weight": 0.2
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "drake",
+                "target_subject": "water surface",
                 "verification_goals": [
-                    "Body is stocky and compact, streamlined and buoyant with dense waterproof plumage."
+                    "Verify the physical grounding of the duck in the water",
+                    "Check if the reflection matches the object geometry"
                 ],
-                "reason": "To ensure the bird is correctly grounded in the water volume and not floating above it or merging with the substrate.",
-                "weight": 0.2
+                "reason": "Floating objects are prone to depth errors; verifying the waterline and reflection logic is crucial.",
+                "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Most distinctive feature is the broad, flat bill adapted for filter-feeding; bill is dark grey to yellow-green.",
-            "Eyes are dark.",
-            "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing)."
+            "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing).",
+            "Most distinctive feature is the broad, flat bill adapted for filter-feeding; bill is dark grey to yellow-green."
         ],
         "focus_areas": [
-            "Plumage color consistency (Green head vs Brown body)",
-            "Feather texture realism on flanks",
-            "Anatomical clarity of the neck-wing junction"
+            "Feather texture definition on the green head",
+            "Clarity of the white neck ring boundary",
+            "Structural integrity of the raised wing feathers",
+            "Waterline interaction and reflection accuracy"
         ],
-        "custom_prompts_for_reflector": "Please specifically analyze the plumage pattern on the body. Does the combination of a breeding-drake green head with a female-like brown mottled body exist in nature (e.g., eclipse plumage transition), or does it look like a texture mismatch? Also, examine the boundary between the white neck ring and the body feathers for signs of digital smearing.",
+        "custom_prompts_for_reflector": "Focus heavily on the texture of the iridescent green head feathers. AI often renders this as a smooth plastic-like gradient rather than distinct feathers. Also, inspect the white neck ring for 'floating' artifacts where it doesn't quite connect to the body geometry. Check the water reflection directly below the duck; does it mirror the green head correctly or is it distorted?",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000057.png",
             "class_id": 97,
             "class_label": "drake",
-            "router_cost_seconds": 34.26,
+            "router_cost_seconds": 29.98,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "drake",
-                "reason": "To definitively identify if the brown-bodied/green-headed combination corresponds to a valid biological species (e.g., eclipse plumage Mallard vs. hybrid) or represents an AI hallucination.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "drake",
-                "reason": "To verify the segmentation of the bird against the water and check for edge bleeding or fusion artifacts around the complex preening pose.",
-                "weight": 0.25
+                "reason": "Primary subject verification to ensure the generated image matches the 'drake' class label taxonomically.",
+                "weight": 0.4
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "drake",
-                "reason": "To assess the severity of the repetitive texture patterns and the anatomical blending at the neck/wing interface.",
+                "reason": "To verify the severity of the observed texture anomalies and potential structural collapse in the wing area.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "drake",
+                "reason": "To audit the boundary sharpness between the subject and the water, and ensure the neck ring is a coherent physical feature.",
                 "weight": 0.2
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "drake",
-                "reason": "To ensure the bird is correctly grounded in the water volume and not floating above it or merging with the substrate.",
-                "weight": 0.2
+                "target_subject": "water surface",
+                "reason": "Floating objects are prone to depth errors; verifying the waterline and reflection logic is crucial.",
+                "weight": 0.1
             }
         ]
     }

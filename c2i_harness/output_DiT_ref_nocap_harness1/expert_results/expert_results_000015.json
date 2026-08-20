@@ -6,24 +6,25 @@
     "class_id": 25,
     "class_label": "European fire salamander, Salamandra salamandra",
     "plan_reference": "approved_plan_000015",
-    "execution_timestamp": "2026-08-19 17:57:48",
+    "execution_timestamp": "2026-08-20 16:00:47",
     "focus_areas": [
-        "Skin texture realism (glossy/wet vs. plastic)",
-        "Boundary separation from pine needles",
-        "Limb-body connectivity under occlusion"
+        "Limb-digit integrity and grounding against substrate",
+        "Species-specific spot pattern accuracy",
+        "Background texture coherence",
+        "Boundary separation between subject and pine needles"
     ],
-    "custom_prompts_for_reflector": "Please pay close attention to the interface between the salamander's black skin and the brown pine needles. AI models often struggle with this high-contrast boundary on textured ground. Also, verify if the yellow spots follow a biologically plausible distribution or if they look randomly splattered. Since limbs are occluded, focus on whether the visible limb stumps connect logically to the body without melting artifacts.",
-    "image_description": "A European fire salamander (Salamandra salamandra) is positioned diagonally across a forest floor covered in dry pine needles and twigs. The amphibian displays the characteristic glossy black skin with irregular bright yellow spots. Its body is robust and cylindrical, with short limbs partially visible against the substrate. The tail extends towards the upper right corner.",
+    "custom_prompts_for_reflector": "Focus heavily on the interaction between the salamander's feet and the ground. AI often struggles with small digits interacting with complex debris like pine needles. Verify if the toes look like distinct biological structures or if they melt into the environment. Also, double-check the spot pattern; real fire salamanders have specific bilateral symmetry or randomness that AI sometimes makes too uniform or chaotic. Do NOT use standard pose estimation keypoints; rely on perceptual quality assessment for limb morphology.",
+    "image_description": "A high-angle, close-up shot of a European fire salamander (Salamandra salamandra) resting on a bed of dry pine needles and twigs. The salamander has a glossy black body with distinct, irregular yellow spots and bands. Its skin appears wet and reflective. The head is broad, and the limbs are short and stout. The tail extends towards the upper right corner.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "European fire salamander",
-            "weight": 0.1,
-            "reason": "Provides necessary spatial grounding for the topology auditor to accurately segment the subject from the complex pine needle background.",
+            "weight": 0.25,
+            "reason": "Essential precursor expert. The topology auditor cannot reliably audit boundaries against the cluttered background without OVD localization first.",
             "status": "success",
-            "execution_time_ms": 13464.98,
+            "execution_time_ms": 14695.64,
             "evidence": {
                 "detected_objects": [
                     {
@@ -49,10 +50,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "European fire salamander",
-            "weight": 0.4,
-            "reason": "Primary verification to ensure the generated image is taxonomically accurate and not a hallucinated hybrid or wrong species.",
+            "weight": 0.3,
+            "reason": "Primary verification for species identity. Can provide soft verification for unverifiable checkpoints (eyes) and morphological checks for limbs without relying on rigid keypoint models.",
             "status": "success",
-            "execution_time_ms": 176.32,
+            "execution_time_ms": 196.47,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -80,14 +81,33 @@
             "traceback": null
         },
         {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "Entire image",
+            "weight": 0.25,
+            "reason": "Replaces animal_pose_auditor for limb/digit verification. Uses CoT reasoning to assess the specific artifact areas and grounding quality that standard pose estimators miss on salamanders.",
+            "status": "success",
+            "execution_time_ms": 8001.84,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, showing a salamander on a natural background. There are no visible signs of noise, compression, blur, or darken. The image seems to have been taken in good conditions, and the colors are vibrant, indicating that the image quality is decent.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "European fire salamander",
             "weight": 0.2,
-            "reason": "Complex backgrounds (pine needles) often cause segmentation errors in AI images where the subject merges with the ground. Also verifies limb connectivity since digit counting is impossible.",
+            "reason": "To investigate the observed 'structural_collapse' artifact at the foot-ground interface. Requires OVD output to function correctly on this complex background.",
             "status": "success",
-            "execution_time_ms": 1100.66,
+            "execution_time_ms": 1009.34,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000015_mask.png",
                 "mask_confidence_score": 0.9381,
@@ -99,32 +119,13 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "European fire salamander",
-            "weight": 0.3,
-            "reason": "Amphibian skin is a common failure point in AI generation (often looking like plastic or clay). This expert checks for subtle texture anomalies.",
-            "status": "success",
-            "execution_time_ms": 9031.67,
-            "evidence": {
-                "thinking_trajectory": "The image appears to be clear and well-lit, showing a salamander on a natural background. There are no visible signs of noise, compression, blur, or darken. The image seems to have been taken in good conditions, and the colors are vibrant, indicating that the image quality is decent.",
-                "distortion_class": "null",
-                "severity_level": "null",
-                "severity_score": 0.0
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
         }
     ],
     "execution_summary": {
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 22511.73,
+        "total_execution_time_ms": 28373.56,
         "failed_expert_ids": []
     }
 }

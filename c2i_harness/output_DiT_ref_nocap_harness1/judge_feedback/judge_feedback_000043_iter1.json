@@ -2,27 +2,33 @@
     "image_id": "000043",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-19 17:58:40",
+    "timestamp": "2026-08-20 16:01:25",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan fails to utilize the `image_text_auditor` despite explicitly identifying a text artifact (watermark) in the `artifact_observations`. The `perceptual_quality_auditor` is tasked with assessing text legibility, which is outside its primary scope of structural/geometric quality and less effective than the specialized OCR tool. Additionally, the plan lacks a specific verification step for the 'minute eyes' checkpoint using the high-resolution capabilities of the VLM or Classifier, relying instead on a general visual check.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification coverage. Specifically, the `open_vocabulary_detector` is assigned to verify 'snake_head' morphology (distinctness from body, eye presence). This expert is defined as a detection/bridging tool for locating objects and providing BBox priors, NOT for analyzing fine-grained biological structures or verifying morphological checkpoints like 'minute eyes'. Furthermore, the plan fails to explicitly assign an expert to verify the 'Ventral surface is pale pink to white' checkpoint which was marked `is_present: false`; while difficult, the `fine_grained_classifier` or `perceptual_quality_auditor` should be tasked with checking visible gaps for color consistency rather than leaving it unverified. The `topology_boundary_auditor` is correctly selected for the coiled body, but the reliance on OVD for head anatomy is scientifically invalid.",
         "suggestions": [
             {
-                "type": "missing_expert",
-                "point": "Watermark/Text Artifact Verification",
-                "recommended_expert": "image_text_auditor",
-                "reason": "The plan identifies 'text_gibberish' in the bottom right corner. The `image_text_auditor` is specifically designed to extract and audit text strings. It should be added to verify if the text is illegible AI artifacting or a valid signature, replacing or supplementing the perceptual auditor's role for this specific artifact."
+                "type": "incorrect_expert_assignment",
+                "point": "open_vocabulary_detector assigned to verify head morphology (eyes, snout distinctness)",
+                "recommended_expert": "perceptual_quality_auditor or fine_grained_classifier",
+                "reason": "OVD cannot verify biological structural correctness or minute features like eyes. These require visual reasoning capabilities found in VLMs (Perceptual Quality Auditor) or taxonomic classifiers."
             },
             {
-                "type": "verification_gap",
-                "point": "Minute Eyes Visibility",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "The checkpoint 'Eyes are minute... barely visible' is marked present. To rigorously verify this against AI hallucinations (where eyes might be missing or overly prominent), the `fine_grained_classifier` or `perceptual_quality_auditor` should be explicitly prompted to confirm the presence of eye structures at the expected anatomical location, rather than just general species ID."
+                "type": "missing_verification",
+                "point": "Ventral surface coloration (Checkpoint: 'Ventral surface is pale pink to white')",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "Although marked 'is_present: false', the auditor should explicitly check any visible inter-coil gaps to ensure no contradictory colors (e.g., dark belly) are present, rather than ignoring it completely."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Tail tip visibility",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "While the tail tip is obscured, the topology auditor should verify that the body continuity does not abruptly end in a way that suggests a generation cut-off, supporting the 'unverifiable' status with structural evidence."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up photograph of a small, reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and a uniform coloration. A watermark is visible in the bottom right corner.",
+        "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a smooth, glossy texture and uniform coloration. A watermark is visible in the bottom right corner.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -30,7 +36,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head is clearly visible, small, and blends seamlessly into the neck without a distinct separation, matching the description."
+                "reasoning": "The head is clearly visible, small, and blends seamlessly into the neck without a distinct constriction, matching the description."
             },
             {
                 "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
@@ -44,7 +50,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body maintains a consistent, thin cylindrical diameter throughout the visible coils, resembling an earthworm."
+                "reasoning": "The body maintains a consistent, slender cylindrical diameter throughout the visible coils, resembling an earthworm."
             },
             {
                 "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
@@ -56,44 +62,44 @@
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The snake is coiled such that the ventral (belly) side is largely obscured by the body itself or the ground; it cannot be reliably verified."
+                "reasoning": "The ventral surface is largely obscured by the coiling posture and ground contact; only minimal glimpses are visible which are insufficient to confirm the specific pale pink/white coloration definitively."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights on the body curves indicate a very smooth, glossy scale texture typical of this species."
+                "reasoning": "Strong specular highlights indicate a glossy surface, and the texture appears smooth without keels."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The color is solid and uniform with no spots, stripes, or bands visible."
+                "reasoning": "The snake displays a solid, unpatterned color across its entire visible body."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail tip is not clearly isolated or visible in the frame to verify its bluntness or length relative to the body."
+                "reasoning": "The tail tip is not visible in the frame or is completely obscured by the coil structure and debris."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "text_gibberish",
                 "location": "Bottom right corner",
-                "severity": 2,
-                "reasoning": "There is a watermark text string that appears distorted and partially illegible, characteristic of AI-generated text artifacts or low-resolution compression artifacts mimicking text."
+                "severity": 2.0,
+                "reasoning": "There is a watermark text that appears distorted and partially illegible ('CAT...'), typical of AI generation or low-quality compression artifacts often seen in synthetic datasets."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Background soil/leaf litter",
-                "severity": 1,
-                "reasoning": "The background textures show slight smearing and lack of fine granular detail compared to the sharp focus on the snake, suggesting potential depth-of-field simulation issues common in generation."
+                "location": "Snake body mid-section",
+                "severity": 1.0,
+                "reasoning": "While generally glossy, some scale rows appear slightly smeared or lack the crisp individual definition expected in high-res macro photography of reptiles, suggesting potential generative smoothing."
             }
         ],
         "expert_verification_plan": [
@@ -101,59 +107,60 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Confirm species identity as Carphophis amoenus (Thunder Snake) vs similar small colubrids",
-                    "Verify uniform reddish-brown coloration matches taxonomic standards"
+                    "Confirm species identity as Carphophis amoenus (Thunder Snake) vs similar colubrids",
+                    "Verify reddish-brown uniform coloration matches taxonomic standards"
                 ],
                 "reason": "Primary verification needed to ensure the image represents the specific class label and not a generic brown snake.",
                 "weight": 0.35
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake body",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
                 "verification_goals": [
-                    "Verify continuous cylindrical structure without fusion errors in coils",
-                    "Check scale boundary sharpness and glossiness consistency"
+                    "Assess severity of text gibberish in watermark",
+                    "Evaluate scale texture realism and glossiness consistency",
+                    "Check for subtle melting or fusion in coiled areas"
                 ],
-                "reason": "To ensure the 'worm-like' body does not suffer from melting or fusion artifacts where coils overlap.",
+                "reason": "To validate if the observed texture anomalies and text issues are significant AI artifacts or acceptable image quality variations.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake_body",
                 "verification_goals": [
-                    "Assess severity of text gibberish in watermark",
-                    "Evaluate background texture realism vs subject sharpness"
+                    "Verify continuity of the snake body through coils",
+                    "Check for boundary bleeding between snake and soil/leaf litter",
+                    "Ensure no floating segments or disconnected body parts"
                 ],
-                "reason": "To quantify the impact of the observed text artifact and background smearing on overall image quality.",
+                "reason": "Coiled snakes are prone to topological errors where limbs/body segments merge incorrectly or detach from the background.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "snake",
+                "target_subject": "snake_head",
                 "verification_goals": [
-                    "Locate snake bounding box to assist topology auditor",
-                    "Detect presence of any extraneous limbs or objects"
+                    "Locate head and verify distinctness from body",
+                    "Detect presence of eyes relative to head position"
                 ],
-                "reason": "Provides spatial grounding for the topology auditor to check coil integrity.",
+                "reason": "Provides bounding box priors to confirm the head morphology checkpoints are physically grounded.",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Ventral surface is pale pink to white",
             "Tail is short and blunt"
         ],
         "focus_areas": [
-            "Scale texture glossiness and regularity",
+            "Scale texture fidelity and glossiness",
             "Head-to-body transition smoothness",
-            "Coil overlap boundaries for fusion artifacts",
-            "Watermark text legibility"
+            "Watermark text integrity",
+            "Coil topology and background separation"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the intersection points of the snake's coils. AI models often struggle with occlusion in coiled subjects, leading to 'melting' where one part of the body merges into another. Verify if the scales maintain their directional flow across these intersections. Additionally, analyze the watermark text; if it is nonsensical, note it as a strong indicator of generative origin.",
+        "custom_prompts_for_reflector": "Focus heavily on the micro-texture of the scales. Real thunder snakes have very specific smooth, polished scales. AI often generates 'waxy' or 'plastic' looking skin instead of individual scales. Also, scrutinize the watermark text; if it's nonsensical, it's a strong indicator of AI generation. Verify that the eye is actually a biological structure and not just a painted-on dark spot.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000043.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 26.66,
+            "router_cost_seconds": 26.89,
             "plan_valid": true
         },
         "selected_experts": [
@@ -164,21 +171,21 @@
                 "weight": 0.35
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake body",
-                "reason": "To ensure the 'worm-like' body does not suffer from melting or fusion artifacts where coils overlap.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "To validate if the observed texture anomalies and text issues are significant AI artifacts or acceptable image quality variations.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To quantify the impact of the observed text artifact and background smearing on overall image quality.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake_body",
+                "reason": "Coiled snakes are prone to topological errors where limbs/body segments merge incorrectly or detach from the background.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "snake",
-                "reason": "Provides spatial grounding for the topology auditor to check coil integrity.",
+                "target_subject": "snake_head",
+                "reason": "Provides bounding box priors to confirm the head morphology checkpoints are physically grounded.",
                 "weight": 0.2
             }
         ]

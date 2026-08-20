@@ -6,44 +6,44 @@
     "class_id": 144,
     "class_label": "pelican",
     "plan_reference": "approved_plan_000083",
-    "execution_timestamp": "2026-08-19 18:03:14",
+    "execution_timestamp": "2026-08-20 16:05:58",
     "focus_areas": [
-        "Feather edge definition and separation between black and white plumage.",
-        "Leg and foot anatomy clarity, specifically webbing visibility and joint articulation.",
-        "Spatial separation between overlapping birds in the flock.",
-        "Bill color uniformity and gradient consistency."
+        "Feather boundary integrity (black vs white)",
+        "Bill and pouch structural coherence",
+        "Water texture realism",
+        "Feet/sand interface geometry"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the black flight feathers and white body plumage; AI often blurs this transition. Scrutinize the feet of the background birds—are they distinct digits or melted stumps? Verify if the bill color is uniformly pink or if there are unnatural gradients. Use the open vocabulary detector results to ensure the topology auditor segments each bird individually without merging them.",
-    "image_description": "A group of Australian Pelicans standing on a sandy shore next to blue water. The birds feature white plumage with black flight feathers, long pinkish bills with prominent gular pouches, and short legs. One pelican stands centrally facing left, while others are positioned in the foreground and background.",
+    "custom_prompts_for_reflector": "Focus heavily on the transition zones between the black flight feathers and white body plumage; AI often creates 'muddy' gradients here instead of sharp feather edges. Also, inspect the base of the bills where they meet the face for any melting or asymmetry. Critically examine the contact points of the feet with the sand for geometric validity.",
+    "image_description": "A group of Australian Pelicans standing on a sandy shore next to blue water. The birds feature white plumage with black flight feathers, long pinkish bills with prominent gular pouches, and short legs. One pelican in the center stands tall, while others are seated or partially cropped at the edges.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
-            "target_subject": "pelican flock",
-            "weight": 0.3,
-            "reason": "Primary Bridge expert required to provide precise region proposals for the topology auditor, preventing fusion errors in the multi-object flock.",
+            "target_subject": "pelican group",
+            "weight": 0.2,
+            "reason": "Required precursor for topology_boundary_auditor to prevent bleeding across adjacent birds in the cluster.",
             "status": "success",
-            "execution_time_ms": 16050.01,
+            "execution_time_ms": 16678.11,
             "evidence": {
                 "detected_objects": [
                     {
-                        "matched_query_token": "flock",
-                        "confidence_score": 0.3594,
+                        "matched_query_token": "pelican group",
+                        "confidence_score": 0.3794,
                         "bounding_box": [
                             0,
-                            68,
+                            69,
                             255,
                             248
                         ]
                     },
                     {
-                        "matched_query_token": "pelican flock",
-                        "confidence_score": 0.3385,
+                        "matched_query_token": "pelican group",
+                        "confidence_score": 0.3058,
                         "bounding_box": [
                             0,
                             77,
-                            92,
+                            93,
                             250
                         ]
                     }
@@ -60,10 +60,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "pelican",
-            "weight": 0.25,
-            "reason": "Verifies species authenticity and specifically audits the bill color consistency mentioned in the custom prompt.",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the generated image matches the specific visual characteristics of the labeled class and validates avian anatomy where pose auditors fail.",
             "status": "success",
-            "execution_time_ms": 187.42,
+            "execution_time_ms": 194.01,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -91,14 +91,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "leftmost pelican feet",
+            "weight": 0.15,
+            "reason": "Specifically targets the observed 'structural collapse' artifact at the feet/sand interface which perceptual auditors may miss.",
+            "status": "success",
+            "execution_time_ms": 232.88,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/depth_maps/000083_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 16.3073,
+                    "mean_value": 6.6175,
+                    "std_deviation": 5.7018
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "pelican flock",
+            "target_subject": "pelican group",
             "weight": 0.2,
-            "reason": "Addresses observed texture anomalies and potential merging of subjects; relies on OVD for accurate instance separation.",
+            "reason": "AI images often struggle with distinct boundaries in multi-object clusters and high-contrast feather patterns.",
             "status": "success",
-            "execution_time_ms": 1160.87,
+            "execution_time_ms": 1339.06,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness1/sam_masks/000083_mask.png",
                 "mask_confidence_score": 0.9218,
@@ -115,11 +140,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire image",
-            "weight": 0.25,
-            "reason": "Replaces animal_pose_auditor for avian anatomy checks; provides holistic quality assessment of structural collapse and texture issues.",
+            "target_subject": "background water",
+            "weight": 0.15,
+            "reason": "To validate the severity of the observed texture anomalies in the background.",
             "status": "success",
-            "execution_time_ms": 9359.69,
+            "execution_time_ms": 14402.0,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The colors are vibrant, and the details in the pelicans and the background are sharp. The image seems to have been taken in good lighting conditions, which enhances the clarity.",
                 "distortion_class": "compression",
@@ -132,10 +157,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 25419.21,
+        "total_execution_time_ms": 36295.13,
         "failed_expert_ids": []
     }
 }

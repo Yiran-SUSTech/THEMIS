@@ -2,27 +2,33 @@
     "image_id": "000042",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 2,
-    "timestamp": "2026-08-19 17:58:59",
+    "timestamp": "2026-08-20 16:01:50",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification strategy. The Router identified that the ventral surface color is incorrect (reddish instead of pale) but assigned the `perceptual_quality_auditor` to verify this. The `perceptual_quality_auditor` is designed for detecting image degradations and artifacts, not for validating biological taxonomy attributes like scale coloration. This attribute verification should be handled by the `fine_grained_classifier` or a specialized visual QA module. Furthermore, the plan fails to explicitly address the high probability that the subject is a Slow Worm (*Anguis fragilis*) rather than a Thunder Snake, given the visible limb buds/scarring often found on slow worms which are absent in snakes, a distinction the `fine_grained_classifier` must rigorously make beyond just 'color'.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'open_vocabulary_detector' configuration. The target subject is set to 'reptile limbs', but the provided image clearly shows a limbless animal (a snake or legless lizard). An open-vocabulary detector searching for 'limbs' on a limbless subject will return no bounding boxes. This null result is ambiguous: it could mean the subject is correctly limbless (Snake) OR that the detector failed to find small/obscured limbs (Legless Lizard with vestigial limbs or detection failure). Relying solely on a negative detection for definitive structural evidence is scientifically invalid. Furthermore, the plan fails to explicitly verify the 'smooth scales' vs 'ridged/keeled scales' distinction using texture analysis, which is a key differentiator between *Carphophis* (smooth) and many look-alikes.",
         "suggestions": [
             {
-                "type": "incorrect_expert_assignment",
-                "point": "Ventral surface coloration verification",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "The `perceptual_quality_auditor` cannot validate biological correctness (taxonomy). The `fine_grained_classifier` should be tasked with verifying if the observed ventral coloration aligns with *Carphophis amoenus* or indicates a different species (like *Anguis fragilis* which has uniform coloration)."
+                "type": "logic_correction",
+                "point": "Open Vocabulary Detector Strategy",
+                "recommended_expert": "open_vocabulary_detector",
+                "description": "Change the verification goal from 'Detect absence of limbs' (which is prone to false negatives) to 'Detect presence of specific lizard features'. Specifically, search for 'ear holes' (visible external ears are present in most lizards/legless lizards but absent in snakes) and 'vestigial hind limbs' (often visible as small flaps in slow worms). If these specific positive features are NOT detected, AND the general 'snake' class is detected, the probability of it being a snake increases significantly."
             },
             {
                 "type": "missing_verification",
-                "point": "Limb bud/scar detection",
+                "point": "Scale Texture Analysis",
+                "recommended_expert": "perceptual_quality_auditor",
+                "description": "Add a specific verification goal to analyze scale micro-texture. *Carphophis amoenus* has smooth, glossy scales. Many legless lizards (like *Anguis fragilis*) have smoother scales than typical lizards but may still exhibit subtle textural differences or lack the specific 'polished' look of colubrids. The auditor should compare the specular highlight consistency against a 'smooth cylinder' model to rule out the slightly more matte or irregular texture of some lizard skins."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Head Scale Pattern",
                 "recommended_expert": "topology_boundary_auditor",
-                "reason": "Slow worms often retain vestigial limb buds or scars, whereas thunder snakes do not. The topology auditor should specifically check for these small protrusions near the head/neck region to definitively rule out *Anguis fragilis*."
+                "description": "Snakes typically have large, symmetrical head shields (scales), whereas lizards often have smaller, granular head scales. Add a goal to segment the head region and assess if the surface appears to be composed of large, distinct plates (Snake-like) or smaller, irregular textures (Lizard-like)."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales coiled on a grey, textured stone surface. The animal has a slender cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a snake.",
+        "image_description": "A reddish-brown, worm-like reptile with smooth, glossy scales is coiled on a grey, textured stone surface. The animal has a slender cylindrical body, a small rounded head barely distinct from the neck, and a short blunt tail. It resembles a slow worm or a legless lizard more than a typical snake due to its specific scale texture and body proportions.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -37,7 +43,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A tiny dark spot consistent with a minute eye is visible on the side of the head; it is not prominent, fitting the 'barely visible' criteria."
+                "reasoning": "A tiny dark spot consistent with a minute eye is visible on the side of the head, fitting the 'barely visible' criteria."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
@@ -56,101 +62,118 @@
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "The image shows the ventral surface exposed due to the body's twist. The belly scales appear reddish-orange/copper, identical to the dorsal color, rather than the required pale pink or white. This contradicts the taxonomy."
+                "reasoning": "The animal is positioned primarily dorsal-side up; the ventral surface is completely occluded by the body coils and the ground, making verification impossible."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights are visible along the curves of the body, indicating a very smooth, glossy scale texture typical of this species."
+                "reasoning": "The skin exhibits a high degree of glossiness and reflectivity (specular highlights), indicating smooth, unkeeled scales arranged in regular rows."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coloration is solid and uniform with no spots, stripes, or bands visible."
+                "reasoning": "The body color is solid and uniform, with no spots, stripes, or bands visible."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The posterior end of the animal tapers quickly to a blunt tip, consistent with the 'short and blunt' tail description."
+                "reasoning": "The tail tapers quickly and ends in a blunt, rounded tip rather than a long, thin point, consistent with the species description."
             }
         ],
         "artifact_observations": [],
         "expert_verification_plan": [
             {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "reptile limbs",
+                "verification_goals": [
+                    "Detect presence of 'forelegs', 'hindlegs', or 'limbs' on the subject.",
+                    "Verify absence of limb structures to confirm snake identity over legless lizard."
+                ],
+                "reason": "Addressing Judge feedback: Standard classifiers cannot reliably distinguish thunder snakes from slow worms. Open-vocabulary detection for limbs provides definitive structural evidence (limbs = lizard, no limbs = snake).",
+                "weight": 0.4
+            },
+            {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "thunder snake",
                 "verification_goals": [
-                    "Confirm species identity as Carphophis amoenus vs. similar limbless lizards (e.g., Anguis fragilis) or other worm snakes.",
-                    "Verify reddish-brown uniform coloration matches class label."
+                    "Classify subject as 'snake', 'lizard', or 'slow worm' to provide probabilistic support for species identity.",
+                    "Verify if the subject falls within the expected visual distribution of Carphophis amoenus."
                 ],
-                "reason": "The subject visually resembles a Slow Worm (limbless lizard). A fine-grained classifier is essential to distinguish between the target snake species and morphologically similar lizards based on subtle scale/head features.",
-                "weight": 0.35
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "ventral surface",
-                "verification_goals": [
-                    "Audit the color of the exposed ventral scales to confirm if they are pale pink/white or reddish-brown.",
-                    "Verify if the ventral coloration mismatch is a biological error or an AI generation artifact (color bleeding)."
-                ],
-                "reason": "Addressing Judge feedback: The ventral surface is visible and appears incorrect (reddish instead of pale). This expert must verify the specific attribute mismatch that disqualifies the image from the taxonomy.",
-                "weight": 0.35
+                "reason": "Supplementary verification for species identity. While less reliable than limb detection for this specific distinction, it provides a baseline classification confidence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
                 "verification_goals": [
-                    "Verify the continuity of the snake's body against the stone background.",
-                    "Check for edge bleeding or fusion where the glossy scales meet the rough stone texture.",
-                    "Ensure the coil structure is physically plausible without self-intersection errors."
+                    "Verify the continuity of the body segments to ensure no fusion artifacts where the coils overlap.",
+                    "Check for boundary sharpness between the glossy scales and the rough stone background."
                 ],
-                "reason": "Glossy subjects on textured backgrounds are prone to segmentation errors and edge melting in AI generation. This expert will verify the physical separation and structural integrity of the coils.",
-                "weight": 0.3
+                "reason": "AI generators often struggle with the self-occlusion of coiled snakes, leading to melting at contact points. Topology audit ensures physical integrity.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scale texture and ventral shadow",
+                "verification_goals": [
+                    "Analyze the specular highlights on the scales to ensure they follow the cylindrical curvature of the body consistently.",
+                    "Inspect shadows beneath coiled sections to infer if ventral coloration appears anomalously dark/black (common AI artifact) despite direct visibility being impossible."
+                ],
+                "reason": "Addresses Judge feedback regarding ventral surface. While direct verification is impossible, this auditor can check for indirect evidence of correct ventral coloring via shadow analysis and verify scale texture realism.",
+                "weight": 0.15
             }
         ],
-        "unverifiable_points": [],
-        "focus_areas": [
-            "Ventral surface coloration verification (Reddish vs Pale)",
-            "Species differentiation (Snake vs. Limbless Lizard)",
-            "Scale texture realism and glossiness",
-            "Body boundary integrity against background"
+        "unverifiable_points": [
+            "Ventral surface is pale pink to white."
         ],
-        "custom_prompts_for_reflector": "Please pay close attention to the distinction between a thunder snake and a slow worm (Anguis fragilis). While they look similar, the thunder snake is a true snake. Verify if the head shape and scale arrangement align with Ophidia (snakes) rather than Sauria (lizards). CRITICAL: Scrutinize the exposed belly scales. The taxonomy requires them to be pale pink/white, but they appear reddish-brown in the image. Confirm this color mismatch definitively. Also, check contact points between the snake and the rock for any signs of digital fusion or lack of shadow.",
+        "focus_areas": [
+            "Structural verification of limb absence (Snake vs. Legless Lizard)",
+            "Scale texture consistency and glossiness",
+            "Body continuity at coil intersections",
+            "Indirect ventral color inference via shadow analysis"
+        ],
+        "custom_prompts_for_reflector": "CRITICAL: Do not rely solely on fine-grained classification for species ID. The primary verification must be structural: use open_vocabulary_detector to explicitly search for 'limbs', 'forelegs', or 'hindlegs'. A positive detection confirms it is a legless lizard (fail); negative detection supports snake identity (pass). Additionally, use perceptual_quality_auditor to analyze shadows under the coils—while the ventral surface isn't directly visible, an unnaturally black/dark underside would indicate an AI artifact inconsistent with the 'pale pink/white' taxonomy. Verify scale glossiness follows body curvature naturally.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000042.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 26.41,
+            "router_cost_seconds": 27.73,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "thunder snake",
-                "reason": "The subject visually resembles a Slow Worm (limbless lizard). A fine-grained classifier is essential to distinguish between the target snake species and morphologically similar lizards based on subtle scale/head features.",
-                "weight": 0.35
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "reptile limbs",
+                "reason": "Addressing Judge feedback: Standard classifiers cannot reliably distinguish thunder snakes from slow worms. Open-vocabulary detection for limbs provides definitive structural evidence (limbs = lizard, no limbs = snake).",
+                "weight": 0.4
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "ventral surface",
-                "reason": "Addressing Judge feedback: The ventral surface is visible and appears incorrect (reddish instead of pale). This expert must verify the specific attribute mismatch that disqualifies the image from the taxonomy.",
-                "weight": 0.35
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "thunder snake",
+                "reason": "Supplementary verification for species identity. While less reliable than limb detection for this specific distinction, it provides a baseline classification confidence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
-                "reason": "Glossy subjects on textured backgrounds are prone to segmentation errors and edge melting in AI generation. This expert will verify the physical separation and structural integrity of the coils.",
-                "weight": 0.3
+                "reason": "AI generators often struggle with the self-occlusion of coiled snakes, leading to melting at contact points. Topology audit ensures physical integrity.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scale texture and ventral shadow",
+                "reason": "Addresses Judge feedback regarding ventral surface. While direct verification is impossible, this auditor can check for indirect evidence of correct ventral coloring via shadow analysis and verify scale texture realism.",
+                "weight": 0.15
             }
         ]
     }
