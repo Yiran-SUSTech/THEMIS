@@ -307,6 +307,7 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of a T2I image evaluation
 - alignment_score: mean(per_atom_scores) × 5.0
 - authenticity_score (0-5): How authentic is the image? Higher = fewer artifacts, better quality. A flawless image scores 5.0. Structural defects severely reduce this score.
 - Scores should be precise continuous values (e.g., 3.82, 1.47, 4.63).
+- If more than 25% of checkpoints are marked untestable, you must deduct an appropriate amount from alignment_score, because fewer testable checkpoints usually means the image does not contain enough taxonomy features for a high alignment score.
 
 **Output JSON:**
 {
@@ -549,6 +550,11 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
 6. Atom Score Review: For each atom:
    - Is qa_score justified by the expert evidence (or VLM observation if no expert)?
    - Is tax_score appropriate? If no taxonomy info, tax_score should be 1.0.
+
+7. Upward Override Justification: For every checkpoint where your final assessment is MORE lenient than the Router's (e.g., you agreed with is_present=true where the Router was uncertain, or you raised a score above the base score):
+   - You MUST provide independent visual evidence from the image itself (not just "the Router said so").
+   - If you cannot point to a specific visual feature that confirms the checkpoint, you should not mark it as present.
+   - This prevents rubber-stamping by forcing you to independently verify each positive verdict.
 
 **Output the SAME JSON schema as your initial assessment, with revised scores.**
 Add a "self_reflection_notes" field documenting:

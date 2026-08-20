@@ -118,7 +118,7 @@ _COMMON_ROUTER_INSTRUCTIONS = """You are a Router Agent for AI-generated image e
 
 **Step 1 — Checkpoint Verification (STRICT)**
 You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
-- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). When in doubt, mark as testable and give your best judgment.
+- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
 - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
 - Brief reasoning for both decisions.
 
@@ -613,7 +613,7 @@ _ROUTER_DIRECT_SCORE_INSTRUCTIONS = """You are a Router Agent for AI-generated i
 
 **Step 1 — Checkpoint Verification (STRICT)**
 You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
-- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). When in doubt, mark as testable and give your best judgment.
+- Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
 - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
 - Brief reasoning for both decisions.
 

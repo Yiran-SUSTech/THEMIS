@@ -22,6 +22,7 @@ REF_ANNOTATIONS_JSON = C2I_DIR / "ref_annotations.json"
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 REFLECTOR_MODEL = "qwen3.7-plus"
+REF_IMAGE_DIR: Path | None = None  # Set from run.py --ref-image-dir; defaults to test_images/
 
 
 def encode_image(image_path: str) -> str:
@@ -136,7 +137,7 @@ def select_reference_images(
     if not annotations:
         return []
 
-    image_dir = Path(image_dir)
+    image_dir = Path(REF_IMAGE_DIR) if REF_IMAGE_DIR is not None else Path(image_dir)
     candidates: list[dict] = []
 
     for img_name, ann in annotations.items():
@@ -452,6 +453,7 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
 - Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
 - Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
 - Note any new artifacts found by experts that the Router missed.
+- If more than 25% of checkpoints are marked untestable, you must deduct an appropriate amount from alignment_score, because fewer testable checkpoints usually means the image does not contain enough taxonomy features for a high alignment score.
 - Produce final alignment_score and artifact_score (0-5 continuous).
 
 **Output JSON:**
@@ -495,6 +497,7 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 - Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
 - Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
 - Note any new artifacts found by experts that the Router missed.
+- If more than 25% of checkpoints are marked untestable, you must deduct an appropriate amount from alignment_score, because fewer testable checkpoints usually means the image does not contain enough taxonomy features for a high alignment score.
 - Produce final alignment_score and artifact_score (0-5 continuous).
 
 **Checklist Annotation (fine_grained_details):**
@@ -562,6 +565,11 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
    - Did you agree/disagree with the Router's is_present verdict?
    - If you disagreed, did you explain why?
    - If the Router was too lenient, did you flag it?
+
+7. Upward Override Justification: For every checkpoint where your final assessment is MORE lenient than the Router's (e.g., you agreed with is_present=true where the Router was uncertain, or you raised a score above the base score):
+   - You MUST provide independent visual evidence from the image itself (not just "the Router said so").
+   - If you cannot point to a specific visual feature that confirms the checkpoint, you should not mark it as present.
+   - This prevents rubber-stamping by forcing you to independently verify each positive verdict.
 
 **Output the SAME JSON schema as your initial assessment, with revised scores.**
 Add a "self_reflection_notes" field documenting:

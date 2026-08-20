@@ -105,6 +105,8 @@ Examples:
                         help="Save pose visualization images")
     parser.add_argument("--ref-enable", action="store_true", default=False,
                         help="Enable 3 human-annotated reference images for Reflector anchoring (default: False)")
+    parser.add_argument("--ref-image-dir", type=str, default=str(PROJECT_ROOT / "test_images"),
+                        help="Directory containing human-annotated reference images (default: THEMIS/test_images)")
     parser.add_argument("--enable-checklist", action="store_true", default=False,
                         help="Enable checklist annotation output (fine_grained_details + veto_activated) matching human annotation format (default: False)")
     parser.add_argument("--without-expert", action="store_true", default=False,
@@ -170,6 +172,12 @@ Examples:
         if args.model_reflector:
             step4_reflector.REFLECTOR_MODEL = args.model_reflector
             print(f"  [CONFIG] Reflector model overridden to: {args.model_reflector}")
+
+    # ── Set ref image directory for Reflector ──────────────────
+    import step4_reflector as _step4_mod
+    _step4_mod.REF_IMAGE_DIR = Path(args.ref_image_dir)
+    if args.ref_enable:
+        print(f"  [CONFIG] Ref image dir: {args.ref_image_dir}")
 
     # ── Resolve paths ──────────────────────────────────────────
     image_dir = Path(args.image_dir)
