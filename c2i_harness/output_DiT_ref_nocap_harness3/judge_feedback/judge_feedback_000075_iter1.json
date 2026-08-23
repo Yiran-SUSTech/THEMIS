@@ -1,0 +1,190 @@
+{
+    "image_id": "000075",
+    "class_label": "spoonbill",
+    "iteration": 1,
+    "timestamp": "2026-08-23 18:17:02",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and coverage. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' but implies suitability for standard limbed animals; however, its description specifies 'Detects 17 keypoints for animals/humans'. Spoonbills are birds with distinct avian anatomy (tarsometatarsus, etc.) that do not map to the standard 17-point COCO-style human/quadraped skeleton often used by such auditors. Using a human-centric pose auditor on a bird will result in high false-positive failure rates or complete failure to detect keypoints. Furthermore, the plan fails to utilize the `open_vocabulary_detector` which is defined as the 'primary Bridge expert' necessary to provide bounding box priors for the `topology_boundary_auditor`. Without BBox priors, the boundary auditor may struggle to segment the bird from the complex water background accurately.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Lack of segmentation priors for boundary auditing",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "expert_mismatch",
+                "point": "animal_pose_auditor is likely incompatible with avian skeletal structure",
+                "recommended_expert": "perceptual_quality_auditor (for structural coherence) or fine_grained_classifier (for anatomical correctness via class confidence)"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A white wading bird, identified as a spoonbill, standing in shallow water. The bird has its distinctive spatulate bill submerged or touching the water surface, likely foraging. It has white plumage, long dark legs, and a long neck. A reflection of the bird is visible in the water.",
+        "image_class": "spoonbill",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated flat bill with spatulate tip resembling a spoon, notably long relative to head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bill is clearly visible, elongated, and terminates in a distinct flattened, spoon-like shape characteristic of the species."
+            },
+            {
+                "checkpoint": "Bill color ranges from black to grey with yellow tip depending on species.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill appears predominantly pinkish-flesh colored with a darker tip, rather than the black/grey/yellow combination described in the specific checkpoint text (though this matches some spoonbill species, it fails the strict text description provided)."
+            },
+            {
+                "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The nape area appears smooth; no distinct crest of elongated feathers is visible in this pose."
+            },
+            {
+                "checkpoint": "Plumage is predominantly white with some species displaying pink, yellow, or black accents.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body plumage is overwhelmingly white, matching the primary descriptor."
+            },
+            {
+                "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bird exhibits the robust body structure and size typical of a large wader."
+            },
+            {
+                "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is standing with wings folded; flight posture and primary feather coloration cannot be verified."
+            },
+            {
+                "checkpoint": "Legs are long and dark grey to black adapted for wading.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible legs are long, thin, and dark (black/dark grey), consistent with the description."
+            },
+            {
+                "checkpoint": "Neck is long and S-curved.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The neck is visibly long and displays a gentle curve as the bird reaches down."
+            },
+            {
+                "checkpoint": "Flight posture features neck retraction in S-curve.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is not in flight; this checkpoint is untestable in the current context."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Bill tip and water interface",
+                "severity": 2,
+                "reasoning": "The transition where the bill enters the water shows slight smearing and lack of clear displacement refraction, appearing slightly 'melted' into the surface rather than physically piercing it."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Left leg (viewer's right) ankle joint",
+                "severity": 1,
+                "reasoning": "The joint definition is slightly soft and lacks the sharp anatomical distinction of a real bird's intertarsal joint, appearing somewhat fused with the lower leg shaft."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Confirm species identity as spoonbill vs. similar waders (e.g., ibis, stork)",
+                    "Verify plumage coloration patterns match known spoonbill variants"
+                ],
+                "reason": "Primary class verification to ensure the generated image aligns with the 'spoonbill' label at a taxonomic level.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Verify leg joint anatomy and count (2 legs visible)",
+                    "Audit neck curvature and head-bill alignment for biological plausibility"
+                ],
+                "reason": "To detect subtle skeletal errors in the limbs and neck common in AI-generated birds.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Check boundary sharpness between bill and water surface",
+                    "Verify continuity of leg structures against water reflection"
+                ],
+                "reason": "To investigate the suspected texture anomaly at the water line and ensure the bird is a coherent object.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "water_reflection",
+                "verification_goals": [
+                    "Assess realism of water ripples and reflection distortion",
+                    "Check for global lighting consistency"
+                ],
+                "reason": "Water reflections are a common failure point in AI generation; needs holistic quality check.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Wings are broad with colored primary feathers visible in flight.",
+            "Flight posture features neck retraction in S-curve."
+        ],
+        "focus_areas": [
+            "Bill morphology and water interaction",
+            "Leg joint anatomy",
+            "Species-specific plumage details"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the spoon-shaped bill and the water. AI often struggles with objects partially submerged in liquid, resulting in melting or incorrect refraction. Also, verify if the leg thickness is consistent from hip to foot, as AI tends to taper legs unnaturally.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000075.png",
+            "class_id": 129,
+            "class_label": "spoonbill",
+            "router_cost_seconds": 28.1,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "spoonbill",
+                "reason": "Primary class verification to ensure the generated image aligns with the 'spoonbill' label at a taxonomic level.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "spoonbill",
+                "reason": "To detect subtle skeletal errors in the limbs and neck common in AI-generated birds.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "spoonbill",
+                "reason": "To investigate the suspected texture anomaly at the water line and ensure the bird is a coherent object.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "water_reflection",
+                "reason": "Water reflections are a common failure point in AI generation; needs holistic quality check.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

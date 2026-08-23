@@ -1,0 +1,212 @@
+{
+    "image_id": "000005",
+    "class_label": "cock",
+    "iteration": 1,
+    "timestamp": "2026-08-23 18:13:25",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Expert Selection and Coverage. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' but implies suitability for limbed subjects; however, its description specifies 'Detects 17 keypoints for animals/humans'. Standard pose estimators (like OpenPose or similar 17-point models) are typically trained on humans or specific quadrupeds and often fail to provide valid keypoint maps for birds (which have different skeletal structures, e.g., digitigrade legs, wings vs arms). Using a human-centric pose auditor on a bird will likely result in garbage data or failure, making the verification of 'limb count' and 'foot placement' unreliable. Furthermore, the plan misses the `open_vocabulary_detector`, which is described as the 'primary Bridge expert' necessary for providing bounding box priors for segmentation experts. Without locating the rooster first, the `topology_boundary_auditor` may struggle to segment the subject from the complex background (grass/fence) accurately.",
+        "suggestions": [
+            {
+                "type": "missing_expert_capability_match",
+                "point": "The `animal_pose_auditor` is likely incompatible with avian anatomy (birds do not fit standard 17-point human/quad schemas). Relying on it for 'foot placement' and 'limb count' is scientifically invalid.",
+                "recommended_expert": "Replace `animal_pose_auditor` with `open_vocabulary_detector` to locate the bird and `perceptual_quality_auditor` (with specific CoT prompting) to visually inspect limb integrity, or use a specialized bird-pose estimator if available. If not, rely on `fine_grained_classifier` for general anatomical plausibility."
+            },
+            {
+                "type": "missing_bridge_expert",
+                "point": "The plan lacks `open_vocabulary_detector`. As per the registry, this is the 'primary Bridge expert' required to identify WHERE the subjects are before segmentation or boundary auditing can occur effectively, especially in a cluttered scene (grass + fence).",
+                "recommended_expert": "Add `open_vocabulary_detector` with target 'cock' to generate BBox priors for the `topology_boundary_auditor` and to verify the presence of the subject before detailed auditing."
+            },
+            {
+                "type": "verification_gap",
+                "point": "The checkpoint 'Legs are stout... prominent posterior spur' was marked `is_present: false` due to resolution/angle. The current plan relies on `animal_pose_auditor` to fix this, which is flawed. There is no expert currently tasked with specifically zooming in/verifying the leg structure via high-res crop or VLM reasoning.",
+                "recommended_expert": "Assign `perceptual_quality_auditor` or `fine_grained_classifier` to specifically inspect the leg region for 'spur' presence using CoT reasoning, rather than relying on geometric keypoint detection."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A rooster (cock) standing on grass in front of a wire mesh fence. The bird has reddish-brown body plumage, iridescent green/black neck and tail feathers, a bright red comb and wattles, and yellow legs. It is facing slightly away from the camera.",
+        "image_class": "cock",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Comb is a fleshy, serrated crest on the crown, bright red and vascularized.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The comb is clearly visible, bright red, and exhibits the characteristic serrated shape on top of the head."
+            },
+            {
+                "checkpoint": "Wattles are paired fleshy appendages hanging from the lower beak, bright red.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Red wattles are visible hanging below the beak area, consistent with rooster anatomy."
+            },
+            {
+                "checkpoint": "Beak is short, curved, and keratinous with a yellow to grey coloration.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The beak is partially obscured by the angle and the wattle; while a dark tip is visible, the full 'short, curved, yellow-grey' structure is not clearly testable as present due to occlusion/angle."
+            },
+            {
+                "checkpoint": "Eyes are dark and positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eye region is shadowed and indistinct; specific lateral positioning and darkness cannot be confirmed with certainty."
+            },
+            {
+                "checkpoint": "Body is compact and robust.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The torso appears solid and proportionate for a rooster."
+            },
+            {
+                "checkpoint": "Plumage is vivid and iridescent with metallic green, blue, purple, or copper tones on the neck, breast, and tail feathers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Distinct metallic green/black iridescence is visible on the neck hackles and tail feathers, contrasting with the copper/brown body."
+            },
+            {
+                "checkpoint": "Hackle feathers (neck plumage) are elongated, pointed, and glossy, forming a distinctive ruff.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Long, glossy feathers drape down the neck, matching the description of hackle feathers."
+            },
+            {
+                "checkpoint": "Saddle feathers (lower back) are elongated and flowing.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Feathers on the lower back appear longer and flow over the tail base, consistent with saddle feathers."
+            },
+            {
+                "checkpoint": "Legs are stout with thick, scaled skin and a prominent posterior spur on the tarsus.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are visible and scaled, but the specific 'prominent posterior spur' is not clearly distinguishable in this resolution/angle."
+            },
+            {
+                "checkpoint": "Feet are anisodactyl (three toes forward, one backward) with sharp, curved claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Feet are planted in grass/dirt; toe arrangement (anisodactyl) and claw sharpness are obscured by the ground and resolution."
+            },
+            {
+                "checkpoint": "Tail feathers are long, curved, and iridescent with a characteristic arching posture.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Dark, iridescent tail feathers are visible arching upwards behind the body."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Wire fence background",
+                "severity": 2,
+                "reasoning": "The wire mesh pattern shows slight inconsistencies and warping where it intersects with the background foliage, typical of AI generation struggling with repetitive geometric grids."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Feet and ground contact point",
+                "severity": 2,
+                "reasoning": "The interface between the feet and the grass is unnaturally soft/melted, lacking distinct grounding shadows or clear toe definition."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cock",
+                "verification_goals": [
+                    "Verify species identity as Gallus gallus domesticus (rooster)",
+                    "Confirm presence of male-specific secondary sexual characteristics (comb, wattles, hackles)"
+                ],
+                "reason": "Primary class verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cock",
+                "verification_goals": [
+                    "Verify limb count and structural integrity of legs",
+                    "Check for anatomical correctness of foot placement despite ground occlusion"
+                ],
+                "reason": "To audit the biological plausibility of the legs and feet, specifically checking for missing limbs or fusion artifacts common in AI generations of birds.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wire fence",
+                "verification_goals": [
+                    "Audit the continuity of the wire mesh pattern",
+                    "Check for melting or fusion between fence wires and background leaves"
+                ],
+                "reason": "The fence showed texture anomalies; this expert will verify if the grid structure is physically consistent or hallucinated.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess overall sharpness and noise levels",
+                    "Verify naturalness of feather textures vs. plastic/smooth AI artifacts"
+                ],
+                "reason": "Holistic quality check to detect subtle generative artifacts in plumage texture and lighting consistency.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Beak coloration details (obscured)",
+            "Eye clarity and position (shadowed)",
+            "Spur prominence (resolution/angle limited)",
+            "Toe count and claw sharpness (ground occlusion)"
+        ],
+        "focus_areas": [
+            "Wire fence geometry consistency",
+            "Foot-ground interaction realism",
+            "Feather texture fidelity (iridescence vs. smear)",
+            "Anatomical correctness of leg structure"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the interaction between the rooster's feet and the ground, as well as the geometric regularity of the background fence. AI models often fail at rendering precise grid patterns and distinct toe separations in grass. Verify if the iridescence on the neck feathers looks like optical physics or just painted-on green pixels.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000005.png",
+            "class_id": 7,
+            "class_label": "cock",
+            "router_cost_seconds": 34.41,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cock",
+                "reason": "Primary class verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cock",
+                "reason": "To audit the biological plausibility of the legs and feet, specifically checking for missing limbs or fusion artifacts common in AI generations of birds.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wire fence",
+                "reason": "The fence showed texture anomalies; this expert will verify if the grid structure is physically consistent or hallucinated.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to detect subtle generative artifacts in plumage texture and lighting consistency.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

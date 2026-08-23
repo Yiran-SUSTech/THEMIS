@@ -1,0 +1,179 @@
+{
+    "image_id": "000042",
+    "class_label": "thunder snake, worm snake, Carphophis amoenus",
+    "iteration": 1,
+    "timestamp": "2026-08-23 18:15:12",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical and expert selection errors. 1) The `fine_grained_classifier` is assigned the target 'reptile', which is too broad for distinguishing between *Carphophis amoenus* (Snake) and *Anguis fragilis* (Legless Lizard); it must be specific to the competing classes. 2) The plan fails to utilize the `open_vocabulary_detector` to spatially ground the 'tail' and 'ventral surface' before auditing them, which is a prerequisite for rigorous boundary/attribute checking. 3) The `perceptual_quality_auditor` is tasked with verifying 'scale texture rendering', but this is a semantic/biological attribute better suited for the `topology_boundary_auditor` or `fine_grained_classifier`; perceptual auditors should focus on global artifacts like lighting/shadows. 4) The verdict that the tail is 'long and tapered' (contradicting the 'short and blunt' requirement) is a definitive class failure that requires explicit verification via bounding box analysis, not just general classification.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial grounding of anatomical parts (Tail vs Body)",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "Before auditing the tail shape or ventral color, the system must first detect and segment the 'tail' and 'body' regions to ensure the auditor is looking at the correct pixels. The current plan skips this bridge step."
+            },
+            {
+                "type": "incorrect_target_subject",
+                "point": "Fine-grained classification target",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "Change target_subject from 'reptile' to 'Carphophis amoenus, Anguis fragilis'. The classifier needs to distinguish between these two specific look-alikes, not just identify it as a generic reptile."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Ventral surface coloration audit",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The checkpoint 'Ventral surface is pale pink to white' was marked false. This requires a segmentation mask of the underside to verify if the color is truly uniform reddish-brown or if there are hidden pale scales. The current plan lacks a specific goal for this."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Tail tip structural integrity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The artifact observation notes 'structural collapse' at the tail tip. The `topology_boundary_auditor` should explicitly verify if the tail tip is a closed manifold (biological end) or an open/fused mesh (artifact), rather than leaving it to general perceptual quality."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A reddish-brown, worm-like reptile (likely a slow worm or legless lizard) resting on a rough, grey stone surface. The animal has a smooth, glossy texture and a cylindrical body that tapers to a tail.",
+        "image_class": "thunder snake",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is small, rounded, and barely distinct from the body with a blunt, rounded snout.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head is visible on the left side of the image; it is small, rounded, and blends smoothly into the neck without a distinct separation, matching the description."
+            },
+            {
+                "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While a dark spot is visible where an eye should be, it appears as a distinct, relatively large black dot rather than 'minute' or 'barely visible'. It lacks the specific subtlety described for Carphophis amoenus."
+            },
+            {
+                "checkpoint": "Body is slender, worm-like and cylindrical.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is clearly cylindrical and worm-like, consistent with the taxonomy."
+            },
+            {
+                "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The dorsal color is a uniform copper/reddish-brown, matching the checkpoint."
+            },
+            {
+                "checkpoint": "Ventral surface is pale pink to white.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The animal is lying on its side/belly, but the visible underside near the tail and mid-body appears to be the same reddish-brown color as the back, not pale pink or white."
+            },
+            {
+                "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The skin/scales appear very smooth and glossy with a metallic sheen, consistent with the description."
+            },
+            {
+                "checkpoint": "No distinctive patterning; uniform coloration throughout.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration is solid and uniform without spots, stripes, or bands."
+            },
+            {
+                "checkpoint": "Tail is short and blunt.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The tail (visible on the right) is long and tapers gradually to a fine point. It is not 'short and blunt' as specified for thunder snakes."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Mid-body curve and tail base",
+                "severity": 2,
+                "reasoning": "The transition of scale rows around the central curve of the body shows slight smearing and inconsistency in row alignment, typical of AI generation struggling with continuous cylindrical textures."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Tail tip (right side)",
+                "severity": 3,
+                "reasoning": "The very tip of the tail appears to fuse slightly with the ground texture or dissolve into a non-physical shape, lacking a crisp biological termination."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "reptile",
+                "verification_goals": [
+                    "Classify the species to distinguish between Carphophis amoenus (Thunder Snake) and Anguis fragilis (Slow Worm/Legless Lizard).",
+                    "Verify if the visual features (eye size, tail length, ventral color) align with the Thunder Snake class label."
+                ],
+                "reason": "The image strongly resembles a Slow Worm (legless lizard) rather than a Thunder Snake due to the long tail and eye visibility. A fine-grained classifier is needed to confirm if this is a mislabeled generation or a valid variant.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
+                "verification_goals": [
+                    "Audit the continuity of the body cylinder to ensure no melting or fusion with the background.",
+                    "Verify the sharpness of the boundary between the glossy skin and the rough stone."
+                ],
+                "reason": "To verify the suspected texture anomalies and tail fusion artifacts identified in Step 2.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the lighting and shadows cast by the cylindrical body on the stone.",
+                    "Check for global coherence in scale texture rendering."
+                ],
+                "reason": "To provide a holistic quality check on the rendering of the glossy texture against the matte background.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Species identification (Snake vs. Legless Lizard)",
+            "Tail morphology (Blunt vs. Tapered)",
+            "Ventral coloration consistency",
+            "Texture continuity along the body curve"
+        ],
+        "custom_prompts_for_reflector": "The generated image depicts a creature that visually matches a 'Slow Worm' (Anguis fragilis) more closely than the target class 'Thunder Snake' (Carphophis amoenus). Specifically, the tail is long and tapered (not blunt), and the eyes are distinct (not minute). Please evaluate if these morphological deviations constitute a failure to generate the correct class, or if they represent acceptable intra-class variation. Additionally, inspect the tail tip for potential fusion artifacts with the ground.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000042.png",
+            "class_id": 52,
+            "class_label": "thunder snake, worm snake, Carphophis amoenus",
+            "router_cost_seconds": 26.74,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "reptile",
+                "reason": "The image strongly resembles a Slow Worm (legless lizard) rather than a Thunder Snake due to the long tail and eye visibility. A fine-grained classifier is needed to confirm if this is a mislabeled generation or a valid variant.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
+                "reason": "To verify the suspected texture anomalies and tail fusion artifacts identified in Step 2.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To provide a holistic quality check on the rendering of the glossy texture against the matte background.",
+                "weight": 0.3
+            }
+        ]
+    }
+}

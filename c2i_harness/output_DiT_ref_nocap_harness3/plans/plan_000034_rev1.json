@@ -1,0 +1,179 @@
+{
+    "image_description": "A close-up, side-profile view of a large crocodile resting on a rocky surface. The head is prominent with an open mouth displaying sharp teeth. The skin texture is highly detailed with visible scutes and scales. The background consists of blurred earthy tones and rocks.",
+    "image_class": "African crocodile",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Head is broad and triangular with a V-shaped snout (narrower than alligator).",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The snout tapers distinctly to a point, forming a clear V-shape characteristic of crocodiles rather than the U-shape of alligators."
+        },
+        {
+            "checkpoint": "Jaws are massive with numerous conical, interlocking teeth visible when mouth is closed.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The mouth is wide open in the image, so the condition 'visible when mouth is closed' cannot be verified. However, the teeth present are conical and numerous."
+        },
+        {
+            "checkpoint": "Eyes are positioned dorsally on the head with vertical slit pupils and a nictitating membrane.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The eye is clearly visible on the top ridge of the skull (dorsal position). While pupil shape is hard to resolve perfectly at this resolution, the placement is correct."
+        },
+        {
+            "checkpoint": "Nostrils are positioned at the tip of the snout.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The nostril openings are clearly visible at the very end of the snout."
+        },
+        {
+            "checkpoint": "Body is elongated and heavily armored.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The visible portion of the body shows a long, robust structure covered in thick, armor-like skin."
+        },
+        {
+            "checkpoint": "Body is covered in thick, bony scutes (osteoderms) arranged in regular longitudinal rows along the dorsal surface.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Distinct, raised rectangular scutes are visible running along the back/neck area."
+        },
+        {
+            "checkpoint": "Scutes are dark brown to grey with a rough, heavily textured appearance.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The coloration is a mix of olive-green and grey-brown with a very rough, pebbled texture consistent with the description."
+        },
+        {
+            "checkpoint": "Ventral surface is covered in smooth, rectangular scales that are pale yellow to white.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The belly (ventral surface) is completely occluded by the ground/rock the animal is resting on."
+        },
+        {
+            "checkpoint": "Limbs are short and stout with webbed feet; forelimbs have five digits, hind limbs have four.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "No limbs or feet are visible in the frame; the body is low to the ground and cropped."
+        },
+        {
+            "checkpoint": "Tail is laterally compressed and muscular, comprising half of total body length.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The tail is not visible in the frame; only the head and anterior trunk are shown."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Lower jaw / throat area",
+            "severity": 2,
+            "reasoning": "The transition between the lower jaw teeth and the throat skin appears slightly smeared or 'melted', lacking the crisp definition seen in the upper jaw."
+        },
+        {
+            "artifact_type": "structural_collapse",
+            "location": "Mouth interior",
+            "severity": 1,
+            "reasoning": "The inside of the mouth lacks distinct anatomical depth or tongue definition, appearing as a vague yellowish void rather than a structured oral cavity."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "crocodile",
+            "verification_goals": [
+                "Confirm species identification as Crocodylus niloticus vs other crocodilians"
+            ],
+            "reason": "Primary verification of the class label using high-performance ViT.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "crocodile body and scutes",
+            "verification_goals": [
+                "Detect bounding box for the entire crocodile instance",
+                "Locate dorsal scute regions to provide segmentation priors"
+            ],
+            "reason": "Acts as the mandatory 'Bridge' expert to generate BBox priors required for the topology_boundary_auditor to verify scute continuity.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "scutes_and_scales",
+            "verification_goals": [
+                "Verify continuity of dorsal scute rows using OVD priors",
+                "Check boundary sharpness between individual osteoderms"
+            ],
+            "reason": "Audits the complex geometry of reptile scales to ensure they are distinct physical plates and not texture noise, dependent on OVD output.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "head_and_mouth",
+            "verification_goals": [
+                "Verify V-shaped snout morphology against alligator baseline",
+                "Audit texture consistency in the lower jaw/throat region",
+                "Check for melting artifacts and structural vagueness in the oral cavity"
+            ],
+            "reason": "Leverages VLM reasoning to assess biological plausibility of snout shape and detect subtle texture/structural anomalies in the mouth that classifiers miss.",
+            "weight": 0.3
+        }
+    ],
+    "unverifiable_points": [
+        "Ventral surface scale pattern (occluded)",
+        "Limb digit count (occluded)",
+        "Tail length and compression (out of frame)"
+    ],
+    "focus_areas": [
+        "Snout shape (V vs U) via VLM reasoning",
+        "Dorsal scute arrangement and texture continuity",
+        "Mouth interior structural integrity and lower jaw texture",
+        "Species classification confidence"
+    ],
+    "custom_prompts_for_reflector": "Focus heavily on the distinction between the upper and lower jaw textures. AI generators often render the upper jaw details well but fail to maintain geometric coherence in the lower jaw and throat area. Also, verify if the 'interlocking' nature of the teeth is biologically accurate for a Nile Crocodile (specifically the 4th lower tooth fitting into a socket in the upper jaw). Ensure the topology auditor receives valid bounding boxes from the detector before attempting segmentation.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000034.png",
+        "class_id": 49,
+        "class_label": "African crocodile, Nile crocodile, Crocodylus niloticus",
+        "router_cost_seconds": 32.13,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1
+    },
+    "selected_experts": [
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "crocodile",
+            "reason": "Primary verification of the class label using high-performance ViT.",
+            "weight": 0.3
+        },
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "crocodile body and scutes",
+            "reason": "Acts as the mandatory 'Bridge' expert to generate BBox priors required for the topology_boundary_auditor to verify scute continuity.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "scutes_and_scales",
+            "reason": "Audits the complex geometry of reptile scales to ensure they are distinct physical plates and not texture noise, dependent on OVD output.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "head_and_mouth",
+            "reason": "Leverages VLM reasoning to assess biological plausibility of snout shape and detect subtle texture/structural anomalies in the mouth that classifiers miss.",
+            "weight": 0.3
+        }
+    ]
+}

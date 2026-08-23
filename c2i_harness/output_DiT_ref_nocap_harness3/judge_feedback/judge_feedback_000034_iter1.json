@@ -1,0 +1,207 @@
+{
+    "image_id": "000034",
+    "class_label": "African crocodile, Nile crocodile, Crocodylus niloticus",
+    "iteration": 1,
+    "timestamp": "2026-08-23 18:14:41",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in the Expert Selection and Verification Plan. The `open_vocabulary_detector` is assigned to verify 'teeth' and 'interlocking patterns'. However, according to the Expert Registry, this expert's function is to provide bounding box (BBox) priors for segmentation experts; it does not perform fine-grained anatomical or geometric verification (such as checking if a specific tooth fits into a notch). This task requires visual reasoning capabilities found in the `perceptual_quality_auditor` or potentially the `fine_grained_classifier`, but not the detector. Additionally, the `topology_boundary_auditor` is selected without the prerequisite `open_vocabulary_detector` first identifying the subject region, which violates the dependency chain described in the registry ('Bridge' expert is necessary precursor).",
+        "suggestions": [
+            {
+                "type": "expert_misalignment",
+                "point": "open_vocabulary_detector cannot verify anatomical interlocking of teeth.",
+                "recommended_expert": "perceptual_quality_auditor",
+                "description": "Reassign the verification of 'tooth interlocking' and 'mouth interior structure' to the perceptual_quality_auditor (VLM), which has the reasoning capability to assess biological plausibility. The open_vocabulary_detector should only be used to locate the crocodile instance to feed into the topology auditor."
+            },
+            {
+                "type": "missing_dependency",
+                "point": "topology_boundary_auditor lacks BBox prior generation.",
+                "recommended_expert": "open_vocabulary_detector",
+                "description": "Ensure the open_vocabulary_detector is explicitly tasked with detecting the 'crocodile body' or 'scutes' to generate the segmentation mask required by the topology_boundary_auditor. Currently, the plan assigns the detector to 'teeth', leaving the scute segmentation unsupported."
+            },
+            {
+                "type": "verification_gap",
+                "point": "Snout shape (V vs U) verification relies solely on classification confidence.",
+                "recommended_expert": "perceptual_quality_auditor",
+                "description": "While the fine_grained_classifier can identify the species, explicit verification of the 'V-shaped snout' geometry against the 'U-shaped alligator' baseline is a structural/shape audit better suited for the VLM's reasoning capabilities, especially given the close-up nature of the image."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up, side-profile view of a large crocodile resting on a rocky surface. The head is prominent with an open mouth displaying sharp teeth. The skin texture is highly detailed with visible scutes and scales. The background consists of blurred earthy tones and rocks.",
+        "image_class": "African crocodile",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is broad and triangular with a V-shaped snout (narrower than alligator).",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The snout tapers distinctly to a point, forming a clear V-shape characteristic of crocodiles rather than the U-shape of alligators."
+            },
+            {
+                "checkpoint": "Jaws are massive with numerous conical, interlocking teeth visible when mouth is closed.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The mouth is wide open in the image, so the condition 'visible when mouth is closed' cannot be verified. However, the teeth present are conical and numerous."
+            },
+            {
+                "checkpoint": "Eyes are positioned dorsally on the head with vertical slit pupils and a nictitating membrane.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The eye is clearly visible on the top ridge of the skull (dorsal position). While pupil shape is hard to resolve perfectly at this resolution, the placement is correct."
+            },
+            {
+                "checkpoint": "Nostrils are positioned at the tip of the snout.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The nostril openings are clearly visible at the very end of the snout."
+            },
+            {
+                "checkpoint": "Body is elongated and heavily armored.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible portion of the body shows a long, robust structure covered in thick, armor-like skin."
+            },
+            {
+                "checkpoint": "Body is covered in thick, bony scutes (osteoderms) arranged in regular longitudinal rows along the dorsal surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Distinct, raised rectangular scutes are visible running along the back/neck area."
+            },
+            {
+                "checkpoint": "Scutes are dark brown to grey with a rough, heavily textured appearance.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration is a mix of olive-green and grey-brown with a very rough, pebbled texture consistent with the description."
+            },
+            {
+                "checkpoint": "Ventral surface is covered in smooth, rectangular scales that are pale yellow to white.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The belly (ventral surface) is completely occluded by the ground/rock the animal is resting on."
+            },
+            {
+                "checkpoint": "Limbs are short and stout with webbed feet; forelimbs have five digits, hind limbs have four.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "No limbs or feet are visible in the frame; the body is low to the ground and cropped."
+            },
+            {
+                "checkpoint": "Tail is laterally compressed and muscular, comprising half of total body length.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is not visible in the frame; only the head and anterior trunk are shown."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Lower jaw / throat area",
+                "severity": 2,
+                "reasoning": "The transition between the lower jaw teeth and the throat skin appears slightly smeared or 'melted', lacking the crisp definition seen in the upper jaw."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Mouth interior",
+                "severity": 1,
+                "reasoning": "The inside of the mouth lacks distinct anatomical depth or tongue definition, appearing as a vague yellowish void rather than a structured oral cavity."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "crocodile",
+                "verification_goals": [
+                    "Confirm species identification as Crocodylus niloticus vs other crocodilians",
+                    "Verify V-shaped snout morphology"
+                ],
+                "reason": "Primary verification of the class label and key morphological distinction (snout shape).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mouth_and_jaw",
+                "verification_goals": [
+                    "Audit texture consistency in the lower jaw/throat region",
+                    "Check for melting artifacts in the oral cavity"
+                ],
+                "reason": "To verify the suspected texture anomalies and structural vagueness in the mouth area identified in Step 2.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "scutes_and_scales",
+                "verification_goals": [
+                    "Verify continuity of dorsal scute rows",
+                    "Check boundary sharpness between individual osteoderms"
+                ],
+                "reason": "AI often struggles with the repetitive, complex geometry of reptile scales; this ensures they are distinct physical plates and not just texture noise.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "teeth",
+                "verification_goals": [
+                    "Detect and count visible teeth",
+                    "Verify interlocking pattern of fourth tooth"
+                ],
+                "reason": "To provide objective evidence of tooth count and arrangement, supporting the 'interlocking teeth' checkpoint.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Ventral surface scale pattern (occluded)",
+            "Limb digit count (occluded)",
+            "Tail length and compression (out of frame)"
+        ],
+        "focus_areas": [
+            "Snout shape (V vs U)",
+            "Dorsal scute arrangement and texture",
+            "Mouth interior structural integrity",
+            "Lower jaw texture consistency"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the distinction between the upper and lower jaw textures. AI generators often render the upper jaw details well but fail to maintain geometric coherence in the lower jaw and throat area. Also, verify if the 'interlocking' nature of the teeth is biologically accurate for a Nile Crocodile (specifically the 4th lower tooth fitting into a socket in the upper jaw).",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000034.png",
+            "class_id": 49,
+            "class_label": "African crocodile, Nile crocodile, Crocodylus niloticus",
+            "router_cost_seconds": 30.41,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "crocodile",
+                "reason": "Primary verification of the class label and key morphological distinction (snout shape).",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mouth_and_jaw",
+                "reason": "To verify the suspected texture anomalies and structural vagueness in the mouth area identified in Step 2.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "scutes_and_scales",
+                "reason": "AI often struggles with the repetitive, complex geometry of reptile scales; this ensures they are distinct physical plates and not just texture noise.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "teeth",
+                "reason": "To provide objective evidence of tooth count and arrangement, supporting the 'interlocking teeth' checkpoint.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

@@ -1,0 +1,199 @@
+{
+    "image_id": "000094",
+    "class_label": "sea lion",
+    "iteration": 1,
+    "timestamp": "2026-08-23 18:18:01",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' and designed for 17-keypoint detection of standard quadrupeds/humans. Applying this to a sea lion (pinniped) is methodologically invalid as the keypoint topology does not match, leading to likely false negatives or hallucinated structural errors. Additionally, the plan fails to utilize the `open_vocabulary_detector` to ground the 'human leg' artifact mentioned in the description, which is a significant compositional element requiring verification.",
+        "suggestions": [
+            {
+                "type": "invalid_expert_usage",
+                "point": "Remove animal_pose_auditor for sea lion subject",
+                "recommended_expert": "perceptual_quality_auditor or topology_boundary_auditor",
+                "reasoning": "Sea lions do not fit the 17-point skeletal model of the pose auditor. Structural integrity of flippers should be audited via boundary segmentation (topology) and general visual coherence (perceptual quality), not rigid pose estimation."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Human leg artifact detection and grounding",
+                "recommended_expert": "open_vocabulary_detector",
+                "reasoning": "The image description notes a human leg on the right edge. The current plan ignores this. An open-vocabulary detector is required to confirm if this is a valid background element or an intrusion/artifact, and to provide bounding boxes for any subsequent segmentation audits."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verification of 'Ear Pinnae' (Critical Taxonomy Feature)",
+                "recommended_expert": "fine_grained_classifier + perceptual_quality_auditor",
+                "reasoning": "The checkpoint for ear pinnae is marked 'present', but the custom prompt highlights it as a risk area ('smudge vs structure'). The fine-grained classifier confirms the class, but the perceptual auditor must specifically reason about the resolution/clarity of the ear region to validate the 'present' verdict against AI smearing artifacts."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A large, dark brown sea lion is resting on a rocky outcrop near a body of water. The animal is positioned in profile, facing right, with its head raised. A human leg (wearing blue jeans) is visible on the far right edge of the frame. In the background, there is a turquoise pool or harbor area and distant structures.",
+        "image_class": "sea lion",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is broad with prominent sagittal crest in males.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The subject appears to be a male California Sea Lion based on size and coloration. The head profile shows a distinct slope and bulk consistent with a sagittal crest, distinguishing it from the smoother head of a female or true seal."
+            },
+            {
+                "checkpoint": "External ear pinnae (visible ear flaps) distinguish from true seals.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A small, distinct external ear flap is visible on the side of the head, confirming it is an eared seal (Otariid) and not a true seal (Phocid)."
+            },
+            {
+                "checkpoint": "Whiskers (vibrissae) are prominent and sensitive.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the snout area is visible, specific individual whiskers are not clearly resolved due to image resolution and lighting; the area appears smooth rather than showing distinct vibrissae."
+            },
+            {
+                "checkpoint": "Fur is short and coarse ranging from brown to dark grey, lighter on ventral surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coat is uniformly dark brown/chocolate, consistent with a wet male sea lion. The texture appears sleek and short, matching the description."
+            },
+            {
+                "checkpoint": "Body exhibits streamlined fusiform form of substantial marine mammal proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is clearly torpedo-like (fusiform) and robust, typical of a large pinniped."
+            },
+            {
+                "checkpoint": "Males develop thick neck mane and are significantly larger than females.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The neck area is thick and muscular, blending into the shoulders, which is characteristic of the 'mane' development in adult males."
+            },
+            {
+                "checkpoint": "Foreflippers are large, broad, and hairless on underside used for terrestrial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The front flipper is visible supporting the upper body. It appears large and leathery/hairless, consistent with terrestrial weight-bearing."
+            },
+            {
+                "checkpoint": "Hind flippers can rotate forward for walking on land.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The hind flippers are tucked behind the body or obscured by the angle and rocks; their rotational position cannot be verified."
+            },
+            {
+                "checkpoint": "Body exhibits bilateral symmetry.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the profile view, the visible anatomy (head, spine curve, flipper placement) suggests a structurally sound, symmetrical biological form without obvious AI distortions."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Rock surfaces in mid-ground",
+                "severity": 2,
+                "reasoning": "The rocks exhibit some 'smudged' or painterly textures typical of AI generation or heavy compression, lacking sharp geological fracturing details."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Interface between sea lion's rear flipper and rock",
+                "severity": 1,
+                "reasoning": "There is slight ambiguity in where the dark fur of the rear flipper ends and the shadow of the rock begins, suggesting minor edge bleeding."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "sea lion",
+                "verification_goals": [
+                    "Confirm species identification as California Sea Lion (Zalophus californianus)",
+                    "Verify sex determination (Male vs Female) based on cranial structure"
+                ],
+                "reason": "Primary class verification to ensure the generated image matches the specific taxonomy of 'sea lion' and distinguishes it from similar pinnipeds like fur seals or walruses.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sea lion",
+                "verification_goals": [
+                    "Verify foreflipper keypoint placement and structural integrity",
+                    "Check for valid spinal curvature and neck connection",
+                    "Audit limb count and symmetry"
+                ],
+                "reason": "Sea lions are limbed mammals; this expert will verify that the flippers are anatomically correct and not melted or fused, which is a common failure mode.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "sea lion",
+                "verification_goals": [
+                    "Segment sea lion from rocky background to check for edge bleeding",
+                    "Verify continuity of the body outline against the complex rock texture"
+                ],
+                "reason": "The dark fur against dark rocks creates a high-risk zone for segmentation errors and fusion artifacts; boundary auditing is essential here.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "background rocks",
+                "verification_goals": [
+                    "Assess texture consistency of rock formations",
+                    "Detect any nonsensical geometry in the environment"
+                ],
+                "reason": "To validate the observation of 'smudged' rock textures and ensure the environment supports the subject realistically.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Hind flippers can rotate forward for walking on land"
+        ],
+        "focus_areas": [
+            "Ear pinnae visibility and shape",
+            "Foreflipper anatomy and skin texture",
+            "Boundary separation between dark fur and dark rocks",
+            "Sagittal crest prominence on head profile"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the distinction between the sea lion's fur texture and the rock texture. AI often blends these when colors are similar. Verify specifically if the ear flap is a distinct biological structure or just a smudge of pixels. Check if the foreflipper has defined digits/claws or if it looks like a solid paddle (which would be incorrect for a sea lion).",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000094.png",
+            "class_id": 150,
+            "class_label": "sea lion",
+            "router_cost_seconds": 30.55,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "sea lion",
+                "reason": "Primary class verification to ensure the generated image matches the specific taxonomy of 'sea lion' and distinguishes it from similar pinnipeds like fur seals or walruses.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sea lion",
+                "reason": "Sea lions are limbed mammals; this expert will verify that the flippers are anatomically correct and not melted or fused, which is a common failure mode.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "sea lion",
+                "reason": "The dark fur against dark rocks creates a high-risk zone for segmentation errors and fusion artifacts; boundary auditing is essential here.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "background rocks",
+                "reason": "To validate the observation of 'smudged' rock textures and ensure the environment supports the subject realistically.",
+                "weight": 0.15
+            }
+        ]
+    }
+}
