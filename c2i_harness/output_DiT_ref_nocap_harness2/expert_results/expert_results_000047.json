@@ -6,51 +6,42 @@
     "class_id": 64,
     "class_label": "green mamba",
     "plan_reference": "approved_plan_000047",
-    "execution_timestamp": "2026-08-23 12:42:48",
+    "execution_timestamp": "2026-08-23 14:19:23",
     "focus_areas": [
-        "Head shape and proportion accuracy",
-        "Scale texture realism and individual definition",
-        "Boundary integrity between snake and background",
-        "Species-specific coloration uniformity"
+        "Head morphology and scale definition",
+        "Body cross-section shape (cylindrical vs compressed)",
+        "Scale texture continuity at head-neck junction",
+        "Edge definition against substrate using segmentation priors",
+        "3D depth structure of coiled body"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the head morphology. Does the 'coffin-shaped' profile hold up under scrutiny, or does it look like a generic snake head? Pay attention to the eye placement and pupil shape. Also, scrutinize the scale pattern on the body—AI often generates 'glossy green' but fails at the specific overlapping scale geometry of a mamba. Check if the wood texture interacts realistically with the snake's shadow and contact points.",
-    "image_description": "A close-up photograph of a green snake, identified as a green mamba, coiled on a textured piece of light brown wood or bark. The snake's head is facing forward with visible eyes and glossy scales. The body curves behind the head, displaying uniform emerald green coloration.",
+    "custom_prompts_for_reflector": "Pay close attention to the head shape; does it look like a generic snake or specifically a green mamba? Check if the lateral compression is visible in the coiled sections or if the body looks too round. Inspect the scales near the neck for any blurring or melting into the skin. Verify that the topology_boundary_auditor uses OVD priors for accurate segmentation.",
+    "image_description": "A close-up photograph of a green snake, identified as a green mamba, coiled on a textured piece of light brown wood or bark. The snake's head is facing the camera, showing glossy green scales and dark eyes. The body curves behind the head, displaying uniform emerald green coloration.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
-            "target_subject": "green mamba and wood substrate",
-            "weight": 0.1,
-            "reason": "Required precursor step to define object instances for the topology_boundary_auditor, ensuring accurate segmentation of the glossy snake against the textured wood.",
+            "target_subject": "green mamba",
+            "weight": 0.25,
+            "reason": "Required as a bridge expert to provide segmentation priors for the topology_boundary_auditor, ensuring accurate edge analysis against the textured background.",
             "status": "success",
-            "execution_time_ms": 13791.97,
+            "execution_time_ms": 14502.83,
             "evidence": {
                 "detected_objects": [
                     {
-                        "matched_query_token": "green",
-                        "confidence_score": 0.3567,
+                        "matched_query_token": "mamba",
+                        "confidence_score": 0.6615,
                         "bounding_box": [
                             16,
                             0,
                             255,
-                            186
-                        ]
-                    },
-                    {
-                        "matched_query_token": "mamba",
-                        "confidence_score": 0.3363,
-                        "bounding_box": [
-                            0,
-                            0,
-                            256,
-                            256
+                            187
                         ]
                     }
                 ]
             },
             "raw_metrics": {
-                "detected_count": 2
+                "detected_count": 1
             },
             "error": null,
             "traceback": null
@@ -59,11 +50,11 @@
             "expert_id": "geometric_depth_auditor",
             "internal_expert_id": "monocular_depth_estimator",
             "model_name": "Depth_Anything_V1_FP16_MACA",
-            "target_subject": "snake and wood",
-            "weight": 0.15,
-            "reason": "To confirm the snake is physically resting on the wood and not floating or merged, and that the coiling geometry makes spatial sense.",
+            "target_subject": "snake body coils",
+            "weight": 0.1,
+            "reason": "To explicitly validate the 'lateral compression' checkpoint by analyzing 3D depth structure, determining if the cylindrical appearance is a rendering error or perspective artifact.",
             "status": "success",
-            "execution_time_ms": 76.85,
+            "execution_time_ms": 86.75,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000047_depth.png",
                 "depth_statistics": {
@@ -85,10 +76,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "green mamba",
-            "weight": 0.25,
-            "reason": "Critical to verify if the image is truly a green mamba or a generic green snake/AI hallucination.",
+            "weight": 0.3,
+            "reason": "To verify if the image represents the correct species class, focusing solely on classification probability rather than geometric morphology.",
             "status": "success",
-            "execution_time_ms": 183.07,
+            "execution_time_ms": 207.28,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -120,10 +111,10 @@
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "snake body",
-            "weight": 0.3,
-            "reason": "To detect subtle melting or boundary bleeding between the glossy snake and the wood, and ensure the coiled structure is topologically valid using priors from the detector.",
+            "weight": 0.15,
+            "reason": "To investigate texture anomalies and edge bleeding at the neck and substrate contact points, utilizing bounding box priors from the open_vocabulary_detector.",
             "status": "success",
-            "execution_time_ms": 1247.66,
+            "execution_time_ms": 787.92,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000047_mask.png",
                 "mask_confidence_score": 1.0049,
@@ -142,9 +133,9 @@
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "snake head and body",
             "weight": 0.2,
-            "reason": "Explicitly tasked to resolve the ambiguous 'Head shape' checkpoint marked false, distinguishing between morphological mismatch and AI generation artifacts.",
+            "reason": "To perform CoT-based geometric and textural analysis of the head shape and scale anomalies, replacing the classifier's inappropriate role in morphology verification.",
             "status": "success",
-            "execution_time_ms": 28586.42,
+            "execution_time_ms": 11234.8,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the snake's scales and the wood texture are sharp. There are no indications that the image has been altered or compressed, and the overall quality seems consistent.",
                 "distortion_class": "null",
@@ -160,7 +151,7 @@
         "total_experts_planned": 5,
         "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 42401.53,
+        "total_execution_time_ms": 28268.87,
         "failed_expert_ids": []
     }
 }

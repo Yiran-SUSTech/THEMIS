@@ -2,25 +2,33 @@
     "image_id": "000002",
     "class_label": "hammerhead, hammerhead shark",
     "iteration": 2,
-    "timestamp": "2026-08-23 12:39:04",
+    "timestamp": "2026-08-23 14:16:24",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address critical artifacts and lacks necessary expert coverage for the identified issues. Specifically: 1) The `perceptual_quality_auditor` is missing despite explicit observations of 'blur' and 'texture_anomaly' (smearing), which requires a VLM-based quality audit to distinguish from natural underwater turbidity. 2) The `open_vocabulary_detector` is tasked with locating 'eyes', but the provided image resolution and angle make this biologically impossible to verify even with detection tools; this goal is unrealistic. 3) The plan ignores the severe structural anomaly where the dorsal fin appears to have a detached or floating secondary element (visible in the image), which requires rigorous topological auditing beyond just boundary sharpness.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is tasked with verifying morphological consistency, but it typically outputs class probabilities rather than spatial feature maps. It cannot definitively prove the presence/absence of eyes at the tips if they are obscured by blur.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "missing_expert",
+                "point": "Artifact verification for blur and smearing",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The plan identifies 'blur' and 'texture_anomaly' but does not assign the `perceptual_quality_auditor`. This expert is required to use CoT reasoning to determine if the smearing is a generative artifact or natural motion blur/turbidity."
             },
             {
-                "type": "refinement",
-                "point": "The plan relies on the 'open_vocabulary_detector' to localize 'cephalofoil tips'. Standard OVD models may struggle to detect 'tips' as distinct objects. The plan should explicitly instruct the OVD to detect the 'head' or 'cephalofoil' broadly, and let the Topology/Perceptual auditors derive the tips from that bounding box.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "unrealistic_verification_goal",
+                "point": "Locating eyes on cephalofoil tips",
+                "recommended_action": "Remove or downgrade priority",
+                "reason": "Given the low resolution and rear-three-quarter angle, detecting eyes at the extreme tips is not feasible for any current detector. The OVD should focus on verifying the *structural integrity* of the cephalofoil tips rather than specific micro-features like eyes."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Dorsal fin structural continuity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The image shows a potential 'double fin' or detached fragment near the main dorsal fin. The topology auditor must explicitly check for 'floating parts' or 'disconnected components' in the dorsal region, not just edge sharpness."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "An underwater photograph showing a hammerhead shark swimming over a sandy seabed. The shark is viewed from a high-angle, rear-three-quarter perspective, displaying its distinctive T-shaped head, tall dorsal fin, and pectoral fins. The water is somewhat murky with a greenish-blue tint.",
+        "image_description": "An underwater photograph of a hammerhead shark swimming over a sandy seabed. The shark is viewed from a high-angle, rear-three-quarter perspective, displaying its distinctive T-shaped head, tall dorsal fin, and pectoral fins against a greenish-blue water background.",
         "image_class": "hammerhead",
         "checkpoint_verdicts": [
             {
@@ -28,84 +36,84 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The characteristic wide, flat head structure is clearly visible extending laterally from the body."
+                "reasoning": "The characteristic wide, flat head structure is clearly visible extending laterally from the body, forming the iconic 'T' shape."
             },
             {
                 "checkpoint": "Eyes are positioned at the extreme lateral tips of the cephalofoil.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the head shape is correct, the resolution and angle prevent clear visualization of eyes at the extreme tips; they appear as dark smudges rather than distinct anatomical features."
+                "reasoning": "While the head shape is correct, the image resolution and angle prevent clear visualization of eyes specifically located at the extreme tips; they appear as dark smudges but lack definitive anatomical confirmation required for a positive match."
             },
             {
                 "checkpoint": "Nostrils are positioned near the lateral margins of the cephalofoil.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The image resolution and water turbidity make it impossible to discern nostril placement on the underside or margins of the head."
+                "reasoning": "Nostrils are microscopic features relative to this image scale and are completely indistinguishable due to blur and distance."
             },
             {
                 "checkpoint": "Anterior margin of the cephalofoil is straight to slightly curved with a central indentation in some species.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The leading edge of the head appears relatively straight/curved consistent with general hammerhead morphology, though specific species indentations are hard to verify due to blur."
+                "reasoning": "The leading edge of the hammer head is visible and appears consistent with the general morphology, though fine detail on central indentation is limited by resolution."
             },
             {
                 "checkpoint": "Body is streamlined and laterally compressed.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body profile shows the typical torpedo-like, compressed shape of a shark."
+                "reasoning": "The torso exhibits the expected torpedo-like, flattened profile typical of sharks."
             },
             {
                 "checkpoint": "Dorsal coloration is grey to brownish with white ventral surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal side is dark grey/brown, and the visible edges of the pectoral fins and lower jaw suggest lighter ventral coloring, consistent with countershading."
+                "reasoning": "The upper body is dark grey/brown, transitioning to a lighter underside, matching the countershading description."
             },
             {
                 "checkpoint": "Skin is covered in dermal denticles with a rough texture.",
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Image resolution is too low to resolve microscopic skin texture like dermal denticles."
+                "reasoning": "Individual dermal denticles are impossible to resolve at this distance and image quality; skin appears smooth due to scaling."
             },
             {
                 "checkpoint": "First dorsal fin is tall and falcate (sickle-shaped), positioned anteriorly.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A prominent, tall dorsal fin is clearly visible rising from the upper back."
+                "reasoning": "A prominent, tall dorsal fin is clearly visible rising from the anterior-mid section of the back."
             },
             {
                 "checkpoint": "Pectoral fins are broad and triangular.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Broad, triangular pectoral fins are visible on both sides of the body."
+                "reasoning": "The pectoral fins are visible on the sides, appearing broad and roughly triangular in shape."
             },
             {
                 "checkpoint": "Caudal fin is asymmetrical with a pronounced upper lobe.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail fin is visible and exhibits the heterocercal (asymmetrical) shape typical of sharks, with a longer upper lobe."
+                "reasoning": "The tail fin is visible in the background, showing the characteristic heterocercal shape with a longer upper lobe."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "blur",
-                "location": "entire image",
-                "severity": 2,
-                "reasoning": "General softness and lack of sharp focus throughout the image, likely due to underwater photography conditions or low resolution, but not necessarily an AI artifact. However, edges of the shark blend slightly into the background water."
+                "location": "entire_image",
+                "severity": 2.5,
+                "reasoning": "Significant motion blur and underwater turbidity affect the entire subject, softening edges and reducing texture fidelity, particularly around the fin margins and head tips."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "dorsal fin tip",
-                "severity": 1,
-                "reasoning": "The very tip of the dorsal fin appears slightly smeared or melted into the background water, lacking a crisp edge."
+                "location": "dorsal_fin_tip",
+                "severity": 1.5,
+                "reasoning": "The tip of the dorsal fin exhibits slight smearing into the background water, lacking a crisp biological edge, potentially indicating generation artifact or severe motion blur."
             }
         ],
         "expert_verification_plan": [
@@ -113,11 +121,11 @@
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "hammerhead shark",
                 "verification_goals": [
-                    "Generate precise bounding box for the hammerhead shark",
-                    "Localize specific anatomical regions: cephalofoil tips, dorsal fin, pectoral fins"
+                    "Locate 'eyes' on the cephalofoil tips to verify absence or merging",
+                    "Detect 'cephalofoil tips' to confirm structural integrity"
                 ],
-                "reason": "Required as the 'Bridge' expert to provide BBox priors for the topology auditor and to localize features for verification.",
-                "weight": 0.25
+                "reason": "Required to rigorously audit the negative claim regarding eye placement and provide bounding box priors for topology auditing.",
+                "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
@@ -126,59 +134,48 @@
                     "Confirm species-level classification as hammerhead shark",
                     "Verify morphological consistency with Sphyrnidae family"
                 ],
-                "reason": "Primary verification that the generated subject matches the target class label at a taxonomic level.",
+                "reason": "Primary verification to ensure the generated image aligns with the specific taxonomic class label despite low resolution.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "hammerhead shark",
-                "verification_goals": [
-                    "Verify continuity of the cephalofoil (hammer head) structure using OVD priors",
-                    "Check for fusion between dorsal fin and background",
-                    "Ensure pectoral fins are distinct and attached correctly"
-                ],
-                "reason": "To detect potential structural melting or boundary bleeding common in AI-generated aquatic subjects, dependent on OVD output.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "hammerhead shark",
-                "verification_goals": [
-                    "Zoom in on cephalofoil tips to verify presence/absence of eyes",
-                    "Assess severity of blur vs. anatomical distortion",
-                    "Verify if texture anomalies are photographic or generative"
-                ],
-                "reason": "Explicitly tasked to verify the 'is_present: false' eye checkpoint and distinguish natural degradation from AI artifacts.",
-                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "hammerhead shark",
                 "verification_goals": [
-                    "Verify 3D spatial relationship between head and body",
-                    "Check depth consistency of fins relative to body",
-                    "Ensure shark is grounded in the water column correctly"
+                    "Verify spatial relationship between shark and seabed",
+                    "Check for depth inconsistencies in the caudal fin positioning",
+                    "Audit shadow casting and grounding on sandy bottom"
                 ],
-                "reason": "Hammerhead heads are complex 3D structures; AI often fails to render the depth connection between the wide head and the narrow body correctly.",
+                "reason": "High priority verification for spatial melting; ensures the shark is properly grounded in the 3D environment and not floating unnaturally.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "hammerhead shark",
+                "verification_goals": [
+                    "Verify continuity of the cephalofoil (hammer head) structure",
+                    "Check for fusion between dorsal fin and background water",
+                    "Audit boundary sharpness of pectoral fins"
+                ],
+                "reason": "To detect potential structural melting or edge bleeding common in AI-generated aquatic subjects, using OVD priors.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "Nostrils are positioned near the lateral margins of the cephalofoil",
-            "Skin is covered in dermal denticles with a rough texture"
+            "Nostrils are positioned near the lateral margins of the cephalofoil.",
+            "Skin is covered in dermal denticles with a rough texture."
         ],
         "focus_areas": [
-            "Cephalofoil (hammer head) structural integrity and connection to body",
-            "Presence and clarity of eyes at the extreme lateral tips of the head",
-            "Dorsal fin edge sharpness and separation from background",
-            "Overall anatomical proportionality of fins"
+            "Cephalofoil structural integrity and eye placement verification via OVD",
+            "Spatial grounding and shadow consistency on seabed",
+            "Dorsal fin edge definition against water background",
+            "Directional consistency of motion blur vs. generative smearing"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the junction where the wide hammer-head connects to the narrower body trunk. AI models often struggle with this specific topology, creating floating heads or impossible neck geometries. Also, scrutinize the dorsal fin for 'melting' into the water background, as this is a common failure mode in underwater AI generations. Crucially, perform a detailed zoom-in analysis on the tips of the cephalofoil to definitively confirm whether eyes are missing or merely obscured by blur/resolution, as this was flagged as a potential anatomical failure.",
+        "custom_prompts_for_reflector": "Focus heavily on distinguishing between natural underwater motion blur and AI-generated 'smearing' artifacts. Specifically analyze the connection points of the fins to the body to ensure no topology errors exist. Verify if the 'hammer' shape maintains rigid geometric consistency or shows signs of plastic deformation. Use OVD results to confirm if eyes are truly missing or just blurry. Prioritize checking the shark's grounding on the sand to rule out floating artifacts.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000002.png",
             "class_id": 4,
             "class_label": "hammerhead, hammerhead shark",
-            "router_cost_seconds": 34.8,
+            "router_cost_seconds": 31.61,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
@@ -187,31 +184,25 @@
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "hammerhead shark",
-                "reason": "Required as the 'Bridge' expert to provide BBox priors for the topology auditor and to localize features for verification.",
-                "weight": 0.25
+                "reason": "Required to rigorously audit the negative claim regarding eye placement and provide bounding box priors for topology auditing.",
+                "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "hammerhead shark",
-                "reason": "Primary verification that the generated subject matches the target class label at a taxonomic level.",
+                "reason": "Primary verification to ensure the generated image aligns with the specific taxonomic class label despite low resolution.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "hammerhead shark",
-                "reason": "To detect potential structural melting or boundary bleeding common in AI-generated aquatic subjects, dependent on OVD output.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "hammerhead shark",
-                "reason": "Explicitly tasked to verify the 'is_present: false' eye checkpoint and distinguish natural degradation from AI artifacts.",
-                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "hammerhead shark",
-                "reason": "Hammerhead heads are complex 3D structures; AI often fails to render the depth connection between the wide head and the narrow body correctly.",
+                "reason": "High priority verification for spatial melting; ensures the shark is properly grounded in the 3D environment and not floating unnaturally.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "hammerhead shark",
+                "reason": "To detect potential structural melting or edge bleeding common in AI-generated aquatic subjects, using OVD priors.",
                 "weight": 0.15
             }
         ]

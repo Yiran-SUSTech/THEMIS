@@ -6,25 +6,25 @@
     "class_id": 39,
     "class_label": "common iguana, iguana, Iguana iguana",
     "plan_reference": "approved_plan_000026",
-    "execution_timestamp": "2026-08-23 12:40:40",
+    "execution_timestamp": "2026-08-23 14:17:28",
     "focus_areas": [
-        "Limb symmetry and count (missing left forelimb)",
-        "Phenotype plausibility of orange/brown coloration",
-        "Foot/toe anatomy integrity and fusion with rock",
-        "Background vs. foreground separation quality"
+        "Coloration validity (Orange/Brown vs Green)",
+        "Dorsal crest structural integrity",
+        "Front limb digit separation",
+        "Background blur nature (Optical vs Generative)"
     ],
-    "custom_prompts_for_reflector": "Please verify if the absence of the second forelimb is a structural generation error or a valid occlusion. Additionally, analyze the orange/brown coloration to determine if it represents a natural morph or AI-induced color bleeding/artifacts. Closely inspect the interface between the visible front claws and the rock for signs of melting or fusion.",
-    "image_description": "A close-up, slightly low-resolution photograph of a large lizard, identified as a common iguana, perched on rocks near water. The iguana has a prominent dorsal crest and textured skin, appearing brownish-orange in color rather than the typical bright green. Only one forelimb is clearly visible gripping the rock.",
+    "custom_prompts_for_reflector": "Please verify if the orange/brown coloration on the head and forelimbs is consistent with a mature male Common Iguana (Iguana iguana) in breeding condition, or if it suggests a different species or AI error. Additionally, inspect the boundary between the iguana's belly and the rock it is resting on for any signs of fusion or lack of contact shadow.",
+    "image_description": "A close-up, slightly low-resolution photograph of a large lizard, likely an iguana, perched on a rocky surface near water. The animal has a prominent dorsal crest, robust body, and textured skin. The coloration is brownish-orange on the head and forelimbs, transitioning to dark grey/black with lighter bands on the hindquarters and tail. The background features blurred water and rocks.",
     "expert_testimonies": [
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "common iguana",
-            "weight": 0.3,
-            "reason": "To ensure the subject is taxonomically correct based on morphology (crest, scales, head shape) regardless of the color deviation, distinguishing it from other lizard species.",
+            "weight": 0.35,
+            "reason": "The coloration deviates from the standard 'green' description. A fine-grained classifier is needed to confirm this is a valid biological variant (e.g., red/orange phase male) and not a hallucinated hybrid.",
             "status": "success",
-            "execution_time_ms": 197.71,
+            "execution_time_ms": 247.42,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -56,10 +56,10 @@
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
             "target_subject": "common iguana",
-            "weight": 0.4,
-            "reason": "To explicitly verify the critical anatomical anomaly of the missing second limb and assess the structural integrity of the visible foot's digits against the rock.",
+            "weight": 0.25,
+            "reason": "AI generators frequently fail at reptile limb anatomy (fusing toes) and complex spine structures. Keypoint detection will validate biological plausibility.",
             "status": "success",
-            "execution_time_ms": 630.25,
+            "execution_time_ms": 946.53,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -292,14 +292,35 @@
             "traceback": null
         },
         {
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "common iguana",
+            "weight": 0.2,
+            "reason": "Reptiles on complex backgrounds (rocks/water) are prone to segmentation errors where the subject merges with the environment.",
+            "status": "success",
+            "execution_time_ms": 1385.6,
+            "evidence": {
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000026_mask.png",
+                "mask_confidence_score": 0.9587,
+                "prompt_point_used": [
+                    128,
+                    128
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "common iguana",
-            "weight": 0.3,
-            "reason": "To determine if the atypical coloration is a valid biological phenotype or an artifact of AI generation (color bleeding), and to evaluate overall image quality.",
+            "target_subject": "entire image",
+            "weight": 0.2,
+            "reason": "To rule out 'melting' artifacts disguised as blur and ensure the scale texture isn't procedurally generated noise.",
             "status": "success",
-            "execution_time_ms": 6471.22,
+            "execution_time_ms": 8701.45,
             "evidence": {
                 "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or an older file. There's no visible noise, blur, or darkening in the image. The colors seem natural, and the details on the lizard and the background are clear enough. The overall impression is that the image has a slight compression, but it does not significantly impact the clarity or legibility.",
                 "distortion_class": "compression",
@@ -312,10 +333,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 3,
-        "successful_experts": 3,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 6478.71,
+        "total_execution_time_ms": 8713.75,
         "failed_expert_ids": []
     }
 }

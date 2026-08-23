@@ -6,14 +6,14 @@
     "class_id": 156,
     "class_label": "Blenheim spaniel",
     "plan_reference": "approved_plan_000098",
-    "execution_timestamp": "2026-08-23 12:45:33",
+    "execution_timestamp": "2026-08-23 14:23:42",
     "focus_areas": [
-        "Fur-carpet boundary integrity at the rear",
-        "Anatomical plausibility of occluded hindquarters",
-        "Eye reflection and realism"
+        "Boundary integrity between white fur, white cloth, and background",
+        "Anatomical clarity of the front paw (potential melting)",
+        "Breed-specific head shape confirmation (visible portions only)"
     ],
-    "custom_prompts_for_reflector": "Focus specifically on the transition zone between the white fur and the brown carpet at the rear of the dog. Use the open_vocabulary_detector to first establish the expected boundary of the dog's body, then use topology_boundary_auditor to check if that boundary is sharp or smeared. For the tucked legs, do not attempt keypoint detection; instead, use perceptual_quality_auditor to reason about whether the fur volume and shadows suggest plausible underlying limb structure or if there are signs of melting/fusion artifacts.",
-    "image_description": "A close-up, high-angle shot of a Blenheim spaniel lying on a brown textured carpet. The dog is positioned horizontally, with its head on the left and body extending to the right. The coat features distinct chestnut red patches on a white background. The dog appears to be resting.",
+    "custom_prompts_for_reflector": "Focus heavily on the interface between the white fur, the white cloth prop, and the brown carpet. AI often struggles with white-on-white and white-on-brown contrast, creating halos or melting. Scrutinize the front paw area—is it a real paw or a melted blob? Verify if the eye reflection looks natural or glassy. Do NOT attempt keypoint detection on the occluded head/paws; rely on perceptual reasoning instead.",
+    "image_description": "A close-up, high-angle shot of a Blenheim Spaniel (Cavalier King Charles Spaniel) lying on a brown textured carpet. The dog's head is partially obscured by a white cloth or prop in the lower left, covering the muzzle and nose area. The body extends horizontally to the right, displaying the characteristic chestnut red and white coat pattern. The tail is cropped out of the frame.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
@@ -21,9 +21,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "dog",
             "weight": 0.25,
-            "reason": "Essential bridge expert to identify where the dog ends and the carpet begins, specifically targeting the ambiguous rear area to guide the topology auditor.",
+            "reason": "Essential bridge expert to provide localization priors for the topology auditor, especially given the complex boundary between white fur, white cloth, and brown carpet.",
             "status": "success",
-            "execution_time_ms": 15345.47,
+            "execution_time_ms": 15266.53,
             "evidence": {
                 "detected_objects": [
                     {
@@ -49,10 +49,10 @@
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "dog",
-            "weight": 0.3,
-            "reason": "Primary verification to ensure the image represents the specific breed and color variant requested, distinguishing it from similar spaniels like the English Toy Spaniel.",
+            "weight": 0.35,
+            "reason": "Primary verification to ensure the image depicts the correct specific breed and color variant. Also tasked with verifying the visible portion of the head to rule out gross anatomical errors even if the full dome is occluded.",
             "status": "success",
-            "execution_time_ms": 168.49,
+            "execution_time_ms": 124.18,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -85,9 +85,9 @@
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "dog",
             "weight": 0.2,
-            "reason": "To investigate the potential structural collapse at the rear edge, relying on OVD-generated masks for accurate segmentation.",
+            "reason": "To investigate the slight texture anomaly at the belly edge and the structural ambiguity of the front paw, utilizing bounding boxes from OVD for accurate segmentation.",
             "status": "success",
-            "execution_time_ms": 689.47,
+            "execution_time_ms": 496.12,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000098_mask.png",
                 "mask_confidence_score": 0.978,
@@ -104,11 +104,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "dog",
-            "weight": 0.25,
-            "reason": "Replaces animal_pose_auditor for this occluded pose; VLM reasoning is better suited to judge biological plausibility of hidden structures and detect subtle melting artifacts.",
+            "target_subject": "entire_image",
+            "weight": 0.2,
+            "reason": "Holistic quality check to catch low-level artifacts and use reasoning to assess the ambiguous front paw area where keypoint detection would fail due to occlusion.",
             "status": "success",
-            "execution_time_ms": 4087.54,
+            "execution_time_ms": 27598.7,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, compression, blur, or darken. The image seems to have a slight graininess, which could suggest a minor level of noise, but it's not prominent enough to be considered a significant issue. The image is in focus, and the colors are vibrant, indicating that the image quality is good.",
                 "distortion_class": "null",
@@ -124,7 +124,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 20567.85,
+        "total_execution_time_ms": 44823.43,
         "failed_expert_ids": []
     }
 }

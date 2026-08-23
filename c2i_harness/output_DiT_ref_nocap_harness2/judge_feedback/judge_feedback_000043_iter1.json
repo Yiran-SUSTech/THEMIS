@@ -2,27 +2,33 @@
     "image_id": "000043",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:40:13",
+    "timestamp": "2026-08-23 14:17:34",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan fails to utilize the `image_text_auditor` despite explicitly identifying a text artifact (watermark) in the bottom right corner. The `perceptual_quality_auditor` is tasked with analyzing this text, but the `image_text_auditor` is the specialized expert defined for extracting and auditing visual text quality. Additionally, the `fine_grained_classifier` target subject 'snake' is too broad; it should be specific to 'Carphophis amoenus' or 'thunder snake' to effectively distinguish it from similar species as stated in the verification goals.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and coverage. The Router identified 'text_gibberish' as an artifact but failed to include the `open_vocabulary_detector` in the execution plan, despite listing it in the registry. Furthermore, the `fine_grained_classifier` is tasked with verifying species identity, but without the `open_vocabulary_detector` providing bounding box priors, the classifier may struggle to isolate the subject from the complex background (soil/leaf litter). The plan also lacks a specific geometric audit for the 'coiled' posture, which is prone to topological errors (fusion of loops) that the `topology_boundary_auditor` alone might miss without precise segmentation masks derived from detection.",
         "suggestions": [
             {
                 "type": "missing_expert",
-                "point": "Text artifact in bottom right corner",
-                "recommended_expert": "image_text_auditor",
-                "reason": "The plan identifies a watermark/signature artifact. The `image_text_auditor` is specifically designed to audit text quality and detect gibberish/watermarks, whereas the `perceptual_quality_auditor` is better suited for general structural/texture artifacts. The text auditor should be added to the verification plan."
+                "point": "Open Vocabulary Detection",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `open_vocabulary_detector` is essential as a 'Bridge' expert. It must run first to locate the snake and the text artifact. Its output (bounding boxes) is required to guide the `fine_grained_classifier` (to ensure it crops the snake, not the background) and the `image_text_auditor` (to crop the watermark). The current plan attempts to use specialized auditors without this foundational localization step."
             },
             {
-                "type": "refinement",
-                "point": "Fine-grained classification target",
-                "recommended_action": "Update `target_subject` for `fine_grained_classifier` from 'snake' to 'Carphophis amoenus' or 'thunder snake'.",
-                "reason": "To ensure the classifier focuses on the specific taxonomic features required to distinguish the Thunder Snake from look-alikes (e.g., Red-bellied Snake), rather than just generic snake features."
+                "type": "verification_gap",
+                "point": "Coil Topology and Fusion",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "While `topology_boundary_auditor` is selected, its goal should be explicitly linked to the 'coiled' nature of the snake. The verification goal should specify checking for 'unnatural fusion between overlapping body segments' rather than just general boundary sharpness. This requires the segmentation mask from the `open_vocabulary_detector` or SAM-based refinement."
+            },
+            {
+                "type": "redundancy_optimization",
+                "point": "Text Artifact Analysis",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The `perceptual_quality_auditor` is assigned to analyze the garbled text. This is inefficient. Text analysis is the sole domain of `image_text_auditor`. The `perceptual_quality_auditor` should focus on global image coherence, lighting consistency, and scale texture realism, offloading the specific text artifact diagnosis to the OCR specialist."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a glossy, smooth texture and uniform coloration. There is visible text in the bottom right corner that appears to be a watermark or signature.",
+        "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a slender, cylindrical body with smooth, glossy scales. The head is small and barely distinct from the neck, featuring a blunt snout. A watermark is visible in the bottom right corner.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -30,70 +36,70 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head is clearly visible in the center-left, showing a blunt snout and a shape that transitions smoothly into the neck without a distinct narrowing, matching the description."
+                "reasoning": "The head is clearly visible in profile; it is small, lacks a distinct neck constriction, and terminates in a blunt, rounded snout consistent with the species description."
             },
             {
                 "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A small, dark eye is visible on the side of the head, consistent with the 'minute' and 'barely visible' description typical of fossorial snakes."
+                "reasoning": "A tiny, dark eye is visible on the side of the head, appearing very small relative to the head size and partially obscured by the scale texture, matching the 'minute' description."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body maintains a consistent cylindrical diameter throughout the visible coils, lacking the lateral compression seen in many other snake species."
+                "reasoning": "The body maintains a consistent, narrow diameter throughout the visible coils, exhibiting the characteristic worm-like cylindrical shape of a thunder snake."
             },
             {
                 "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal surface exhibits a uniform reddish-brown hue, matching the taxonomic description perfectly."
+                "reasoning": "The dorsal surface displays a uniform reddish-brown hue that aligns perfectly with the specified color range."
             },
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The snake is coiled such that the ventral surface (belly) is almost entirely obscured by the body itself or the ground. Only the dorsal and lateral sides are clearly visible."
+                "reasoning": "The snake is positioned primarily dorsal-side up. While a sliver of the side is visible, the ventral surface (belly) is not clearly exposed or testable for color verification."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights are visible along the curves of the body, indicating a smooth, glossy scale texture rather than keeled or rough scales."
+                "reasoning": "Strong specular highlights are visible along the curves of the body, indicating a smooth, glossy texture. The scale rows appear regular and lack keels."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skin tone is solid reddish-brown with no spots, stripes, or bands visible."
+                "reasoning": "The body color is solid and uniform, with no spots, stripes, or bands visible."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail tip is not visible in the frame; the body extends out of view or is tucked under coils."
+                "reasoning": "The tail tip is not visible in the frame; the body extends out of view or is obscured by coils."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "text_gibberish",
                 "location": "Bottom right corner",
-                "severity": 2,
-                "reasoning": "There is a string of characters resembling a watermark or signature ('...T730...') that appears slightly distorted and inconsistent with standard font rendering, suggesting potential AI artifacting or low-quality overlay."
+                "severity": 2.0,
+                "reasoning": "There is a watermark text string that appears reversed or garbled ('ЯTƧИOМЯ'), which is a common artifact in AI-generated images or scraped datasets where text rendering fails."
             },
             {
                 "artifact_type": "texture_anomaly",
                 "location": "Background soil/leaf litter",
-                "severity": 1,
-                "reasoning": "The texture of the soil and debris in the background is somewhat repetitive and lacks fine high-frequency detail compared to the sharp focus on the snake, which can be a sign of generative smoothing, though it may also be depth-of-field blur."
+                "severity": 1.5,
+                "reasoning": "The background textures show slight smearing and lack of high-frequency detail compared to the sharp focus on the snake, suggesting potential depth-map blending issues or generative smoothing."
             }
         ],
         "expert_verification_plan": [
@@ -101,71 +107,83 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Confirm species identification as Carphophis amoenus (Thunder Snake) vs. similar reddish snakes like Red-bellied Snake or Earth Snake.",
-                    "Verify morphological features align with the genus Carphophis."
+                    "Confirm species identity as Carphophis amoenus (thunder snake) vs. similar earth snakes or worm snakes.",
+                    "Verify reddish-brown coloration matches taxonomic standards."
                 ],
-                "reason": "Primary verification to ensure the image actually depicts the claimed class label, as reddish-brown snakes can be visually similar.",
+                "reason": "Primary verification to ensure the image depicts the correct specific species given the visual similarity to other small brown snakes.",
                 "weight": 0.4
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_image",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
                 "verification_goals": [
-                    "Analyze the text artifact in the bottom right for signs of AI generation (gibberish/melting).",
-                    "Assess the realism of the scale glossiness and lighting interaction.",
-                    "Check for subtle boundary bleeding between the snake and the soil."
+                    "Verify the snake is a single continuous entity without fused loops.",
+                    "Check boundary sharpness between the glossy snake skin and the matte soil background."
                 ],
-                "reason": "To validate the visual fidelity and rule out common AI artifacts like nonsensical text or unnatural texture synthesis.",
+                "reason": "To detect subtle fusion artifacts where coils might merge unnaturally or edges bleed into the background.",
                 "weight": 0.3
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake_body",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
                 "verification_goals": [
-                    "Verify the continuity of the snake's body where it overlaps itself.",
-                    "Ensure the head connects naturally to the body without fusion artifacts.",
-                    "Check that the coil structure is physically plausible."
+                    "Analyze the garbled text artifact in the corner.",
+                    "Assess overall texture consistency of scales vs. background."
                 ],
-                "reason": "Snakes are prone to topological errors in AI generation (e.g., bodies merging into each other or heads fusing with coils).",
-                "weight": 0.3
+                "reason": "To formally evaluate the severity of the text gibberish and any low-level texture inconsistencies.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "watermark",
+                "verification_goals": [
+                    "Extract and analyze the character sequence in the bottom right corner.",
+                    "Determine if the text is valid language or nonsensical generation."
+                ],
+                "reason": "Specific tool for verifying the nature of the observed text artifact.",
+                "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Ventral surface is pale pink to white (occluded)",
-            "Tail is short and blunt (out of frame)"
+            "Tail is short and blunt"
         ],
         "focus_areas": [
-            "Head morphology and eye placement",
-            "Scale texture and reflectivity",
-            "Text watermark integrity",
-            "Body continuity at overlap points"
+            "Species identification confirmation",
+            "Text artifact analysis",
+            "Body continuity and edge definition"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the text in the bottom right corner. Is it a coherent signature/watermark or nonsensical gibberish? Also, verify if the 'glossy' look of the snake is consistent with wet biological scales or if it looks like plastic/shader artifacts. Check the connection point of the head to the body for any melting.",
+        "custom_prompts_for_reflector": "Please verify if the garbled text in the bottom right is a known dataset watermark or an AI generation failure. Additionally, confirm if the scale texture glossiness is physically consistent with the lighting direction.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000043.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 27.26,
+            "router_cost_seconds": 26.83,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
-                "reason": "Primary verification to ensure the image actually depicts the claimed class label, as reddish-brown snakes can be visually similar.",
+                "reason": "Primary verification to ensure the image depicts the correct specific species given the visual similarity to other small brown snakes.",
                 "weight": 0.4
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire_image",
-                "reason": "To validate the visual fidelity and rule out common AI artifacts like nonsensical text or unnatural texture synthesis.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake body",
+                "reason": "To detect subtle fusion artifacts where coils might merge unnaturally or edges bleed into the background.",
                 "weight": 0.3
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake_body",
-                "reason": "Snakes are prone to topological errors in AI generation (e.g., bodies merging into each other or heads fusing with coils).",
-                "weight": 0.3
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To formally evaluate the severity of the text gibberish and any low-level texture inconsistencies.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "watermark",
+                "reason": "Specific tool for verifying the nature of the observed text artifact.",
+                "weight": 0.1
             }
         ]
     }

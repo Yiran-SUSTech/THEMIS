@@ -6,54 +6,25 @@
     "class_id": 35,
     "class_label": "mud turtle",
     "plan_reference": "approved_plan_000022",
-    "execution_timestamp": "2026-08-23 12:40:33",
+    "execution_timestamp": "2026-08-23 14:17:44",
     "focus_areas": [
-        "Shell texture and glossiness realism",
-        "Limb-to-shell junction integrity",
-        "Species-specific head shape accuracy",
-        "Accurate segmentation from concrete background"
+        "Structural integrity of front limbs and claw definition",
+        "Boundary separation between feet and concrete ground",
+        "Shell texture fidelity and scute definition",
+        "Species-specific head shape and keel presence/absence"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the turtle's skin and the shell rim. AI often creates a 'seam' or fusion error here. Also, verify if the 'glossy' look on the shell looks like wet plastic (AI artifact) or natural keratin reflection. Pay special attention to limb count and connectivity - ensure exactly 4 limbs are present and properly attached.",
-    "image_description": "A small, dark-colored turtle (likely a mud or musk turtle) positioned on a rough, grey concrete surface. The turtle has a high-domed, oval carapace that appears smooth and slightly glossy. Its head is extended, showing a pointed snout and small lateral eyes. The limbs are short and stout with visible claws. The plastron is not fully visible but the shell shape suggests a reduced plastron typical of the species.",
+    "custom_prompts_for_reflector": "Please pay close attention to the texture of the turtle's shell. Does it look like natural keratin with distinct scute lines, or does it have an AI-generated 'smoothed' or 'plastic' look? Also, verify if the front claws interact physically with the ground texture or if they appear to float/merge. Specifically check if the toes are distinct individual digits or if they are fused together.",
+    "image_description": "A small, dark-colored mud turtle positioned on a rough, grey concrete surface. The turtle is facing left with its head extended and front limbs visible. The shell appears domed and dark, while the skin is textured and scaly.",
     "expert_testimonies": [
-        {
-            "expert_id": "open_vocabulary_detector",
-            "internal_expert_id": "open_vocabulary_detector",
-            "model_name": "GroundingDINO_ONNX",
-            "target_subject": "turtle",
-            "weight": 0.25,
-            "reason": "Essential bridge expert to accurately locate the dark turtle against the similar-toned concrete, ensuring downstream boundary audits are grounded in correct spatial data.",
-            "status": "success",
-            "execution_time_ms": 13193.87,
-            "evidence": {
-                "detected_objects": [
-                    {
-                        "matched_query_token": "turtle",
-                        "confidence_score": 0.8997,
-                        "bounding_box": [
-                            26,
-                            77,
-                            233,
-                            218
-                        ]
-                    }
-                ]
-            },
-            "raw_metrics": {
-                "detected_count": 1
-            },
-            "error": null,
-            "traceback": null
-        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "mud turtle",
-            "weight": 0.35,
-            "reason": "Primary verification to ensure the generated image matches the specific 'mud turtle' class label and distinguishes it from similar box turtles or sliders, especially given the absence of juvenile keels.",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the generated image matches the specific 'mud turtle' class label and determines if the lack of keels is a valid age characteristic or a generation failure.",
             "status": "success",
-            "execution_time_ms": 107.41,
+            "execution_time_ms": 200.64,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -81,14 +52,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "turtle and ground",
+            "weight": 0.1,
+            "reason": "Ensures the turtle sits naturally on the ground plane and the shell's dome has valid geometric depth rather than looking flat or pasted on.",
+            "status": "success",
+            "execution_time_ms": 157.5,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000022_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0343,
+                    "max_value": 18.1551,
+                    "mean_value": 9.6934,
+                    "std_deviation": 6.022
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "animal_pose_auditor",
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
-            "target_subject": "turtle",
-            "weight": 0.2,
-            "reason": "Sanity check to prevent gross anatomical errors like extra/fused limbs which topology auditor might miss if boundaries appear sharp but anatomy is wrong.",
+            "target_subject": "turtle limbs",
+            "weight": 0.25,
+            "reason": "Critical for validating the structural integrity of the visible limbs. The judge noted a gap here; this expert must confirm the feet have distinct toes/claws and are not melted into the ground or each other.",
             "status": "success",
-            "execution_time_ms": 702.39,
+            "execution_time_ms": 431.04,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -312,18 +308,37 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "turtle shell and limbs",
+            "target_subject": "front limbs and head",
             "weight": 0.2,
-            "reason": "AI generators often struggle with the complex boundary where soft skin meets hard shell, or where the subject touches a textured ground like concrete.",
+            "reason": "Addresses the observed artifact where claw tips blend into the ground. Must verify these parts are physically separate entities from the background rather than merged textures.",
             "status": "success",
-            "execution_time_ms": 1109.64,
+            "execution_time_ms": 882.22,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000022_mask.png",
-                "mask_confidence_score": 0.9898,
+                "mask_confidence_score": 0.9986,
                 "prompt_point_used": [
-                    129,
-                    147
+                    128,
+                    128
                 ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "entire image",
+            "weight": 0.15,
+            "reason": "Holistic check to validate if the slight blurring at the feet and smoothness of the shell are acceptable photographic traits or AI generation artifacts.",
+            "status": "success",
+            "execution_time_ms": 5003.16,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-focused on the turtle. There are no visible signs of noise, blur, or darkening. The image seems to have a slight compression, but this does not significantly impact the clarity or legibility of the image.",
+                "distortion_class": "compression",
+                "severity_level": "slight",
+                "severity_score": 0.2
             },
             "raw_metrics": {},
             "error": null,
@@ -331,10 +346,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 14314.28,
+        "total_execution_time_ms": 5016.75,
         "failed_expert_ids": []
     }
 }

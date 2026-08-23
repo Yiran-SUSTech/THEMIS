@@ -2,20 +2,25 @@
     "image_id": "000027",
     "class_label": "common iguana, iguana, Iguana iguana",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:39:37",
+    "timestamp": "2026-08-23 14:16:58",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The Router identified the 'teal/cyan' eye color as a biological anomaly (Checkpoint: Eyes... is_present=false) but assigned the `fine_grained_classifier` to 'Verify if the teal eye color is a known variant'. This is scientifically invalid; *Iguana iguana* does not have teal eyes, and a classifier trained on ImageNet will likely misclassify the image or fail due to domain shift, rather than confirming a non-existent variant. The correct action is for the `perceptual_quality_auditor` to flag this as an artifact/hallucination, not for the classifier to validate it. Additionally, the `open_vocabulary_detector` is poorly suited for counting 'five clawed digits' on a complex, occluded limb; this task requires the `animal_pose_auditor` (if available) or should be marked unverifiable due to occlusion, rather than relying on a detector that may hallucinate bounding boxes for missing parts.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is tasked with verifying species identity despite the missing black bands. It should be explicitly instructed to check for 'Green Morph' or 'Turquoise Morph' variations of Iguana iguana, which naturally lack black banding and may have blue/green eye hues, to distinguish biological variation from AI hallucination.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "incorrect_expert_goal",
+                "point": "Fine-grained classifier goal: 'Verify if the teal eye color is a known variant'",
+                "recommendation": "Remove this goal. Classifiers cannot validate biological impossibilities. The `perceptual_quality_auditor` should solely handle the verdict that the eye color is an AI artifact/hallucination."
             },
             {
-                "type": "refinement",
-                "point": "The 'open_vocabulary_detector' goal to 'locate specific digit structures' is likely unachievable given the severe occlusion noted in the checkpoints. The goal should be refined to simply 'confirm presence of limb mass' to avoid false negatives from the detector failing to find invisible digits.",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "missing_expert_capability",
+                "point": "Verifying 'five clawed digits' with open_vocabulary_detector",
+                "recommendation": "Replace `open_vocabulary_detector` with `animal_pose_auditor` for limb structure analysis. If `animal_pose_auditor` is unavailable, mark the digit count checkpoint as 'unverifiable' due to occlusion/angle, as OVD cannot reliably count small, overlapping anatomical parts."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Subtympanic shield texture",
+                "recommendation": "Add `topology_boundary_auditor` or `perceptual_quality_auditor` to verify if the subtympanic shield has distinct boundary separation from the jaw, as AI often blurs this specific scale cluster."
             }
         ]
     },
@@ -28,77 +33,83 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head shape is distinctly triangular and robust. A significant, textured dewlap hangs prominently from the lower jaw/throat area, matching the anatomical description perfectly."
+                "reasoning": "The head shape is distinctly triangular and robust. A significant, textured dewlap hangs prominently from the lower jaw/throat area, matching the anatomical description."
             },
             {
                 "checkpoint": "Eyes are large with round pupils and golden irises.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the eye is large and the pupil appears round, the iris color is a vivid, unnatural teal/cyan rather than the biological 'golden' specified in the taxonomy. This suggests a potential AI color hallucination or artistic filter."
+                "reasoning": "While the eye is large and has a round pupil, the iris color is a vivid, unnatural teal/cyan rather than the biological 'golden' specified in the taxonomy. This suggests a potential AI color hallucination or artistic filter."
             },
             {
                 "checkpoint": "A large circular subtympanic shield (scale) is present below the tympanum.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The characteristic large, round scale located on the cheek/jaw area (subtympanic shield) is clearly visible and distinct from the surrounding smaller scales."
+                "reasoning": "A distinct, large, circular scale is clearly visible on the cheek area below the ear region, consistent with the subtympanic shield of an iguana."
             },
             {
                 "checkpoint": "Body is robust.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the torso appears thick and muscular, consistent with a healthy adult iguana."
+                "reasoning": "The visible portion of the torso appears thick and muscular, consistent with a robust reptilian body structure."
             },
             {
                 "checkpoint": "Coloration is bright green in juveniles, becoming darker green to greyish-green in adults with broad black bands on the body and tail.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The iguana is a uniform, highly saturated bright green. It lacks the expected 'broad black bands' on the body or tail that are diagnostic for this species, especially given the apparent maturity of the subject."
+                "reasoning": "The coloration is a uniform, highly saturated electric green. It lacks the expected 'broad black bands' on the body or the gradient to greyish-green typical of adults. The texture also appears overly uniform."
             },
             {
                 "checkpoint": "Row of enlarged, spine-like scales running from the nape along the midline of the back to the tail base, forming a serrated crest.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal crest (spines) is clearly defined along the neck and upper back, showing the correct serrated structure."
+                "reasoning": "A clear row of spike-like scales (dorsal crest) is visible running down the neck and onto the back, maintaining correct spacing and orientation."
             },
             {
                 "checkpoint": "Skin is covered in small, granular scales with larger, plate-like scales on the head.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "There is a clear textural distinction between the fine, pebbled scales on the body and the larger, smoother plates on the face and jaw."
+                "reasoning": "The image displays a distinct transition between the finer, pebbled scales on the body and the larger, smoother plates on the snout and jaw."
             },
             {
                 "checkpoint": "Limbs are long and muscular with five clawed digits on each foot.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The front limb is visible but partially obscured by foliage and the angle. While the limb looks muscular, the specific count of 'five clawed digits' cannot be definitively verified due to occlusion and blur; however, no obvious fusion or extra digits are seen. Marked false as the specific detail is not fully testable/visible."
+                "reasoning": "The front limb is visible but the digits/claws are obscured by the angle and foreground elements. While the limb looks muscular, the specific count of 'five clawed digits' cannot be verified visually."
             },
             {
                 "checkpoint": "Tail is laterally compressed and longer than body, used for balance and defense.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The tail is almost entirely outside the frame or heavily occluded by the foreground elements. Only a tiny fragment might be inferred, making it impossible to judge length or compression."
+                "reasoning": "Only the very base of the tail is visible; the majority of the tail extends outside the frame, making length and compression impossible to verify."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Eye/Iris",
+                "location": "Body scales and neck region",
                 "severity": 2,
-                "reasoning": "The iris color is an intense, glowing cyan/teal which is biologically inaccurate for a common iguana (typically gold/brown). This looks like a generative artifact or excessive saturation."
+                "reasoning": "The green scales exhibit a repetitive, almost woven pattern that lacks the random variation of biological skin. The transition between scale types is slightly too smooth, suggesting procedural texture generation."
+            },
+            {
+                "artifact_type": "other",
+                "location": "Eye iris",
+                "severity": 3,
+                "reasoning": "The iris color is a glowing cyan/teal, which is biologically incorrect for a common iguana (typically gold/brown). This indicates a generative error in color mapping or an unintended stylistic artifact."
             },
             {
                 "artifact_type": "blur",
-                "location": "Foreground foliage and lower limb",
+                "location": "Foreground leaves (bottom left)",
                 "severity": 1,
-                "reasoning": "Significant motion blur or depth-of-field blur affects the leaves in the immediate foreground and the lower part of the visible leg, reducing structural clarity."
+                "reasoning": "The out-of-focus leaves have a slight 'smearing' quality typical of AI bokeh rendering, lacking distinct edge definition even in blur."
             }
         ],
         "expert_verification_plan": [
@@ -107,82 +118,83 @@
                 "target_subject": "common iguana",
                 "verification_goals": [
                     "Confirm species identity as Iguana iguana",
-                    "Verify if the lack of black banding is within natural variation or indicates a different species/hybrid"
+                    "Verify if the teal eye color is a known variant or an artifact"
                 ],
-                "reason": "To definitively rule out misclassification due to the missing black bands and unusual eye color.",
+                "reason": "Primary verification to ensure the subject is indeed a common iguana and to flag the anomalous eye color against training data distributions.",
                 "weight": 0.35
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "target_subject": "skin texture and eye",
                 "verification_goals": [
-                    "Analyze the unnatural cyan eye color for signs of AI generation vs. lighting artifact",
-                    "Assess the severity of the foreground blur and texture consistency on the scales"
+                    "Analyze the repetitive nature of the body scales",
+                    "Assess the realism of the eye iris color and reflection",
+                    "Check for melting artifacts in the dewlap folds"
                 ],
-                "reason": "To determine if the color anomalies and blur patterns are consistent with AI generation artifacts.",
+                "reason": "To specifically audit the suspected texture anomalies and the unnatural eye color identified in Step 2.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "iguana limbs and tail",
-                "verification_goals": [
-                    "Detect presence of limbs and tail segments",
-                    "Locate specific digit structures if visible"
-                ],
-                "reason": "To provide bounding box priors for the obscured limbs and tail, helping to verify if they exist outside the current focal plane or are missing.",
-                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "dorsal crest and dewlap",
                 "verification_goals": [
-                    "Verify the continuity of the spine row along the back",
-                    "Check the boundary separation of the dewlap from the chest"
+                    "Verify the dorsal spines are individually connected to the spine",
+                    "Check the dewlap boundary for fusion with the chest/neck"
                 ],
-                "reason": "To ensure the complex structures (spines and loose skin) are topologically sound and not fused with the background or body.",
+                "reason": "AI often struggles with complex, repeating protrusions like dorsal crests; this ensures they aren't floating or fused incorrectly.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "limbs and digits",
+                "verification_goals": [
+                    "Locate the front limb and attempt to resolve digit count",
+                    "Identify any hidden or ghost limbs in the blurred background"
+                ],
+                "reason": "To determine if the missing digit visibility is due to occlusion or generation failure (missing parts).",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Tail length and lateral compression (completely out of frame)",
-            "Exact digit count on feet (occluded/blurred)"
+            "Tail is laterally compressed and longer than body"
         ],
         "focus_areas": [
-            "Eye color accuracy (Cyan vs Golden)",
-            "Absence of black body banding",
-            "Scale texture realism"
+            "Eye iris color accuracy (Teal vs Golden)",
+            "Scale texture repetition and randomness",
+            "Dorsal crest structural integrity",
+            "Digit visibility and count"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the eye color. Is the cyan/teal iris a result of specific lighting (e.g., reflection) or a generative error? Also, evaluate if the uniform green coloration without black bands is plausible for any specific morph of Iguana iguana, or if it strongly suggests a non-iguana reptile or AI hallucination.",
+        "custom_prompts_for_reflector": "Please pay special attention to the eye color. Common iguanas typically have golden or brown eyes; the teal color here is highly suspicious of AI generation. Also, examine the scale pattern on the flank—does it look like a tiled texture map rather than organic skin? Verify if the dorsal spikes merge cleanly into the skin or if there is any 'melting' at the base.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000027.png",
             "class_id": 39,
             "class_label": "common iguana, iguana, Iguana iguana",
-            "router_cost_seconds": 31.63,
+            "router_cost_seconds": 32.41,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "common iguana",
-                "reason": "To definitively rule out misclassification due to the missing black bands and unusual eye color.",
+                "reason": "Primary verification to ensure the subject is indeed a common iguana and to flag the anomalous eye color against training data distributions.",
                 "weight": 0.35
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To determine if the color anomalies and blur patterns are consistent with AI generation artifacts.",
+                "target_subject": "skin texture and eye",
+                "reason": "To specifically audit the suspected texture anomalies and the unnatural eye color identified in Step 2.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "iguana limbs and tail",
-                "reason": "To provide bounding box priors for the obscured limbs and tail, helping to verify if they exist outside the current focal plane or are missing.",
-                "weight": 0.2
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "dorsal crest and dewlap",
-                "reason": "To ensure the complex structures (spines and loose skin) are topologically sound and not fused with the background or body.",
+                "reason": "AI often struggles with complex, repeating protrusions like dorsal crests; this ensures they aren't floating or fused incorrectly.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "limbs and digits",
+                "reason": "To determine if the missing digit visibility is due to occlusion or generation failure (missing parts).",
                 "weight": 0.2
             }
         ]

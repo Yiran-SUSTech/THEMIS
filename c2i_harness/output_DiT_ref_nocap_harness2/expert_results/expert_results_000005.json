@@ -6,13 +6,14 @@
     "class_id": 7,
     "class_label": "cock",
     "plan_reference": "approved_plan_000005",
-    "execution_timestamp": "2026-08-23 12:40:07",
+    "execution_timestamp": "2026-08-23 14:17:41",
     "focus_areas": [
-        "Foot/toe anatomy clarity via OVD + Topology audit",
-        "Fence pattern regularity",
-        "Feather edge definition against background"
+        "Boundary integrity between rooster and wire fence using OVD-guided segmentation",
+        "Structural validity of leg-foot-ground interface via topology and depth analysis",
+        "Geometric consistency of background wire mesh pattern",
+        "Verification of male-specific plumage characteristics despite partial occlusion"
     ],
-    "custom_prompts_for_reflector": "Pay close attention to the interaction between the rooster's feet and the ground; use the open_vocabulary_detector to isolate this region before auditing. Scrutinize the chain-link fence for broken loops or non-Euclidean geometry. Do NOT use human pose estimators on the bird.",
+    "custom_prompts_for_reflector": "Prioritize OVD-generated bounding boxes when auditing topology boundaries - do not rely on automatic segmentation alone. For the foot-ground interface, use both topology boundary and geometric depth auditors to distinguish between genuine fusion artifacts and natural occlusion by grass/dirt. When evaluating 'missing' tail and spur, consider viewing angle and depth relationships before concluding absence. The wire fence requires special attention: verify its geometric regularity independently, then check how cleanly the rooster's silhouette separates from it. Male sexual characteristics (comb, wattle, hackles) should be confirmed first via classifier before investing in detailed structural audits.",
     "image_description": "A rooster (cock) standing on grass in front of a wire mesh fence. The bird has reddish-brown body plumage, a dark iridescent neck/head area, and a prominent red comb and wattle. It is facing slightly away from the camera, showing its back and side profile.",
     "expert_testimonies": [
         {
@@ -21,9 +22,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "cock",
             "weight": 0.25,
-            "reason": "Essential precursor expert to provide spatial priors for limb verification, replacing the incompatible animal_pose_auditor for bird anatomy.",
+            "reason": "Essential bridge expert to provide BBox priors for topology auditor, ensuring accurate segmentation of the rooster against the complex wire mesh background.",
             "status": "success",
-            "execution_time_ms": 15050.19,
+            "execution_time_ms": 14019.17,
             "evidence": {
                 "detected_objects": [
                     {
@@ -45,14 +46,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "cock",
+            "weight": 0.2,
+            "reason": "Addresses coverage gap for verifying 'missing' anatomical features through depth analysis rather than relying solely on 2D visibility.",
+            "status": "success",
+            "execution_time_ms": 107.73,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000005_depth.png",
+                "depth_statistics": {
+                    "min_value": 3.4736,
+                    "max_value": 17.7908,
+                    "mean_value": 8.8049,
+                    "std_deviation": 4.7132
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "cock",
-            "weight": 0.35,
-            "reason": "Primary class verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
+            "weight": 0.15,
+            "reason": "High-speed sieve to ensure base class correctness before detailed structural audits.",
             "status": "success",
-            "execution_time_ms": 153.51,
+            "execution_time_ms": 175.92,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -84,10 +110,10 @@
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "cock",
-            "weight": 0.2,
-            "reason": "To check for edge bleeding or fusion artifacts around complex feather structures and verify limb topology using OVD priors.",
+            "weight": 0.3,
+            "reason": "Primary tool to resolve structural collapse at foot/ground and verify if missing tail/spur are truly absent or just obscured by boundary issues.",
             "status": "success",
-            "execution_time_ms": 1244.12,
+            "execution_time_ms": 588.89,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000005_mask.png",
                 "mask_confidence_score": 0.9865,
@@ -106,28 +132,9 @@
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "background_fence",
             "weight": 0.1,
-            "reason": "Specific verification of the observed texture anomaly in the fence, which is a common AI artifact location.",
+            "reason": "Specific focus on observed texture anomaly in fence to determine if it's compression artifact or AI failure.",
             "status": "success",
-            "execution_time_ms": 15427.25,
-            "evidence": {
-                "thinking_trajectory": "The image appears to be clear and well-defined, but there are no obvious signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the chicken and the fence are sharp. There's a slight green tint that could suggest a minor color balance issue, but overall, the image seems to have been taken with good quality.",
-                "distortion_class": "compression",
-                "severity_level": "slight",
-                "severity_score": 0.2
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "cock_feet",
-            "weight": 0.1,
-            "reason": "Targeted analysis of the specific ROI marked 'false' to distinguish between occlusion and AI generation artifacts.",
-            "status": "success",
-            "execution_time_ms": 15595.21,
+            "execution_time_ms": 12674.44,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-defined, but there are no obvious signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the chicken and the fence are sharp. There's a slight green tint that could suggest a minor color balance issue, but overall, the image seems to have been taken with good quality.",
                 "distortion_class": "compression",
@@ -143,7 +150,7 @@
         "total_experts_planned": 5,
         "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 30657.09,
+        "total_execution_time_ms": 26704.68,
         "failed_expert_ids": []
     }
 }

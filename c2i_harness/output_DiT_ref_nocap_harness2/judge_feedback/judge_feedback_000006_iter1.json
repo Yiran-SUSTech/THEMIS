@@ -2,20 +2,30 @@
     "image_id": "000006",
     "class_label": "cock",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:38:18",
+    "timestamp": "2026-08-23 14:15:41",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification coverage. Specifically, the `animal_pose_auditor` is selected to audit the rooster's legs and spurs, but its definition explicitly states it is 'ONLY for limbed subjects... NOT for limbless', and typically these auditors are trained on COCO-Keypoints (Human) or AP-10K (Animals like dogs/cats), which do not include specific keypoints for avian anatomy (spurs, anisodactyl feet). Using a human/quadraped pose auditor on a bird will result in failure or hallucinated keypoints. Additionally, the plan fails to assign an expert to verify the 'is_present=false' verdict for the spur, leaving a potential anatomical defect unverified by a vision model.",
         "suggestions": [
             {
+                "type": "incorrect_expert_selection",
+                "point": "Remove `animal_pose_auditor`. It is not suitable for avian anatomy (spurs/toes).",
+                "recommended_expert": "None (Replace with visual QA or remove)"
+            },
+            {
                 "type": "missing_verification",
-                "point": "Ground contact and shadow consistency (geometric grounding)",
-                "recommended_expert": "geometric_depth_auditor"
+                "point": "The checkpoint 'Legs... prominent posterior spur' was marked `is_present=false`. This requires visual confirmation to distinguish between occlusion/angle vs. generation failure.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The artifact 'texture_anomaly' at the leg-ground contact needs specific boundary verification.",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A rooster (cock) standing on dry, dusty ground. The bird features a bright red comb and wattles, golden-orange hackle feathers transitioning to dark iridescent body plumage, and long curved black tail feathers. It has yellow legs with visible spurs and is positioned in profile facing left.",
+        "image_description": "A rooster (cock) standing on dry, dusty ground. The bird features a bright red comb and wattles, golden-orange hackle feathers transitioning to dark iridescent body plumage, and long curved black tail feathers. One leg is clearly visible with yellow scales and claws.",
         "image_class": "cock",
         "checkpoint_verdicts": [
             {
@@ -23,163 +33,173 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The comb is clearly visible, bright red, and exhibits the characteristic serrated/fleshy structure typical of a rooster."
+                "reasoning": "The comb is clearly visible, bright red, and has the characteristic serrated shape of a rooster."
             },
             {
                 "checkpoint": "Wattles are paired fleshy appendages hanging from the lower beak, bright red.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Red wattles are distinctly visible hanging below the beak area."
+                "reasoning": "Red wattles are distinctly visible hanging below the beak."
             },
             {
                 "checkpoint": "Beak is short, curved, and keratinous with a yellow to grey coloration.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The beak is visible, appears short and curved, and matches the expected yellowish-grey keratinous texture."
+                "reasoning": "The beak is visible, curved, and appears yellowish-grey, matching the description."
             },
             {
                 "checkpoint": "Eyes are dark and positioned laterally.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A dark eye is visible on the side of the head, consistent with lateral positioning."
+                "reasoning": "A dark eye is visible on the side of the head."
             },
             {
                 "checkpoint": "Body is compact and robust.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The torso appears solid and proportionate for a rooster, showing no signs of structural collapse or unnatural elongation."
+                "reasoning": "The bird's torso appears solid and proportionate for a rooster."
             },
             {
                 "checkpoint": "Plumage is vivid and iridescent with metallic green, blue, purple, or copper tones on the neck, breast, and tail feathers.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The neck feathers show strong copper/gold iridescence, and the tail/body feathers display deep black with hints of iridescence, matching the description."
+                "reasoning": "The neck feathers show strong copper/gold tones, and the body/tail feathers show dark iridescence consistent with the class."
             },
             {
                 "checkpoint": "Hackle feathers (neck plumage) are elongated, pointed, and glossy, forming a distinctive ruff.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The golden neck feathers are clearly elongated, pointed, and glossy, draping over the shoulders as expected."
+                "reasoning": "The golden neck feathers are long, pointed, and drape over the shoulders as expected."
             },
             {
                 "checkpoint": "Saddle feathers (lower back) are elongated and flowing.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Feathers flowing down from the lower back towards the tail are visible and appear elongated."
+                "reasoning": "Feathers flowing down the lower back towards the tail are visible."
             },
             {
                 "checkpoint": "Legs are stout with thick, scaled skin and a prominent posterior spur on the tarsus.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The visible leg shows distinct scaling and a clear, sharp spur projecting from the back of the tarsus."
+                "is_present": false,
+                "reasoning": "While the leg is scaled and stout, the specific 'prominent posterior spur' is not clearly resolved in this resolution; the area where it should be is somewhat blurry or obscured by angle."
             },
             {
                 "checkpoint": "Feet are anisodactyl (three toes forward, one backward) with sharp, curved claws.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The foot structure is visible; three forward toes and one rear toe can be discerned, with sharp claws touching the ground."
+                "reasoning": "The visible foot shows the correct toe arrangement and claw shape."
             },
             {
                 "checkpoint": "Tail feathers are long, curved, and iridescent with a characteristic arching posture.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail is prominent, long, and arches upward in the classic sickle shape associated with roosters."
+                "reasoning": "The sickle feathers are long, black, and arch upwards correctly."
             }
         ],
-        "artifact_observations": [],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Left leg (viewer's left) and ground contact point",
+                "severity": 2,
+                "reasoning": "The texture of the left leg blends slightly into the background dust, and the toes lack the crisp definition seen in the right leg. It looks slightly 'melted' or low-resolution compared to the sharp head."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Background and far right tail tips",
+                "severity": 1,
+                "reasoning": "Standard depth-of-field blur, but the transition on the tail tips is slightly soft, potentially indicating generation smoothing rather than optical bokeh."
+            }
+        ],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cock",
                 "verification_goals": [
-                    "Confirm species identity as Gallus gallus domesticus (rooster/cock)",
-                    "Verify plumage patterns match standard rooster phenotypes"
+                    "Verify species identity as Gallus gallus domesticus (rooster)",
+                    "Confirm presence of male-specific secondary sexual characteristics (comb, wattle, hackles)"
                 ],
-                "reason": "Primary verification to ensure the image represents the correct class label and not a hen or other bird species.",
+                "reason": "Primary verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "cock",
                 "verification_goals": [
-                    "Verify limb count and joint articulation (legs/feet)",
-                    "Check for anatomical correctness of the spur and toe arrangement",
-                    "Validate head-neck-body connectivity"
+                    "Verify limb count and structural integrity of legs",
+                    "Check keypoint alignment for head, neck, and tail curvature"
                 ],
-                "reason": "Critical for detecting subtle AI errors in limb structure, specifically the complex anatomy of bird feet and spurs which are common failure points.",
-                "weight": 0.3
+                "reason": "To confirm the anatomical correctness of the legs and feet, specifically checking for the missing/spur ambiguity noted in checkpoints.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "cock",
                 "verification_goals": [
-                    "Audit boundary sharpness between iridescent feathers and background",
-                    "Verify continuity of hackle and saddle feathers (no floating segments)",
-                    "Check for edge bleeding around the comb and wattles"
+                    "Audit boundary sharpness between leg scales and ground",
+                    "Verify continuity of hackle and saddle feathers"
                 ],
-                "reason": "Iridescent textures and fine feather details often suffer from segmentation errors or blending artifacts in AI generation.",
+                "reason": "To investigate the texture anomaly/melting observed at the leg-ground interface and ensure feathers are distinct entities.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "cock",
                 "verification_goals": [
-                    "Assess texture consistency of scaled legs vs. feathered body",
-                    "Detect any subtle melting or warping in the tail curvature",
-                    "Verify lighting coherence on iridescent surfaces"
+                    "Assess overall image coherence and lighting consistency",
+                    "Detect subtle generation artifacts in feather textures"
                 ],
-                "reason": "Holistic quality check to catch texture anomalies or lighting inconsistencies that specific geometry auditors might miss.",
-                "weight": 0.15
+                "reason": "Holistic quality check to rule out low-level GAN artifacts or diffusion noise patterns.",
+                "weight": 0.2
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Feet and spur anatomy (high risk of AI distortion)",
-            "Feather texture transitions (iridescence realism)",
-            "Comb and wattle integration with head (fusion artifacts)"
+            "Leg and foot anatomy (specifically spur visibility and toe definition)",
+            "Feather texture realism and edge definition against background",
+            "Head feature proportions (comb/wattle size relative to head)"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the intersection of the legs and the ground, as well as the individual definition of the toes and claws. AI models frequently merge toes or create 'melted' spurs. Additionally, verify that the iridescence on the neck feathers follows a physically plausible light reflection pattern rather than appearing as random noise or painted-on texture.",
+        "custom_prompts_for_reflector": "Please pay close attention to the resolution and structural integrity of the legs. AI models often struggle with the complex geometry of bird feet and spurs. Verify if the 'missing spur' is a result of image quality/angle or a generation failure. Also, check if the iridescence on the tail feathers looks physically accurate or like a painted texture.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000006.png",
             "class_id": 7,
             "class_label": "cock",
-            "router_cost_seconds": 32.11,
+            "router_cost_seconds": 33.2,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cock",
-                "reason": "Primary verification to ensure the image represents the correct class label and not a hen or other bird species.",
+                "reason": "Primary verification to ensure the image is indeed a rooster and not a hen or other bird species mislabeled.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "cock",
-                "reason": "Critical for detecting subtle AI errors in limb structure, specifically the complex anatomy of bird feet and spurs which are common failure points.",
-                "weight": 0.3
+                "reason": "To confirm the anatomical correctness of the legs and feet, specifically checking for the missing/spur ambiguity noted in checkpoints.",
+                "weight": 0.25
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "cock",
-                "reason": "Iridescent textures and fine feather details often suffer from segmentation errors or blending artifacts in AI generation.",
+                "reason": "To investigate the texture anomaly/melting observed at the leg-ground interface and ensure feathers are distinct entities.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "cock",
-                "reason": "Holistic quality check to catch texture anomalies or lighting inconsistencies that specific geometry auditors might miss.",
-                "weight": 0.15
+                "reason": "Holistic quality check to rule out low-level GAN artifacts or diffusion noise patterns.",
+                "weight": 0.2
             }
         ]
     }

@@ -2,25 +2,25 @@
     "image_id": "000070",
     "class_label": "Dungeness crab, Cancer magister",
     "iteration": 2,
-    "timestamp": "2026-08-23 12:42:28",
+    "timestamp": "2026-08-23 14:19:54",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The Router selected the `fine_grained_classifier` to verify species identity (`Cancer magister`) and explicitly noted that 'Pattern verification [was] removed'. However, the primary diagnostic feature for Dungeness crabs identified in the checkpoints is the 'dark tips' on the claws (which are currently marked as missing/false). Standard ImageNet-pretrained classifiers often fail to distinguish crab species based on fine-grained color patterns (like dark tips) without specific localization. By removing pattern verification from the classifier's scope but failing to assign it to the `perceptual_quality_auditor` or `open_vocabulary_detector` as a primary verification goal, the plan risks a false negative on species identity. The `perceptual_quality_auditor` is tasked with checking color gradients, but its primary role is quality/artifact detection, not taxonomic classification. The `open_vocabulary_detector` is tasked with locating claws, but the plan does not explicitly link the *presence* of dark tips to the final species verdict via a robust mechanism. Furthermore, the `fine_grained_classifier` is likely to return a generic 'crab' or incorrect species label if the distinctive dark tips are missing, leading to ambiguity. The plan needs to explicitly task an expert with verifying the *absence* of dark tips as a definitive failure of the specific class label, rather than just a texture anomaly.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'unequal size' claw checkpoint was marked false because Dungeness crabs have symmetrical claws. The plan should explicitly verify that the generated claws are SYMMETRICAL to confirm biological correctness, rather than just noting they don't match the erroneous prompt description.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Verification of 'dark tips' on claws as a species-defining feature",
+                "recommended_expert": "open_vocabulary_detector + perceptual_quality_auditor"
             },
             {
-                "type": "missing_verification",
-                "point": "While 'serrated inner edges' are unverifiable due to resolution/angle, the 'smooth outer surface' of the claws is a visible feature that supports species ID and should be explicitly verified by the topology or perceptual auditor to rule out AI texture noise.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "logical_correction",
+                "point": "Refine `fine_grained_classifier` role",
+                "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs exhibit the characteristic orange-red coloration of cooked crustaceans. Multiple individuals are visible, overlapping in a dense arrangement. Key anatomical features such as the broad oval carapace, walking legs, and claws are present, though significant occlusion occurs due to the piling. The lighting is bright, creating specular highlights on the wet shells and ice.",
+        "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs are oriented in various directions, with some showing their dorsal carapace and others their ventral side or legs. The lighting is bright, highlighting the glossy texture of the shells and the translucency of the ice.",
         "image_class": "Dungeness crab",
         "checkpoint_verdicts": [
             {
@@ -28,167 +28,170 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The anterior margins of the carapaces are visible on several central crabs, but distinct stalked eyes are not resolved. In cooked specimens, eyes often retract or appear as indistinct dark spots; no clear stalked morphology is evident in this view."
+                "reasoning": "While the anterior margins of several carapaces are visible, no distinct stalked eyes are clearly resolved. The area where eyes should be appears smooth or indistinct, likely due to cooking shrinkage or generation artifacts, failing the specific 'stalked and protrude' criteria."
             },
             {
                 "checkpoint": "Carapace is smooth and convex displaying purplish-brown to reddish-brown coloration.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible carapaces are smooth, convex, and display the expected reddish-orange/brown hue consistent with cooked Dungeness crabs."
+                "reasoning": "The visible carapaces exhibit the characteristic convex shape and the correct reddish-orange/brown coloration typical of cooked Dungeness crabs."
             },
             {
                 "checkpoint": "Ventral surface is cream to white.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Several crabs are tilted or partially overturned, revealing the underside (abdomen/ventral area) which contrasts distinctly as cream to white against the orange dorsal shell."
+                "reasoning": "Several crabs are overturned or angled such that their undersides (abdomens/leg bases) are visible, showing the correct cream/white coloration."
             },
             {
                 "checkpoint": "Broad oval carapace of substantial edible-crab proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The central crabs clearly exhibit the broad, oval shape characteristic of the species, occupying a significant portion of their body mass relative to limb length."
+                "reasoning": "The overall body shape of the central subjects matches the broad, oval proportions expected of the species."
             },
             {
                 "checkpoint": "Carapace displays lighter mottled patterns over purplish-brown base.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The crabs appear uniformly orange-red due to cooking. The specific 'lighter mottled patterns' typical of live Dungeness crabs are largely obscured or altered by the thermal processing, resulting in solid coloration."
+                "reasoning": "The shell surfaces appear largely uniform in color or have generic specular highlights rather than distinct biological mottling patterns. The texture looks somewhat plastic-like."
             },
             {
                 "checkpoint": "Exoskeleton is hard and calcified with smooth glossy texture.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shells exhibit sharp specular highlights consistent with a hard, smooth, and glossy calcified exoskeleton, particularly where wet from melting ice."
+                "reasoning": "The rendering of specular highlights on the shells successfully conveys a hard, glossy, calcified surface."
             },
             {
                 "checkpoint": "Five pairs of walking legs extend laterally.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While multiple legs are visible, verifying exactly five pairs (10 legs) per individual is impossible due to severe occlusion and potential AI-generated limb fusion/missing segments in the lower clusters. The count cannot be confirmed as 'present' without ambiguity."
+                "reasoning": "Leg counting is impossible on individual crabs due to occlusion and fusion. Many legs appear to merge into the ice or other crabs without clear joint separation, suggesting structural collapse rather than distinct limbs."
             },
             {
                 "checkpoint": "First pair modified into robust claws of unequal size with dark tips.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Robust claws are visible, but they appear relatively symmetrical (equal size), which is biologically correct for Dungeness crabs but contradicts the 'unequal size' checkpoint. Additionally, distinct 'dark tips' are not clearly visible; claws are mostly uniform orange."
+                "reasoning": "While claw-like shapes exist, they lack the specific 'dark tips' (black chelae) characteristic of Dungeness crabs. Furthermore, the connection points of the claws to the body are often blurred or fused."
             },
             {
                 "checkpoint": "Claws have smooth outer surface and serrated inner edges.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The outer surface appears smooth, but resolution is insufficient to verify 'serrated inner edges'. Furthermore, claws are closed or angled such that inner edges are rarely visible."
+                "reasoning": "Resolution is insufficient to verify serrations, but the visible claw edges appear smooth and rounded rather than jagged/serrated. The geometry of the pincers is also vague."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "texture_anomaly",
-                "location": "Background ice and crab interfaces",
-                "severity": 2,
-                "reasoning": "The crushed ice exhibits a slightly repetitive, 'mushy' texture in areas, and boundaries where crab legs meet the ice show minor blending/softness typical of AI generation, lacking crisp physical separation."
+                "artifact_type": "fusion",
+                "location": "Interface between crab legs and crushed ice",
+                "severity": 3,
+                "reasoning": "Multiple leg tips do not terminate cleanly but instead melt into the ice texture, lacking distinct boundaries."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Lower right crab cluster",
-                "severity": 3,
-                "reasoning": "The arrangement of legs and shell fragments in the bottom right corner appears physically ambiguous; limbs seem to merge into the ice or other shells without clear joint articulation, suggesting generative failure in complex occlusion handling."
+                "location": "Central cluster of crabs",
+                "severity": 4,
+                "reasoning": "Anatomical connectivity is lost in the center; legs and bodies merge into a single mass without clear separation of individual organisms."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Carapace surfaces",
+                "severity": 2,
+                "reasoning": "Shell textures lack fine biological detail (pits, hairs, mottling) and appear overly smooth/plastic, resembling rendered geometry rather than organic exoskeleton."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "Dungeness crab",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "crab_parts",
                 "verification_goals": [
-                    "Confirm species identity as Cancer magister vs other crab species",
-                    "Verify carapace shape and coloration consistency with class label"
+                    "Locate and bound individual claws to verify count",
+                    "Detect presence of 'dark tips' on claws",
+                    "Identify distinct eye stalks if present"
                 ],
-                "reason": "Primary verification to ensure the generated image actually depicts a Dungeness crab and not a generic or different crab species, especially given the cooking alteration.",
+                "reason": "Must run FIRST to provide bounding box priors for specific anatomical features (claws, eyes) and isolate instances against the complex ice background for downstream topology auditing.",
                 "weight": 0.35
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "Crab limbs and claws",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "crab_legs_and_claws",
                 "verification_goals": [
-                    "Detect and count visible walking legs on the most prominent crab",
-                    "Identify bounding boxes for claws to verify presence and symmetry",
-                    "Locate eye regions to confirm absence/presence of stalked eyes"
+                    "Verify distinct separation of walking legs from background ice using OVD priors",
+                    "Check for continuous topology of limb segments",
+                    "Audit boundary sharpness at leg-ice interface"
                 ],
-                "reason": "Replaces animal_pose_auditor (invalid for invertebrates). Provides objective detection and counting of limbs/claws to verify the 'five pairs' checkpoint and address occlusion/fusion concerns.",
+                "reason": "Critical for detecting the observed fusion/melting artifacts where limbs meet the substrate, dependent on OVD localization.",
                 "weight": 0.25
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Crab-Ice Interface and Limb Clusters",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
                 "verification_goals": [
-                    "Segment individual crabs to check for merged bodies or fused limbs",
-                    "Verify sharp boundaries between crab shells and ice",
-                    "Detect floating or disconnected limb segments in lower clusters"
+                    "Assess severity of texture smoothing on carapace",
+                    "Evaluate structural coherence of the crab pile",
+                    "Analyze color gradient at distal ends of detected claw bounding boxes to verify 'dark tips'"
                 ],
-                "reason": "Directly addresses observed structural collapse and texture anomalies at boundaries, ensuring objects are distinct physical entities without generative merging.",
+                "reason": "Holistic quality check to quantify the 'plastic' look and specifically verify the absence of diagnostic dark tips on claws within detected regions.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Global Image Quality",
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "crab",
                 "verification_goals": [
-                    "Assess overall texture realism of shell and ice",
-                    "Identify any subtle melting or warping artifacts",
-                    "Evaluate lighting consistency across the pile"
+                    "Confirm species identity as Cancer magister vs other crab species"
                 ],
-                "reason": "Holistic quality check to catch low-level rendering issues that specific anatomical audits might miss, complementing topology analysis.",
+                "reason": "Primary verification needed to ensure the generated subject is actually a Dungeness crab and not a generic or incorrect crustacean class. Pattern verification removed as per Judge feedback.",
                 "weight": 0.2
             }
         ],
         "unverifiable_points": [
-            "Serrated inner edges of claws (resolution too low and angle unfavorable)",
-            "Exact eye stalk morphology (obscured by cooking state and resolution)"
+            "Serrated inner edges of claws (resolution too low for any tool to verify definitively)"
         ],
         "focus_areas": [
-            "Limb count and articulation verification via detection",
-            "Boundary separation between crabs and ice",
-            "Carapace texture and pattern fidelity",
-            "Structural integrity of overlapping limb clusters"
+            "Limb-to-background segmentation integrity",
+            "Anatomical correctness of claw morphology (specifically dark tips)",
+            "Surface texture realism of the exoskeleton"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the anatomical correctness of the crab legs and claws using detection-based verification rather than pose estimation. AI often struggles with the specific number of legs (decapods) and the complex geometry of crab joints in occluded piles. Scrutinize the 'ice' texture; AI-generated ice often looks like plastic or melted wax rather than crystalline structures. Verify if the 'unequal claw size' checkpoint was a trick question, as Dungeness crabs typically have symmetrical claws. Prioritize topology auditing for limb fusion in lower clusters.",
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the crab legs and the ice. AI models frequently struggle with thin structures overlapping complex backgrounds like crushed ice. Verify if the 'missing' dark tips on the claws are a consistent failure across all visible claws, which would strongly indicate a training data bias or generation failure for this specific species trait. Ensure OVD runs before Topology Auditor.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000070.png",
             "class_id": 118,
             "class_label": "Dungeness crab, Cancer magister",
-            "router_cost_seconds": 34.43,
+            "router_cost_seconds": 32.27,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "Dungeness crab",
-                "reason": "Primary verification to ensure the generated image actually depicts a Dungeness crab and not a generic or different crab species, especially given the cooking alteration.",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "crab_parts",
+                "reason": "Must run FIRST to provide bounding box priors for specific anatomical features (claws, eyes) and isolate instances against the complex ice background for downstream topology auditing.",
                 "weight": 0.35
             },
             {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "Crab limbs and claws",
-                "reason": "Replaces animal_pose_auditor (invalid for invertebrates). Provides objective detection and counting of limbs/claws to verify the 'five pairs' checkpoint and address occlusion/fusion concerns.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "crab_legs_and_claws",
+                "reason": "Critical for detecting the observed fusion/melting artifacts where limbs meet the substrate, dependent on OVD localization.",
                 "weight": 0.25
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Crab-Ice Interface and Limb Clusters",
-                "reason": "Directly addresses observed structural collapse and texture anomalies at boundaries, ensuring objects are distinct physical entities without generative merging.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Holistic quality check to quantify the 'plastic' look and specifically verify the absence of diagnostic dark tips on claws within detected regions.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Global Image Quality",
-                "reason": "Holistic quality check to catch low-level rendering issues that specific anatomical audits might miss, complementing topology analysis.",
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "crab",
+                "reason": "Primary verification needed to ensure the generated subject is actually a Dungeness crab and not a generic or incorrect crustacean class. Pattern verification removed as per Judge feedback.",
                 "weight": 0.2
             }
         ]

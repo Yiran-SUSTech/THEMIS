@@ -6,35 +6,34 @@
     "class_id": 118,
     "class_label": "Dungeness crab, Cancer magister",
     "plan_reference": "approved_plan_000070",
-    "execution_timestamp": "2026-08-23 12:44:12",
+    "execution_timestamp": "2026-08-23 14:21:52",
     "focus_areas": [
-        "Limb count and articulation verification via detection",
-        "Boundary separation between crabs and ice",
-        "Carapace texture and pattern fidelity",
-        "Structural integrity of overlapping limb clusters"
+        "Limb-to-background segmentation integrity",
+        "Anatomical correctness of claw morphology (specifically dark tips)",
+        "Surface texture realism of the exoskeleton"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the anatomical correctness of the crab legs and claws using detection-based verification rather than pose estimation. AI often struggles with the specific number of legs (decapods) and the complex geometry of crab joints in occluded piles. Scrutinize the 'ice' texture; AI-generated ice often looks like plastic or melted wax rather than crystalline structures. Verify if the 'unequal claw size' checkpoint was a trick question, as Dungeness crabs typically have symmetrical claws. Prioritize topology auditing for limb fusion in lower clusters.",
-    "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs exhibit the characteristic orange-red coloration of cooked crustaceans. Multiple individuals are visible, overlapping in a dense arrangement. Key anatomical features such as the broad oval carapace, walking legs, and claws are present, though significant occlusion occurs due to the piling. The lighting is bright, creating specular highlights on the wet shells and ice.",
+    "custom_prompts_for_reflector": "Focus heavily on the interface between the crab legs and the ice. AI models frequently struggle with thin structures overlapping complex backgrounds like crushed ice. Verify if the 'missing' dark tips on the claws are a consistent failure across all visible claws, which would strongly indicate a training data bias or generation failure for this specific species trait. Ensure OVD runs before Topology Auditor.",
+    "image_description": "A high-angle, close-up shot of a pile of cooked Dungeness crabs resting on crushed ice. The crabs are oriented in various directions, with some showing their dorsal carapace and others their ventral side or legs. The lighting is bright, highlighting the glossy texture of the shells and the translucency of the ice.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
-            "target_subject": "Crab limbs and claws",
-            "weight": 0.25,
-            "reason": "Replaces animal_pose_auditor (invalid for invertebrates). Provides objective detection and counting of limbs/claws to verify the 'five pairs' checkpoint and address occlusion/fusion concerns.",
+            "target_subject": "crab_parts",
+            "weight": 0.35,
+            "reason": "Must run FIRST to provide bounding box priors for specific anatomical features (claws, eyes) and isolate instances against the complex ice background for downstream topology auditing.",
             "status": "success",
-            "execution_time_ms": 13716.16,
+            "execution_time_ms": 16229.47,
             "evidence": {
                 "detected_objects": [
                     {
-                        "matched_query_token": "crab",
-                        "confidence_score": 0.7057,
+                        "matched_query_token": "crab_parts",
+                        "confidence_score": 0.6584,
                         "bounding_box": [
                             0,
                             0,
                             256,
-                            255
+                            256
                         ]
                     }
                 ]
@@ -49,11 +48,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "Dungeness crab",
-            "weight": 0.35,
-            "reason": "Primary verification to ensure the generated image actually depicts a Dungeness crab and not a generic or different crab species, especially given the cooking alteration.",
+            "target_subject": "crab",
+            "weight": 0.2,
+            "reason": "Primary verification needed to ensure the generated subject is actually a Dungeness crab and not a generic or incorrect crustacean class. Pattern verification removed as per Judge feedback.",
             "status": "success",
-            "execution_time_ms": 135.72,
+            "execution_time_ms": 172.93,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -84,17 +83,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "Crab-Ice Interface and Limb Clusters",
-            "weight": 0.2,
-            "reason": "Directly addresses observed structural collapse and texture anomalies at boundaries, ensuring objects are distinct physical entities without generative merging.",
+            "target_subject": "crab_legs_and_claws",
+            "weight": 0.25,
+            "reason": "Critical for detecting the observed fusion/melting artifacts where limbs meet the substrate, dependent on OVD localization.",
             "status": "success",
-            "execution_time_ms": 463.67,
+            "execution_time_ms": 1356.46,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000070_mask.png",
-                "mask_confidence_score": 0.9137,
+                "mask_confidence_score": 0.9096,
                 "prompt_point_used": [
                     128,
-                    127
+                    128
                 ]
             },
             "raw_metrics": {},
@@ -105,11 +104,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "Global Image Quality",
+            "target_subject": "entire_image",
             "weight": 0.2,
-            "reason": "Holistic quality check to catch low-level rendering issues that specific anatomical audits might miss, complementing topology analysis.",
+            "reason": "Holistic quality check to quantify the 'plastic' look and specifically verify the absence of diagnostic dark tips on claws within detected regions.",
             "status": "success",
-            "execution_time_ms": 20666.98,
+            "execution_time_ms": 22930.77,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there's no visible noise, blur, or darkening. The image seems slightly compressed, but this isn't a significant issue for the clarity of the subject. The main concern could be the angle and focus, but these don't seem to impact the visibility of the subject.",
                 "distortion_class": "compression",
@@ -125,7 +124,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 36545.21,
+        "total_execution_time_ms": 40048.73,
         "failed_expert_ids": []
     }
 }

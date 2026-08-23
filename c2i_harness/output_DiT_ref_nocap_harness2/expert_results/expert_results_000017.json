@@ -6,25 +6,25 @@
     "class_id": 25,
     "class_label": "European fire salamander, Salamandra salamandra",
     "plan_reference": "approved_plan_000017",
-    "execution_timestamp": "2026-08-23 12:39:48",
+    "execution_timestamp": "2026-08-23 14:16:51",
     "focus_areas": [
-        "Digit resolution and completeness on forelimbs",
-        "Iris detail and coloration in eyes",
-        "Tail-tip boundary integrity against moss",
-        "Consistency of blur across the image vs localized artifacting"
+        "Boundary definition between yellow spots and black skin",
+        "Limb-to-ground contact points and digit separation",
+        "Eye structure clarity and iris detail",
+        "Depth relationship between salamander and moss"
     ],
-    "custom_prompts_for_reflector": "Please pay special attention to the forelimb digits. The current image shows them as blurry blobs. Determine if this is a depth-of-field effect consistent with the rest of the image, or an AI generation failure to render fine anatomy. Also, scrutinize the eye region: does the lack of gold flecks indicate a wrong species generation or just low resolution? Verify that the open_vocabulary_detector successfully localized the limbs before the topology auditor attempts segmentation.",
-    "image_description": "A high-angle, close-up shot of a European fire salamander (Salamandra salamandra) traversing a mossy forest floor. The amphibian displays the characteristic glossy black skin with vivid yellow irregular spots and bands. The head is positioned towards the left, showing the broad shape and parotoid glands. The body extends diagonally across the frame, with limbs visible but partially obscured by the angle and substrate. The tail extends towards the upper right.",
+    "custom_prompts_for_reflector": "Focus heavily on the transition zones between the yellow pigmentation and the black skin; AI generations often suffer from 'bleeding' here. Scrutinize the feet carefully—ensure they have distinct toes and are not melting into the moss. Verify that the salamander is physically grounded on the substrate and not floating. Check if the eye has any internal structure or is just a flat black dot.",
+    "image_description": "A high-angle, close-up shot of a European fire salamander (Salamandra salamandra) traversing a mossy substrate. The amphibian displays characteristic glossy black skin with vivid yellow irregular spots and bands. The head is positioned towards the left, showing parotoid glands, while the body extends diagonally across the frame. The limbs are visible but partially obscured by the angle and vegetation.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "European fire salamander",
-            "weight": 0.25,
-            "reason": "Essential precursor expert. Provides localization priors required for the topology_boundary_auditor to accurately segment the skin-moss interface and verify limb integrity.",
+            "weight": 0.2,
+            "reason": "Essential 'Bridge' expert to localize the subject before boundary auditing can occur effectively amidst the textured background.",
             "status": "success",
-            "execution_time_ms": 15940.22,
+            "execution_time_ms": 15281.14,
             "evidence": {
                 "detected_objects": [
                     {
@@ -56,14 +56,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "European fire salamander",
+            "weight": 0.15,
+            "reason": "Specifically targets the 'structural collapse' artifact at the limb-ground interface to determine if the subject is physically resting on the moss or floating/bleeding into it.",
+            "status": "success",
+            "execution_time_ms": 455.07,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000017_depth.png",
+                "depth_statistics": {
+                    "min_value": 4.7344,
+                    "max_value": 13.5574,
+                    "mean_value": 8.5569,
+                    "std_deviation": 2.3009
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "European fire salamander",
             "weight": 0.3,
-            "reason": "Primary verification to ensure the generated subject matches the specific taxonomy label and possesses valid global anatomy despite local blur issues.",
+            "reason": "Primary verification to ensure the generated subject matches the specific taxonomic class label provided.",
             "status": "success",
-            "execution_time_ms": 169.79,
+            "execution_time_ms": 459.35,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -96,9 +121,9 @@
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "European fire salamander",
             "weight": 0.2,
-            "reason": "To investigate the observed texture anomaly and blur at the tail/limb edges to rule out structural collapse or fusion artifacts.",
+            "reason": "To confirm the subject is a single coherent entity and check for fusion artifacts with the complex background texture, specifically addressing the observed grounding issues.",
             "status": "success",
-            "execution_time_ms": 1275.46,
+            "execution_time_ms": 1265.4,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000017_mask.png",
                 "mask_confidence_score": 0.913,
@@ -116,10 +141,10 @@
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "European fire salamander",
-            "weight": 0.25,
-            "reason": "Holistic quality check to determine if the 'false' verdicts on eyes and digits are due to generation failures or acceptable image characteristics. Replaces animal_pose_auditor for limb reasoning.",
+            "weight": 0.15,
+            "reason": "Replaces animal_pose_auditor (unsuitable for amphibians). Uses VLM reasoning to assess if limbs are melting or structurally valid without relying on rigid keypoint maps, and verifies texture anomalies.",
             "status": "success",
-            "execution_time_ms": 7492.63,
+            "execution_time_ms": 12600.41,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-defined, but there are no visible signs of noise, compression, blur, or darken. The colors are vibrant, and the details on the salamander and surrounding vegetation are sharp. There's a slight pixelation that could suggest a minor compression, but it doesn't significantly impact the overall quality.",
                 "distortion_class": "null",
@@ -132,10 +157,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 29310.21,
+        "total_execution_time_ms": 34917.47,
         "failed_expert_ids": []
     }
 }

@@ -6,25 +6,55 @@
     "class_id": 150,
     "class_label": "sea lion",
     "plan_reference": "approved_plan_000090",
-    "execution_timestamp": "2026-08-23 12:45:13",
+    "execution_timestamp": "2026-08-23 14:23:04",
     "focus_areas": [
-        "Foreflipper attachment point and shape",
-        "Head-to-body ratio and profile",
-        "Edge sharpness vs. background bleeding",
-        "Posterior body tapering (hind flipper region)"
+        "Global body silhouette shape (fusiform check)",
+        "Foreflipper morphology and attachment",
+        "Head profile smoothness vs. crest definition",
+        "Edge coherence between subject and water",
+        "3D volumetric consistency of the silhouette"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the distinction between sea lions and seals via GEOMETRY, not texture. Since ears are invisible, rely on the neck thickness and foreflipper size/shape. Scrutinize the tail/hind-flipper region for 'mermaid-like' fusion artifacts common in AI aquatic generations. Evaluate if the blur is uniform (lens/water) or localized (generation artifact). CRITICAL: Verify the large 'wing' is attached to the SHOULDER (foreflipper) and not the hip, as this confirms sea lion locomotion.",
-    "image_description": "An underwater photograph showing a dark silhouette of a marine mammal, likely a sea lion, swimming horizontally against a bright blue water background. The subject is backlit, resulting in low contrast and significant loss of surface detail.",
+    "custom_prompts_for_reflector": "Focus heavily on the distinction between sea lions and seals based solely on the visible foreflipper size and head shape, as ear flaps are not visible. Evaluate if the 'flatness' of the silhouette is consistent with backlighting or suggests a lack of 3D volume generation. Do NOT rely on standard terrestrial pose estimation; instead assess hydrodynamic plausibility.",
+    "image_description": "An underwater photograph showing a dark silhouette of a marine mammal, likely a sea lion, swimming horizontally against a bright cyan/blue water background. The subject is backlit, resulting in low contrast and significant loss of surface detail.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "sea lion",
+            "weight": 0.35,
+            "reason": "Replaces fine_grained_classifier for silhouette distinction; OVD can leverage semantic priors about flipper size/shape which are visible even when ears/whiskers are not.",
+            "status": "success",
+            "execution_time_ms": 13420.63,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "sea",
+                        "confidence_score": 0.9023,
+                        "bounding_box": [
+                            13,
+                            33,
+                            214,
+                            164
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "geometric_depth_auditor",
             "internal_expert_id": "monocular_depth_estimator",
             "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "sea lion",
-            "weight": 0.35,
-            "reason": "Since ears are invisible, species distinction relies on locomotion geometry: Sea Lions use large foreflippers (wings) attached anteriorly. Depth analysis confirms this 3D structure over 2D painting artifacts.",
+            "weight": 0.25,
+            "reason": "Addresses Judge's concern about 'flatness vs 3D volume'; ensures the silhouette represents a solid object in 3D space rather than a generated artifact.",
             "status": "success",
-            "execution_time_ms": 101.01,
+            "execution_time_ms": 58.07,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000090_depth.png",
                 "depth_statistics": {
@@ -42,55 +72,20 @@
             "traceback": null
         },
         {
-            "expert_id": "fine_grained_classifier",
-            "internal_expert_id": "fine_grained_classifier",
-            "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "sea lion",
-            "weight": 0.1,
-            "reason": "Secondary verification to support geometric findings; while limited by silhouette, it provides a baseline classification probability.",
-            "status": "success",
-            "execution_time_ms": 219.6,
-            "evidence": {
-                "top3_candidates": [
-                    {
-                        "rank": 1,
-                        "class_index": 150,
-                        "label_name": "sea lion",
-                        "logit_score": 7.39
-                    },
-                    {
-                        "rank": 2,
-                        "class_index": 149,
-                        "label_name": "dugong, Dugong dugon",
-                        "logit_score": 2.35
-                    },
-                    {
-                        "rank": 3,
-                        "class_index": 5,
-                        "label_name": "electric ray, crampfish, numbfish, torpedo",
-                        "logit_score": 2.34
-                    }
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "sea lion",
-            "weight": 0.45,
-            "reason": "Silhouettes are prone to 'melting' artifacts where limbs blend into the background or detach; boundary auditing ensures structural integrity at the critical flipper-body junction.",
+            "weight": 0.2,
+            "reason": "Silhouettes are prone to topological errors where limbs merge with the body or background; segmentation ensures structural integrity.",
             "status": "success",
-            "execution_time_ms": 1301.18,
+            "execution_time_ms": 1062.02,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000090_mask.png",
-                "mask_confidence_score": 0.9685,
+                "mask_confidence_score": 1.0177,
                 "prompt_point_used": [
-                    128,
-                    128
+                    113,
+                    98
                 ]
             },
             "raw_metrics": {},
@@ -102,10 +97,10 @@
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "background",
-            "weight": 0.1,
-            "reason": "To determine if the blurry aesthetic is natural underwater photography or AI-generated smoothing/noise.",
+            "weight": 0.2,
+            "reason": "Replaces animal_pose_auditor for aquatic morphology check; holistic quality assessment covers both environmental realism and general anatomical coherence without relying on terrestrial keypoints.",
             "status": "success",
-            "execution_time_ms": 16022.12,
+            "execution_time_ms": 7264.0,
             "evidence": {
                 "thinking_trajectory": "The image appears to be taken underwater, which naturally results in a blue tint and some level of blur due to the water. The image seems slightly pixelated or noisy, but there's no clear evidence of compression, darkening, or significant noise. The main issue seems to be the lack of focus and clarity, possibly due to the underwater environment.",
                 "distortion_class": "blur",
@@ -121,7 +116,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 16031.3,
+        "total_execution_time_ms": 20701.98,
         "failed_expert_ids": []
     }
 }

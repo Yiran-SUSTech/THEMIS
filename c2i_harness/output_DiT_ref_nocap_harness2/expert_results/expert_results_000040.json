@@ -6,54 +6,24 @@
     "class_id": 52,
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "plan_reference": "approved_plan_000040",
-    "execution_timestamp": "2026-08-23 12:41:30",
+    "execution_timestamp": "2026-08-23 14:18:34",
     "focus_areas": [
-        "Tail morphology (Long vs Short/Blunt)",
-        "Species identification (Snake vs Legless Lizard)",
-        "Multi-instance separation",
-        "Head structure details"
+        "Tail length and morphology (Taxonomic Diagnostic)",
+        "Boundary separation between snake and leaf litter (Melting Artifact)",
+        "Scale texture glossiness and regularity"
     ],
-    "custom_prompts_for_reflector": "Critically evaluate the tail length: does it taper to a long point (lizard/other snake) or end bluntly (thunder snake)? Check the head for any sign of ear holes which would indicate a legless lizard. Confirm if there are two separate animals and if the one on the right is a distinct entity or a background artifact.",
-    "image_description": "The image displays a forest floor scene with leaf litter and moss. There are two distinct snake-like entities visible. The primary subject is a slender, brownish-grey reptile coiled in the center-left, exhibiting a long, tapering tail and smooth scales. A second, partial entity (likely another snake or lizard) is visible on the far right edge. The primary subject's morphology, particularly the long tail and head shape, resembles a legless lizard or slow worm more than the target 'thunder snake' class.",
+    "custom_prompts_for_reflector": "Focus heavily on the interface between the snake's glossy scales and the matte forest floor to verify the extent of the 'melting' artifact. Critically evaluate the tail length relative to the body; the current image shows a long tapering tail which is a severe deviation for a Thunder Snake. Verify if the 'worm-like' cylindrical geometry is maintained consistently through the coils without flattening or width distortion.",
+    "image_description": "A slender, brownish snake is coiled on a forest floor covered in dry leaves, twigs, and moss. The snake has a uniform reddish-brown coloration dorsally and appears to have a lighter ventral side. Its head is small and barely distinct from the body. Notably, the tail is long and tapers significantly, extending well beyond the coil, which contradicts the 'short and blunt' diagnostic of a Thunder Snake.",
     "expert_testimonies": [
-        {
-            "expert_id": "open_vocabulary_detector",
-            "internal_expert_id": "open_vocabulary_detector",
-            "model_name": "GroundingDINO_ONNX",
-            "target_subject": "snake-like creatures",
-            "weight": 0.25,
-            "reason": "The Judge noted two entities. We must confirm the count and isolate the primary subject for accurate auditing, preventing the partial right-side entity from confusing segmentation.",
-            "status": "success",
-            "execution_time_ms": 14518.59,
-            "evidence": {
-                "detected_objects": [
-                    {
-                        "matched_query_token": "creatures",
-                        "confidence_score": 0.4583,
-                        "bounding_box": [
-                            57,
-                            39,
-                            151,
-                            198
-                        ]
-                    }
-                ]
-            },
-            "raw_metrics": {
-                "detected_count": 1
-            },
-            "error": null,
-            "traceback": null
-        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "primary snake",
-            "weight": 0.35,
-            "reason": "The visual evidence (long tail, head shape) strongly contradicts the target class. Expert classification is needed to confirm if this is a misgenerated species (e.g., Slow Worm).",
+            "target_subject": "thunder snake",
+            "weight": 0.4,
+            "reason": "Primary verification for taxonomic accuracy. Crucial for validating the rejection of the 'short tail' checkpoint and confirming if the overall morphology aligns with the target class despite the tail anomaly.",
             "status": "success",
-            "execution_time_ms": 152.79,
+            "execution_time_ms": 274.43,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -81,20 +51,45 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "snake and ground",
+            "weight": 0.1,
+            "reason": "Ensures the snake sits naturally within the 3D scene and coils overlap with correct occlusion, complementing the topology audit for the melting issue.",
+            "status": "success",
+            "execution_time_ms": 310.14,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000040_depth.png",
+                "depth_statistics": {
+                    "min_value": 1.5958,
+                    "max_value": 19.0374,
+                    "mean_value": 10.4905,
+                    "std_deviation": 4.3312
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "primary snake",
-            "weight": 0.15,
-            "reason": "Ensures the primary subject is structurally sound and not fused with the complex background, which is common in AI generations of thin subjects.",
+            "target_subject": "snake body",
+            "weight": 0.3,
+            "reason": "Directly addresses the detected structural collapse/melting artifact at the body-background interface. Essential for verifying if the snake is a coherent physical entity.",
             "status": "success",
-            "execution_time_ms": 834.74,
+            "execution_time_ms": 1116.69,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000040_mask.png",
-                "mask_confidence_score": 0.949,
+                "mask_confidence_score": 0.9245,
                 "prompt_point_used": [
-                    104,
-                    118
+                    128,
+                    128
                 ]
             },
             "raw_metrics": {},
@@ -105,11 +100,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "primary snake tail and head",
-            "weight": 0.25,
-            "reason": "Directly addresses the Judge's correction regarding the tail morphology and the need to distinguish lizard features from snake features.",
+            "target_subject": "entire image",
+            "weight": 0.2,
+            "reason": "Holistic quality check to ensure the glossy texture and environmental integration are photorealistic and not suffering from generative smoothing.",
             "status": "success",
-            "execution_time_ms": 8369.06,
+            "execution_time_ms": 17952.47,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there are no visible signs of noise, blur, or darkening. The image seems to have a slight compression, as indicated by the minor pixelation on the edges, but this is not significant enough to be considered a distortion. The image is in focus, and the details of the snake and the surrounding environment are discernible.",
                 "distortion_class": "compression",
@@ -125,7 +120,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 23139.7,
+        "total_execution_time_ms": 17964.72,
         "failed_expert_ids": []
     }
 }

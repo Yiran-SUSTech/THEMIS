@@ -6,40 +6,36 @@
     "class_id": 35,
     "class_label": "mud turtle",
     "plan_reference": "approved_plan_000021",
-    "execution_timestamp": "2026-08-23 12:39:23",
+    "execution_timestamp": "2026-08-23 14:17:51",
     "focus_areas": [
-        "Color consistency of neck/limb skin (Red vs Grey-Brown)",
-        "Boundary definition between shell and soft tissue",
-        "Shell keel presence/absence verification"
+        "Species identification (Red markings vs. Mud Turtle taxonomy)",
+        "Limb-ground contact physics and depth integrity",
+        "Shell edge integrity and geometry"
     ],
-    "custom_prompts_for_reflector": "Please specifically analyze the red/orange coloration on the turtle's neck and legs. Is this a known characteristic of any Mud Turtle species (Kinosternon), or does it indicate an AI generation error? Also, verify if the smoothness of the shell is biologically accurate for an adult mud turtle lacking keels.",
-    "image_description": "A close-up, ground-level shot of a turtle walking on dry, cracked earth with scattered pine needles. The turtle has a dark, smooth, high-domed shell and distinct reddish-orange coloration on its neck and forelimbs. The head is extended, showing a pointed snout and lateral eye placement.",
+    "custom_prompts_for_reflector": "Please pay special attention to the discrepancy between the 'mud turtle' label and the visible red/orange neck markings, which are typical of Chrysemys picta (Painted Turtle). Verify if the shell shape (high-domed, smooth) aligns better with Kinosternon (Mud Turtle) or another species. Also, scrutinize the boundary where the shell meets the sky/background for any haloing or melting effects, and specifically analyze the depth relationship at the front right foot to ensure it is not merging with the ground texture.",
+    "image_description": "A close-up, ground-level shot of a turtle walking on dry, cracked earth with scattered pine needles. The turtle has a dark, smooth, high-domed shell and distinct reddish-orange coloration on its neck and forelimbs. The head is extended, showing a pointed snout and lateral eye.",
     "expert_testimonies": [
         {
-            "expert_id": "open_vocabulary_detector",
-            "internal_expert_id": "open_vocabulary_detector",
-            "model_name": "GroundingDINO_ONNX",
-            "target_subject": "turtle",
-            "weight": 0.2,
-            "reason": "To establish ground truth locations for the subject and environment before detailed topology auditing.",
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "front right limb and ground",
+            "weight": 0.25,
+            "reason": "To address the observed 'structural collapse' artifact at the limb-ground interface. A depth map is required to validate physical contact physics that bounding boxes cannot confirm.",
             "status": "success",
-            "execution_time_ms": 14243.08,
+            "execution_time_ms": 118.85,
             "evidence": {
-                "detected_objects": [
-                    {
-                        "matched_query_token": "turtle",
-                        "confidence_score": 0.8905,
-                        "bounding_box": [
-                            0,
-                            65,
-                            256,
-                            198
-                        ]
-                    }
-                ]
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000021_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 21.6543,
+                    "mean_value": 10.3678,
+                    "std_deviation": 6.8574
+                }
             },
             "raw_metrics": {
-                "detected_count": 1
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
             },
             "error": null,
             "traceback": null
@@ -48,11 +44,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "turtle",
+            "target_subject": "turtle head and limbs",
             "weight": 0.35,
-            "reason": "The red coloration contradicts the generic 'grey-brown' checkpoint. A fine-grained classifier can determine if this is a valid variant (e.g., Stripe-necked Mud Turtle) or an AI hallucination.",
+            "reason": "The red/orange markings on the neck are characteristic of Painted Turtles, whereas Mud Turtles are typically drab. The classifier must specifically target the conflicting coloration regions to resolve the taxonomic discrepancy.",
             "status": "success",
-            "execution_time_ms": 408.68,
+            "execution_time_ms": 205.55,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -83,17 +79,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "turtle shell and limbs",
-            "weight": 0.25,
-            "reason": "To investigate the suspected texture anomaly/melting at the neck-shell junction and ensure limbs are structurally sound.",
+            "target_subject": "turtle shell",
+            "weight": 0.2,
+            "reason": "AI generators often struggle with the precise geometric curve of a turtle shell against a complex background. Segmentation will reveal if the shell edge is physically sound.",
             "status": "success",
-            "execution_time_ms": 917.05,
+            "execution_time_ms": 942.61,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000021_mask.png",
-                "mask_confidence_score": 0.9707,
+                "mask_confidence_score": 0.9705,
                 "prompt_point_used": [
                     128,
-                    131
+                    128
                 ]
             },
             "raw_metrics": {},
@@ -106,9 +102,9 @@
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "entire image",
             "weight": 0.2,
-            "reason": "To provide a holistic quality check on the 'smoothness' of the shell and the potential repetitiveness of the background artifacts.",
+            "reason": "To determine if the 'plastic' look of the shell and the vivid colors are artistic choices or generation artifacts.",
             "status": "success",
-            "execution_time_ms": 9790.94,
+            "execution_time_ms": 7557.12,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, indicating that there is no significant noise, compression, blur, or darken. The colors are vibrant, and the details on the turtle's shell and surrounding environment are sharp. There are no visible artifacts or pixelation that would suggest a compression issue. The image seems to have been taken in good lighting conditions, which enhances the clarity.",
                 "distortion_class": "null",
@@ -124,7 +120,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 24045.38,
+        "total_execution_time_ms": 7566.74,
         "failed_expert_ids": []
     }
 }

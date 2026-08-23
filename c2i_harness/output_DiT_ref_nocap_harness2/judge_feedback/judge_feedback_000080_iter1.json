@@ -2,30 +2,33 @@
     "image_id": "000080",
     "class_label": "pelican",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:42:17",
+    "timestamp": "2026-08-23 14:19:37",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in Expert Selection and Coverage. The Router selected the `animal_pose_auditor` to verify leg/foot structure, but the provided Expert Registry explicitly states this expert is 'ONLY for limbed subjects... NOT for limbless', implying it is optimized for standard mammalian/humanoid skeletal keypoint detection (17 keypoints). Pelicans have complex avian anatomy (tarsometatarsus, totipalmate feet) that standard pose estimators often fail to map correctly or ignore entirely. Relying on this expert for the specific 'toe connectivity' checkpoint is scientifically invalid. Furthermore, the plan lacks the `open_vocabulary_detector`, which is defined as the 'primary Bridge expert' necessary to provide bounding box priors for the `topology_boundary_auditor`. Without localization priors, the boundary auditor may struggle to isolate the feet from the complex rock texture.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. Specifically, the 'animal_pose_auditor' is selected to verify foot/webbing anatomy, but its definition explicitly states it is 'ONLY for limbed subjects... NOT for limbless', and typically these auditors rely on standard skeletal keypoints (e.g., COCO/Animal Pose) which often lack the granularity to distinguish 'webbing between all four toes' or detect 'fused/melted' toe artifacts in birds. The plan fails to utilize the 'topology_boundary_auditor' or 'open_vocabulary_detector' to rigorously audit the specific 'is_present=false' checkpoint regarding toe connectivity. Additionally, the 'fine_grained_classifier' is tasked with validating non-breeding coloration, which is outside the scope of a classification model's typical output (class label vs. attribute analysis).",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Localization of subject for boundary auditing",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Foot/Webbing Anatomy & Toe Connectivity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The 'animal_pose_auditor' cannot reliably detect melted/fused toes or verify webbing continuity. The 'topology_boundary_auditor' should be used to segment the feet and verify if the toes are distinct physical entities or if they merge into the background/each other (melting)."
             },
             {
-                "type": "expert_mismatch",
-                "point": "Animal Pose Auditor is likely incompatible with avian foot anatomy verification",
-                "recommended_expert": "Replace animal_pose_auditor with fine_grained_classifier (for anatomical plausibility check) or rely heavily on topology_boundary_auditor with OVD priors."
+                "type": "expert_misalignment",
+                "point": "Bill Coloration Verification",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The 'fine_grained_classifier' verifies species identity, not specific attribute colors like 'breeding vs non-breeding'. The 'perceptual_quality_auditor' (VLM) is better suited to reason about whether the observed pale pink/grey color is consistent with a valid non-breeding state or an artifact."
             },
             {
                 "type": "coverage_gap",
-                "point": "Checkpoint 'Legs are short and webbed...' marked false/unverifiable needs visual confirmation of absence of artifacts (e.g., extra toes), which OVD + Topology can provide better than Pose.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Gular Pouch Structural Integrity",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "While listed in goals, the topology auditor's weight is low (0.2). Given the pouch is the most distinctive and structurally complex feature prone to AI melting, its verification should be prioritized alongside the feet."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A single pelican standing on a rocky outcrop against a clear blue sky. The bird is facing right, displaying its characteristic long bill and gular pouch. It has white plumage on the body and neck, with dark grey/black flight feathers on the wings. The legs are visible and appear dark.",
+        "image_description": "A single pelican standing on a rocky outcrop against a clear blue sky. The bird has white plumage with dark grey/black flight feathers, a long neck, and a very long bill with a visible gular pouch. It is facing slightly to the right.",
         "image_class": "pelican",
         "checkpoint_verdicts": [
             {
@@ -33,77 +36,77 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bill is clearly visible, elongated, and features the distinct downward curve and pouch structure typical of a pelican."
+                "reasoning": "The bill is clearly visible, extremely long, and the gular pouch structure is distinct beneath the lower mandible."
             },
             {
                 "checkpoint": "Bill is enormous and elongated, vastly exceeding head length, with bright orange, yellow, or pink coloration during breeding.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the bill is enormous and exceeds head length, the coloration is pale pinkish-grey/white, not the 'bright orange, yellow, or pink' specified for breeding season. It fails the specific color constraint of this checkpoint."
+                "reasoning": "While the bill is enormous and exceeds head length, the coloration is pale pinkish-grey/white, not the 'bright orange, yellow, or pink' specified for breeding season. It fails the specific color constraint."
             },
             {
                 "checkpoint": "Head is large with prominent pouch.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head proportions and the throat pouch area are clearly defined and consistent with pelican anatomy."
+                "reasoning": "The head proportions are consistent with a pelican, and the pouch is visually prominent."
             },
             {
                 "checkpoint": "Plumage is predominantly white, grey, or brown depending on species and season.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bird exhibits white body plumage with grey/brown wing markings, fitting the description perfectly."
+                "reasoning": "The body is white and wings are dark grey/black, fitting the description perfectly."
             },
             {
                 "checkpoint": "Body exhibits heavy barrel-shaped torso of very large proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The torso appears robust and barrel-shaped, consistent with the heavy build of a pelican."
+                "reasoning": "The torso appears robust and barrel-shaped, typical of the species."
             },
             {
                 "checkpoint": "Wings are extremely broad and long with dark flight feathers contrasting lighter body.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The folded wings show distinct dark flight feathers contrasting sharply against the white body."
+                "reasoning": "Dark flight feathers are clearly visible against the white body; wing span appears substantial relative to body size."
             },
             {
                 "checkpoint": "Legs are short and webbed with all four toes connected.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The legs are visible but the feet are obscured by the rock texture and shadow. It is impossible to verify if 'all four toes are connected' (totipalmate). Since the specific anatomical detail cannot be confirmed, it is marked absent."
+                "reasoning": "The feet are visible but appear somewhat fused or indistinct at the toe level due to resolution/AI artifacting; clear webbing between all four toes is not definitively resolvable."
             },
             {
                 "checkpoint": "Neck is long and S-curved.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The neck is visibly long and held in a retracted, slightly curved posture typical of the species."
+                "reasoning": "The neck is elongated and displays a characteristic gentle S-curve posture."
             },
             {
                 "checkpoint": "Tail is short and wedge-shaped.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail feathers are short and tucked, consistent with the wedge-shaped description."
+                "reasoning": "The tail feathers are short and tucked, consistent with the wedge shape description."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Rocky perch (bottom foreground)",
-                "severity": 2.0,
-                "reasoning": "The texture of the rock/grass beneath the feet lacks fine granular detail and appears slightly smudged or painterly compared to the sharpness of the bird's feathers. This is a common AI artifact where background/foreground textures degrade."
+                "location": "Feet/Legs area",
+                "severity": 2.5,
+                "reasoning": "The texture of the legs and feet lacks fine scale detail and appears slightly smooth/plastic-like compared to the feather detail. The connection between toes is ambiguous."
             },
             {
-                "artifact_type": "structural_collapse",
-                "location": "Feet/Rock interface",
+                "artifact_type": "blur",
+                "location": "Top of head/crown",
                 "severity": 1.5,
-                "reasoning": "The connection between the toes and the rock surface is indistinct. The toes seem to merge slightly into the rock texture rather than resting firmly on top, suggesting a minor grounding error."
+                "reasoning": "There is a slight softness or halo effect around the crown feathers against the sky, suggesting minor edge bleeding or focus inconsistency."
             }
         ],
         "expert_verification_plan": [
@@ -111,84 +114,80 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "pelican",
                 "verification_goals": [
-                    "Confirm species identity as Pelican (e.g., Australian Pelican vs. others)",
-                    "Verify plumage patterns match real-world taxonomy"
+                    "Confirm species identity as Pelican (e.g., Australian Pelican vs others)",
+                    "Verify plumage coloration matches known species variants"
                 ],
-                "reason": "Primary verification to ensure the generated image aligns with the specific visual characteristics of the 'pelican' class label.",
+                "reason": "Primary class verification to ensure the image is indeed a pelican and not a similar waterbird, and to validate the non-breeding coloration observed.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "pelican",
                 "verification_goals": [
-                    "Verify leg and foot keypoint placement",
-                    "Check for anatomical correctness in limb structure despite occlusion"
+                    "Verify leg and foot keypoint structure",
+                    "Check for anatomical correctness in limb positioning"
                 ],
-                "reason": "To audit the structural integrity of the legs and ensure no extra limbs or malformed joints exist, even if toe details are blurry.",
+                "reason": "To rigorously audit the ambiguous foot/webbing area identified in checkpoints and artifacts.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "pelican",
-                "verification_goals": [
-                    "Audit boundary sharpness between bill and sky",
-                    "Verify separation of wing feathers from body",
-                    "Check connectivity of feet to rock surface"
-                ],
-                "reason": "To detect edge bleeding or fusion artifacts, particularly around the complex bill shape and the feet-rock interface.",
-                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire_image",
                 "verification_goals": [
-                    "Assess texture consistency of the rocky perch",
-                    "Evaluate overall image sharpness and noise levels"
+                    "Assess texture consistency of feathers vs skin/legs",
+                    "Detect edge bleeding around head and wings"
                 ],
-                "reason": "To validate the severity of the observed texture anomalies in the foreground and ensure global image quality.",
+                "reason": "To confirm the severity of the texture anomalies and blur noted in artifact observations.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "pelican",
+                "verification_goals": [
+                    "Verify continuity of the gular pouch",
+                    "Check separation of wings from body"
+                ],
+                "reason": "To ensure the complex anatomy of the pouch and wing folding is structurally sound and not melted.",
                 "weight": 0.2
             }
         ],
-        "unverifiable_points": [
-            "Legs are short and webbed with all four toes connected."
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Feet and toe connectivity on the rock",
-            "Bill tip and pouch definition",
-            "Feather texture transition on wings",
-            "Foreground rock texture realism"
+            "Foot/Webbing anatomy clarity",
+            "Bill coloration accuracy vs breeding standards",
+            "Feather texture realism"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the interface between the pelican's feet and the rock. AI often struggles with totipalmate (webbed) feet on uneven surfaces. Check if the toes look like distinct biological structures or if they melt into the stone. Also, verify the bill's curvature—is it a smooth biological arc or does it have unnatural kinks?",
+        "custom_prompts_for_reflector": "Please specifically analyze the feet of the pelican. Are the toes distinct and fully webbed as per biological reality, or do they appear fused/melted? Also, evaluate if the bill color (pale pink/grey) is a valid non-breeding state for this specific species classification.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000080.png",
             "class_id": 144,
             "class_label": "pelican",
-            "router_cost_seconds": 29.78,
+            "router_cost_seconds": 27.05,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "pelican",
-                "reason": "Primary verification to ensure the generated image aligns with the specific visual characteristics of the 'pelican' class label.",
+                "reason": "Primary class verification to ensure the image is indeed a pelican and not a similar waterbird, and to validate the non-breeding coloration observed.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "pelican",
-                "reason": "To audit the structural integrity of the legs and ensure no extra limbs or malformed joints exist, even if toe details are blurry.",
+                "reason": "To rigorously audit the ambiguous foot/webbing area identified in checkpoints and artifacts.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "pelican",
-                "reason": "To detect edge bleeding or fusion artifacts, particularly around the complex bill shape and the feet-rock interface.",
-                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "entire_image",
-                "reason": "To validate the severity of the observed texture anomalies in the foreground and ensure global image quality.",
+                "reason": "To confirm the severity of the texture anomalies and blur noted in artifact observations.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "pelican",
+                "reason": "To ensure the complex anatomy of the pouch and wing folding is structurally sound and not melted.",
                 "weight": 0.2
             }
         ]

@@ -2,33 +2,33 @@
     "image_id": "000017",
     "class_label": "European fire salamander, Salamandra salamandra",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:38:26",
+    "timestamp": "2026-08-23 14:15:39",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The plan contains a critical logical error in Expert Selection: it assigns the `animal_pose_auditor` to verify limb structure and digit counts for a salamander. The expert registry explicitly states that `animal_pose_auditor` is 'ONLY for limbed subjects' (implying standard tetrapod/human skeletal models) and 'NOT for limbless', but more importantly, standard pose estimators (like OpenPose or similar 17-keypoint models referenced in the description) generally fail on amphibians/reptiles due to different skeletal topology (e.g., sprawling gait, tail importance, digit morphology). Relying on this expert for 'digit count' verification is scientifically invalid. Additionally, the plan misses the `open_vocabulary_detector`, which is defined as the 'primary Bridge expert' necessary to provide bounding box priors for the `topology_boundary_auditor`. Without detection first, segmentation auditing is prone to failure.",
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection: `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' and optimized for 17-keypoint detection on standard quadrupeds/humans. Salamanders have distinct anatomical structures (4 fore/5 hind digits, specific limb orientation) that often fail standard pose estimators or require specialized handling not guaranteed by this generic auditor. Furthermore, the plan lacks `open_vocabulary_detector`, which is defined as the 'primary Bridge expert' necessary to provide bounding box priors for the `topology_boundary_auditor`. Without localization, boundary auditing on complex mossy backgrounds is prone to failure.",
         "suggestions": [
             {
-                "type": "expert_replacement",
-                "point": "Remove animal_pose_auditor for digit/limb verification.",
-                "recommended_expert": "perceptual_quality_auditor or fine_grained_classifier",
-                "reason": "Standard pose auditors do not support amphibian digit counting. Use the VLM-based perceptual auditor to reason about limb completeness and the fine-grained classifier to ensure no gross anatomical hallucinations (e.g., extra limbs)."
+                "type": "missing_verification",
+                "point": "Subject Localization for Boundary Auditing",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` requires precise instance segmentation. The `open_vocabulary_detector` is the designated 'Bridge' expert to locate the salamander and provide BBox priors, ensuring the boundary auditor focuses on the correct entity amidst the complex moss background."
             },
             {
-                "type": "missing_verification",
-                "point": "Lack of localization prior for boundary audit.",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The registry defines open_vocabulary_detector as the essential precursor for SAM-based boundary auditing. It must be run to locate the salamander before the topology_boundary_auditor can accurately segment the skin-moss interface."
+                "type": "expert_mismatch",
+                "point": "Limb Anatomy Verification",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "Replace `animal_pose_auditor` with `perceptual_quality_auditor` (using CoT reasoning) or rely on `fine_grained_classifier` for structural integrity. The `animal_pose_auditor` is ill-suited for amphibians due to its specific keypoint schema and exclusion note. A VLM-based perceptual audit is more robust for verifying if limbs are 'melting' or structurally valid without relying on rigid keypoint maps."
             },
             {
                 "type": "coverage_gap",
-                "point": "Eye detail verification (Gold-flecked irises).",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "The checkpoint for eyes was marked 'false' due to resolution. The perceptual quality auditor should specifically be tasked with distinguishing between 'low resolution/blur' vs 'missing anatomical feature' to determine if this is a generation failure or just an image quality issue."
+                "point": "Grounding and Contact Points",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The artifact observation notes 'structural collapse' at the limb-ground interface. While `topology_boundary_auditor` checks edges, `geometric_depth_auditor` is better suited to verify if the salamander is physically resting *on* the moss (correct depth ordering) rather than floating or bleeding into it, addressing the 'grounding error' specifically."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, high-angle shot of a European fire salamander (Salamandra salamandra) resting on a bed of green moss and dark soil. The amphibian has a glossy black body with distinct, irregular yellow spots and bands. The head is visible on the left side, showing the characteristic broad shape and parotoid glands. The tail extends towards the right. The skin appears wet and reflective.",
+        "image_description": "A close-up, high-angle shot of a European fire salamander (Salamandra salamandra) resting on mossy ground. The amphibian has a glossy black body with distinct yellow spots and stripes. The head is visible on the left side, showing the characteristic parotoid glands, while the body extends towards the right. The skin appears wet and reflective.",
         "image_class": "European fire salamander",
         "checkpoint_verdicts": [
             {
@@ -36,63 +36,63 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head is clearly visible on the left. It exhibits the broad, flattened morphology typical of the species. The raised ridges behind the eyes (parotoid glands) are distinct and anatomically correct."
+                "reasoning": "The head is clearly visible on the left. The shape is broad and flattened, and the raised parotoid glands are distinctly visible as bulges behind the eye area."
             },
             {
                 "checkpoint": "Eyes are small, dark, and protruding with gold-flecked irises.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the eye location is correct, the resolution and lighting prevent verification of 'gold-flecked irises'. The eye appears as a dark, somewhat indistinct blob without clear iris detail or flecking. It fails the strict visual confirmation of this specific texture/color detail."
+                "reasoning": "While an eye is visible, it appears as a dark, somewhat indistinct spot. The specific detail of 'gold-flecked irises' is not resolvable in this image; the eye lacks the sharp definition and color detail expected for a positive match."
             },
             {
                 "checkpoint": "Body is robust and cylindrical.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The torso section visible in the center is thick, round, and consistent with the robust cylindrical description of a healthy salamander."
+                "reasoning": "The torso exhibits the correct robust, cylindrical morphology typical of the species."
             },
             {
                 "checkpoint": "Vivid black and yellow (or orange) warning coloration: glossy black dorsal surface with irregular yellow spots, stripes, or bands.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coloration is textbook: deep glossy black base with high-contrast, irregular yellow maculation. The pattern distribution is natural and species-appropriate."
+                "reasoning": "The coloration pattern is accurate, featuring a glossy black base with irregular, vivid yellow markings."
             },
             {
                 "checkpoint": "Skin is smooth, moist, and glandular with a glossy, wet-looking appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strong specular highlights across the back and head confirm a wet, mucous-covered surface. The texture appears smooth rather than scaly or dry."
+                "reasoning": "Strong specular highlights across the back confirm the skin is smooth, moist, and glossy."
             },
             {
                 "checkpoint": "Limbs are short and stout with four digits on forelimbs and five on hindlimbs; digits are blunt and unwebbed.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The forelimb is visible but partially obscured by the angle and shadow. While the limb is short and stout, the individual digits are not clearly resolved enough to count (4 vs 5) or verify they are 'unwebbed' and 'blunt'. The specific anatomical detail is missing due to image quality/pose."
+                "reasoning": "The limbs are partially obscured by the body angle and the mossy substrate. While the general limb structure is visible, the specific digit count (4 vs 5) and shape cannot be verified due to occlusion and resolution."
             },
             {
                 "checkpoint": "Tail is laterally compressed and shorter than body length, with a rounded tip.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The tail is visible extending to the right. It appears laterally compressed (flattened side-to-side) relative to the body depth. The visible portion suggests it is shorter than the snout-vent length, and the tip (though slightly out of focus) appears rounded, not pointed."
+                "is_present": false,
+                "reasoning": "The tail is visible extending to the left, but the tip is cut off by the image frame or obscured by shadow/moss, making it impossible to verify the 'rounded tip' or exact length ratio."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Right edge of the tail / background interface",
+                "location": "Right flank/yellow spots",
                 "severity": 1.5,
-                "reasoning": "There is slight softness and blending between the tail tip and the mossy background. While likely due to depth-of-field blur, the boundary lacks the crisp definition seen on the head, suggesting minor generation smoothing or focus inconsistency."
+                "reasoning": "Some yellow spots on the right side of the body exhibit slightly soft, smeared edges where they meet the black skin, lacking the crisp biological boundary seen in high-quality macro photography. This suggests minor generative blending."
             },
             {
-                "artifact_type": "blur",
-                "location": "Forelimb digits",
+                "artifact_type": "structural_collapse",
+                "location": "Lower left limb/ground interface",
                 "severity": 2.0,
-                "reasoning": "The toes of the visible front leg are significantly blurrier than the adjacent skin texture. This localized blur obscures anatomical details (digit count), which is a common artifact in AI generation where fine extremities fail to resolve sharply."
+                "reasoning": "The contact point between the front left limb and the moss is ambiguous. The toes seem to merge slightly with the vegetation rather than resting distinctly upon it, indicating a minor grounding error."
             }
         ],
         "expert_verification_plan": [
@@ -100,80 +100,83 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Confirm species identity as Salamandra salamandra based on spot pattern and head shape.",
-                    "Distinguish from similar species like Fire-bellied newt or Alpine salamander."
+                    "Confirm species identity as Salamandra salamandra",
+                    "Verify distinctive black and yellow patterning consistency"
                 ],
-                "reason": "Primary verification to ensure the generated subject matches the specific taxonomy label provided.",
+                "reason": "Primary verification to ensure the generated subject matches the specific taxonomic class label provided.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Verify limb structure and digit count (4 fore, 5 hind).",
-                    "Check for biological plausibility of limb placement and joint angles."
+                    "Verify limb connectivity and structural integrity",
+                    "Check for missing or fused digits despite occlusion"
                 ],
-                "reason": "Crucial for validating the 'Limbs_and_Anatomy' checkpoint which was marked false due to visibility issues. Ensures no fused or extra limbs exist.",
+                "reason": "To audit the biological correctness of the limbs, specifically checking if the 'missing parts' verdict is due to genuine occlusion or AI generation failure.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "European fire salamander",
-                "verification_goals": [
-                    "Audit the boundary sharpness between the salamander's skin and the moss.",
-                    "Verify the tail tip is a single continuous entity and not melting into the background."
-                ],
-                "reason": "To investigate the observed texture anomaly and blur at the tail/limb edges to rule out structural collapse or fusion artifacts.",
-                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Assess the realism of the skin glossiness and wetness.",
-                    "Evaluate if the eye detail failure is due to artistic style or generation error."
+                    "Analyze edge sharpness of yellow spots against black skin",
+                    "Evaluate skin texture realism and gloss consistency"
                 ],
-                "reason": "Holistic check on the 'wet look' texture and the specific failure of the eye iris detail to determine if it's a quality defect.",
+                "reason": "To rigorously assess the severity of the observed texture anomalies and smearing on the dorsal pattern.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
+                "verification_goals": [
+                    "Segment salamander from mossy background",
+                    "Verify boundary continuity at limb-ground interface"
+                ],
+                "reason": "To confirm the subject is a single coherent entity and check for fusion artifacts with the complex background texture.",
                 "weight": 0.2
             }
         ],
-        "unverifiable_points": [],
-        "focus_areas": [
-            "Digit resolution on forelimbs",
-            "Iris detail and coloration in eyes",
-            "Tail-tip boundary integrity against moss"
+        "unverifiable_points": [
+            "Gold-flecked iris detail (resolution limit)",
+            "Exact digit count (occlusion by substrate)"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the forelimb digits. The current image shows them as blurry blobs. Determine if this is a depth-of-field effect consistent with the rest of the image, or an AI generation failure to render fine anatomy. Also, scrutinize the eye region: does the lack of gold flecks indicate a wrong species generation or just low resolution?",
+        "focus_areas": [
+            "Boundary definition between yellow spots and black skin",
+            "Limb-to-ground contact points",
+            "Eye structure clarity"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the transition zones between the yellow pigmentation and the black skin. In AI generations, these areas often suffer from 'bleeding' or lack of micro-texture. Also, scrutinize the feet; ensure they have distinct toes and are not melting into the moss.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000017.png",
             "class_id": 25,
             "class_label": "European fire salamander, Salamandra salamandra",
-            "router_cost_seconds": 32.06,
+            "router_cost_seconds": 29.21,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "European fire salamander",
-                "reason": "Primary verification to ensure the generated subject matches the specific taxonomy label provided.",
+                "reason": "Primary verification to ensure the generated subject matches the specific taxonomic class label provided.",
                 "weight": 0.35
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "European fire salamander",
-                "reason": "Crucial for validating the 'Limbs_and_Anatomy' checkpoint which was marked false due to visibility issues. Ensures no fused or extra limbs exist.",
+                "reason": "To audit the biological correctness of the limbs, specifically checking if the 'missing parts' verdict is due to genuine occlusion or AI generation failure.",
                 "weight": 0.25
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "European fire salamander",
-                "reason": "To investigate the observed texture anomaly and blur at the tail/limb edges to rule out structural collapse or fusion artifacts.",
-                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "European fire salamander",
-                "reason": "Holistic check on the 'wet look' texture and the specific failure of the eye iris detail to determine if it's a quality defect.",
+                "reason": "To rigorously assess the severity of the observed texture anomalies and smearing on the dorsal pattern.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
+                "reason": "To confirm the subject is a single coherent entity and check for fusion artifacts with the complex background texture.",
                 "weight": 0.2
             }
         ]

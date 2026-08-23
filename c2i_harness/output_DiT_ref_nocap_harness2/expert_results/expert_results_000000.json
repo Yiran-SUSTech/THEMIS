@@ -6,24 +6,74 @@
     "class_id": 4,
     "class_label": "hammerhead, hammerhead shark",
     "plan_reference": "approved_plan_000000",
-    "execution_timestamp": "2026-08-23 12:39:04",
+    "execution_timestamp": "2026-08-23 14:17:00",
     "focus_areas": [
-        "Cephalofoil (hammer-head) shape accuracy and 3D grounding",
-        "Fin-to-body structural connectivity (topology)",
-        "Silhouette edge integrity against backlight"
+        "Silhouette integrity of the cephalofoil (hammer head)",
+        "Anatomical correctness of fin placement and shape via topology",
+        "Geometric plausibility of the shark's 3D volume against light",
+        "Coherence and distinctness of background fish elements"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the geometry of the head using depth cues. AI often struggles with the specific T-shape of hammerheads, sometimes making it too narrow or curving it incorrectly. Verify that the 'hammer' is truly lateral and flat, not just a weirdly shaped nose. Also, use topology checks to ensure the connection point of the pectoral fins does not melt into the body, as this is a common failure mode in silhouettes.",
+    "custom_prompts_for_reflector": "Focus on the geometric proportions of the hammerhead's cephalofoil. Does the width-to-body ratio look biologically plausible for a real hammerhead shark, or is it exaggerated/distorted? Check the edges of the silhouette against the sunlight for any 'glowing' or fuzzy transitions that suggest generative blending. Verify that background fish are distinct, separate entities and not merged blobs.",
     "image_description": "An underwater photograph taken from below, looking up towards the sunlit surface. The primary subject is a large hammerhead shark silhouetted against the bright light. Several smaller fish are visible in the background near the surface. The shark displays the characteristic T-shaped head and dorsal fins.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "background fish",
+            "weight": 0.15,
+            "reason": "Required to locate small background instances before quality auditing, ensuring they are coherent objects rather than generative artifacts.",
+            "status": "success",
+            "execution_time_ms": 15322.42,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "background",
+                        "confidence_score": 0.6183,
+                        "bounding_box": [
+                            52,
+                            60,
+                            256,
+                            255
+                        ]
+                    },
+                    {
+                        "matched_query_token": "background",
+                        "confidence_score": 0.4322,
+                        "bounding_box": [
+                            209,
+                            27,
+                            224,
+                            41
+                        ]
+                    },
+                    {
+                        "matched_query_token": "background",
+                        "confidence_score": 0.3607,
+                        "bounding_box": [
+                            150,
+                            67,
+                            166,
+                            88
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 3
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "hammerhead shark",
             "weight": 0.35,
-            "reason": "Primary verification to ensure the generated image aligns with the 'hammerhead' class label. Restricted to category-level identification as per Judge feedback regarding silhouette limitations.",
+            "reason": "To verify the taxonomic identity despite the lack of color/texture detail.",
             "status": "success",
-            "execution_time_ms": 265.52,
+            "execution_time_ms": 153.0,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -56,9 +106,9 @@
             "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "hammerhead shark",
             "weight": 0.2,
-            "reason": "Addresses Judge feedback to validate structural geometry and proportions (e.g., cephalofoil width) which cannot be verified by pose estimation or simple classification.",
+            "reason": "Since color and texture are unverifiable due to backlighting, geometric plausibility is the primary evidence of realism. Depth audit verifies physical consistency of the 3D form.",
             "status": "success",
-            "execution_time_ms": 369.64,
+            "execution_time_ms": 191.23,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000000_depth.png",
                 "depth_statistics": {
@@ -81,35 +131,16 @@
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "hammerhead shark",
             "weight": 0.3,
-            "reason": "Replaces animal_pose_auditor (invalid for fish). Essential for auditing silhouette integrity and ensuring fins/head are distinct physical entities without melting artifacts.",
+            "reason": "Sharks lack limb-based keypoints required by animal_pose_auditor. Topology auditor is best suited to verify the continuous, biologically valid shape of the cephalofoil and fins without relying on joint detection, and to check silhouette edges.",
             "status": "success",
-            "execution_time_ms": 502.16,
+            "execution_time_ms": 1002.29,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000000_mask.png",
-                "mask_confidence_score": 0.951,
+                "mask_confidence_score": 0.9774,
                 "prompt_point_used": [
-                    128,
-                    128
+                    154,
+                    157
                 ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire image",
-            "weight": 0.15,
-            "reason": "Holistic check for common AI artifacts in underwater scenes, such as unnatural light scattering or water texture anomalies.",
-            "status": "success",
-            "execution_time_ms": 9584.86,
-            "evidence": {
-                "thinking_trajectory": "The image appears to be taken underwater, which could lead to some distortion due to the water's refraction and the angle at which the photo was taken. There is no visible noise, compression, blur, or darken in the image. The image seems clear enough to identify the subject, but there is a slight lack of focus on the shark's head, possibly due to the angle and lighting.",
-                "distortion_class": "null",
-                "severity_level": "null",
-                "severity_score": 0.0
             },
             "raw_metrics": {},
             "error": null,
@@ -120,7 +151,7 @@
         "total_experts_planned": 4,
         "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 9598.17,
+        "total_execution_time_ms": 21835.86,
         "failed_expert_ids": []
     }
 }

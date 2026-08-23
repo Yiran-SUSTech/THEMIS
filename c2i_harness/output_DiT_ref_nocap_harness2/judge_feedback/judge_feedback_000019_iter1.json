@@ -2,28 +2,28 @@
     "image_id": "000019",
     "class_label": "European fire salamander, Salamandra salamandra",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:38:26",
+    "timestamp": "2026-08-23 14:15:42",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Expert Selection and Coverage. The Router identified 'text_gibberish' as an artifact but failed to assign the `image_text_auditor` to verify it, relying instead on the `perceptual_quality_auditor` which is not specialized for OCR/text validation. Additionally, the `animal_pose_auditor` is assigned to audit digit counts (4 vs 5), but its description explicitly states it detects '17 keypoints', which typically covers major joints (shoulders, elbows, hips, knees) rather than fine-grained digit enumeration. This expert is likely incapable of verifying the specific checkpoint regarding digit counts, leading to a potential false negative or hallucinated verification.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification strategy. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)', but the Router assigned it to audit a salamander (an amphibian with limbs). While salamanders have limbs, they are often structurally distinct from the mammalian/bird skeletons these auditors are typically trained on, and more importantly, the plan fails to utilize the `open_vocabulary_detector` which is defined as the 'primary Bridge expert' necessary for providing bounding box priors to segmentation experts. Without the detector, the `topology_boundary_auditor` lacks the necessary region-of-interest inputs. Furthermore, the plan misses verifying the 'gold-flecked irises' checkpoint which was marked `is_present=false`; this requires high-resolution scrutiny that the current experts do not explicitly target.",
         "suggestions": [
             {
-                "type": "missing_expert",
-                "point": "Text Artifact Verification",
-                "recommended_expert": "image_text_auditor",
-                "reason": "The plan identifies 'text_gibberish' in the bottom right corner. The `perceptual_quality_auditor` can detect visual noise, but only the `image_text_auditor` can definitively determine if the characters are illegible gibberish or valid text, and extract confidence scores."
+                "type": "missing_expert_dependency",
+                "point": "Topology Boundary Auditor requires BBox priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` description states it serves as a precursor for SAM-based boundary auditing. The plan must include `open_vocabulary_detector` to locate the salamander and its limbs before topology can be audited."
             },
             {
-                "type": "expert_mismatch",
-                "point": "Limb/Digit Anatomy Audit",
-                "recommended_expert": "topology_boundary_auditor + perceptual_quality_auditor (CoT)",
-                "reason": "The `animal_pose_auditor` is designed for 17-point skeletal keypoint detection (joints), not fine-grained digit counting. It cannot reliably distinguish between 4 or 5 fused digits. The `topology_boundary_auditor` should be used to segment individual toes to check for connectivity/fusion, and the `perceptual_quality_auditor` should perform the visual count via CoT reasoning."
-            },
-            {
-                "type": "coverage_gap",
-                "point": "Eye Detail Resolution",
+                "type": "incorrect_expert_assignment",
+                "point": "Animal Pose Auditor applicability",
                 "recommended_expert": "perceptual_quality_auditor",
-                "reason": "The checkpoint for 'gold-flecked irises' was marked false due to resolution. The `fine_grained_classifier` confirms species but may not analyze micro-features. Ensure the `perceptual_quality_auditor` specifically targets the eye region to confirm if the lack of detail is an artifact or a resolution limit."
+                "reason": "The `animal_pose_auditor` note warns against non-standard limb structures. Salamander digit counting is better handled by `perceptual_quality_auditor` (CoT reasoning) or `fine_grained_classifier` rather than a rigid pose estimator designed for mammals/birds. Replace or supplement with VLM-based structural reasoning."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Eye iris detail (gold-flecked irises)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The checkpoint for 'gold-flecked irises' was marked false. The current plan does not explicitly task any expert to re-verify this fine-grained texture feature, which is a key taxonomic identifier. The Perceptual Quality Auditor should be tasked with inspecting eye resolution."
             }
         ]
     },
@@ -43,7 +43,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While eyes are present, they appear as solid black beads without visible gold flecks or distinct iris structure; likely due to resolution or generation artifact."
+                "reasoning": "While eyes are present, they appear as solid black beads without visible gold flecks or distinct iris structure; likely due to resolution or AI generation smoothing."
             },
             {
                 "checkpoint": "Body is robust and cylindrical.",
@@ -57,21 +57,21 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The coloration pattern matches the species description perfectly: high-contrast yellow markings on a glossy black background."
+                "reasoning": "The coloration pattern matches the species description perfectly: high-contrast yellow spots on a glossy black background."
             },
             {
                 "checkpoint": "Skin is smooth, moist, and glandular with a glossy, wet-looking appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Specular highlights across the back and head confirm a wet, glossy texture consistent with amphibian skin."
+                "reasoning": "Strong specular highlights across the back and head confirm the wet, glossy texture required for this amphibian."
             },
             {
                 "checkpoint": "Limbs are short and stout with four digits on forelimbs and five on hindlimbs; digits are blunt and unwebbed.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The front right limb shows digit fusion/melting where individual toes are indistinguishable. The rear left limb appears to have an ambiguous number of digits, failing the specific count requirement."
+                "reasoning": "The front right limb shows digit fusion/melting where individual toes are indistinguishable. The rear left limb appears to have an ambiguous number of digits, lacking clear separation."
             },
             {
                 "checkpoint": "Tail is laterally compressed and shorter than body length, with a rounded tip.",
@@ -85,20 +85,20 @@
             {
                 "artifact_type": "text_gibberish",
                 "location": "Bottom right corner",
-                "severity": 2.0,
+                "severity": 3,
                 "reasoning": "There is a string of illegible, white characters resembling a watermark or signature that does not form coherent words, typical of AI text rendering failures."
             },
             {
-                "artifact_type": "melting",
+                "artifact_type": "fusion",
                 "location": "Front right limb (viewer's left)",
-                "severity": 3.0,
-                "reasoning": "The digits on the front paw appear fused together into a single mass rather than distinct toes, indicating structural melting."
+                "severity": 2,
+                "reasoning": "The digits on the front paw appear melted together into a single mass rather than distinct toes, violating the 'unwebbed/blunt digits' checkpoint."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Yellow spots on the mid-back",
-                "severity": 1.5,
-                "reasoning": "Some yellow patches lack the distinct boundary separation from the black skin seen in real specimens, appearing slightly 'painted on' or blurred at the edges."
+                "location": "Ground surface near tail",
+                "severity": 1,
+                "reasoning": "The texture of the ground transitions unnaturally smoothly into the background blur, lacking distinct particulate detail found in the foreground."
             }
         ],
         "expert_verification_plan": [
@@ -106,8 +106,7 @@
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Confirm species identity as Salamandra salamandra",
-                    "Verify distinctive black and yellow patterning consistency"
+                    "Confirm species identity as Salamandra salamandra based on spot pattern and gland placement."
                 ],
                 "reason": "Primary verification to ensure the generated image aligns with the specific taxonomic class provided.",
                 "weight": 0.35
@@ -116,48 +115,56 @@
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Verify limb keypoint integrity (4 forelimb / 5 hindlimb digits)",
-                    "Check for digit fusion or missing parts in extremities"
+                    "Verify limb integrity and digit count (4 fore, 5 hind).",
+                    "Check for structural correctness of the spine and limb attachment points."
                 ],
-                "reason": "Critical for validating the 'Limbs_and_Anatomy' checkpoint which showed signs of melting/fusion in the visual inspection.",
+                "reason": "Crucial for validating the 'Limbs_and_Anatomy' checkpoints where visual inspection suggested digit fusion.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Entire Image",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
                 "verification_goals": [
-                    "Assess severity of text gibberish in bottom right",
-                    "Evaluate edge sharpness of yellow spots against black skin",
-                    "Detect subtle texture inconsistencies in skin glossiness"
+                    "Audit the boundary between the salamander and the ground for edge bleeding.",
+                    "Verify the continuity of the limb structures (check for floating or merged toes)."
                 ],
-                "reason": "To quantify the observed artifacts (text and melting) and check for other subtle generation flaws.",
+                "reason": "To confirm if the observed digit fusion is a topological error or just low resolution.",
                 "weight": 0.2
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Salamander Body",
+                "expert_name": "image_text_auditor",
+                "target_subject": "Bottom right corner artifact",
                 "verification_goals": [
-                    "Segment the salamander from the background to check for edge bleeding",
-                    "Verify the continuity of the limb structures"
+                    "Analyze the illegible white markings to confirm they are gibberish/artifacts."
                 ],
-                "reason": "To ensure the subject is a coherent physical entity and not merging with the ground plane.",
-                "weight": 0.2
+                "reason": "To definitively categorize the text-like noise in the corner as an AI artifact.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "Global Image Quality",
+                "verification_goals": [
+                    "Assess overall sharpness and texture consistency of the skin vs. background.",
+                    "Evaluate the severity of the digit melting artifact."
+                ],
+                "reason": "Holistic quality check to weigh the impact of the identified artifacts against the overall realism.",
+                "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Tail is laterally compressed and shorter than body length, with a rounded tip (Out of frame)"
+            "Tail is laterally compressed and shorter than body length, with a rounded tip."
         ],
         "focus_areas": [
-            "Limb digit integrity (specifically front right paw)",
-            "Text artifact in bottom right corner",
-            "Eye detail resolution"
+            "Digit definition on forelimbs and hindlimbs",
+            "Legibility of bottom-right text artifact",
+            "Eye iris detail resolution"
         ],
-        "custom_prompts_for_reflector": "Please pay special attention to the front right limb; does it clearly show 4 distinct digits, or are they melted? Also, analyze the text in the bottom right corner—is it a recognizable watermark or pure gibberish? Finally, verify if the eye reflection suggests a biological structure or a flat black dot.",
+        "custom_prompts_for_reflector": "Please pay special attention to the front right paw. Does it clearly show four distinct digits, or do they appear fused/melted? Also, analyze the white markings in the bottom right corner—are they recognizable characters or nonsensical noise?",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000019.png",
             "class_id": 25,
             "class_label": "European fire salamander, Salamandra salamandra",
-            "router_cost_seconds": 32.23,
+            "router_cost_seconds": 31.53,
             "plan_valid": true
         },
         "selected_experts": [
@@ -170,20 +177,26 @@
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "European fire salamander",
-                "reason": "Critical for validating the 'Limbs_and_Anatomy' checkpoint which showed signs of melting/fusion in the visual inspection.",
+                "reason": "Crucial for validating the 'Limbs_and_Anatomy' checkpoints where visual inspection suggested digit fusion.",
                 "weight": 0.25
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "Entire Image",
-                "reason": "To quantify the observed artifacts (text and melting) and check for other subtle generation flaws.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
+                "reason": "To confirm if the observed digit fusion is a topological error or just low resolution.",
                 "weight": 0.2
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "Salamander Body",
-                "reason": "To ensure the subject is a coherent physical entity and not merging with the ground plane.",
-                "weight": 0.2
+                "expert_name": "image_text_auditor",
+                "target_subject": "Bottom right corner artifact",
+                "reason": "To definitively categorize the text-like noise in the corner as an AI artifact.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "Global Image Quality",
+                "reason": "Holistic quality check to weigh the impact of the identified artifacts against the overall realism.",
+                "weight": 0.1
             }
         ]
     }

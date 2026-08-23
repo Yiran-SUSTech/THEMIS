@@ -2,33 +2,30 @@
     "image_id": "000040",
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:39:43",
+    "timestamp": "2026-08-23 14:17:02",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains critical logical errors regarding the subject matter and fails to address obvious visual artifacts present in the image. Specifically: 1) The Router incorrectly marked 'Tail is short and blunt' as 'is_present: true', whereas the image clearly shows a long, tapering tail inconsistent with the target species (Carphophis amoenus). 2) The plan failed to detect that there are TWO snakes in the image (one primary, one partial on the right), leading to potential confusion in segmentation and classification. 3) The 'fine_grained_classifier' is tasked with distinguishing the snake from an earthworm, but the visual evidence strongly suggests the generated subject resembles a slow worm or legless lizard more than a thunder snake due to the tail length and head shape.",
+        "reasons_for_rejection": "The evaluation plan contains critical logical errors regarding the subject's anatomy and fails to address a major visual artifact present in the image. \n1. **Anatomical Hallucination in Checkpoints**: The plan marks 'Tail is short and blunt' as `is_present: true`. However, *Carphophis amoenus* (Thunder Snake) is defined by a very short, blunt tail. The generated image clearly shows a long, tapering tail that coils extensively, resembling a generic rat snake or garter snake rather than a worm snake. This is a severe taxonomic failure that the current checkpoints incorrectly validate.\n2. **Missing Artifact Detection**: The image exhibits significant 'geometric melting' where the snake's body appears to merge with the background roots and leaves, particularly in the lower loops. The `artifact_observations` list is empty, failing to flag this structural integrity issue.\n3. **Insufficient Expert Coverage for Morphology**: While `fine_grained_classifier` is selected, the plan lacks a specific verification step for 'Body Proportions/Tail Length Ratio', which is the primary diagnostic feature distinguishing this species from other small snakes.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Multi-instance detection",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The image contains two distinct snake-like entities. The current plan assumes a single subject. An open-vocabulary detector is required to count instances and provide bounding boxes for both to ensure the topology auditor segments the correct primary subject."
+                "point": "Verify tail length relative to body length (Taxonomic Diagnostic)",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_artifact_detection",
+                "point": "Detect boundary fusion between snake body and background roots/leaves",
+                "recommended_expert": "topology_boundary_auditor"
             },
             {
                 "type": "checkpoint_correction",
-                "point": "Tail morphology verification",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "The Router falsely claimed the tail is 'short and blunt'. The perceptual quality auditor must specifically verify the tail length relative to the body, as the image shows a long, slender tail which contradicts the 'thunder snake' taxonomy."
-            },
-            {
-                "type": "missing_verification",
-                "point": "Species distinction (Legless Lizard vs Snake)",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "Given the long tail and visible ear openings (if any) or scale texture, the subject may be a legless lizard (e.g., Slow Worm) rather than a snake. The classifier should explicitly check for reptilian features distinct from typical colubrid snakes."
+                "point": "Update checkpoint 'Tail is short and blunt' to is_present: false due to visible long tapering tail",
+                "recommended_expert": "animal_pose_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A small, slender snake with a worm-like appearance is coiled on a forest floor covered in dry leaves, twigs, and moss. The snake has a uniform reddish-brown to pinkish-brown coloration on its dorsal side and appears to have a lighter ventral side. Its head is small and barely distinct from the body, with a blunt snout. The scales appear smooth and glossy.",
+        "image_description": "A small, slender snake with a glossy, worm-like appearance is coiled on a forest floor covered in dry leaves, twigs, and moss. The snake has a uniform reddish-brown to pinkish-brown coloration on its dorsal side and appears to have a lighter ventral side. Its head is small and barely distinct from the body, with a blunt snout.",
         "image_class": "thunder snake",
         "checkpoint_verdicts": [
             {
@@ -36,125 +33,139 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head is clearly visible, small, and blends seamlessly into the neck/body with a blunt snout, matching the description perfectly."
+                "reasoning": "The head is visible at the center of the coil; it is small, lacks a distinct neck, and has a blunt, rounded profile consistent with the species description."
             },
             {
                 "checkpoint": "Eyes are minute and dark, barely visible beneath head scales.",
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Upon close inspection of the head region, tiny dark spots consistent with minute eyes are visible, though they are indeed subtle and hard to distinguish from the surrounding scales."
+                "reasoning": "Upon close inspection of the head region, tiny dark points corresponding to eyes are faintly visible, matching the 'minute and barely visible' description."
             },
             {
                 "checkpoint": "Body is slender, worm-like and cylindrical.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The snake exhibits a very thin, uniform cylindrical diameter throughout its length, characteristic of a worm snake."
+                "reasoning": "The snake exhibits a uniform cylindrical cross-section and slender proportions typical of a worm snake."
             },
             {
                 "checkpoint": "Coloration is pinkish-brown to reddish-brown dorsally.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The dorsal color is a consistent reddish-brown/pinkish-brown hue, matching the taxonomy."
+                "reasoning": "The dorsal surface displays a consistent reddish-brown/pinkish-brown hue without significant variation."
             },
             {
                 "checkpoint": "Ventral surface is pale pink to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "In the coiled sections where the underside is exposed, the color is distinctly lighter, appearing pale pink or whitish compared to the back."
+                "reasoning": "Sections of the underside are visible where the body twists, showing a distinct pale pink/white contrast to the dorsal side."
             },
             {
                 "checkpoint": "Scales are smooth, glossy, and arranged in regular rows creating a sleek, reflective appearance.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The skin texture shows specular highlights indicating glossiness and smoothness, without keeled or rough scales."
+                "reasoning": "Light reflection on the snake's back indicates a smooth, glossy texture rather than keeled or rough scales."
             },
             {
                 "checkpoint": "No distinctive patterning; uniform coloration throughout.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body color is solid and uniform, lacking any bands, spots, or stripes."
+                "reasoning": "The body color is solid and uniform, lacking stripes, spots, or bands."
             },
             {
                 "checkpoint": "Tail is short and blunt.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tail end of the snake is visible and tapers very slightly before ending bluntly, consistent with the species' anatomy."
+                "reasoning": "The tail end of the snake (visible near the top left of the coil) tapers slightly but remains blunt and short relative to body length, characteristic of the species."
             }
         ],
         "artifact_observations": [],
         "expert_verification_plan": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "snake",
+                "target_subject": "thunder snake",
                 "verification_goals": [
-                    "Confirm species identity as Carphophis amoenus (Thunder Snake/Worm Snake)",
-                    "Distinguish from similar small brown snakes like Dekay's Brownsnake or young Earthworms"
+                    "Confirm species identity as Carphophis amoenus vs similar worm snakes",
+                    "Verify diagnostic head shape and scale texture"
                 ],
-                "reason": "Primary verification needed to ensure the image is actually the specific target class and not a look-alike species or an earthworm.",
+                "reason": "Primary verification for taxonomic accuracy given the subtle morphological features of worm snakes.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
                 "verification_goals": [
-                    "Verify the snake is a single continuous entity without fusion errors",
-                    "Check for boundary sharpness against the complex leaf litter background",
-                    "Ensure no 'melting' into the ground or leaves"
+                    "Verify continuous body structure without fusion to background leaves",
+                    "Check for edge bleeding between glossy scales and substrate"
                 ],
-                "reason": "Small, thin subjects on textured backgrounds are prone to segmentation errors and edge bleeding in AI generation.",
+                "reason": "Glossy textures on complex backgrounds often suffer from segmentation artifacts or boundary melting in AI generation.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake scales and head",
+                "target_subject": "entire image",
                 "verification_goals": [
-                    "Audit scale texture for natural gloss vs. plastic/smudged AI artifacts",
-                    "Verify eye structure is biologically plausible and not just a smudge",
-                    "Check for structural consistency in the coiling overlaps"
+                    "Assess naturalness of lighting and shadow interaction with forest floor",
+                    "Detect subtle texture anomalies in scale rendering"
                 ],
-                "reason": "To detect subtle texture anomalies common in generated reptiles, such as incorrect scale patterns or melted features.",
-                "weight": 0.3
+                "reason": "Holistic quality check to ensure the glossy texture and environmental integration are photorealistic.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "snake and ground",
+                "verification_goals": [
+                    "Verify physical grounding of the coiled snake on the leaf litter",
+                    "Check depth consistency of the coil overlaps"
+                ],
+                "reason": "Ensure the snake sits naturally within the 3D scene and coils overlap with correct occlusion.",
+                "weight": 0.1
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Species confirmation (distinguishing from earthworms or other small snakes)",
-            "Edge definition against leaf litter",
-            "Scale texture realism"
+            "Scale texture glossiness and regularity",
+            "Boundary separation between snake and leaf litter",
+            "Head morphology distinctness"
         ],
-        "custom_prompts_for_reflector": "Please verify if the subject is truly a snake and not an earthworm, as they share similar morphology. Specifically check the head region for any reptilian features (eyes, jaw structure) versus annelid segments. Also, inspect the contact points between the snake and the ground/leaves for any unnatural blending or shadow inconsistencies.",
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the snake's glossy scales and the matte forest floor. AI generators often struggle with the specific specular highlights of smooth snake scales against organic debris. Verify that the 'worm-like' cylindrical geometry is maintained consistently through the coils without flattening or width distortion.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000040.png",
             "class_id": 52,
             "class_label": "thunder snake, worm snake, Carphophis amoenus",
-            "router_cost_seconds": 23.23,
+            "router_cost_seconds": 23.53,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "snake",
-                "reason": "Primary verification needed to ensure the image is actually the specific target class and not a look-alike species or an earthworm.",
+                "target_subject": "thunder snake",
+                "reason": "Primary verification for taxonomic accuracy given the subtle morphological features of worm snakes.",
                 "weight": 0.4
             },
             {
                 "expert_name": "topology_boundary_auditor",
                 "target_subject": "snake body",
-                "reason": "Small, thin subjects on textured backgrounds are prone to segmentation errors and edge bleeding in AI generation.",
+                "reason": "Glossy textures on complex backgrounds often suffer from segmentation artifacts or boundary melting in AI generation.",
                 "weight": 0.3
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake scales and head",
-                "reason": "To detect subtle texture anomalies common in generated reptiles, such as incorrect scale patterns or melted features.",
-                "weight": 0.3
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to ensure the glossy texture and environmental integration are photorealistic.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "snake and ground",
+                "reason": "Ensure the snake sits naturally within the 3D scene and coils overlap with correct occlusion.",
+                "weight": 0.1
             }
         ]
     }

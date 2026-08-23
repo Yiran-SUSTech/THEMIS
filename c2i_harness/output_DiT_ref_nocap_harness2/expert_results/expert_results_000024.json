@@ -6,24 +6,79 @@
     "class_id": 35,
     "class_label": "mud turtle",
     "plan_reference": "approved_plan_000024",
-    "execution_timestamp": "2026-08-23 12:41:03",
+    "execution_timestamp": "2026-08-23 14:18:44",
     "focus_areas": [
-        "Shell texture and color accuracy (Grey vs Dark Brown/Black)",
-        "Presence of scute seams on the carapace",
-        "Anatomical correctness of the visible head-neck-limb connection"
+        "Shell texture smoothness (potential lack of scutes)",
+        "Front limb grounding and structural integrity",
+        "Head proportions relative to shell size",
+        "Physical contact between turtle and forest floor"
     ],
-    "custom_prompts_for_reflector": "The primary concern is the discrepancy between the 'mud turtle' label (typically dark, keeled shell with scutes) and the image (smooth, light grey shell without scutes). Is this a valid albino/leucistic variant, a different species entirely (e.g., Eastern Box Turtle), or a textural artifact? Please prioritize verifying the species identity via head morphology and the biological plausibility of the shell texture using the perceptual quality auditor.",
-    "image_description": "A side-profile view of a turtle walking on a forest floor covered in dry leaves and twigs. The turtle has a smooth, light greyish-brown domed shell that lacks visible scute seams. The head is extended with a pointed snout and small lateral eye. One front limb is partially visible but obscured by the shell angle and ground debris.",
+    "custom_prompts_for_reflector": "Pay close attention to the shell surface. Does it look like a biological organism with keratin scutes, or does it look like a smooth, manufactured object? Check the transition between the neck and the shell—is it seamless biological tissue or is there a weird blending artifact? Verify if the turtle's feet are truly resting on the leaves or if they appear to float above them.",
+    "image_description": "A side-profile view of a turtle, likely a mud turtle, walking on a forest floor covered in dry leaves and twigs. The turtle has a smooth, high-domed greyish-brown carapace and a visible head with a pointed snout. One front limb is partially visible, appearing stout.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "mud turtle",
+            "weight": 0.2,
+            "reason": "Required as the 'Bridge' expert to provide accurate BBox priors for the topology_boundary_auditor to segment the shell and limbs correctly.",
+            "status": "success",
+            "execution_time_ms": 14853.13,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "turtle",
+                        "confidence_score": 0.8998,
+                        "bounding_box": [
+                            0,
+                            49,
+                            143,
+                            191
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 1
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "turtle and ground",
+            "weight": 0.2,
+            "reason": "Superior to perceptual auditor for verifying if the turtle is physically sitting *on* the ground or floating/fused, addressing the blur artifact at the contact point.",
+            "status": "success",
+            "execution_time_ms": 96.95,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000024_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.2006,
+                    "max_value": 20.0422,
+                    "mean_value": 11.2457,
+                    "std_deviation": 5.4472
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "turtle head morphology",
-            "weight": 0.4,
-            "reason": "The visual appearance deviates significantly from standard mud turtle descriptions. A classifier focused on head morphology is needed to determine if this is a valid variant or a different species/hallucination, addressing the Judge's feedback on verifying head anatomy.",
+            "target_subject": "mud turtle",
+            "weight": 0.3,
+            "reason": "Primary verification to ensure the generated image actually depicts a mud turtle and not a generic turtle or different species.",
             "status": "success",
-            "execution_time_ms": 207.61,
+            "execution_time_ms": 200.18,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -51,187 +106,23 @@
             "traceback": null
         },
         {
-            "expert_id": "animal_pose_auditor",
-            "internal_expert_id": "animal_pose_estimator",
-            "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
-            "target_subject": "turtle",
-            "weight": 0.25,
-            "reason": "Replaces the inefficient open_vocabulary_detector task for obscured limbs. This expert can directly assess the structural plausibility of the visible anatomy (neck/head/limb junction) which was flagged as a potential collapse area.",
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "turtle shell",
+            "weight": 0.2,
+            "reason": "To investigate the 'texture_anomaly' observed on the shell using BBox priors from the detector. Real turtles have scute lines; AI often melts these into a smooth surface.",
             "status": "success",
-            "execution_time_ms": 356.04,
+            "execution_time_ms": 1018.68,
             "evidence": {
-                "detected_pose_instances": [
-                    {
-                        "instance_id": 1,
-                        "total_keypoints_polled": 17,
-                        "average_instance_confidence": 0.4505,
-                        "keypoints": [
-                            {
-                                "keypoint_id": 0,
-                                "x": -9.69,
-                                "y": 76.33,
-                                "confidence": 0.0161
-                            },
-                            {
-                                "keypoint_id": 1,
-                                "x": 14.7,
-                                "y": 89.35,
-                                "confidence": 0.0355
-                            },
-                            {
-                                "keypoint_id": 2,
-                                "x": 6.74,
-                                "y": 104.59,
-                                "confidence": 0.0267
-                            },
-                            {
-                                "keypoint_id": 3,
-                                "x": 1.31,
-                                "y": 68.98,
-                                "confidence": 0.6753
-                            },
-                            {
-                                "keypoint_id": 4,
-                                "x": 114.71,
-                                "y": 154.21,
-                                "confidence": 0.9255
-                            },
-                            {
-                                "keypoint_id": 5,
-                                "x": -1.27,
-                                "y": 125.77,
-                                "confidence": 0.66
-                            },
-                            {
-                                "keypoint_id": 6,
-                                "x": -3.87,
-                                "y": 156.94,
-                                "confidence": 0.5947
-                            },
-                            {
-                                "keypoint_id": 7,
-                                "x": -2.4,
-                                "y": 179.53,
-                                "confidence": 0.4378
-                            },
-                            {
-                                "keypoint_id": 8,
-                                "x": 6.08,
-                                "y": 122.57,
-                                "confidence": 0.2592
-                            },
-                            {
-                                "keypoint_id": 9,
-                                "x": 6.21,
-                                "y": 161.54,
-                                "confidence": 0.2016
-                            },
-                            {
-                                "keypoint_id": 10,
-                                "x": 4.32,
-                                "y": 178.51,
-                                "confidence": 0.2645
-                            },
-                            {
-                                "keypoint_id": 11,
-                                "x": 63.91,
-                                "y": 160.97,
-                                "confidence": 0.6762
-                            },
-                            {
-                                "keypoint_id": 12,
-                                "x": 77.04,
-                                "y": 188.16,
-                                "confidence": 0.6052
-                            },
-                            {
-                                "keypoint_id": 13,
-                                "x": 74.93,
-                                "y": 199.53,
-                                "confidence": 0.5887
-                            },
-                            {
-                                "keypoint_id": 14,
-                                "x": 90.27,
-                                "y": 155.77,
-                                "confidence": 0.6482
-                            },
-                            {
-                                "keypoint_id": 15,
-                                "x": 88.59,
-                                "y": 189.44,
-                                "confidence": 0.5072
-                            },
-                            {
-                                "keypoint_id": 16,
-                                "x": 78.31,
-                                "y": 197.4,
-                                "confidence": 0.5357
-                            }
-                        ]
-                    }
-                ],
-                "low_confidence_analysis": {
-                    "low_confidence_threshold": 0.5,
-                    "total_keypoints": 17,
-                    "low_confidence_count": 7,
-                    "low_confidence_ratio": 0.4118,
-                    "low_confidence_keypoints": [
-                        {
-                            "keypoint_id": 0,
-                            "name": "Nose",
-                            "region": "Face",
-                            "confidence": 0.0161
-                        },
-                        {
-                            "keypoint_id": 1,
-                            "name": "Left_Eye",
-                            "region": "Face",
-                            "confidence": 0.0355
-                        },
-                        {
-                            "keypoint_id": 2,
-                            "name": "Right_Eye",
-                            "region": "Face",
-                            "confidence": 0.0267
-                        },
-                        {
-                            "keypoint_id": 7,
-                            "name": "Left_Elbow",
-                            "region": "Front_Limbs",
-                            "confidence": 0.4378
-                        },
-                        {
-                            "keypoint_id": 8,
-                            "name": "Right_Elbow",
-                            "region": "Front_Limbs",
-                            "confidence": 0.2592
-                        },
-                        {
-                            "keypoint_id": 9,
-                            "name": "Left_Wrist",
-                            "region": "Front_Limbs",
-                            "confidence": 0.2016
-                        },
-                        {
-                            "keypoint_id": 10,
-                            "name": "Right_Wrist",
-                            "region": "Front_Limbs",
-                            "confidence": 0.2645
-                        }
-                    ],
-                    "affected_body_regions": [
-                        "Front_Limbs(4 low-conf keypoints)",
-                        "Face(3 low-conf keypoints)"
-                    ],
-                    "artifact_risk_level": "HIGH",
-                    "risk_reasoning": "41% of keypoints below 0.5 confidence — widespread low-confidence detections. May indicate structural anomalies OR domain-shift effects from AI-generated imagery; requires visual confirmation."
-                },
-                "saved_pose_viz_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/pose_visualizations/000024_pose_viz.png"
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000024_mask.png",
+                "mask_confidence_score": 1.0101,
+                "prompt_point_used": [
+                    71,
+                    120
+                ]
             },
-            "raw_metrics": {
-                "detected_instances_count": 1
-            },
+            "raw_metrics": {},
             "error": null,
             "traceback": null
         },
@@ -239,11 +130,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "turtle shell surface",
-            "weight": 0.35,
-            "reason": "Replaces the incorrectly assigned topology_boundary_auditor. This expert is specifically trained to detect texture anomalies like missing scute seams and can assess the realism of the shell material and neck structure as requested by the Judge.",
+            "target_subject": "entire image",
+            "weight": 0.1,
+            "reason": "Holistic quality check to catch any background inconsistencies or lighting errors that suggest AI generation.",
             "status": "success",
-            "execution_time_ms": 7422.84,
+            "execution_time_ms": 24572.39,
             "evidence": {
                 "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or compression, but there's no visible noise, blur, or darkening. The image seems clear enough to identify the subject, and the colors appear natural. The angle and focus on the turtle are good, and the background is not overly distracting.",
                 "distortion_class": "compression",
@@ -256,10 +147,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 3,
-        "successful_experts": 3,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 7429.66,
+        "total_execution_time_ms": 39440.31,
         "failed_expert_ids": []
     }
 }

@@ -2,28 +2,25 @@
     "image_id": "000062",
     "class_label": "wombat",
     "iteration": 1,
-    "timestamp": "2026-08-23 12:41:29",
+    "timestamp": "2026-08-23 14:18:43",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and verification coverage. Specifically, the `animal_pose_auditor` is selected to audit limb placement, but its definition explicitly states it is 'ONLY for limbed subjects' and detects keypoints. Since the Router correctly identified that the face and paws are occluded/untestable, the pose auditor will likely fail to detect sufficient keypoints to perform a valid audit, rendering this step ineffective. Furthermore, the plan lacks an `open_vocabulary_detector` to provide bounding box priors for the `topology_boundary_auditor`, which is necessary to accurately segment the subject from the complex gravel background mentioned in the artifact observations.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and coverage. The Router identified 'structural collapse' at the paw-ground interface (Severity 3) but assigned the `perceptual_quality_auditor` to audit the *background gravel* instead of the subject's contact points. Furthermore, the `animal_pose_auditor` is tasked with verifying limb placement, but without the `open_vocabulary_detector` providing bounding box priors for the obscured paws, the pose auditor may fail to distinguish between valid occlusion and AI-generated limb fusion. The plan fails to explicitly verify the 'unverifiable' facial features are indeed absent/occluded rather than malformed, relying solely on the classifier which may miss local geometric errors.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Subject Localization for Boundary Audit",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The `topology_boundary_auditor` requires precise object localization to separate the wombat from the gravel background. Without BBox priors from an open-vocabulary detector, the boundary audit may bleed into the background texture."
+                "point": "Paw-ground interface structural integrity",
+                "recommended_expert": "geometric_depth_auditor"
             },
             {
-                "type": "expert_mismatch",
-                "point": "Ineffective Pose Auditing due to Occlusion",
-                "recommended_expert": "perceptual_quality_auditor",
-                "reason": "Since the `animal_pose_auditor` cannot function effectively with obscured limbs/face (as noted in checkpoints), the verification of 'biological plausibility' should be shifted to the `perceptual_quality_auditor` or `fine_grained_classifier` to check for general anatomical coherence rather than specific keypoint geometry."
+                "type": "expert_addition",
+                "point": "Provide BBox priors for limbs to assist pose auditing",
+                "recommended_expert": "open_vocabulary_detector"
             },
             {
                 "type": "coverage_gap",
-                "point": "Unverified Facial Structure",
-                "recommended_expert": "fine_grained_classifier",
-                "reason": "While facial features are occluded, the `fine_grained_classifier` should be tasked with verifying that the visible head shape (broad/blunt profile) does not contradict the wombat taxonomy, serving as a proxy for the untestable facial checkpoints."
+                "point": "Verify that the 'missing' face is due to angle/occlusion and not generation failure (e.g., smooth blob)",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
@@ -36,63 +33,63 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The head is angled downwards and partially obscured by the angle and shadow; specific features like eyes and ear shape are not clearly distinguishable to confirm the 'broad and blunt' description fully."
+                "reasoning": "The head is angled downwards and partially obscured by the angle and shadow; specific features like eyes and ear shape are not clearly distinguishable to confirm the 'broad and blunt' description or 'small eyes'."
             },
             {
                 "checkpoint": "Nose is large, bare, and pigmented.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The nose is completely occluded as the animal's head is buried or pointing directly into the gravel/ground."
+                "reasoning": "The nose is completely occluded as the animal's head is buried in or near the gravel; it is impossible to verify texture or pigmentation."
             },
             {
                 "checkpoint": "Facial features are small relative to broad head.",
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Face is not visible due to head orientation."
+                "reasoning": "Due to the downward angle and lack of visible facial detail, the relative proportions of facial features cannot be assessed."
             },
             {
                 "checkpoint": "Fur is coarse and thick, ranging from sandy brown to dark grey or black.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The texture is visibly coarse and thick, and the color matches the sandy brown/grey range described."
+                "reasoning": "The fur texture appears consistent with coarse, thick mammalian hair, and the color is a uniform dark brown/grey, matching the description."
             },
             {
                 "checkpoint": "Body exhibits robust barrel-shaped form resembling a small bear.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The silhouette is distinctly barrel-shaped and robust, matching the taxonomic description perfectly."
+                "reasoning": "The silhouette clearly shows the characteristic cylindrical, barrel-like torso typical of wombats."
             },
             {
                 "checkpoint": "Body is stocky and heavy-set with a substantial, ground-hugging build.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The animal appears low to the ground with a heavy, stocky build consistent with a wombat."
+                "reasoning": "The subject sits low to the ground with a dense, compact mass, fitting the 'ground-hugging' and 'stocky' criteria."
             },
             {
                 "checkpoint": "Short powerful limbs with broad feet equipped with strong digging claws on forefeet.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While short limbs are visible, the feet and claws are obscured by the gravel and the angle of the stance; specific 'digging claws' cannot be verified."
+                "reasoning": "While short limbs are visible, the feet are largely obscured by the gravel and shadows. Specific details like 'broad feet' and 'strong digging claws' are not resolvable."
             },
             {
                 "checkpoint": "Tail is vestigial and inconspicuous.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "No tail is visible protruding from the rear, which aligns with the 'vestigial and inconspicuous' description."
+                "reasoning": "No distinct tail is visible protruding from the rear, which aligns with the vestigial nature of a wombat's tail."
             },
             {
                 "checkpoint": "Body exhibits low center of gravity with quadrupedal plantigrade stance.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The stance is clearly quadrupedal and very low to the ground, indicating a low center of gravity."
+                "reasoning": "The animal is clearly quadrupedal and positioned very close to the ground, indicating a low center of gravity."
             }
         ],
         "artifact_observations": [
@@ -100,13 +97,13 @@
                 "artifact_type": "texture_anomaly",
                 "location": "Gravel background (upper left)",
                 "severity": 2,
-                "reasoning": "Some pebbles in the upper left background exhibit slight smearing and lack distinct edges, suggesting minor generative blur or texture synthesis issues."
+                "reasoning": "Some pebbles in the upper left exhibit slight repetition and lack of distinct depth separation, appearing somewhat flattened or 'painted on' compared to the sharper foreground gravel."
             },
             {
                 "artifact_type": "structural_collapse",
                 "location": "Front paws/ground interface",
                 "severity": 3,
-                "reasoning": "The front limbs appear to merge slightly with the gravel texture rather than resting distinctly upon it; the boundary between paw and ground is indistinct."
+                "reasoning": "The connection between the front limbs and the ground is muddy; the paws seem to merge slightly with the stones rather than resting distinctly upon them, lacking clear contact shadows."
             }
         ],
         "expert_verification_plan": [
@@ -115,42 +112,41 @@
                 "target_subject": "wombat",
                 "verification_goals": [
                     "Confirm species identity as Vombatus ursinus or related wombat species",
-                    "Verify coarse fur texture consistency with real wombat photography"
+                    "Verify coarse fur texture consistency with real biological samples"
                 ],
-                "reason": "Primary verification to ensure the generated image aligns with the specific taxonomic class 'wombat' and isn't a generic bear-like hallucination.",
+                "reason": "Primary verification to ensure the generated image matches the specific taxonomic class 'wombat' and isn't a generic bear or badger hallucination.",
                 "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "wombat body",
-                "verification_goals": [
-                    "Audit boundary sharpness between fur and gravel background",
-                    "Verify continuity of the barrel-shaped body silhouette",
-                    "Check for melting artifacts at the limb-ground interface"
-                ],
-                "reason": "To investigate the observed texture anomalies in the background and the potential structural collapse/merging at the paws.",
-                "weight": 0.25
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "wombat",
                 "verification_goals": [
                     "Verify quadrupedal stance correctness",
-                    "Check for hidden or missing limbs despite occlusion",
-                    "Validate low center of gravity posture"
+                    "Check limb count and placement (4 legs)",
+                    "Assess barrel-shaped body proportion validity"
                 ],
-                "reason": "Although limbs are partially obscured, this expert can verify if the visible limb placement makes biological sense for a quadruped and detect any 'ghost limb' artifacts.",
+                "reason": "To confirm the anatomical structure is biologically plausible for a marsupial of this size, specifically checking for limb fusion or extra leg artifacts common in AI generation.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wombat",
+                "verification_goals": [
+                    "Audit boundary sharpness between fur and gravel",
+                    "Verify continuity of the barrel-shaped body contour",
+                    "Check for floating fur strands or merging with background"
+                ],
+                "reason": "To address the observed texture anomalies and potential merging at the paw-ground interface.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "target_subject": "background_gravel",
                 "verification_goals": [
-                    "Assess overall noise and grain consistency",
-                    "Detect subtle warping in the barrel-body curvature",
-                    "Evaluate lighting coherence on the fur"
+                    "Analyze gravel texture for repetition patterns",
+                    "Check depth consistency in background elements"
                 ],
-                "reason": "Holistic quality check to catch any subtle distortions in the fur texture or lighting that might indicate AI generation beyond specific anatomical errors.",
+                "reason": "To validate the severity of the texture anomaly noted in the background pebbles.",
                 "weight": 0.2
             }
         ],
@@ -160,41 +156,41 @@
             "Short powerful limbs with broad feet equipped with strong digging claws on forefeet."
         ],
         "focus_areas": [
-            "Boundary integrity between subject and gravel background",
-            "Anatomical correctness of the obscured front limbs",
-            "Texture consistency of the coarse fur"
+            "Paw-ground interaction integrity",
+            "Background gravel texture randomness",
+            "Species-specific fur density and direction"
         ],
-        "custom_prompts_for_reflector": "Focus heavily on the interface between the animal's feet and the gravel. AI often struggles with ground contact points, causing limbs to look like they are sinking into or melting with the terrain. Also, verify if the 'barrel' shape of the body maintains consistent curvature without flattening or warping unexpectedly.",
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the animal's feet and the gravel. AI often struggles with weight distribution here. Also, scrutinize the background pebbles for tiling artifacts. Since the face is hidden, do not penalize for missing facial features, but ensure the visible body shape is strictly wombat-like (barrel) and not bear-like (sloped back).",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000062.png",
             "class_id": 106,
             "class_label": "wombat",
-            "router_cost_seconds": 29.2,
+            "router_cost_seconds": 29.68,
             "plan_valid": true
         },
         "selected_experts": [
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "wombat",
-                "reason": "Primary verification to ensure the generated image aligns with the specific taxonomic class 'wombat' and isn't a generic bear-like hallucination.",
+                "reason": "Primary verification to ensure the generated image matches the specific taxonomic class 'wombat' and isn't a generic bear or badger hallucination.",
                 "weight": 0.35
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "wombat body",
-                "reason": "To investigate the observed texture anomalies in the background and the potential structural collapse/merging at the paws.",
-                "weight": 0.25
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "wombat",
-                "reason": "Although limbs are partially obscured, this expert can verify if the visible limb placement makes biological sense for a quadruped and detect any 'ghost limb' artifacts.",
+                "reason": "To confirm the anatomical structure is biologically plausible for a marsupial of this size, specifically checking for limb fusion or extra leg artifacts common in AI generation.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wombat",
+                "reason": "To address the observed texture anomalies and potential merging at the paw-ground interface.",
                 "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "Holistic quality check to catch any subtle distortions in the fur texture or lighting that might indicate AI generation beyond specific anatomical errors.",
+                "target_subject": "background_gravel",
+                "reason": "To validate the severity of the texture anomaly noted in the background pebbles.",
                 "weight": 0.2
             }
         ]

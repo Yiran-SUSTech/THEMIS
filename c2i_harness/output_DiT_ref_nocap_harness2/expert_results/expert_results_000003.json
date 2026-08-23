@@ -6,74 +6,25 @@
     "class_id": 4,
     "class_label": "hammerhead, hammerhead shark",
     "plan_reference": "approved_plan_000003",
-    "execution_timestamp": "2026-08-23 12:40:31",
+    "execution_timestamp": "2026-08-23 14:16:21",
     "focus_areas": [
-        "Cephalofoil (hammer) edge definition",
-        "Dorsal fin attachment point",
-        "Background noise vs. grain distinction",
-        "Semantic integrity of blurred background lights"
+        "Silhouette morphology of the cephalofoil",
+        "Fin structure and placement accuracy",
+        "Consistency of blur/noise with real underwater photography",
+        "Spatial relationship between light source, shark, and background"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the boundary integrity of the shark's silhouette. AI generators often struggle with the thin, extended parts of the hammerhead's head and the tips of the fins, causing them to dissolve into the background or appear jagged. Verify if the 'blur' in the background is consistent with lens defocus or if it looks like diffusion model smearing. Ensure the open_vocabulary_detector successfully isolates the shark before topology auditing begins.",
-    "image_description": "A low-light, underwater photograph showing the silhouette of a hammerhead shark swimming against a deep blue background. The shark is positioned in the upper center, viewed from below or the side. To the bottom right, there are blurred lights and dark rock-like structures, likely part of an aquarium exhibit.",
+    "custom_prompts_for_reflector": "Focus heavily on whether the silhouette's proportions (head width vs body length, fin sizes) match real hammerhead anatomy. Be skeptical of 'perfect' silhouettes in such low light; real photos usually have more edge distortion. Verify if the water surface ripples interact logically with the light source. Specifically check if the topology of the fins connects seamlessly to the body without merging into the background.",
+    "image_description": "A low-light, underwater photograph showing the silhouette of a hammerhead shark swimming near the surface. The shark is backlit by blue ambient light, creating a strong contrast against the darker water below. A bright artificial light source is visible in the bottom right corner, likely from a diver or submersible.",
     "expert_testimonies": [
-        {
-            "expert_id": "open_vocabulary_detector",
-            "internal_expert_id": "open_vocabulary_detector",
-            "model_name": "GroundingDINO_ONNX",
-            "target_subject": "hammerhead shark",
-            "weight": 0.25,
-            "reason": "Essential precursor ('Bridge') to provide localization priors for the topology auditor and to check if background blur contains semantic/textual artifacts.",
-            "status": "success",
-            "execution_time_ms": 15237.34,
-            "evidence": {
-                "detected_objects": [
-                    {
-                        "matched_query_token": "hammerhead shark",
-                        "confidence_score": 0.8882,
-                        "bounding_box": [
-                            102,
-                            75,
-                            186,
-                            132
-                        ]
-                    }
-                ]
-            },
-            "raw_metrics": {
-                "detected_count": 1
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "image_text_auditor",
-            "internal_expert_id": "image_text_auditor",
-            "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
-            "target_subject": "bottom right background",
-            "weight": 0.05,
-            "reason": "AI generators often produce text-like smearing in complex background details; OCR audit confirms if these are semantic failures.",
-            "status": "success",
-            "execution_time_ms": 140.99,
-            "evidence": {
-                "full_extracted_text": "",
-                "blocks": []
-            },
-            "raw_metrics": {
-                "detected_text_blocks": 0,
-                "inference_time_seconds": 0.0
-            },
-            "error": null,
-            "traceback": null
-        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "hammerhead shark",
-            "weight": 0.3,
-            "reason": "Primary class verification to ensure the silhouette matches the specific taxonomic class 'hammerhead' and not a generic shark or misgenerated hybrid.",
+            "weight": 0.35,
+            "reason": "Primary verification needed to confirm the class label matches the visual evidence despite the poor lighting.",
             "status": "success",
-            "execution_time_ms": 220.01,
+            "execution_time_ms": 477.97,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -101,20 +52,45 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "entire scene",
+            "weight": 0.2,
+            "reason": "Addresses Judge feedback regarding spatial grounding. Verifies if the complex foreground/background layering and lighting are physically consistent.",
+            "status": "success",
+            "execution_time_ms": 538.99,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000003_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.2717,
+                    "max_value": 12.9223,
+                    "mean_value": 4.6912,
+                    "std_deviation": 2.2124
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
             "target_subject": "hammerhead shark",
-            "weight": 0.25,
-            "reason": "Silhouettes are prone to edge bleeding and structural melting. This expert will verify the sharpness and biological correctness of the outline, relying on OVD priors.",
+            "weight": 0.3,
+            "reason": "Replaces animal_pose_auditor (invalid for fish). Topology auditor verifies boundary integrity and connectivity of the shark's fins and head in the silhouette.",
             "status": "success",
-            "execution_time_ms": 953.52,
+            "execution_time_ms": 1100.27,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000003_mask.png",
-                "mask_confidence_score": 0.9722,
+                "mask_confidence_score": 0.996,
                 "prompt_point_used": [
-                    144,
-                    103
+                    128,
+                    128
                 ]
             },
             "raw_metrics": {},
@@ -127,9 +103,9 @@
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "entire image",
             "weight": 0.15,
-            "reason": "To distinguish between legitimate low-light photography artifacts (motion blur, ISO noise) and AI generation failures.",
+            "reason": "Crucial for distinguishing between genuine low-quality photography and AI-generated images that mimic low quality.",
             "status": "success",
-            "execution_time_ms": 22797.62,
+            "execution_time_ms": 7710.94,
             "evidence": {
                 "thinking_trajectory": "The image appears to be taken underwater, which naturally results in a darker tone due to the lack of light. The image seems to have a slight graininess or noise, but this could also be attributed to the low lighting conditions. There's no clear indication of compression, blur, or significant noise. The main issue seems to be the overall darkness, which obscures details and makes it difficult to discern fine features.",
                 "distortion_class": "darken",
@@ -142,10 +118,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 5,
-        "successful_experts": 5,
+        "total_experts_planned": 4,
+        "successful_experts": 4,
         "failed_experts": 0,
-        "total_execution_time_ms": 38052.51,
+        "total_execution_time_ms": 7727.66,
         "failed_expert_ids": []
     }
 }

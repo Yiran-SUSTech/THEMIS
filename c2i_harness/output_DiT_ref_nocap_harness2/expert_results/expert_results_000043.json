@@ -6,25 +6,64 @@
     "class_id": 52,
     "class_label": "thunder snake, worm snake, Carphophis amoenus",
     "plan_reference": "approved_plan_000043",
-    "execution_timestamp": "2026-08-23 12:41:36",
+    "execution_timestamp": "2026-08-23 14:19:13",
     "focus_areas": [
-        "Head morphology and eye placement",
-        "Scale texture and reflectivity",
-        "Text watermark integrity",
-        "Body continuity at overlap points"
+        "Species identification confirmation via localized detection",
+        "Text artifact analysis via OCR",
+        "Coil topology and fusion detection",
+        "Global texture and lighting consistency"
     ],
-    "custom_prompts_for_reflector": "Please pay special attention to the text in the bottom right corner using OCR capabilities. Is it a coherent signature/watermark or nonsensical gibberish? Also, verify if the 'glossy' look of the snake is consistent with wet biological scales or if it looks like plastic/shader artifacts. Check the connection point of the head to the body for any melting.",
-    "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a glossy, smooth texture and uniform coloration. There is visible text in the bottom right corner that appears to be a watermark or signature.",
+    "custom_prompts_for_reflector": "Please verify if the garbled text in the bottom right is a known dataset watermark or an AI generation failure using the OCR output. Additionally, confirm if the scale texture glossiness is physically consistent with the lighting direction and if the coiled body segments maintain distinct boundaries without merging.",
+    "image_description": "A close-up photograph of a reddish-brown snake coiled on dark soil and leaf litter. The snake has a slender, cylindrical body with smooth, glossy scales. The head is small and barely distinct from the neck, featuring a blunt snout. A watermark is visible in the bottom right corner.",
     "expert_testimonies": [
+        {
+            "expert_id": "open_vocabulary_detector",
+            "internal_expert_id": "open_vocabulary_detector",
+            "model_name": "GroundingDINO_ONNX",
+            "target_subject": "snake and watermark",
+            "weight": 0.3,
+            "reason": "Essential 'Bridge' expert to provide spatial priors (BBoxes) for the classifier and text auditor, ensuring they analyze the correct regions.",
+            "status": "success",
+            "execution_time_ms": 14816.41,
+            "evidence": {
+                "detected_objects": [
+                    {
+                        "matched_query_token": "snake",
+                        "confidence_score": 0.3998,
+                        "bounding_box": [
+                            0,
+                            27,
+                            255,
+                            238
+                        ]
+                    },
+                    {
+                        "matched_query_token": "snake",
+                        "confidence_score": 0.346,
+                        "bounding_box": [
+                            0,
+                            0,
+                            256,
+                            254
+                        ]
+                    }
+                ]
+            },
+            "raw_metrics": {
+                "detected_count": 2
+            },
+            "error": null,
+            "traceback": null
+        },
         {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "Carphophis amoenus",
-            "weight": 0.35,
-            "reason": "Primary verification to ensure the image actually depicts the claimed class label, as reddish-brown snakes can be visually similar. Target subject refined to specific species per Judge feedback.",
+            "target_subject": "snake",
+            "weight": 0.25,
+            "reason": "Primary verification to ensure the image depicts the correct specific species given the visual similarity to other small brown snakes.",
             "status": "success",
-            "execution_time_ms": 210.41,
+            "execution_time_ms": 128.9,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -55,11 +94,11 @@
             "expert_id": "image_text_auditor",
             "internal_expert_id": "image_text_auditor",
             "model_name": "RapidOCR_PP-OCR_ONNX_Engine",
-            "target_subject": "watermark_text",
-            "weight": 0.25,
-            "reason": "Specialized expert required to audit the identified text artifact, replacing the general perceptual auditor for this specific task per Judge feedback.",
+            "target_subject": "watermark",
+            "weight": 0.15,
+            "reason": "Specialized tool for verifying the nature of the observed text artifact, replacing the general perceptual auditor for this task.",
             "status": "success",
-            "execution_time_ms": 265.72,
+            "execution_time_ms": 449.38,
             "evidence": {
                 "full_extracted_text": "",
                 "blocks": []
@@ -75,17 +114,17 @@
             "expert_id": "topology_boundary_auditor",
             "internal_expert_id": "sam_segmentor",
             "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "snake_body",
+            "target_subject": "snake body",
             "weight": 0.2,
-            "reason": "Snakes are prone to topological errors in AI generation (e.g., bodies merging into each other or heads fusing with coils).",
+            "reason": "To detect subtle fusion artifacts where coils might merge unnaturally, specifically targeting the complex topology of the coiled pose.",
             "status": "success",
-            "execution_time_ms": 1063.45,
+            "execution_time_ms": 1433.36,
             "evidence": {
                 "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000043_mask.png",
-                "mask_confidence_score": 0.9699,
+                "mask_confidence_score": 0.9701,
                 "prompt_point_used": [
-                    128,
-                    128
+                    127,
+                    132
                 ]
             },
             "raw_metrics": {},
@@ -96,11 +135,11 @@
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire_image",
-            "weight": 0.2,
-            "reason": "To validate visual fidelity and rule out common AI artifacts like unnatural texture synthesis or plastic-like shading.",
+            "target_subject": "entire image",
+            "weight": 0.1,
+            "reason": "Holistic quality filter to catch low-level texture inconsistencies and lighting errors, offloading text analysis to the OCR specialist.",
             "status": "success",
-            "execution_time_ms": 5216.37,
+            "execution_time_ms": 13559.55,
             "evidence": {
                 "thinking_trajectory": "The image appears to be slightly pixelated, which could suggest a low-resolution source or compression. There's no visible noise, blur, or darkening in the image. The colors appear consistent, and the details on the snake and surrounding environment are clear enough.",
                 "distortion_class": "compression",
@@ -113,10 +152,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 5226.23,
+        "total_execution_time_ms": 28392.3,
         "failed_expert_ids": []
     }
 }

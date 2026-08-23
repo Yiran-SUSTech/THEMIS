@@ -2,25 +2,25 @@
     "image_id": "000048",
     "class_label": "green mamba",
     "iteration": 2,
-    "timestamp": "2026-08-23 12:41:11",
+    "timestamp": "2026-08-23 14:18:19",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The plan contains a critical expert selection error: `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)', yet it is selected to audit the snake. This will result in execution failure or invalid data. Additionally, the plan fails to utilize `open_vocabulary_detector` to provide bounding box priors for the `topology_boundary_auditor`, which is required by the expert registry description ('Essential... precursor for SAM-based boundary auditing').",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "expert_replacement",
-                "point": "Remove `animal_pose_auditor` as it does not support limbless subjects.",
-                "recommended_expert": "None (Rely on `perceptual_quality_auditor` and `topology_boundary_auditor` for structural continuity and edge integrity)."
+                "type": "missing_verification",
+                "point": "The 'perceptual_quality_auditor' is tasked with verifying pupil geometry (slit vs round). While capable of high-level analysis, this specific biological taxonomic distinction is best handled by the 'fine_grained_classifier' or a specialized VLM prompt. Ensure the perceptual auditor does not hallucinate pupil shape due to resolution limits.",
+                "recommended_expert": "fine_grained_classifier"
             },
             {
-                "type": "missing_verification",
-                "point": "Add `open_vocabulary_detector` to locate the snake instance before boundary auditing.",
+                "type": "optimization",
+                "point": "The 'open_vocabulary_detector' is assigned a low weight (0.15) and generic goals. Given the strong evidence of species misidentification (Boomslang vs Mamba), the detector could be used more aggressively to confirm the presence of 'reticulated scales' as a distinct visual feature, supporting the texture anomaly observation.",
                 "recommended_expert": "open_vocabulary_detector"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A close-up, side-profile view of a bright green snake resting on blurred foliage. The snake has a slender body with distinct black reticulation (net-like patterning) on its scales, particularly visible on the lateral and dorsal surfaces. The head is raised, facing right, with a visible dark eye. The ventral side appears pale yellow-green.",
+        "image_description": "A close-up of a green snake with distinct black scale reticulation and a vertical slit pupil, resting on blurred foliage. The snake has a slender body and a pale ventral side.",
         "image_class": "green mamba",
         "checkpoint_verdicts": [
             {
@@ -28,56 +28,56 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The head shape in this side profile appears somewhat generic and rounded rather than distinctly 'coffin-shaped' or angular as described for a green mamba. The brow ridge is not clearly defined in this angle."
+                "reasoning": "The head shape appears more triangular or arrowhead-like rather than the distinct 'coffin-shaped' profile characteristic of a Green Mamba. This geometry aligns more closely with colubrids like Boomslangs."
             },
             {
                 "checkpoint": "Eyes are large and dark with round pupils.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The eye is visible, dark, and appears to have a round pupil, consistent with the description."
+                "is_present": false,
+                "reasoning": "CRITICAL FAILURE: The eye clearly displays a vertical slit pupil. Green Mambas (Elapids) possess round pupils. A vertical pupil indicates this is likely a Colubrid (e.g., Boomslang) or Viper, definitively ruling out the target class."
             },
             {
                 "checkpoint": "Body is slender and elongated.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the body is clearly slender and elongated."
+                "reasoning": "The visible portion of the body is clearly slender and elongated, consistent with arboreal snakes."
             },
             {
                 "checkpoint": "Dorsal surface is uniformly bright emerald green with smooth, glossy scales.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the base color is emerald green, the scales are NOT uniform; there is distinct black edging/reticulation on the scales which contradicts the 'uniformly... with no patterning' requirement."
+                "reasoning": "The dorsal surface exhibits strong black reticulation (scale edging). It is not uniformly green; the pattern is high-contrast and distinct."
             },
             {
                 "checkpoint": "Ventral surface is pale yellow-green to white.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The underside of the snake is visible and matches the pale yellow-green description."
+                "reasoning": "The underside is visible and matches the pale yellow-green description."
             },
             {
                 "checkpoint": "Uniform green coloration with no patterning.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "There is clear black patterning (scale edges) visible on the dorsal surface, violating the 'no patterning' constraint specific to Green Mambas."
+                "reasoning": "Direct contradiction: The image shows heavy black patterning/reticulation on every visible scale."
             },
             {
                 "checkpoint": "Scales are smooth and highly glossy with a reflective surface.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The scales exhibit a glossy, reflective texture consistent with the description."
+                "reasoning": "The scales show appropriate glossiness and reflection, despite the incorrect patterning."
             },
             {
                 "checkpoint": "Body is laterally compressed, adapted for arboreal locomotion.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body cross-section appears laterally compressed (taller than wide), typical for arboreal snakes."
+                "reasoning": "The body cross-section appears laterally compressed (tall/thin) rather than cylindrical."
             },
             {
                 "checkpoint": "Tail is long and prehensile.",
@@ -90,101 +90,102 @@
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Dorsal and lateral scales",
-                "severity": 3,
-                "reasoning": "The black reticulation pattern appears overly uniform and repetitive, resembling a tiled texture map rather than natural biological variation. This strongly suggests an AI artifact or a misclassification (e.g., generating a Vine Snake instead of a Green Mamba)."
+                "location": "Dorsal scales",
+                "severity": 2,
+                "reasoning": "While the reticulation mimics a real species (Boomslang), in the context of a 'Green Mamba' generation, it represents a semantic texture error where the model applied the wrong species' skin texture."
             },
             {
                 "artifact_type": "blur",
-                "location": "Background foliage and snake edges",
+                "location": "Background foliage",
                 "severity": 1,
-                "reasoning": "Standard depth-of-field blur, but edges where the snake meets the background show very slight softness that could indicate minor generation blending, though likely just optical blur."
+                "reasoning": "Standard depth-of-field blur. Minor softness at the snake-background boundary, but largely acceptable."
             }
         ],
         "expert_verification_plan": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "green mamba",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake head",
                 "verification_goals": [
-                    "Verify if the subject belongs to the class Dendroaspis angusticeps OR if the presence of reticulation indicates a misclassification (e.g., as a Vine Snake or other colubrid).",
-                    "Explicitly check for class fidelity against the 'uniform color' constraint to determine if the image is a hallucination of traits."
+                    "Verify pupil geometry: Confirm if the pupil is a vertical slit (Colubrid/Viper) or round (Elapid/Mamba).",
+                    "Assess the sharpness of the iris-pupil boundary to rule out rendering artifacts."
                 ],
-                "reason": "Crucial to determine if the observed black patterning disqualifies the image as a Green Mamba (which should be uniform) or if it represents a different species entirely.",
+                "reason": "Addresses the Judge's primary feedback. The vertical slit pupil is the most definitive biological proof that this is NOT a Green Mamba. This expert must confirm this specific anatomical failure.",
                 "weight": 0.35
             },
             {
-                "expert_name": "animal_pose_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Verify the structural integrity of the head-neck-body connection.",
-                    "Check for disjointed segments or unnatural curvature in the spine given the 'generic head shape' concern."
+                    "Identify the actual species depicted (e.g., Dispholidus typus/Boomslang, Thelotornis/Vine Snake).",
+                    "Confirm the image is a misclassification of the target 'Green Mamba' label based on the presence of reticulation and slit pupils."
                 ],
-                "reason": "Although limbless, this expert is needed to validate the continuity of the spine and ensure the head is biologically connected to the body, addressing the Judge's feedback on structural continuity.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake scales",
-                "verification_goals": [
-                    "Analyze if the 'black reticulation' exhibits signs of being a repetitive texture tile (AI artifact) rather than biologically varying scale edges.",
-                    "Check for melting or fusion between the snake and the leaf it rests on."
-                ],
-                "reason": "To verify if the scale pattern is structurally sound or a textural artifact, ensuring physical separation from the environment.",
-                "weight": 0.2
+                "reason": "Shifted from 'trait validation' to 'misclassification detection' as requested. The classifier should identify what the AI *actually* generated (likely a Boomslang) to prove it failed the 'Green Mamba' prompt.",
+                "weight": 0.3
             },
             {
                 "expert_name": "topology_boundary_auditor",
+                "target_subject": "snake head",
+                "verification_goals": [
+                    "Verify if the head shape matches the 'coffin-shaped' profile of a Mamba or the triangular/arrowhead shape of a Boomslang/Vine Snake.",
+                    "Check for morphological melting between the head and neck."
+                ],
+                "reason": "Supports the rejection of the 'Head Shape' checkpoint by distinguishing between the specific geometries of Elapids vs. Colubrids.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
                 "target_subject": "snake",
                 "verification_goals": [
-                    "Verify the continuity of the snake's body outline.",
-                    "Check for boundary sharpness against the blurred background."
+                    "Locate the snake precisely to assist the topology auditor.",
+                    "Detect if there are any phantom limbs or extra body segments hidden in the foliage."
                 ],
-                "reason": "Ensures the snake is a single coherent entity and not merging with the background leaves.",
-                "weight": 0.2
+                "reason": "Provides bounding box priors for segmentation and ensures no structural anomalies like extra heads/tails exist.",
+                "weight": 0.15
             }
         ],
         "unverifiable_points": [
             "Tail is long and prehensile"
         ],
         "focus_areas": [
-            "Scale pattern validity (uniform vs. reticulated)",
-            "Head-Body structural continuity",
-            "Texture artifact vs. biological trait analysis"
+            "Pupil Geometry (Slit vs Round)",
+            "Species Misidentification (Boomslang vs Mamba)",
+            "Scale Patterning (Reticulated vs Uniform)",
+            "Head Profile Geometry"
         ],
-        "custom_prompts_for_reflector": "Please specifically evaluate whether the black edging on the scales disqualifies this image as a 'green mamba' based on strict taxonomy (Dendroaspis angusticeps is uniform green), or if it represents a valid variation. Also, assess if the head shape deviation and potential texture tiling constitute significant structural or generative errors.",
+        "custom_prompts_for_reflector": "The image is a definitive failure for 'Green Mamba'. Focus verification on the VERTICAL SLIT PUPIL, which biologically excludes Elapids. The fine-grained classifier should be used to positively identify the imposter species (likely Boomslang) rather than checking if the pattern is 'valid' for a mamba. The combination of slit pupils + black reticulation confirms this is a different species entirely.",
         "metadata": {
             "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000048.png",
             "class_id": 64,
             "class_label": "green mamba",
-            "router_cost_seconds": 30.18,
+            "router_cost_seconds": 31.64,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1
         },
         "selected_experts": [
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "green mamba",
-                "reason": "Crucial to determine if the observed black patterning disqualifies the image as a Green Mamba (which should be uniform) or if it represents a different species entirely.",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "snake head",
+                "reason": "Addresses the Judge's primary feedback. The vertical slit pupil is the most definitive biological proof that this is NOT a Green Mamba. This expert must confirm this specific anatomical failure.",
                 "weight": 0.35
             },
             {
-                "expert_name": "animal_pose_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "snake",
-                "reason": "Although limbless, this expert is needed to validate the continuity of the spine and ensure the head is biologically connected to the body, addressing the Judge's feedback on structural continuity.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "snake scales",
-                "reason": "To verify if the scale pattern is structurally sound or a textural artifact, ensuring physical separation from the environment.",
-                "weight": 0.2
+                "reason": "Shifted from 'trait validation' to 'misclassification detection' as requested. The classifier should identify what the AI *actually* generated (likely a Boomslang) to prove it failed the 'Green Mamba' prompt.",
+                "weight": 0.3
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "snake",
-                "reason": "Ensures the snake is a single coherent entity and not merging with the background leaves.",
+                "target_subject": "snake head",
+                "reason": "Supports the rejection of the 'Head Shape' checkpoint by distinguishing between the specific geometries of Elapids vs. Colubrids.",
                 "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "snake",
+                "reason": "Provides bounding box priors for segmentation and ensures no structural anomalies like extra heads/tails exist.",
+                "weight": 0.15
             }
         ]
     }

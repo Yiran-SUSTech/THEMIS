@@ -6,34 +6,34 @@
     "class_id": 106,
     "class_label": "wombat",
     "plan_reference": "approved_plan_000062",
-    "execution_timestamp": "2026-08-23 12:44:00",
+    "execution_timestamp": "2026-08-23 14:21:11",
     "focus_areas": [
-        "Boundary integrity between subject and gravel background",
-        "Anatomical correctness of the obscured front limbs",
-        "Texture consistency of the coarse fur",
-        "Species-level validation of head profile despite occlusion"
+        "Paw-ground interaction integrity and depth separation",
+        "Head contour topology to rule out smooth-blob generation failure",
+        "Limb detection priors for accurate pose auditing under occlusion",
+        "Background gravel texture randomness"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the interface between the animal's feet and the gravel. AI often struggles with ground contact points, causing limbs to look like they are sinking into or melting with the terrain. Also, verify if the 'barrel' shape of the body maintains consistent curvature without flattening or warping unexpectedly. Since facial features are occluded, rely on the fine-grained classifier to validate that the visible head silhouette does not contradict wombat morphology.",
+    "custom_prompts_for_reflector": "Focus heavily on the interface between the animal's feet and the gravel using geometric depth analysis to confirm physical grounding versus melting. Use open-vocabulary detection to locate limbs before pose auditing to handle occlusion correctly. Scrutinize the head region's topology to ensure the missing face is due to camera angle and not a generative smooth-blob artifact. Also check background pebbles for tiling artifacts.",
     "image_description": "A side-profile view of a wombat standing on a gravel surface. The animal has a robust, barrel-shaped body covered in coarse brown fur. Its head is lowered towards the ground, obscuring the face and nose. Short, sturdy legs are visible supporting the heavy body.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
-            "target_subject": "wombat",
-            "weight": 0.25,
-            "reason": "Required precursor for topology auditing; provides BBox priors to prevent segmentation bleeding into the textured gravel background.",
+            "target_subject": "wombat_limbs",
+            "weight": 0.15,
+            "reason": "Provides necessary BBox priors for the pose auditor to distinguish valid occlusion from AI limb fusion at the obscured paw-ground interface.",
             "status": "success",
-            "execution_time_ms": 14398.34,
+            "execution_time_ms": 14798.75,
             "evidence": {
                 "detected_objects": [
                     {
-                        "matched_query_token": "wombat",
-                        "confidence_score": 0.857,
+                        "matched_query_token": "wombat_limbs",
+                        "confidence_score": 0.6545,
                         "bounding_box": [
                             0,
                             36,
-                            256,
+                            255,
                             245
                         ]
                     }
@@ -46,14 +46,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "paw_ground_interface",
+            "weight": 0.25,
+            "reason": "Directly addresses the Severity 3 structural collapse artifact at the paw-ground interface identified in observations.",
+            "status": "success",
+            "execution_time_ms": 69.32,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/depth_maps/000062_depth.png",
+                "depth_statistics": {
+                    "min_value": 1.402,
+                    "max_value": 18.4124,
+                    "mean_value": 13.4748,
+                    "std_deviation": 5.5064
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "256x256"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "wombat",
-            "weight": 0.3,
-            "reason": "Primary verification for class label; acts as proxy for untestable facial checkpoints by validating overall head shape and species coherence.",
+            "weight": 0.2,
+            "reason": "Primary verification to ensure the generated image matches the specific taxonomic class 'wombat' and isn't a generic bear or badger hallucination.",
             "status": "success",
-            "execution_time_ms": 158.04,
+            "execution_time_ms": 127.53,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -81,40 +106,187 @@
             "traceback": null
         },
         {
-            "expert_id": "topology_boundary_auditor",
-            "internal_expert_id": "sam_segmentor",
-            "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "wombat body",
+            "expert_id": "animal_pose_auditor",
+            "internal_expert_id": "animal_pose_estimator",
+            "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
+            "target_subject": "wombat",
             "weight": 0.25,
-            "reason": "Investigates observed texture anomalies and structural collapse at paws; relies on OVD for accurate segmentation.",
+            "reason": "Confirms anatomical structure is biologically plausible for a marsupial, specifically checking for limb fusion or extra leg artifacts common in AI generation.",
             "status": "success",
-            "execution_time_ms": 1177.74,
+            "execution_time_ms": 826.2,
             "evidence": {
-                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000062_mask.png",
-                "mask_confidence_score": 1.0167,
-                "prompt_point_used": [
-                    128,
-                    140
-                ]
+                "detected_pose_instances": [
+                    {
+                        "instance_id": 1,
+                        "total_keypoints_polled": 17,
+                        "average_instance_confidence": 0.5713,
+                        "keypoints": [
+                            {
+                                "keypoint_id": 0,
+                                "x": 9.0,
+                                "y": 160.66,
+                                "confidence": 0.7939
+                            },
+                            {
+                                "keypoint_id": 1,
+                                "x": 9.25,
+                                "y": 160.69,
+                                "confidence": 0.7571
+                            },
+                            {
+                                "keypoint_id": 2,
+                                "x": 6.87,
+                                "y": 200.31,
+                                "confidence": 0.6241
+                            },
+                            {
+                                "keypoint_id": 3,
+                                "x": 57.63,
+                                "y": 116.91,
+                                "confidence": 0.6262
+                            },
+                            {
+                                "keypoint_id": 4,
+                                "x": 251.18,
+                                "y": 172.16,
+                                "confidence": 0.6437
+                            },
+                            {
+                                "keypoint_id": 5,
+                                "x": 93.73,
+                                "y": 147.59,
+                                "confidence": 0.7103
+                            },
+                            {
+                                "keypoint_id": 6,
+                                "x": 123.23,
+                                "y": 198.14,
+                                "confidence": 0.6472
+                            },
+                            {
+                                "keypoint_id": 7,
+                                "x": 114.32,
+                                "y": 229.19,
+                                "confidence": 0.7276
+                            },
+                            {
+                                "keypoint_id": 8,
+                                "x": 98.69,
+                                "y": 141.94,
+                                "confidence": 0.5144
+                            },
+                            {
+                                "keypoint_id": 9,
+                                "x": 97.91,
+                                "y": 194.6,
+                                "confidence": 0.523
+                            },
+                            {
+                                "keypoint_id": 10,
+                                "x": 91.88,
+                                "y": 220.57,
+                                "confidence": 0.7276
+                            },
+                            {
+                                "keypoint_id": 11,
+                                "x": 219.75,
+                                "y": 145.43,
+                                "confidence": 0.5489
+                            },
+                            {
+                                "keypoint_id": 12,
+                                "x": 198.01,
+                                "y": 192.59,
+                                "confidence": 0.3467
+                            },
+                            {
+                                "keypoint_id": 13,
+                                "x": 194.36,
+                                "y": 241.31,
+                                "confidence": 0.5545
+                            },
+                            {
+                                "keypoint_id": 14,
+                                "x": 235.82,
+                                "y": 142.99,
+                                "confidence": 0.3925
+                            },
+                            {
+                                "keypoint_id": 15,
+                                "x": 175.45,
+                                "y": 177.01,
+                                "confidence": 0.2172
+                            },
+                            {
+                                "keypoint_id": 16,
+                                "x": 182.98,
+                                "y": 234.8,
+                                "confidence": 0.357
+                            }
+                        ]
+                    }
+                ],
+                "low_confidence_analysis": {
+                    "low_confidence_threshold": 0.5,
+                    "total_keypoints": 17,
+                    "low_confidence_count": 4,
+                    "low_confidence_ratio": 0.2353,
+                    "low_confidence_keypoints": [
+                        {
+                            "keypoint_id": 12,
+                            "name": "Right_Hip",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.3467
+                        },
+                        {
+                            "keypoint_id": 14,
+                            "name": "Right_Knee",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.3925
+                        },
+                        {
+                            "keypoint_id": 15,
+                            "name": "Left_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.2172
+                        },
+                        {
+                            "keypoint_id": 16,
+                            "name": "Right_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.357
+                        }
+                    ],
+                    "affected_body_regions": [
+                        "Hind_Limbs(4 low-conf keypoints)"
+                    ],
+                    "artifact_risk_level": "LOW",
+                    "risk_reasoning": "24% of keypoints below 0.5 confidence — minor uncertainty in Hind_Limbs(4 low-conf keypoints). Likely normal variance or minor imaging artifacts."
+                },
+                "saved_pose_viz_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/pose_visualizations/000062_pose_viz.png"
             },
-            "raw_metrics": {},
+            "raw_metrics": {
+                "detected_instances_count": 1
+            },
             "error": null,
             "traceback": null
         },
         {
-            "expert_id": "perceptual_quality_auditor",
-            "internal_expert_id": "qinsight_distortion_analyzer",
-            "model_name": "Q-Insight_Score_Degradation_BF16",
-            "target_subject": "entire image",
-            "weight": 0.2,
-            "reason": "Holistic quality check replacing ineffective pose auditor; verifies anatomical coherence and catches distortions where keypoints are unavailable.",
+            "expert_id": "topology_boundary_auditor",
+            "internal_expert_id": "sam_segmentor",
+            "model_name": "MobileSAM_V16_ONNX",
+            "target_subject": "wombat_head",
+            "weight": 0.15,
+            "reason": "Validates that the 'missing' facial features are genuinely occluded by posture rather than being a generation failure (smooth blob).",
             "status": "success",
-            "execution_time_ms": 26793.49,
+            "execution_time_ms": 1265.18,
             "evidence": {
-                "thinking_trajectory": "The image appears to be clear and well-defined, but there's a slight lack of vibrancy in the colors, which could suggest a minor \"darken\" effect. There are no visible artifacts, noise, or blur that would indicate a more significant issue. The image seems to have a natural tone, and the subject is in focus.",
-                "distortion_class": "darken",
-                "severity_level": "slight",
-                "severity_score": 0.2
+                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output_DiT_ref_nocap_harness2/sam_masks/000062_mask.png",
+                "mask_confidence_score": 1.0168,
+                "prompt_point_used": [
+                    127,
+                    140
+                ]
             },
             "raw_metrics": {},
             "error": null,
@@ -122,10 +294,10 @@
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 4,
-        "successful_experts": 4,
+        "total_experts_planned": 5,
+        "successful_experts": 5,
         "failed_experts": 0,
-        "total_execution_time_ms": 41203.17,
+        "total_execution_time_ms": 16074.05,
         "failed_expert_ids": []
     }
 }

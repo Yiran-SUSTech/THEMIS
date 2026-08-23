@@ -28,21 +28,21 @@
             "category": "Head_and_Face",
             "is_testable": true,
             "is_present": true,
-            "reasoning": "The leading edge of the head is visible in silhouette and appears consistent with the general shape of a hammerhead cephalofoil."
+            "reasoning": "The leading edge of the head is visible against the light; it appears relatively straight/curved consistent with the genus, though species-specific indentation is hard to confirm due to resolution."
         },
         {
             "checkpoint": "Body is streamlined and laterally compressed.",
             "category": "Body_and_Plumage",
             "is_testable": true,
             "is_present": true,
-            "reasoning": "The overall body profile visible in the silhouette matches the streamlined, compressed shape of a shark."
+            "reasoning": "The overall profile of the shark matches the streamlined, compressed body shape of a shark."
         },
         {
             "checkpoint": "Dorsal coloration is grey to brownish with white ventral surface.",
             "category": "Body_and_Plumage",
             "is_testable": false,
             "is_present": false,
-            "reasoning": "The subject is entirely silhouetted against the light; no surface coloration or countershading is visible."
+            "reasoning": "The subject is entirely silhouetted; no color information is visible."
         },
         {
             "checkpoint": "Skin is covered in dermal denticles with a rough texture.",
@@ -56,62 +56,76 @@
             "category": "Limbs_and_Anatomy",
             "is_testable": true,
             "is_present": true,
-            "reasoning": "The first dorsal fin is clearly visible in the silhouette, appearing tall and positioned correctly on the back."
+            "reasoning": "The first dorsal fin is clearly visible, tall, and exhibits the characteristic sickle shape."
         },
         {
             "checkpoint": "Pectoral fins are broad and triangular.",
             "category": "Limbs_and_Anatomy",
             "is_testable": true,
             "is_present": true,
-            "reasoning": "The pectoral fins are visible extending from the body, matching the expected broad, triangular shape."
+            "reasoning": "The pectoral fins are visible in the silhouette and appear broad and triangular."
         },
         {
             "checkpoint": "Caudal fin is asymmetrical with a pronounced upper lobe.",
             "category": "Limbs_and_Anatomy",
             "is_testable": true,
             "is_present": true,
-            "reasoning": "The tail fin is visible and exhibits the heterocercal (asymmetrical) structure typical of sharks, with a longer upper lobe."
+            "reasoning": "The tail fin is visible and shows the heterocercal (asymmetrical) structure typical of sharks."
         }
     ],
-    "artifact_observations": [],
+    "artifact_observations": [
+        {
+            "artifact_type": "blur",
+            "location": "entire image",
+            "severity": 2,
+            "reasoning": "The image suffers from general softness and lack of sharp focus, likely due to underwater photography challenges or low resolution, rather than AI generation artifacts."
+        },
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "water surface (top left)",
+            "severity": 1,
+            "reasoning": "The sun reflection on the water surface appears somewhat smeared, which could be natural caustics or slight compression artifact, but does not strongly indicate AI melting."
+        }
+    ],
     "expert_verification_plan": [
         {
             "expert_name": "fine_grained_classifier",
             "target_subject": "hammerhead shark",
             "verification_goals": [
-                "Confirm high-level class label 'Hammerhead Shark' based on global visual features."
+                "Confirm species classification as hammerhead shark based on silhouette profile."
             ],
-            "reason": "Primary verification to ensure the generated image aligns with the 'hammerhead' class label. Restricted to category-level identification as per Judge feedback regarding silhouette limitations.",
+            "reason": "To verify the taxonomic identity despite the lack of color/texture detail.",
             "weight": 0.35
         },
         {
             "expert_name": "topology_boundary_auditor",
             "target_subject": "hammerhead shark",
             "verification_goals": [
-                "Verify the continuity of the shark's outline against the bright background.",
-                "Check for edge bleeding or fusion between the shark silhouette and background fish/light.",
-                "Audit structural connectivity of fins to the main body."
+                "Verify structural correctness of the cephalofoil (head) width relative to body.",
+                "Check placement and shape of dorsal and pectoral fins against biological norms.",
+                "Audit the boundary between the shark silhouette and the bright water surface for edge bleeding or haloing."
             ],
-            "reason": "Replaces animal_pose_auditor (invalid for fish). Essential for auditing silhouette integrity and ensuring fins/head are distinct physical entities without melting artifacts.",
+            "reason": "Sharks lack limb-based keypoints required by animal_pose_auditor. Topology auditor is best suited to verify the continuous, biologically valid shape of the cephalofoil and fins without relying on joint detection, and to check silhouette edges.",
             "weight": 0.3
         },
         {
             "expert_name": "geometric_depth_auditor",
             "target_subject": "hammerhead shark",
             "verification_goals": [
-                "Verify 3D spatial grounding of the cephalofoil relative to the body.",
-                "Assess geometric plausibility of fin proportions and head width in 3D space."
+                "Verify if the shark's volume and position relative to the light source are physically consistent.",
+                "Check for geometric melting or spatial grounding errors in the silhouette."
             ],
-            "reason": "Addresses Judge feedback to validate structural geometry and proportions (e.g., cephalofoil width) which cannot be verified by pose estimation or simple classification.",
+            "reason": "Since color and texture are unverifiable due to backlighting, geometric plausibility is the primary evidence of realism. Depth audit verifies physical consistency of the 3D form.",
             "weight": 0.2
         },
         {
-            "expert_name": "perceptual_quality_auditor",
-            "target_subject": "entire image",
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "background fish",
             "verification_goals": [
-                "Assess overall image quality, lighting realism, and presence of generative noise in water/sunlight areas."
+                "Locate and identify smaller fish in the background to ensure they are distinct entities.",
+                "Provide bounding box priors to verify they are not AI-generated noise or fused artifacts."
             ],
-            "reason": "Holistic check for common AI artifacts in underwater scenes, such as unnatural light scattering or water texture anomalies.",
+            "reason": "Required to locate small background instances before quality auditing, ensuring they are coherent objects rather than generative artifacts.",
             "weight": 0.15
         }
     ],
@@ -122,16 +136,17 @@
         "Skin is covered in dermal denticles with a rough texture."
     ],
     "focus_areas": [
-        "Cephalofoil (hammer-head) shape accuracy and 3D grounding",
-        "Fin-to-body structural connectivity (topology)",
-        "Silhouette edge integrity against backlight"
+        "Silhouette integrity of the cephalofoil (hammer head)",
+        "Anatomical correctness of fin placement and shape via topology",
+        "Geometric plausibility of the shark's 3D volume against light",
+        "Coherence and distinctness of background fish elements"
     ],
-    "custom_prompts_for_reflector": "Focus heavily on the geometry of the head using depth cues. AI often struggles with the specific T-shape of hammerheads, sometimes making it too narrow or curving it incorrectly. Verify that the 'hammer' is truly lateral and flat, not just a weirdly shaped nose. Also, use topology checks to ensure the connection point of the pectoral fins does not melt into the body, as this is a common failure mode in silhouettes.",
+    "custom_prompts_for_reflector": "Focus on the geometric proportions of the hammerhead's cephalofoil. Does the width-to-body ratio look biologically plausible for a real hammerhead shark, or is it exaggerated/distorted? Check the edges of the silhouette against the sunlight for any 'glowing' or fuzzy transitions that suggest generative blending. Verify that background fish are distinct, separate entities and not merged blobs.",
     "metadata": {
         "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000000.png",
         "class_id": 4,
         "class_label": "hammerhead, hammerhead shark",
-        "router_cost_seconds": 29.07,
+        "router_cost_seconds": 31.96,
         "plan_valid": true,
         "is_revision": true,
         "revision_feedback_count": 1
@@ -140,25 +155,25 @@
         {
             "expert_name": "fine_grained_classifier",
             "target_subject": "hammerhead shark",
-            "reason": "Primary verification to ensure the generated image aligns with the 'hammerhead' class label. Restricted to category-level identification as per Judge feedback regarding silhouette limitations.",
+            "reason": "To verify the taxonomic identity despite the lack of color/texture detail.",
             "weight": 0.35
         },
         {
             "expert_name": "topology_boundary_auditor",
             "target_subject": "hammerhead shark",
-            "reason": "Replaces animal_pose_auditor (invalid for fish). Essential for auditing silhouette integrity and ensuring fins/head are distinct physical entities without melting artifacts.",
+            "reason": "Sharks lack limb-based keypoints required by animal_pose_auditor. Topology auditor is best suited to verify the continuous, biologically valid shape of the cephalofoil and fins without relying on joint detection, and to check silhouette edges.",
             "weight": 0.3
         },
         {
             "expert_name": "geometric_depth_auditor",
             "target_subject": "hammerhead shark",
-            "reason": "Addresses Judge feedback to validate structural geometry and proportions (e.g., cephalofoil width) which cannot be verified by pose estimation or simple classification.",
+            "reason": "Since color and texture are unverifiable due to backlighting, geometric plausibility is the primary evidence of realism. Depth audit verifies physical consistency of the 3D form.",
             "weight": 0.2
         },
         {
-            "expert_name": "perceptual_quality_auditor",
-            "target_subject": "entire image",
-            "reason": "Holistic check for common AI artifacts in underwater scenes, such as unnatural light scattering or water texture anomalies.",
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "background fish",
+            "reason": "Required to locate small background instances before quality auditing, ensuring they are coherent objects rather than generative artifacts.",
             "weight": 0.15
         }
     ]
