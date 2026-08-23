@@ -64,7 +64,7 @@ def get_structured_taxonomy_info(class_id: int) -> dict | None:
 _REF_ANNOTATIONS_CACHE: dict | None = None
 _SUPER_CATEGORY_CACHE: dict[int, str | None] = {}
 
-# Artifact score segment boundaries (0-5 scale split into thirds)
+# Authenticity score segment boundaries (0-5 scale split into thirds)
 _REF_LOW_MID_BOUNDARY = 5.0 / 3.0    # ~1.667
 _REF_MID_HIGH_BOUNDARY = 10.0 / 3.0  # ~3.333
 
@@ -120,13 +120,13 @@ def select_reference_images(
 
     Selection rules:
       1. Same super_category as the evaluated image's class.
-      2. Cover low/mid/high artifact_score segments for calibration.
+      2. Cover low/mid/high authenticity_score segments for calibration.
       3. Exclude the image being evaluated.
       4. Image file must exist in image_dir.
 
     Returns a list of dicts with keys:
       image_name, image_path, class_id, class_name,
-      alignment_score, artifact_score, super_category, segment
+      alignment_score, authenticity_score, super_category, segment
     """
     target_super_cat = _get_super_category_for_class(class_id)
     if target_super_cat is None:
@@ -135,10 +135,19 @@ def select_reference_images(
 
     annotations = _load_ref_annotations()
     if not annotations:
+        print(f"  [WARN] ref_annotations.json is empty or not found, cannot select reference images.")
         return []
 
-    image_dir = Path(REF_IMAGE_DIR) if REF_IMAGE_DIR is not None else Path(image_dir)
+    effective_dir = Path(REF_IMAGE_DIR) if REF_IMAGE_DIR is not None else Path(image_dir)
+    print(f"  [REF] Looking for reference images in: {effective_dir} (exists={effective_dir.exists()})")
+    if not effective_dir.exists():
+        print(f"  [WARN] Reference image directory does not exist: {effective_dir}")
+        print(f"  [WARN] Set --ref-image-dir to the correct path containing reference images (e.g., test_images/).")
+        return []
+
+    image_dir = effective_dir
     candidates: list[dict] = []
+    _missing_files = 0
 
     for img_name, ann in annotations.items():
         if exclude_image_name and img_name == exclude_image_name:
@@ -153,23 +162,27 @@ def select_reference_images(
 
         img_path = image_dir / img_name
         if not img_path.exists():
+            _missing_files += 1
             continue
 
         scores = ann.get("scores", {})
-        artifact_score = scores.get("artifact_score")
+        authenticity_score = scores.get("authenticity_score")
+        if authenticity_score is None:
+            # Legacy key in human-annotated ref_annotations.json
+            authenticity_score = scores.get("artifact_score")
         alignment_score = scores.get("alignment_score")
-        if artifact_score is None:
+        if authenticity_score is None:
             continue
 
         try:
-            artifact_score = float(artifact_score)
+            authenticity_score = float(authenticity_score)
             alignment_score = float(alignment_score) if alignment_score is not None else None
         except (TypeError, ValueError):
             continue
 
-        if artifact_score < _REF_LOW_MID_BOUNDARY:
+        if authenticity_score < _REF_LOW_MID_BOUNDARY:
             segment = "low"
-        elif artifact_score < _REF_MID_HIGH_BOUNDARY:
+        elif authenticity_score < _REF_MID_HIGH_BOUNDARY:
             segment = "mid"
         else:
             segment = "high"
@@ -180,13 +193,14 @@ def select_reference_images(
             "class_id": ann_class_id,
             "class_name": ann.get("class_name", ""),
             "alignment_score": alignment_score,
-            "artifact_score": artifact_score,
+            "authenticity_score": authenticity_score,
             "super_category": ann_super_cat,
             "segment": segment,
         })
 
     if not candidates:
-        print(f"  [WARN] No reference candidates found for super_category={target_super_cat}")
+        print(f"  [WARN] No reference candidates found for super_category={target_super_cat} "
+              f"(checked {len(annotations)} annotations, {_missing_files} image files missing in {effective_dir})")
         return []
 
     low_group = [c for c in candidates if c["segment"] == "low"]
@@ -197,7 +211,7 @@ def select_reference_images(
         if not group:
             return None
         midpoint = (low + high) / 2.0
-        return min(group, key=lambda c: abs(c["artifact_score"] - midpoint))
+        return min(group, key=lambda c: abs(c["authenticity_score"] - midpoint))
 
     selected: list[dict] = []
     for group, lo, hi in (
@@ -213,7 +227,7 @@ def select_reference_images(
     if len(selected) < num_refs:
         selected_names = {s["image_name"] for s in selected}
         remaining = [c for c in candidates if c["image_name"] not in selected_names]
-        remaining.sort(key=lambda c: abs(c["artifact_score"] - 2.5))
+        remaining.sort(key=lambda c: abs(c["authenticity_score"] - 2.5))
         for c in remaining:
             if len(selected) >= num_refs:
                 break
@@ -230,7 +244,7 @@ def _build_ref_images_text(ref_images: list[dict]) -> str:
     lines = [
         "**[Human-Annotated Reference Images]**",
         "Below are reference images with human annotations. Use them as anchors to calibrate your scoring.",
-        "Higher artifact_score = fewer artifacts (better image quality).",
+        "Higher authenticity_score = fewer artifacts (better image quality).",
         "Higher alignment_score = better class conformance.",
         "",
     ]
@@ -240,7 +254,7 @@ def _build_ref_images_text(ref_images: list[dict]) -> str:
         lines.append(
             f"Reference {i} [{ref['segment']}]: {ref['image_name']} | "
             f"class={ref['class_name']} | alignment_score={al_str} | "
-            f"artifact_score={ref['artifact_score']:.2f}"
+            f"authenticity_score={ref['authenticity_score']:.2f}"
         )
     lines.append("")
     lines.append(
@@ -265,7 +279,7 @@ def _append_ref_images_to_content(
                 "type": "text",
                 "text": (
                     f"[Reference Image: {ref['image_name']} | "
-                    f"alignment={al_str} | artifact={ref['artifact_score']:.2f}]"
+                    f"alignment={al_str} | authenticity={ref['authenticity_score']:.2f}]"
                 ),
             })
             user_content.append({
@@ -428,12 +442,18 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
 
 **Core Principles:**
 1. For alignment: expert classifier hard data is more reliable than Router's visual impression.
-2. For artifacts: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
+2. For authenticity: Router's direct visual observation of artifacts is primary; experts are supplementary. Expert silence does NOT override Router's findings.
 3. Structural defects outweigh aesthetic quality.
 4. Be critical — do NOT rubber-stamp the Router's assessment. Actively look for issues the Router may have missed or underestimated.
 5. When in doubt about an artifact, lean toward flagging it rather than ignoring it.
 
+**Independent Visual Verification:**
+- Do NOT assume a feature is present just because the class label suggests it should be. You MUST look at the image and verify the feature is actually visible and correctly rendered.
+- The Router's checkpoint verdicts are provided at the END of the prompt for reference only. Form your own assessment FIRST by examining the image, then compare with the Router.
+- AI-generated images frequently fail to render the MOST distinctive features of a class correctly. For example, a "hammerhead shark" image may show a shark WITHOUT the hammer-shaped head; a "flamingo" image may show a bird WITHOUT the long curved neck. Always scrutinize the defining feature.
+
 **Scoring Guidelines:**
+- `authenticity_score` (0-5): Higher = FEWER artifacts and BETTER image quality. 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Note: this is the OPPOSITE direction from artifact severity (where higher = worse) — do not confuse the two.
 - The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
 - Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
 - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
@@ -450,20 +470,21 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
 - High-confidence keypoints are a STRONG signal: if most keypoints have high confidence AND you don't see visual artifacts, the image likely has good structural integrity.
 
 **Your Task:**
-- Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
+- FIRST: Examine the image independently. For each diagnostic checkpoint, decide if the feature is clearly present, absent/malformed, or untestable — BEFORE reading the Router's verdicts.
+- THEN: Compare your independent assessment with the Router's checkpoint verdicts. Flag any checkpoints where the Router was too lenient (marked present when only partially matched) or too lazy (marked untestable when it could have been judged).
 - Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
 - Note any new artifacts found by experts that the Router missed.
 - If more than 25% of checkpoints are marked untestable, you must deduct an appropriate amount from alignment_score, because fewer testable checkpoints usually means the image does not contain enough taxonomy features for a high alignment score.
-- Produce final alignment_score and artifact_score (0-5 continuous).
+- Produce final alignment_score and authenticity_score (0-5 continuous).
 
 **Output JSON:**
 {
-  "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning. Flag any checkpoints the Router was too lenient on.",
-  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
+  "checkpoint_review": "For each checkpoint, state YOUR independent verdict first, then note agreement/disagreement with the Router. Flag any checkpoints the Router was too lenient on.",
+  "authenticity_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
   "alignment_score": 0.0,
-  "artifact_score": 0.0,
+  "authenticity_score": 0.0,
   "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
-  "artifact_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
+  "authenticity_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
   "key_defects": ["string"]
 }"""
 
@@ -472,12 +493,18 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 
 **Core Principles:**
 1. For alignment: expert classifier hard data is more reliable than Router's visual impression.
-2. For artifacts: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
+2. For authenticity: Router's direct visual observation of artifacts is primary; experts are supplementary. Expert silence does NOT override Router's findings.
 3. Structural defects outweigh aesthetic quality.
 4. Be critical — do NOT rubber-stamp the Router's assessment. Actively look for issues the Router may have missed or underestimated.
 5. When in doubt about an artifact, lean toward flagging it rather than ignoring it.
 
+**Independent Visual Verification:**
+- Do NOT assume a feature is present just because the class label suggests it should be. You MUST look at the image and verify the feature is actually visible and correctly rendered.
+- The Router's checkpoint verdicts are provided at the END of the prompt for reference only. Form your own assessment FIRST by examining the image, then compare with the Router.
+- AI-generated images frequently fail to render the MOST distinctive features of a class correctly. For example, a "hammerhead shark" image may show a shark WITHOUT the hammer-shaped head; a "flamingo" image may show a bird WITHOUT the long curved neck. Always scrutinize the defining feature.
+
 **Scoring Guidelines:**
+- `authenticity_score` (0-5): Higher = FEWER artifacts and BETTER image quality. 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Note: this is the OPPOSITE direction from artifact severity (where higher = worse) — do not confuse the two.
 - The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
 - Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
 - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
@@ -494,21 +521,22 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 - High-confidence keypoints are a STRONG signal: if most keypoints have high confidence AND you don't see visual artifacts, the image likely has good structural integrity.
 
 **Your Task:**
-- Review the Router's checkpoint verdicts: for each, consider whether the Router was too lenient. Did it mark a checkpoint as present when the match is only partial? Did it skip a checkpoint by marking it untestable when it could have been judged?
+- FIRST: Examine the image independently. For each diagnostic checkpoint, decide if the feature is clearly present, absent/malformed, or untestable — BEFORE reading the Router's verdicts.
+- THEN: Compare your independent assessment with the Router's checkpoint verdicts. Flag any checkpoints where the Router was too lenient (marked present when only partially matched) or too lazy (marked untestable when it could have been judged).
 - Review the Router's artifact observations: for each, consider whether the severity was underestimated. Look for additional artifacts the Router missed, especially subtle ones revealed by expert evidence.
 - Note any new artifacts found by experts that the Router missed.
 - If more than 25% of checkpoints are marked untestable, you must deduct an appropriate amount from alignment_score, because fewer testable checkpoints usually means the image does not contain enough taxonomy features for a high alignment score.
-- Produce final alignment_score and artifact_score (0-5 continuous).
+- Produce final alignment_score and authenticity_score (0-5 continuous).
 
 **Checklist Annotation (fine_grained_details):**
 - You MUST produce a `fine_grained_details` object that mirrors the Diagnostic Checkpoints structure.
 - For EACH checkpoint description listed under each category, assign one of three status values:
-  - "🟢 Checked" — the feature is clearly present and correctly rendered in the image.
-  - "🔴 Missing" — the feature is absent, malformed, or incorrect.
+  - "🟢 Checked" — the feature is clearly present and correctly rendered in the image. You must be able to point to specific visual evidence.
+  - "🔴 Missing" — the feature is absent, malformed, blurry, partially formed, merged with the body, or incorrect. When in doubt about a distinctive feature, prefer Missing over Checked.
   - "⚪ N/A" — the feature cannot be evaluated (e.g., not visible, occluded, or genuinely inapplicable to this view).
 - Use the EXACT checkpoint description strings from the Diagnostic Checkpoints as keys. Do NOT rephrase or invent new keys.
 - Your checklist must cover EVERY checkpoint from EVERY category in the Diagnostic Checkpoints — no omissions.
-- Base your status on your own holistic judgment, informed by the Router's verdicts and expert evidence, but do not blindly copy the Router.
+- Base your status on YOUR OWN holistic judgment by looking at the image. The Router's verdicts are provided for reference only — do not blindly copy them.
 
 **Veto Mechanism (veto_activated):**
 - Set `veto_activated` to true if the image has catastrophic structural failure (e.g., complete structural collapse, severe melting making the subject unrecognizable, or multiple major anatomical errors) that makes meaningful evaluation impossible.
@@ -517,11 +545,11 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 **Output JSON:**
 {
   "checkpoint_review": "For each checkpoint, agree/disagree with Router's is_testable and is_present, with reasoning. Flag any checkpoints the Router was too lenient on.",
-  "artifact_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
+  "authenticity_review": "For each artifact, agree/disagree with Router's severity, with reasoning. Note new artifacts from experts or your own observation. Flag any severities the Router underestimated.",
   "alignment_score": 0.0,
-  "artifact_score": 0.0,
+  "authenticity_score": 0.0,
   "alignment_reasoning": "Concise: how many checkpoints passed/testable, expert classifier confirmation, adjustments made",
-  "artifact_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
+  "authenticity_reasoning": "Concise: Router's artifacts + severities, expert support/contradiction, new findings",
   "key_defects": ["string"],
   "veto_activated": false,
   "fine_grained_details": {
@@ -537,7 +565,7 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
 **Self-Reflection Checklist:**
 1. Score-Reasoning Consistency: Do your scores align with your reasoning?
    - If your alignment_reasoning describes checkpoint mismatches but alignment_score is high → lower it.
-   - If your artifact_reasoning describes severe issues but artifact_score is high → lower it.
+   - If your authenticity_reasoning describes severe issues but authenticity_score is high → lower it.
    - Look for contradictions between the reasoning text and the numerical scores.
 
 2. Expert Evidence Utilization: Did you properly consider ALL expert testimony?
@@ -557,14 +585,13 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
    - The Router may miss subtle artifacts — did you look for additional issues?
 
 5. Harshness Bias: Are you over-penalizing minor issues?
-   - A minor texture anomaly (severity 1) should not drop artifact_score by more than 0.5.
+   - A minor texture anomaly (severity 1) should not drop authenticity_score by more than 0.5.
    - Multiple minor issues compound, but one minor issue should not dominate.
    - Pose low-confidence keypoints alone (without visual confirmation) are a weak signal.
 
 6. Checkpoint Review: For each checkpoint:
-   - Did you agree/disagree with the Router's is_present verdict?
-   - If you disagreed, did you explain why?
-   - If the Router was too lenient, did you flag it?
+   - Did you form your OWN independent verdict by looking at the image, or did you just copy the Router's?
+   - For each "Checked" status: can you point to specific visual evidence in the image? If not, change to "Missing".
 
 7. Upward Override Justification: For every checkpoint where your final assessment is MORE lenient than the Router's (e.g., you agreed with is_present=true where the Router was uncertain, or you raised a score above the base score):
    - You MUST provide independent visual evidence from the image itself (not just "the Router said so").
@@ -610,12 +637,12 @@ def build_reflector_prompt(
             max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
             severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
             minor_count = len(artifact_observations) - severe_count
-            base_artifact = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
-            base_artifact = max(0.0, base_artifact)
+            base_authenticity = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+            base_authenticity = max(0.0, base_authenticity)
         else:
-            base_artifact = 5.0
+            base_authenticity = 5.0
 
-        base_scores_text = f"Formula Reference (starting point only, NOT your final score): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Artifact={base_artifact:.2f}"
+        base_scores_text = f"Formula Reference (starting point only, NOT your final score): Alignment={base_alignment:.2f} ({len(present)}/{len(testable)} passed, {len(untestable)} untestable) | Authenticity={base_authenticity:.2f}"
 
         router_assessment = f"""
 **[Router's Assessment]**
@@ -632,15 +659,20 @@ def build_reflector_prompt(
         if checkpoints:
             checkpoints_text = f"\n**[Diagnostic Checkpoints]**\n{json.dumps(checkpoints, indent=2, ensure_ascii=False)}\n"
 
-    return f"""Review the Router's assessment and expert evidence to produce the final evaluation.
+    return f"""Review the image, expert evidence, and Router's preliminary assessment to produce the final evaluation.
+
+**IMPORTANT: Independent Assessment First**
+Before reading the Router's checkpoint verdicts (provided at the END for reference), examine the image yourself and form your own opinion about each checkpoint. The Router's verdicts are preliminary and may be wrong — you MUST verify each one by looking at the actual image, not by trusting the Router.
 
 **[Context]**
 - Target Class: {class_label}
 - Taxonomy: {taxonomy_desc}
 {checkpoints_text}
-{router_assessment}
 **[Expert Testimonies]**
-{expert_results_str}"""
+{expert_results_str}
+
+**[Router's Preliminary Assessment — FOR REFERENCE ONLY, DO NOT ANCHOR]**
+{router_assessment}"""
 
 
 def _calibrate_scores(
@@ -654,13 +686,13 @@ def _calibrate_scores(
     These rules were previously in the prompt but are now enforced in code for reliability.
 
     Args:
-        pose_hard_cap: If True, apply hard caps to artifact_score based on pose low-confidence analysis.
-                       If False (default), skip pose-based artifact caps to avoid domain-shift bias.
+        pose_hard_cap: If True, apply hard caps to authenticity_score based on pose low-confidence analysis.
+                       If False (default), skip pose-based authenticity caps to avoid domain-shift bias.
         enable_classifier_cap: If True (default), cap alignment_score based on fine_grained_classifier
                                Top-1/Top-3 mismatch. If False, trust the Reflector's judgment entirely.
     """
     alignment_score = result.get("alignment_score", 0.0)
-    artifact_score = result.get("artifact_score", 0.0)
+    authenticity_score = result.get("authenticity_score", 0.0)
     adjustments = []
 
     # --- Alignment calibration based on expert classifier ---
@@ -685,7 +717,7 @@ def _calibrate_scores(
                         alignment_score = 1.0
                 break
 
-    # --- Artifact calibration based on pose low-confidence ---
+    # --- Authenticity calibration based on pose low-confidence ---
     # Only apply when pose_hard_cap is True (disabled by default due to domain-shift concerns)
     if pose_hard_cap and expert_results:
         for t in expert_results.get("expert_testimonies", []):
@@ -697,25 +729,25 @@ def _calibrate_scores(
                     low_ratio = lca.get("low_confidence_ratio", 0.0)
 
                     if risk_level == "HIGH" or low_ratio >= 0.40:
-                        if artifact_score > 1.5:
-                            adjustments.append(f"Pose HIGH risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 1.5")
-                            artifact_score = 1.5
+                        if authenticity_score > 1.5:
+                            adjustments.append(f"Pose HIGH risk (ratio={low_ratio:.2f}), capping authenticity {authenticity_score:.2f} → 1.5")
+                            authenticity_score = 1.5
                     elif risk_level == "MEDIUM" or low_ratio >= 0.25:
-                        if artifact_score > 2.0:
-                            adjustments.append(f"Pose MEDIUM risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 2.0")
-                            artifact_score = 2.0
+                        if authenticity_score > 2.0:
+                            adjustments.append(f"Pose MEDIUM risk (ratio={low_ratio:.2f}), capping authenticity {authenticity_score:.2f} → 2.0")
+                            authenticity_score = 2.0
                     elif risk_level == "LOW" or low_ratio >= 0.15:
-                        if artifact_score > 3.0:
-                            adjustments.append(f"Pose LOW risk (ratio={low_ratio:.2f}), capping artifact {artifact_score:.2f} → 3.0")
-                            artifact_score = 3.0
+                        if authenticity_score > 3.0:
+                            adjustments.append(f"Pose LOW risk (ratio={low_ratio:.2f}), capping authenticity {authenticity_score:.2f} → 3.0")
+                            authenticity_score = 3.0
                 break
 
     # Clamp scores to [0, 5]
     alignment_score = max(0.0, min(5.0, alignment_score))
-    artifact_score = max(0.0, min(5.0, artifact_score))
+    authenticity_score = max(0.0, min(5.0, authenticity_score))
 
     result["alignment_score"] = round(alignment_score, 2)
-    result["artifact_score"] = round(artifact_score, 2)
+    result["authenticity_score"] = round(authenticity_score, 2)
     if adjustments:
         result["code_adjustments"] = adjustments
 
@@ -803,7 +835,7 @@ def _merge_self_reflection(round1: dict, round2: dict) -> dict:
     """合并两轮结果。Round 2 的分数优先，但保留 Round 1 的数据用于审计。"""
     round1_scores = {
         "alignment_score": round1.get("alignment_score"),
-        "artifact_score": round1.get("artifact_score"),
+        "authenticity_score": round1.get("authenticity_score"),
     }
 
     merged = round2.copy()
@@ -812,13 +844,13 @@ def _merge_self_reflection(round1: dict, round2: dict) -> dict:
 
     r1_align = round1.get("alignment_score", 0)
     r2_align = round2.get("alignment_score", 0)
-    r1_artifact = round1.get("artifact_score", 0)
-    r2_artifact = round2.get("artifact_score", 0)
+    r1_authenticity = round1.get("authenticity_score", 0)
+    r2_authenticity = round2.get("authenticity_score", 0)
 
-    if abs(r1_align - r2_align) > 0.01 or abs(r1_artifact - r2_artifact) > 0.01:
+    if abs(r1_align - r2_align) > 0.01 or abs(r1_authenticity - r2_authenticity) > 0.01:
         merged["score_changes"] = {
             "alignment_score": f"{r1_align:.2f} → {r2_align:.2f}",
-            "artifact_score": f"{r1_artifact:.2f} → {r2_artifact:.2f}",
+            "authenticity_score": f"{r1_authenticity:.2f} → {r2_authenticity:.2f}",
         }
 
     return merged
@@ -955,7 +987,7 @@ def run_reflector(
                 result = _merge_self_reflection(result, round2_result)
                 print(f"  [INFO] Self-reflection completed. "
                       f"Alignment: {result.get('alignment_score', 'N/A')}, "
-                      f"Artifact: {result.get('artifact_score', 'N/A')}")
+                      f"Authenticity: {result.get('authenticity_score', 'N/A')}")
             else:
                 print(f"  [WARN] Self-reflection round failed, using Round 1 scores")
 
@@ -1050,7 +1082,7 @@ def build_checklist_annotation(
 
     Scoring rules (mimicking human annotators):
     - alignment_score: 5 * Checked / (Checked + Missing), rounded to 2 decimals
-    - artifact_score: integer 0-5, derived from the reflector's artifact_score
+    - authenticity_score: integer 0-5, derived from the reflector's authenticity_score
       but quantized to the nearest integer to mimic human discrete scoring
     """
     fine_grained = report.get("fine_grained_details", {})
@@ -1070,10 +1102,10 @@ def build_checklist_annotation(
     else:
         checklist_alignment = 0.0
 
-    reflector_artifact = float(report.get("artifact_score", 0.0))
-    checklist_artifact = min(5, max(0, round(reflector_artifact)))
+    reflector_authenticity = float(report.get("authenticity_score", 0.0))
+    checklist_authenticity = min(5, max(0, round(reflector_authenticity)))
 
-    total_score = round(checklist_alignment * checklist_artifact, 2)
+    total_score = round(checklist_alignment * checklist_authenticity, 2)
 
     return {
         "image_name": image_name,
@@ -1082,7 +1114,7 @@ def build_checklist_annotation(
         "veto_activated": bool(report.get("veto_activated", False)),
         "scores": {
             "alignment_score": checklist_alignment,
-            "artifact_score": checklist_artifact,
+            "authenticity_score": checklist_authenticity,
             "total_score": total_score,
         },
         "fine_grained_details": fine_grained,
@@ -1145,12 +1177,12 @@ def print_final_summary(report: dict) -> None:
     metadata = report.get("metadata", {})
     class_label = metadata.get("class_label", "N/A")
     alignment_score = report.get("alignment_score", 0.0)
-    artifact_score = report.get("artifact_score", 0.0)
+    authenticity_score = report.get("authenticity_score", 0.0)
     key_defects = report.get("key_defects", [])
     code_adjustments = report.get("code_adjustments", [])
 
     print(f"\n--- Final Evaluation Complete ---")
-    print(f"Class: {class_label} | Alignment: {alignment_score:.1f}/5.0 | Artifact: {artifact_score:.1f}/5.0")
+    print(f"Class: {class_label} | Alignment: {alignment_score:.1f}/5.0 | Authenticity: {authenticity_score:.1f}/5.0")
     if code_adjustments:
         for adj in code_adjustments:
             print(f"  [Code Adjustment] {adj}")

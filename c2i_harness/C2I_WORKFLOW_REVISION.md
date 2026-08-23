@@ -28,7 +28,7 @@ Step 4  Reflector（综合评分 + Self-Reflection）
   │   ├── 输入：Router 初步判定 + 专家硬数据 + 人类打分参考（已有）
   │   ├── 审查 Router 的 checkpoint verdicts 是否过于宽松
   │   ├── 审查伪影严重度是否被低估
-  │   ├── 输出 alignment_score + artifact_score + reasoning
+  │   ├── 输出 alignment_score + authenticity_score + reasoning
   │   └── _calibrate_scores 代码级后处理（已有，新增 enable_classifier_cap 开关）
   └── Round 2：Self-Reflection（自审修订，新增）
       ├── 输入：Round 1 输出 + 原始上下文（图片 + 专家证据 + 参考图）
@@ -45,7 +45,7 @@ Step 4  Reflector（综合评分 + Self-Reflection）
 | 专家计划结构 | `selected_experts`（仅指定专家 + target_subject） | `expert_verification_plan`（含 `verification_goals` + `unverifiable_points`） |
 | Judge 审查维度 | 审查计划合理性 | 新增验证覆盖度审查 |
 | Reflector 评估方式 | 单次 API 调用 | 两轮 API 调用：初步评分 → Self-Reflection 修订 |
-| Reflector 输出 | alignment_score + artifact_score | + preliminary_scores + self_reflection_notes + score_changes |
+| Reflector 输出 | alignment_score + authenticity_score | + preliminary_scores + self_reflection_notes + score_changes |
 
 ---
 
@@ -283,7 +283,7 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
 **Self-Reflection Checklist:**
 1. Score-Reasoning Consistency: Do your scores align with your reasoning?
    - If your alignment_reasoning describes checkpoint mismatches but alignment_score is high → lower it.
-   - If your artifact_reasoning describes severe issues but artifact_score is high → lower it.
+   - If your authenticity_reasoning describes severe issues but authenticity_score is high → lower it.
    - Look for contradictions between the reasoning text and the numerical scores.
 
 2. Expert Evidence Utilization: Did you properly consider ALL expert testimony?
@@ -303,7 +303,7 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
    - The Router may miss subtle artifacts — did you look for additional issues?
 
 5. Harshness Bias: Are you over-penalizing minor issues?
-   - A minor texture anomaly (severity 1) should not drop artifact_score by more than 0.5.
+   - A minor texture anomaly (severity 1) should not drop authenticity_score by more than 0.5.
    - Multiple minor issues compound, but one minor issue should not dominate.
    - Pose low-confidence keypoints alone (without visual confirmation) are a weak signal.
 
@@ -380,7 +380,7 @@ def _merge_self_reflection(round1: dict, round2: dict) -> dict:
     """合并两轮结果。Round 2 的分数优先，但保留 Round 1 的数据用于审计。"""
     round1_scores = {
         "alignment_score": round1.get("alignment_score"),
-        "artifact_score": round1.get("artifact_score"),
+        "authenticity_score": round1.get("authenticity_score"),
     }
 
     merged = round2.copy()
@@ -389,13 +389,13 @@ def _merge_self_reflection(round1: dict, round2: dict) -> dict:
 
     r1_align = round1.get("alignment_score", 0)
     r2_align = round2.get("alignment_score", 0)
-    r1_artifact = round1.get("artifact_score", 0)
-    r2_artifact = round2.get("artifact_score", 0)
+    r1_authenticity = round1.get("authenticity_score", 0)
+    r2_authenticity = round2.get("authenticity_score", 0)
 
-    if abs(r1_align - r2_align) > 0.01 or abs(r1_artifact - r2_artifact) > 0.01:
+    if abs(r1_align - r2_align) > 0.01 or abs(r1_authenticity - r2_authenticity) > 0.01:
         merged["score_changes"] = {
             "alignment_score": f"{r1_align:.2f} → {r2_align:.2f}",
-            "artifact_score": f"{r1_artifact:.2f} → {r2_artifact:.2f}",
+            "authenticity_score": f"{r1_authenticity:.2f} → {r2_authenticity:.2f}",
         }
 
     return merged
@@ -436,7 +436,7 @@ def run_reflector(
             result = _merge_self_reflection(result, round2_result)
             print(f"  [INFO] Self-reflection completed. "
                   f"Alignment: {result.get('alignment_score', 'N/A')}, "
-                  f"Artifact: {result.get('artifact_score', 'N/A')}")
+                  f"Authenticity: {result.get('authenticity_score', 'N/A')}")
         else:
             print(f"  [WARN] Self-reflection round failed, using Round 1 scores")
 
@@ -468,20 +468,20 @@ def run_reflector(
 ```json
 {
   "checkpoint_review": "...",
-  "artifact_review": "...",
+  "authenticity_review": "...",
   "alignment_score": 3.42,
-  "artifact_score": 3.15,
+  "authenticity_score": 3.15,
   "alignment_reasoning": "...",
-  "artifact_reasoning": "...",
+  "authenticity_reasoning": "...",
   "key_defects": ["..."],
   "preliminary_scores": {
     "alignment_score": 4.10,
-    "artifact_score": 3.80
+    "authenticity_score": 3.80
   },
-  "self_reflection_notes": "Lowered alignment from 4.10 to 3.42 because the classifier Top-1 was 'baboon' not 'guenon', which I underweighted in Round 1. Lowered artifact because the tail melting was more severe upon re-examination.",
+  "self_reflection_notes": "Lowered alignment from 4.10 to 3.42 because the classifier Top-1 was 'baboon' not 'guenon', which I underweighted in Round 1. Lowered authenticity because the tail melting was more severe upon re-examination.",
   "score_changes": {
     "alignment_score": "4.10 → 3.42",
-    "artifact_score": "3.80 → 3.15"
+    "authenticity_score": "3.80 → 3.15"
   },
   "metadata": {
     "self_reflection_enabled": true,
@@ -612,7 +612,7 @@ Self-Reflection 模板与 checklist/非 checklist 模板兼容：Round 2 要求�
 
 | 维度 | C2I Self-Reflection | T2I Self-Reflection |
 |------|---------------------|---------------------|
-| 分数名称 | alignment_score + artifact_score | alignment_score + authenticity_score |
+| 分数名称 | alignment_score + authenticity_score | alignment_score + authenticity_score |
 | 检查重点 | checkpoint verdicts + 分类器匹配 + 姿态证据 | per_atom_scores (qa_score × tax_score) + 原子 QA 正确性 |
 | `_calibrate_scores` 行为 | 分类器封顶[可开关] + 姿态封顶[可开关] + 钳位 | alignment_score 强制覆盖 = mean(per_atom_scores) × 5.0 + 钳位 |
 | 参考校准 | 已有（`select_reference_images`） | 改进方案中新增 |

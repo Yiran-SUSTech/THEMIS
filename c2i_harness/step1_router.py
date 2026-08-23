@@ -21,6 +21,11 @@ DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ROUTER_MODEL = "qwen3.6-plus"
 
+# Which taxonomy source the Router receives. Set from run.py --taxonomy-mode.
+#   "structured" - only diagnostic_checkpoints (taxonomy_info_structural/)
+#   "enriched"   - only enriched_description (taxonomy_info/)
+TAXONOMY_MODE = "structured"
+
 
 def encode_image(image_path: str) -> str:
     with open(image_path, "rb") as f:
@@ -117,7 +122,8 @@ def parse_json_safely(raw_text: str) -> dict | None:
 _COMMON_ROUTER_INSTRUCTIONS = """You are a Router Agent for AI-generated image evaluation. Follow these steps in order and output a single JSON object.
 
 **Step 1 — Checkpoint Verification (STRICT)**
-You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
+{checkpoint_source}
+For EACH checkpoint:
 - Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
 - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
 - Brief reasoning for both decisions.
@@ -182,6 +188,18 @@ Class subject's experts get higher weights; auxiliary subjects' get lower. All w
 }}"""
 
 
+def _get_checkpoint_source_text() -> str:
+    """Lead-in text for Step 1, adapted to the active TAXONOMY_MODE."""
+    if TAXONOMY_MODE == "enriched":
+        return (
+            "You are given a `Taxonomy Prior Knowledge` description (the ground-truth "
+            "class description). FIRST derive 8-12 key diagnostic checkpoints from it "
+            "(the physical features that distinguish this class from similar classes), "
+            "then evaluate the image against your derived checkpoints."
+        )
+    return "You are given `diagnostic_checkpoints` organized by body-part categories."
+
+
 def _build_context_block(
     class_label: str,
     taxonomy_info: dict | None,
@@ -205,12 +223,18 @@ def _build_context_block(
         if checkpoints:
             checkpoints_text = json.dumps(checkpoints, indent=2, ensure_ascii=False)
 
-    variable_context = (
-        f"- **Class Label:** {class_label}\n"
-        f"- **Taxonomy Class Name:** {taxonomy_class_name}\n"
-        f"- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}\n"
-        f"- **Diagnostic Checkpoints (for Step 1 verification):**\n{checkpoints_text}"
-    )
+    if TAXONOMY_MODE == "enriched":
+        variable_context = (
+            f"- **Class Label:** {class_label}\n"
+            f"- **Taxonomy Class Name:** {taxonomy_class_name}\n"
+            f"- **Taxonomy Prior Knowledge (Ground Truth):** {taxonomy_desc}"
+        )
+    else:
+        variable_context = (
+            f"- **Class Label:** {class_label}\n"
+            f"- **Taxonomy Class Name:** {taxonomy_class_name}\n"
+            f"- **Diagnostic Checkpoints (for Step 1 verification):**\n{checkpoints_text}"
+        )
     return variable_context, expert_ids_str, registry_summary
 
 
@@ -489,7 +513,10 @@ def generate_plan(
     _, expert_ids_str, registry_summary = _build_context_block(
         class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
     )
-    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
+    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(
+        expert_ids_str=expert_ids_str,
+        checkpoint_source=_get_checkpoint_source_text(),
+    )
     system_msg = (
         "You are a highly logical Router Agent for image auditing. "
         "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
@@ -561,7 +588,10 @@ def revise_plan(
     _, expert_ids_str, registry_summary = _build_context_block(
         class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
     )
-    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(expert_ids_str=expert_ids_str)
+    formatted_instructions = _COMMON_ROUTER_INSTRUCTIONS.format(
+        expert_ids_str=expert_ids_str,
+        checkpoint_source=_get_checkpoint_source_text(),
+    )
     system_msg = (
         "You are a highly logical Router Agent for image auditing. "
         "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
@@ -612,7 +642,8 @@ def revise_plan(
 _ROUTER_DIRECT_SCORE_INSTRUCTIONS = """You are a Router Agent for AI-generated image evaluation. Follow these steps in order and output a single JSON object.
 
 **Step 1 — Checkpoint Verification (STRICT)**
-You are given `diagnostic_checkpoints` organized by body-part categories. For EACH checkpoint:
+{checkpoint_source}
+For EACH checkpoint:
 - Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
 - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
 - Brief reasoning for both decisions.
@@ -628,7 +659,7 @@ Scan the ENTIRE image carefully for AI-generation artifacts, including subtle on
 **Step 3 — Direct Scoring**
 Based on your checkpoint verdicts and artifact observations above, produce final scores directly:
 - `alignment_score` (0.0-5.0 continuous): How well does the image match the target class? 5.0 = perfect class conformance (all testable checkpoints present), 0.0 = completely wrong class. Be critical — partial matches should score in the middle range. Multiple checkpoint failures compound.
-- `artifact_score` (0.0-5.0 continuous): How artifact-free is the image? 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Consider both the severity and count of artifacts. Multiple minor artifacts compound.
+- `authenticity_score` (0.0-5.0 continuous): How authentic (artifact-free) is the image? 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Consider both the severity and count of artifacts. Multiple minor artifacts compound.
 - Scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
 - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
 - Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
@@ -640,9 +671,9 @@ Based on your checkpoint verdicts and artifact observations above, produce final
   "checkpoint_verdicts": [{{"checkpoint": "str", "category": "str", "is_testable": bool, "is_present": bool, "reasoning": "str"}}],
   "artifact_observations": [{{"artifact_type": "str", "location": "str", "severity": float, "reasoning": "str"}}],
   "alignment_score": 0.0,
-  "artifact_score": 0.0,
+  "authenticity_score": 0.0,
   "alignment_reasoning": "Concise: how many checkpoints passed/testable, key mismatches, overall class conformance",
-  "artifact_reasoning": "Concise: artifacts found + severities, overall quality assessment"
+  "authenticity_reasoning": "Concise: artifacts found + severities, overall quality assessment"
 }}"""
 
 
@@ -673,7 +704,7 @@ def generate_direct_score(
     temperature: float = 0.0,
     model_name: str = "",
 ) -> dict | None:
-    """Generate direct alignment and artifact scores without expert models.
+    """Generate direct alignment and authenticity scores without expert models.
 
     Used in --without-expert ablation mode. The router directly scores the image
     based on checkpoint verdicts and artifact observations, without invoking experts,
@@ -699,7 +730,9 @@ def generate_direct_score(
     _, expert_ids_str, registry_summary = _build_context_block(
         class_label, taxonomy_info, experts_registry_str, structured_taxonomy_info,
     )
-    formatted_instructions = _ROUTER_DIRECT_SCORE_INSTRUCTIONS
+    formatted_instructions = _ROUTER_DIRECT_SCORE_INSTRUCTIONS.format(
+        checkpoint_source=_get_checkpoint_source_text(),
+    )
     system_msg = (
         "You are a highly logical Router Agent for image auditing. "
         "You must prioritize the provided Taxonomy Knowledge as the source of truth. "
@@ -721,15 +754,15 @@ def generate_direct_score(
 
     # Clamp scores to [0, 5]
     alignment_score = result.get("alignment_score", 0.0)
-    artifact_score = result.get("artifact_score", 0.0)
+    authenticity_score = result.get("authenticity_score", 0.0)
     try:
         alignment_score = max(0.0, min(5.0, float(alignment_score)))
-        artifact_score = max(0.0, min(5.0, float(artifact_score)))
+        authenticity_score = max(0.0, min(5.0, float(authenticity_score)))
     except (TypeError, ValueError):
         alignment_score = 0.0
-        artifact_score = 0.0
+        authenticity_score = 0.0
     result["alignment_score"] = round(alignment_score, 2)
-    result["artifact_score"] = round(artifact_score, 2)
+    result["authenticity_score"] = round(authenticity_score, 2)
 
     result["metadata"] = {
         "original_image": image_path,

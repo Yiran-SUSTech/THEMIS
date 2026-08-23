@@ -3,7 +3,7 @@
 Produces:
   - per_atom_scores: 0-1 per atomic QA (qa_score x tax_score)
   - alignment_score: mean(per_atom_scores) x 5.0
-  - authenticity_score: 0-5 image quality / artifact assessment
+  - authenticity_score: 0-5 image quality / authenticity assessment
 """
 
 import os
@@ -146,6 +146,13 @@ def select_t2i_reference_images(
     mid = [(s, n, i) for s, n, i in scored if 1.5 <= i.get("alignment_score", 0) < 3.5]
     low = [(s, n, i) for s, n, i in scored if i.get("alignment_score", 0) < 1.5]
 
+    def _get_authenticity(info: dict) -> float:
+        score = info.get("authenticity_score")
+        if score is None:
+            # Legacy key in human-annotated t2i_ref_annotations.json
+            score = info.get("artifact_score", 0)
+        return score
+
     selected = []
     for bucket in [high, mid, low]:
         if bucket and len(selected) < num_refs:
@@ -156,7 +163,7 @@ def select_t2i_reference_images(
                     "image_name": img_name,
                     "image_path": str(img_path),
                     "alignment_score": info.get("alignment_score", 0),
-                    "authenticity_score": info.get("authenticity_score", 0),
+                    "authenticity_score": _get_authenticity(info),
                     "prompt": info.get("prompt", ""),
                 })
 
@@ -299,6 +306,11 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of a T2I image evaluation
 4. For authenticity: Router's direct visual observation is primary; experts are supplementary. Expert silence does NOT override Router's findings.
 5. Be critical — do NOT rubber-stamp the Router's assessment.
 
+**Independent Visual Verification:**
+- Do NOT assume a feature is present just because the text prompt or class label suggests it should be. You MUST look at the image and verify the feature is actually visible and correctly rendered.
+- The Router's checkpoint verdicts are provided at the END of the prompt for reference only. Form your own assessment FIRST by examining the image, then compare with the Router.
+- AI-generated images frequently fail to render the MOST distinctive features of a class correctly. For example, a "hammerhead shark" image may show a shark WITHOUT the hammer-shaped head; a "flamingo" image may show a bird WITHOUT the long curved neck. Always scrutinize the defining feature.
+
 **Scoring:**
 - per_atom_scores: For each atomic QA, assign 0.0-1.0 based on:
   - qa_score (0-1): Is the answer correct?
@@ -316,7 +328,7 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of a T2I image evaluation
      "qa_score": 1.0, "tax_score": 0.9, "atom_score": 0.9,
      "expert_evidence": "...", "reasoning": "..."}
   ],
-  "artifact_review": "...",
+  "authenticity_review": "...",
   "alignment_score": 0.0,
   "authenticity_score": 0.0,
   "per_atom_scores": [0.9],
@@ -412,15 +424,20 @@ def build_reflector_prompt(
 - Artifact Observations: {json.dumps(artifact_observations, indent=2, ensure_ascii=False)}
 """
 
-    prompt = f"""Review the Router's assessment and expert evidence to produce the final evaluation.
+    prompt = f"""Review the image, expert evidence, and Router's preliminary assessment to produce the final evaluation.
+
+**IMPORTANT: Independent Assessment First**
+Before reading the Router's verdicts (provided at the END for reference), examine the image yourself and form your own opinion about each atom and checkpoint. The Router's verdicts are preliminary and may be wrong — you MUST verify each one by looking at the actual image.
 
 **[Context]**
 - Text Prompt: {prompt_text}
 {atoms_text}
 {taxonomy_text}
-{router_assessment}
 **[Expert Testimonies]**
-{expert_results_str}"""
+{expert_results_str}
+
+**[Router's Preliminary Assessment — FOR REFERENCE ONLY, DO NOT ANCHOR]**
+{router_assessment}"""
 
     if ref_images:
         ref_lines = []
@@ -550,6 +567,7 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
 6. Atom Score Review: For each atom:
    - Is qa_score justified by the expert evidence (or VLM observation if no expert)?
    - Is tax_score appropriate? If no taxonomy info, tax_score should be 1.0.
+   - Did you form your OWN independent verdict by looking at the image, or did you just copy the Router's?
 
 7. Upward Override Justification: For every checkpoint where your final assessment is MORE lenient than the Router's (e.g., you agreed with is_present=true where the Router was uncertain, or you raised a score above the base score):
    - You MUST provide independent visual evidence from the image itself (not just "the Router said so").

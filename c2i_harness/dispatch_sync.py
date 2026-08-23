@@ -135,11 +135,11 @@ def _run_single_image(
     print(f"  Alignment: {router_scores['router_alignment_score']:.2f}/5.0 "
           f"({cs['present']}/{cs['testable']} passed, {cs['untestable']} untestable)")
     if a_s["count"] > 0:
-        print(f"  Artifact:  {router_scores['router_artifact_score']:.2f}/5.0 "
+        print(f"  Authenticity: {router_scores['router_authenticity_score']:.2f}/5.0 "
               f"({a_s['count']} artifacts, max severity={a_s['max_severity']:.1f}, "
               f"{a_s['severe_count']} severe, {a_s['minor_count']} minor)")
     else:
-        print(f"  Artifact:  5.00/5.0 (no artifacts observed)")
+        print(f"  Authenticity: 5.00/5.0 (no artifacts observed)")
 
     approved_save_path = approved_dir / f"approved_plan_{img_id}.json"
     with open(approved_save_path, "w", encoding="utf-8") as f:
@@ -208,8 +208,8 @@ def run_sync_pipeline(
                 save_direct_score_report(result, output_dir)
                 stats["router_ok"] += 1
                 al = result.get("alignment_score", 0.0)
-                ar = result.get("artifact_score", 0.0)
-                print(f"  [{img_id}] DirectScore: alignment={al:.2f} artifact={ar:.2f}")
+                ar = result.get("authenticity_score", 0.0)
+                print(f"  [{img_id}] DirectScore: alignment={al:.2f} authenticity={ar:.2f}")
             else:
                 stats["router_fail"] += 1
 

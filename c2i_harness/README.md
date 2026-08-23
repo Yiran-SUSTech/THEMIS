@@ -233,7 +233,7 @@ c2i_faster/
 在该模式下，系统**跳过** Judge、Expert、Reflector 三个环节，仅保留 Router：
 - Router 接收待测评图片 + 类别 + taxonomy info checklist
 - Router 直接完成 Step 1（checkpoint 验证）+ Step 2（artifact 检测）+ Step 3（直接打分）
-- 输出 `alignment_score` 和 `artifact_score`（0-5 连续分数）
+- 输出 `alignment_score` 和 `authenticity_score`（0-5 连续分数）
 
 Router 的 prompt 与正常模式保持高度一致（Step 1 和 Step 2 完全相同），仅将 Step 3 从"选择专家"替换为"直接打分"，确保消融对比的公平性。
 
@@ -261,9 +261,9 @@ python c2i_faster/run.py --mode sync --without-expert --limit 5
   "checkpoint_verdicts": [...],
   "artifact_observations": [...],
   "alignment_score": 4.32,
-  "artifact_score": 3.85,
+  "authenticity_score": 3.85,
   "alignment_reasoning": "...",
-  "artifact_reasoning": "...",
+  "authenticity_reasoning": "...",
   "metadata": {
     "original_image": "...",
     "class_id": 207,

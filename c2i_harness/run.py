@@ -109,10 +109,16 @@ Examples:
                         help="Directory containing human-annotated reference images (default: THEMIS/test_images)")
     parser.add_argument("--enable-checklist", action="store_true", default=False,
                         help="Enable checklist annotation output (fine_grained_details + veto_activated) matching human annotation format (default: False)")
+    parser.add_argument("--taxonomy-mode", type=str, default="structured",
+                        choices=["structured", "enriched"],
+                        help="Which taxonomy source the Router receives: "
+                             "'structured' = only diagnostic_checkpoints (taxonomy_info_structural/), "
+                             "'enriched' = only enriched_description (taxonomy_info/, Router derives its own checkpoints). "
+                             "(default: structured)")
     parser.add_argument("--without-expert", action="store_true", default=False,
                         help="Ablation mode: router-only direct scoring, no experts/judge/reflector (default: False)")
     parser.add_argument("--pose-hard-cap", action="store_true", default=False,
-                        help="Enable hard caps on artifact_score based on pose low-confidence analysis (disabled by default due to domain-shift concerns)")
+                        help="Enable hard caps on authenticity_score based on pose low-confidence analysis (disabled by default due to domain-shift concerns)")
     parser.add_argument("--no-classifier-cap", action="store_false", dest="enable_classifier_cap", default=True,
                         help="Disable classifier-based alignment capping (Top-1/Top-3 mismatch caps). "
                              "By default (--enable-classifier-cap), alignment is capped to 2.0 if classifier "
@@ -175,9 +181,23 @@ Examples:
 
     # ── Set ref image directory for Reflector ──────────────────
     import step4_reflector as _step4_mod
-    _step4_mod.REF_IMAGE_DIR = Path(args.ref_image_dir)
+    _ref_dir = Path(args.ref_image_dir)
+    _step4_mod.REF_IMAGE_DIR = _ref_dir
     if args.ref_enable:
         print(f"  [CONFIG] Ref image dir: {args.ref_image_dir}")
+        if not _ref_dir.exists():
+            print(f"  [ERROR] --ref-image-dir does not exist: {_ref_dir}")
+            print(f"  [ERROR] Reference images will NOT be loaded. "
+                  f"Ensure the directory contains images matching names in ref_annotations.json.")
+        else:
+            _ref_files = list(_ref_dir.glob("*.png"))
+            print(f"  [CONFIG] Found {len(_ref_files)} PNG files in ref image dir")
+
+    # ── Set taxonomy mode for Router ──────────────────────────
+    import step1_router as _step1_mod
+    _step1_mod.TAXONOMY_MODE = args.taxonomy_mode
+    print(f"  [CONFIG] Router taxonomy mode: {args.taxonomy_mode} "
+          f"({'diagnostic_checkpoints only' if args.taxonomy_mode == 'structured' else 'enriched_description only, Router derives own checkpoints'})")
 
     # ── Resolve paths ──────────────────────────────────────────
     image_dir = Path(args.image_dir)

@@ -235,7 +235,7 @@ t2i_harness/output/
       "reasoning": "..."
     }
   ],
-  "artifact_review": "...",
+  "authenticity_review": "...",
   "alignment_score": 4.32,
   "authenticity_score": 3.85,
   "per_atom_scores": [0.9, 0.85, 1.0, 0.8],

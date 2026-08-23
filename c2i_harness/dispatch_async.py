@@ -668,7 +668,7 @@ async def _run_without_expert_async(
 
     Used in --without-expert ablation mode. Concurrently sends each image and its
     taxonomy checklist to the router, which directly outputs alignment_score and
-    artifact_score.
+    authenticity_score.
     """
     stats = {"router_ok": 0, "router_fail": 0}
     api_semaphore = asyncio.Semaphore(api_concurrency)
@@ -694,8 +694,8 @@ async def _run_without_expert_async(
                     save_direct_score_report(result, output_dir)
                     stats["router_ok"] += 1
                     al = result.get("alignment_score", 0.0)
-                    ar = result.get("artifact_score", 0.0)
-                    print(f"  [{img_id}] DirectScore: alignment={al:.2f} artifact={ar:.2f}")
+                    ar = result.get("authenticity_score", 0.0)
+                    print(f"  [{img_id}] DirectScore: alignment={al:.2f} authenticity={ar:.2f}")
                 else:
                     stats["router_fail"] += 1
             except Exception as e:

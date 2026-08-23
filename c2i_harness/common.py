@@ -204,7 +204,7 @@ def resolve_image_path(image_dir: Path, img_id: str) -> Path | None:
 
 
 def compute_router_scores(plan: dict) -> dict:
-    """Compute alignment and artifact scores from Router's checkpoint verdicts.
+    """Compute alignment and authenticity scores from Router's checkpoint verdicts.
 
     Added by Yiran for Router-level scoring before Reflector.
     """
@@ -224,14 +224,14 @@ def compute_router_scores(plan: dict) -> dict:
         max_severity = max(ao.get("severity", 0.0) for ao in artifact_observations)
         severe_count = sum(1 for ao in artifact_observations if ao.get("severity", 0.0) >= 2.0)
         minor_count = len(artifact_observations) - severe_count
-        artifact_score = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
-        artifact_score = max(0.0, artifact_score)
+        authenticity_score = 5.0 - max_severity - 0.3 * severe_count - 0.15 * minor_count
+        authenticity_score = max(0.0, authenticity_score)
     else:
-        artifact_score = 5.0
+        authenticity_score = 5.0
 
     return {
         "router_alignment_score": round(alignment_score, 2),
-        "router_artifact_score": round(artifact_score, 2),
+        "router_authenticity_score": round(authenticity_score, 2),
         "checkpoint_summary": {
             "total": len(checkpoint_verdicts),
             "testable": len(testable),
