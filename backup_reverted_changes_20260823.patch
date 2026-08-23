@@ -1,0 +1,198 @@
+diff --git a/c2i_harness/step1_router.py b/c2i_harness/step1_router.py
+index 1e4839b49..fd7a4552f 100644
+--- a/c2i_harness/step1_router.py
++++ b/c2i_harness/step1_router.py
+@@ -126,6 +126,7 @@ _COMMON_ROUTER_INSTRUCTIONS = """You are a Router Agent for AI-generated image e
+ For EACH checkpoint:
+ - Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
+ - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
++- For the SINGLE most distinctive checkpoint of the class (the feature that defines the class identity), examine its structure explicitly: edges must be rigid and cleanly defined. Report any melting, warping, streaking, drooping, or left-right asymmetry of this feature as `is_present: false` — a recognizable overall shape with a corrupted part is NOT fully present.
+ - Brief reasoning for both decisions.
+ 
+ **Step 2 — Artifact Detection (THOROUGH)**
+@@ -134,6 +135,7 @@ Scan the ENTIRE image carefully for AI-generation artifacts, including subtle on
+ - Location and severity (0-5 scale: 0=none, 1=barely noticeable on close inspection, 2=noticeable but minor, 3=moderately severe, 4=severe structural failure, 5=catastrophic nonsensical region).
+ - Brief reasoning.
+ - Pay special attention to: subtle edge bleeding between subject and background, slight texture inconsistencies in skin/fur/feathers, minor perspective warping, faint ghost limbs, small areas of melting or fusion that are easy to overlook.
++- The class-defining feature is the most common site of generation failure: even when its overall shape looks correct, inspect its edges, tips, and internal structure for melting, warping, streaking, or asymmetry BEFORE concluding the image is clean.
+ - If no artifacts found after thorough inspection, output empty list.
+ 
+ **Step 3 — Expert Verification Plan**
+@@ -646,6 +648,7 @@ _ROUTER_DIRECT_SCORE_INSTRUCTIONS = """You are a Router Agent for AI-generated i
+ For EACH checkpoint:
+ - Is it testable? Only mark `is_testable: false` if the feature is genuinely impossible to see (completely occluded or outside frame). If a feature is partially visible but blurry, unclear, or distorted — mark it as `is_testable: true, is_present: false`. Do NOT use `is_testable: false` as a way to skip difficult judgments; "blurry" or "hard to tell" means testable-but-absent, NOT untestable.
+ - If testable, does the image match the checkpoint description? Be critical — even subtle deviations (wrong color shade, slightly wrong proportion, partial but incomplete match) should be marked `is_present: false`. A checkpoint is present only if the feature clearly and fully matches.
++- For the SINGLE most distinctive checkpoint of the class (the feature that defines the class identity), examine its structure explicitly: edges must be rigid and cleanly defined. Report any melting, warping, streaking, drooping, or left-right asymmetry of this feature as `is_present: false` — a recognizable overall shape with a corrupted part is NOT fully present.
+ - Brief reasoning for both decisions.
+ 
+ **Step 2 — Artifact Detection (THOROUGH)**
+@@ -654,6 +657,7 @@ Scan the ENTIRE image carefully for AI-generation artifacts, including subtle on
+ - Location and severity (0-5 scale: 0=none, 1=barely noticeable on close inspection, 2=noticeable but minor, 3=moderately severe, 4=severe structural failure, 5=catastrophic nonsensical region).
+ - Brief reasoning.
+ - Pay special attention to: subtle edge bleeding between subject and background, slight texture inconsistencies in skin/fur/feathers, minor perspective warping, faint ghost limbs, small areas of melting or fusion that are easy to overlook.
++- The class-defining feature is the most common site of generation failure: even when its overall shape looks correct, inspect its edges, tips, and internal structure for melting, warping, streaking, or asymmetry BEFORE concluding the image is clean.
+ - If no artifacts found after thorough inspection, output empty list.
+ 
+ **Step 3 — Direct Scoring**
+diff --git a/c2i_harness/step4_reflector.py b/c2i_harness/step4_reflector.py
+index 0f6f80934..6eb88d56d 100644
+--- a/c2i_harness/step4_reflector.py
++++ b/c2i_harness/step4_reflector.py
+@@ -203,27 +203,47 @@ def select_reference_images(
+               f"(checked {len(annotations)} annotations, {_missing_files} image files missing in {effective_dir})")
+         return []
+ 
+-    low_group = [c for c in candidates if c["segment"] == "low"]
+-    mid_group = [c for c in candidates if c["segment"] == "mid"]
+-    high_group = [c for c in candidates if c["segment"] == "high"]
++    def _pick_segment_representatives(pool: list[dict]) -> list[dict]:
++        low_group = [c for c in pool if c["segment"] == "low"]
++        mid_group = [c for c in pool if c["segment"] == "mid"]
++        high_group = [c for c in pool if c["segment"] == "high"]
+ 
+-    def _pick_representative(group: list[dict], low: float, high: float) -> dict | None:
+-        if not group:
+-            return None
+-        midpoint = (low + high) / 2.0
+-        return min(group, key=lambda c: abs(c["authenticity_score"] - midpoint))
++        def _pick_representative(group: list[dict], low: float, high: float) -> dict | None:
++            if not group:
++                return None
++            midpoint = (low + high) / 2.0
++            return min(group, key=lambda c: abs(c["authenticity_score"] - midpoint))
++
++        picked: list[dict] = []
++        for group, lo, hi in (
++            (low_group, 0.0, _REF_LOW_MID_BOUNDARY),
++            (mid_group, _REF_LOW_MID_BOUNDARY, _REF_MID_HIGH_BOUNDARY),
++            (high_group, _REF_MID_HIGH_BOUNDARY, 5.0),
++        ):
++            rep = _pick_representative(group, lo, hi)
++            if rep is not None:
++                picked.append(rep)
++        return picked
++
++    # Same-class references first: they anchor BOTH alignment and authenticity.
++    # Cross-class references only anchor authenticity (quality), so they are
++    # used solely to fill the remaining slots.
++    same_class = [c for c in candidates if c["class_id"] == class_id]
++    cross_class = [c for c in candidates if c["class_id"] != class_id]
+ 
+     selected: list[dict] = []
+-    for group, lo, hi in (
+-        (low_group, 0.0, _REF_LOW_MID_BOUNDARY),
+-        (mid_group, _REF_LOW_MID_BOUNDARY, _REF_MID_HIGH_BOUNDARY),
+-        (high_group, _REF_MID_HIGH_BOUNDARY, 5.0),
+-    ):
+-        rep = _pick_representative(group, lo, hi)
+-        if rep is not None:
+-            selected.append(rep)
+-
+-    # If fewer than num_refs, fill from remaining candidates
++    if same_class:
++        selected.extend(_pick_segment_representatives(same_class))
++    if len(selected) < num_refs and cross_class:
++        selected_names = {s["image_name"] for s in selected}
++        for c in _pick_segment_representatives(cross_class):
++            if len(selected) >= num_refs:
++                break
++            if c["image_name"] not in selected_names:
++                selected.append(c)
++                selected_names.add(c["image_name"])
++
++    # Final fill from remaining candidates, closest to mid authenticity first
+     if len(selected) < num_refs:
+         selected_names = {s["image_name"] for s in selected}
+         remaining = [c for c in candidates if c["image_name"] not in selected_names]
+@@ -233,6 +253,9 @@ def select_reference_images(
+                 break
+             selected.append(c)
+ 
++    for s in selected:
++        s["same_class"] = s["class_id"] == class_id
++
+     return selected[:num_refs]
+ 
+ 
+@@ -251,16 +274,22 @@ def _build_ref_images_text(ref_images: list[dict]) -> str:
+     for i, ref in enumerate(ref_images, 1):
+         al = ref["alignment_score"] if ref["alignment_score"] is not None else "N/A"
+         al_str = f"{al:.2f}" if isinstance(al, float) else str(al)
++        if ref.get("same_class"):
++            scope = "SAME class as target — anchors BOTH alignment and authenticity"
++        else:
++            scope = "DIFFERENT class — quality anchor for authenticity ONLY"
+         lines.append(
+-            f"Reference {i} [{ref['segment']}]: {ref['image_name']} | "
++            f"Reference {i} [{ref['segment']}, {scope}]: {ref['image_name']} | "
+             f"class={ref['class_name']} | alignment_score={al_str} | "
+             f"authenticity_score={ref['authenticity_score']:.2f}"
+         )
+     lines.append("")
+     lines.append(
+-        "Compare the target image against these references. If the target has similar quality "
+-        "to a reference, assign a similar score. This ensures your scores are calibrated to "
+-        "human judgment and remain stable across images."
++        "Compare the target image against these references. If the target has similar visual "
++        "quality to a reference, assign a similar authenticity_score. Same-class references "
++        "also anchor alignment: if the target matches the class about as well as a same-class "
++        "reference does, its alignment_score should be in a similar range. Do NOT calibrate "
++        "alignment against different-class references — class difficulty varies across classes."
+     )
+     return "\n".join(lines)
+ 
+@@ -454,10 +483,13 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image evaluation
+ 
+ **Scoring Guidelines:**
+ - `authenticity_score` (0-5): Higher = FEWER artifacts and BETTER image quality. 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Note: this is the OPPOSITE direction from artifact severity (where higher = worse) — do not confuse the two.
++- `authenticity_score` measures the rendering quality of whatever is depicted (structural coherence, artifacts, physical plausibility of the rendering itself). It does NOT measure whether the subject is a realistic biological instance of the class. A clean, coherent image of a toy, prop, skeleton, or illustration of the target class should get LOW alignment but can deserve HIGH authenticity.
++- Keep the two scores independent: a badly misaligned image can still be well-rendered (high authenticity), and a perfectly aligned image can be full of artifacts (low authenticity).
+ - The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
+ - Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+ - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+ - Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
++- Perfect scores are rare: `authenticity_score` = 5.0 requires ZERO observable defects on careful inspection — if you can name any imperfection at all, score at most 4.5. `alignment_score` = 5.0 requires every testable checkpoint clearly present with no ambiguity.
+ - You may score higher or lower than the base scores if your judgment warrants it.
+ 
+ **Pose Evidence Interpretation:**
+@@ -505,10 +537,13 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image
+ 
+ **Scoring Guidelines:**
+ - `authenticity_score` (0-5): Higher = FEWER artifacts and BETTER image quality. 5.0 = no artifacts at all, 0.0 = catastrophic structural failure. Note: this is the OPPOSITE direction from artifact severity (where higher = worse) — do not confuse the two.
++- `authenticity_score` measures the rendering quality of whatever is depicted (structural coherence, artifacts, physical plausibility of the rendering itself). It does NOT measure whether the subject is a realistic biological instance of the class. A clean, coherent image of a toy, prop, skeleton, or illustration of the target class should get LOW alignment but can deserve HIGH authenticity.
++- Keep the two scores independent: a badly misaligned image can still be well-rendered (high authenticity), and a perfectly aligned image can be full of artifacts (low authenticity).
+ - The base scores shown below are computed by a formula and are ONLY a starting reference. You MUST give your own independent scores based on your holistic judgment.
+ - Your scores should be precise continuous values (e.g., 3.82, 1.47, 4.63), NOT rounded to 0.5 increments.
+ - A truly excellent image (full class conformance + zero artifacts) should score near 5.0.
+ - Any notable issue should produce a meaningfully lower score. Multiple minor issues compound.
++- Perfect scores are rare: `authenticity_score` = 5.0 requires ZERO observable defects on careful inspection — if you can name any imperfection at all, score at most 4.5. `alignment_score` = 5.0 requires every testable checkpoint clearly present with no ambiguity.
+ - You may score higher or lower than the base scores if your judgment warrants it.
+ 
+ **Pose Evidence Interpretation:**
+@@ -538,6 +573,7 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image
+   - If the primary feature is clearly recognizable (e.g., the hammer-shaped head is visible), mark "🟢 Checked" even when a secondary sub-attribute (3D flattening, texture, fine coloration) cannot be verified from the current viewpoint.
+   - An unverifiable secondary attribute caused by viewpoint or lighting limitations is NOT evidence of Missing — Missing requires the feature itself to be absent, malformed, or corrupted by artifacts.
+   - Overall softening from photographic conditions (backlighting, underwater scattering, halation) that still leaves the primary form recognizable does NOT make a feature Missing.
++  - HOWEVER, if ANY part of the primary feature itself shows melting, warping, streaking, drooping, or asymmetric deformation beyond natural variation (e.g., one wing of the hammer-head melts into streaks), the status is "🔴 Missing" — a partially corrupted feature is NOT "Checked", even though its overall shape remains recognizable. Before marking the class-defining feature as "🟢 Checked", actively inspect its edges and structure for such corruption.
+ - Output format is strict: never write "Partial", "Present", "Unclear", or any other word as a status. If a feature is partially formed or partially damaged by artifacts, its status is "🔴 Missing".
+ - Use the EXACT checkpoint description strings from the Diagnostic Checkpoints as keys. Do NOT rephrase or invent new keys.
+ - Your checklist must cover EVERY checkpoint from EVERY category in the Diagnostic Checkpoints — no omissions.
+@@ -545,6 +581,7 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image
+ 
+ **Veto Mechanism (veto_activated):**
+ - Set `veto_activated` to true if the image has catastrophic structural failure (e.g., complete structural collapse, severe melting making the subject unrecognizable, or multiple major anatomical errors) that makes meaningful evaluation impossible.
++- Do NOT activate veto merely because the depicted subject is stylized, artificial, or non-biological (toys, props, costumes, museum skeletons, illustrations, drawings). Such images deserve low alignment but normal authenticity scoring — the rendering itself may be perfectly coherent.
+ - Otherwise set it to false.
+ 
+ **Output JSON:**
+@@ -580,8 +617,8 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
+    - Did the pose auditor's keypoint analysis reveal structural issues you overlooked?
+ 
+ 3. Reference Calibration: If human-scored reference images were provided:
+-   - Are your scores consistent with the reference anchors?
+-   - If a reference with similar quality has alignment=4.0, is your score in a similar range?
++   - Authenticity anchors apply across classes: if a reference of similar visual quality has authenticity=4.0, your authenticity score should be in a similar range.
++   - Alignment anchors apply ONLY to same-class references. Never adjust alignment because a different-class reference has a low or high alignment score — class difficulty varies.
+    - Reference anchors should prevent both inflated and deflated scores.
+ 
+ 4. Leniency Bias: Are you rubber-stamping the Router's assessment too readily?
