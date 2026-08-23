@@ -102,7 +102,7 @@ def _load_ref_annotations() -> dict:
         _REF_ANNOTATIONS_CACHE = {}
         return _REF_ANNOTATIONS_CACHE
     try:
-        with open(REF_ANNOTATIONS_JSON, "r", encoding="utf-8") as f:
+        with open(REF_ANNOTATIONS_JSON, "r", encoding="utf-8-sig") as f:
             _REF_ANNOTATIONS_CACHE = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         print(f"  [WARN] Failed to load ref_annotations.json: {e}")
@@ -530,10 +530,15 @@ _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = r"""You are the Reflector of an AI image 
 
 **Checklist Annotation (fine_grained_details):**
 - You MUST produce a `fine_grained_details` object that mirrors the Diagnostic Checkpoints structure.
-- For EACH checkpoint description listed under each category, assign one of three status values:
-  - "🟢 Checked" — the feature is clearly present and correctly rendered in the image. You must be able to point to specific visual evidence.
-  - "🔴 Missing" — the feature is absent, malformed, blurry, partially formed, merged with the body, or incorrect. When in doubt about a distinctive feature, prefer Missing over Checked.
-  - "⚪ N/A" — the feature cannot be evaluated (e.g., not visible, occluded, or genuinely inapplicable to this view).
+- For EACH checkpoint description listed under each category, assign one of three status values — and ONLY these three exact strings:
+  - "🟢 Checked" — the feature's PRIMARY visual form is present and correctly rendered in the image. You must be able to point to specific visual evidence.
+  - "🔴 Missing" — the feature is absent, malformed, blurry, partially formed, merged with the body, or incorrect. When the feature itself shows a visual defect, prefer Missing over Checked.
+  - "⚪ N/A" — the feature cannot be evaluated at all (e.g., the relevant body part is not visible, occluded, or genuinely inapplicable to this view).
+- Compound checkpoints (describing multiple attributes, e.g., "laterally expanded, dorsoventrally flattened cephalofoil") must be judged by their PRIMARY visual feature:
+  - If the primary feature is clearly recognizable (e.g., the hammer-shaped head is visible), mark "🟢 Checked" even when a secondary sub-attribute (3D flattening, texture, fine coloration) cannot be verified from the current viewpoint.
+  - An unverifiable secondary attribute caused by viewpoint or lighting limitations is NOT evidence of Missing — Missing requires the feature itself to be absent, malformed, or corrupted by artifacts.
+  - Overall softening from photographic conditions (backlighting, underwater scattering, halation) that still leaves the primary form recognizable does NOT make a feature Missing.
+- Output format is strict: never write "Partial", "Present", "Unclear", or any other word as a status. If a feature is partially formed or partially damaged by artifacts, its status is "🔴 Missing".
 - Use the EXACT checkpoint description strings from the Diagnostic Checkpoints as keys. Do NOT rephrase or invent new keys.
 - Your checklist must cover EVERY checkpoint from EVERY category in the Diagnostic Checkpoints — no omissions.
 - Base your status on YOUR OWN holistic judgment by looking at the image. The Router's verdicts are provided for reference only — do not blindly copy them.
@@ -591,7 +596,8 @@ _REFLECTOR_SELF_REFLECTION_TEMPLATE = """You are the Reflector performing self-r
 
 6. Checkpoint Review: For each checkpoint:
    - Did you form your OWN independent verdict by looking at the image, or did you just copy the Router's?
-   - For each "Checked" status: can you point to specific visual evidence in the image? If not, change to "Missing".
+   - For each "Checked" status: can you point to specific visual evidence of the feature's PRIMARY form? If not, change to "Missing". Inability to verify a secondary sub-attribute (e.g., 3D shape, texture) from the current viewpoint does NOT invalidate a Checked status.
+   - When revising any status, output ONLY the three exact values "🟢 Checked" / "🔴 Missing" / "⚪ N/A" — never "Partial" or other words.
 
 7. Upward Override Justification: For every checkpoint where your final assessment is MORE lenient than the Router's (e.g., you agreed with is_present=true where the Router was uncertain, or you raised a score above the base score):
    - You MUST provide independent visual evidence from the image itself (not just "the Router said so").
@@ -1055,7 +1061,12 @@ def _normalize_checklist_output(
                 status_lower = str(status).lower().strip()
                 if "checked" in status_lower or "present" in status_lower or status_lower == "🟢":
                     status = "🟢 Checked"
-                elif "missing" in status_lower or "absent" in status_lower or status_lower == "🔴":
+                elif ("missing" in status_lower or "absent" in status_lower
+                      or "partial" in status_lower or status_lower == "🔴"):
+                    # "partial" maps to Missing: the checklist protocol defines
+                    # "partially formed / partially damaged" as Missing, and an
+                    # N/A here would wrongly exclude the checkpoint from the
+                    # alignment denominator
                     status = "🔴 Missing"
                 else:
                     status = "⚪ N/A"

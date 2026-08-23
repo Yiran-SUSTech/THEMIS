@@ -114,7 +114,7 @@ def _load_t2i_ref_annotations() -> dict:
     """加载 T2I 人类打分参考数据。"""
     if not T2I_REF_ANNOTATIONS_JSON.exists():
         return {}
-    with open(T2I_REF_ANNOTATIONS_JSON, "r", encoding="utf-8") as f:
+    with open(T2I_REF_ANNOTATIONS_JSON, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 
