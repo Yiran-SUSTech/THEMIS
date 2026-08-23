@@ -1,0 +1,169 @@
+{
+    "image_description": "A white spoonbill wading in shallow water, holding a fish in its distinctive spatulate bill. The bird has white plumage, long dark legs, and a long neck curved downwards while feeding. A clear reflection of the bird is visible in the water.",
+    "image_class": "spoonbill",
+    "checkpoint_verdicts": [
+        {
+            "checkpoint": "Elongated flat bill with spatulate tip resembling a spoon, notably long relative to head.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The bill is clearly visible, elongated, and terminates in a distinct flattened, spoon-like shape characteristic of the species."
+        },
+        {
+            "checkpoint": "Bill color ranges from black to grey with yellow tip depending on species.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The bill appears predominantly pinkish-flesh colored with a darker tip, rather than the black/grey/yellow combination described. This suggests a specific species (likely Roseate Spoonbill or Eurasian Spoonbill juvenile) that deviates from the generic checkpoint description."
+        },
+        {
+            "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The nape area is visible but lacks the distinct elongated crest feathers; the head profile is smooth."
+        },
+        {
+            "checkpoint": "Plumage is predominantly white with some species displaying pink, yellow, or black accents.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The body plumage is overwhelmingly white, matching the primary descriptor."
+        },
+        {
+            "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The bird exhibits the robust body size and proportions typical of a large wader."
+        },
+        {
+            "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
+            "category": "Body_and_Plumage",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The bird is standing/wading, not in flight; wings are folded and primary feather coloration cannot be assessed."
+        },
+        {
+            "checkpoint": "Legs are long and dark grey to black adapted for wading.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "Long, thin, dark-colored legs are clearly visible submerged in the water, consistent with wading anatomy."
+        },
+        {
+            "checkpoint": "Neck is long and S-curved.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The neck is visibly long and exhibits a distinct curve as the bird bends down to feed."
+        },
+        {
+            "checkpoint": "Flight posture features neck retraction in S-curve.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": false,
+            "is_present": false,
+            "reasoning": "The subject is not in flight; this behavioral checkpoint is not applicable to the current pose."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "texture_anomaly",
+            "location": "Fish in bill / Bill interface",
+            "severity": 2,
+            "reasoning": "The object held in the bill (presumably a fish) has a slightly smeared texture where it meets the bill edges, lacking crisp definition typical of high-res photography."
+        },
+        {
+            "artifact_type": "perspective_distortion",
+            "location": "Water reflection",
+            "severity": 1,
+            "reasoning": "The reflection of the legs and lower body is somewhat inconsistent with the ripple pattern of the water; parts of the reflection appear slightly disconnected or overly sharp compared to the distortion expected from the ripples."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "spoonbill",
+            "verification_goals": [
+                "Confirm Class Label: Verify the image depicts a 'spoonbill' (vs. heron, stork, or ibis) based on overall morphology."
+            ],
+            "reason": "As per Judge feedback, this expert is strictly for coarse class verification (Spoonbill vs. Non-Spoonbill). It confirms the base taxonomy before attribute analysis.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "spoonbill and fish",
+            "verification_goals": [
+                "Detect bounding boxes for 'spoonbill' and 'fish' to establish spatial priors.",
+                "Verify the presence of a distinct 'fish' object separate from the bill."
+            ],
+            "reason": "Mandatory bridge expert. Provides precise localization for the topology auditor to isolate the bill-fish interface and prevents segmentation failure.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "fish and bill",
+            "verification_goals": [
+                "Audit the boundary continuity between the detected 'fish' instance and the 'spoonbill' bill.",
+                "Check for topological fusion or melting at the contact point identified by OVD."
+            ],
+            "reason": "Uses OVD priors to specifically verify if the fish is a coherent object or an artifact fused with the bill, addressing the texture anomaly observation.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "spoonbill bill and water reflection",
+            "verification_goals": [
+                "Analyze bill color consistency: Determine if the pinkish hue is a valid species trait or a generation artifact.",
+                "Assess physical plausibility of the water reflection against surface ripples."
+            ],
+            "reason": "Delegated attribute verification (bill color) and reflection physics check, replacing the misaligned fine-grained classification task for color.",
+            "weight": 0.3
+        }
+    ],
+    "unverifiable_points": [
+        "Wings are broad with colored primary feathers visible in flight.",
+        "Flight posture features neck retraction in S-curve."
+    ],
+    "focus_areas": [
+        "Bill morphology and color accuracy (via Perceptual Quality)",
+        "Leg/Water interaction and reflection physics",
+        "Object held in bill (structural integrity via OVD + Topology)"
+    ],
+    "custom_prompts_for_reflector": "Please pay close attention to the bill color. The checkpoint mentions 'black to grey with yellow tip', but the image shows a pinkish/flesh tone. Use the perceptual quality auditor to determine if this indicates a specific species (like Platalea ajaja) or if it represents a color hallucination. Also, scrutinize the object in the mouth—is it a recognizable fish, or does it melt into the bill? Ensure the topology auditor uses the OVD bounding box to strictly separate the fish from the bill.",
+    "metadata": {
+        "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000075.png",
+        "class_id": 129,
+        "class_label": "spoonbill",
+        "router_cost_seconds": 30.7,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1
+    },
+    "selected_experts": [
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "spoonbill",
+            "reason": "As per Judge feedback, this expert is strictly for coarse class verification (Spoonbill vs. Non-Spoonbill). It confirms the base taxonomy before attribute analysis.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "spoonbill and fish",
+            "reason": "Mandatory bridge expert. Provides precise localization for the topology auditor to isolate the bill-fish interface and prevents segmentation failure.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "fish and bill",
+            "reason": "Uses OVD priors to specifically verify if the fish is a coherent object or an artifact fused with the bill, addressing the texture anomaly observation.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "spoonbill bill and water reflection",
+            "reason": "Delegated attribute verification (bill color) and reflection physics check, replacing the misaligned fine-grained classification task for color.",
+            "weight": 0.3
+        }
+    ]
+}

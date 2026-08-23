@@ -1,0 +1,208 @@
+{
+    "image_id": "000012",
+    "class_label": "brambling, Fringilla montifringilla",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:38:26",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical flaw in expert selection and workflow ordering. The `open_vocabulary_detector` is assigned to detect 'bird_parts' (eyes, beak, legs) directly. However, the Registry defines this expert as a 'Bridge' that provides BBox priors for segmentation experts, not a fine-grained anatomical auditor. Detecting small, potentially missing or fused parts like eyes/legs on a blurry bird requires the `topology_boundary_auditor` (SAM-based) using priors from the detector, not the detector alone. Furthermore, the `fine_grained_classifier` is weighted highest (0.35), but if the image suffers from severe topological melting (fusion of head into flowers), species classification is secondary to structural validity. The plan fails to explicitly link the detection of missing parts to the segmentation audit.",
+        "suggestions": [
+            {
+                "type": "workflow_correction",
+                "point": "Reorder and redefine the role of open_vocabulary_detector. It should detect the 'bird' and 'vegetation' broadly to provide masks for the topology auditor, rather than attempting to detect specific small parts like 'eyes' which it may miss due to resolution/fusion.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The verification of 'missing eyes/legs' (is_present=false checkpoints) relies solely on the detector. This is insufficient for fused/melted artifacts. The topology_boundary_auditor must explicitly verify the separation of the head from the flower to confirm if the eye is 'obscured' or 'non-existent/melted'.",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Reduce weight of fine_grained_classifier (0.35 -> 0.2) and increase weight of topology_boundary_auditor (0.2 -> 0.3). Structural integrity (is it a valid bird?) precedes taxonomic identity (which species?).",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A small passerine bird, likely a brambling, is perched on a thin branch amidst vegetation. The bird has a brownish-grey head and upperparts with rufous-orange wash on the breast and flanks. It appears to be feeding or interacting with yellow flower buds. The image quality is low resolution with significant blur.",
+        "image_class": "brambling",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Bill is short, thick, and conical with a sharp tip, grey in winter and black in breeding season.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill is visible but appears distorted and fused with the surrounding vegetation/flowers due to low resolution and potential AI artifacting; it lacks the crisp conical definition expected."
+            },
+            {
+                "checkpoint": "Eyes are dark and round, positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No distinct eye is visible; the head area is a smudge of brown/grey pixels without a defined ocular structure."
+            },
+            {
+                "checkpoint": "Breeding male has a black head and throat.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head is brownish-grey, not black. This suggests a female or non-breeding male, or a generation failure regarding sex-specific plumage."
+            },
+            {
+                "checkpoint": "Body is compact and rounded.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The general silhouette is consistent with a compact finch body shape, despite the blur."
+            },
+            {
+                "checkpoint": "Breeding male has bright orange-rufous breast and underparts with black upperparts and bold white shoulder patches and rump.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While there is rufous coloring on the breast, the upperparts are brownish-grey rather than black, and no bold white shoulder patches are clearly resolved."
+            },
+            {
+                "checkpoint": "Female and non-breeding male exhibit duller brownish-grey upperparts with buff-orange underparts.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration (brownish-grey back, orange-washed breast) aligns with the description of a female or non-breeding male brambling."
+            },
+            {
+                "checkpoint": "Plumage texture is soft and slightly fluffy with a matte finish.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Texture is indistinguishable due to severe blur and low resolution; it appears as a smooth gradient rather than individual feathers."
+            },
+            {
+                "checkpoint": "Wings are moderately long with pointed primaries.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Wing structure is collapsed into the body mass; individual primaries are not visible."
+            },
+            {
+                "checkpoint": "Flight displays distinctive white wing bars and white outer tail feathers.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Bird is perched, not in flight. Tail feathers are obscured by vegetation and angle."
+            },
+            {
+                "checkpoint": "Legs are pinkish-brown with slender toes and small claws adapted for perching.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs and feet are completely obscured by the branch and yellow floral structures; no anatomical detail is visible."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Head and beak area",
+                "severity": 4,
+                "reasoning": "The bird's head merges seamlessly into the yellow flowers/stem it is interacting with. There is no clear boundary between the biological subject and the plant matter."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Entire bird body",
+                "severity": 3,
+                "reasoning": "Lack of feather detail; the plumage looks like airbrushed paint or a low-res jpeg artifact rather than biological texture."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Lower body and legs",
+                "severity": 4,
+                "reasoning": "The connection point between the bird and the perch is undefined. The legs seem to dissolve into the branch/flowers."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bird",
+                "verification_goals": [
+                    "Confirm species identity as Fringilla montifringilla vs similar finches",
+                    "Verify if plumage colors match female/non-breeding male taxonomy"
+                ],
+                "reason": "Primary verification needed to confirm if the blurry subject is actually a brambling given the ambiguous features.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess severity of fusion between bird head and vegetation",
+                    "Evaluate if lack of feather texture is due to compression or generation failure"
+                ],
+                "reason": "Critical to distinguish between a bad photo and an AI generation artifact, specifically the melting head.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bird",
+                "verification_goals": [
+                    "Segment bird from background vegetation to check for edge bleeding",
+                    "Verify structural integrity of the beak-flower interaction zone"
+                ],
+                "reason": "To objectively measure the extent of the 'fusion' artifact observed at the head.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bird_parts",
+                "verification_goals": [
+                    "Detect presence of 'eye', 'beak', 'legs'",
+                    "Provide bounding boxes for missing anatomical parts"
+                ],
+                "reason": "To confirm if key anatomical features (eyes, legs) are genuinely missing or just obscured.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Flight displays distinctive white wing bars and white outer tail feathers"
+        ],
+        "focus_areas": [
+            "Head-beak fusion with vegetation",
+            "Absence of defined eyes",
+            "Missing leg/foot anatomy",
+            "Plumage texture fidelity"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the interface between the bird's head and the yellow flowers. Is this a valid biological interaction (eating) rendered poorly, or is it topological melting? Also, verify if the 'brownish-grey' head definitively rules out 'breeding male' status based on the provided taxonomy.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000012.png",
+            "class_id": 10,
+            "class_label": "brambling, Fringilla montifringilla",
+            "router_cost_seconds": 32.97,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bird",
+                "reason": "Primary verification needed to confirm if the blurry subject is actually a brambling given the ambiguous features.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Critical to distinguish between a bad photo and an AI generation artifact, specifically the melting head.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "bird",
+                "reason": "To objectively measure the extent of the 'fusion' artifact observed at the head.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bird_parts",
+                "reason": "To confirm if key anatomical features (eyes, legs) are genuinely missing or just obscured.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

@@ -1,0 +1,193 @@
+{
+    "image_id": "000089",
+    "class_label": "grey whale, gray whale, devilfish, Eschrichtius gibbosus, Eschrichtius rostus',",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:42:39",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with verifying the rostrum arch and species ID. However, standard ImageNet-trained ViTs often lack the granularity to distinguish specific cetacean cranial geometry (e.g., Grey Whale vs. Right Whale) without explicit bounding box guidance or specialized training.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "optimization",
+                "point": "The 'geometric_depth_auditor' is assigned a low weight (0.1). Given that the subject is partially submerged, verifying the consistency of the waterline plane and the 3D volume of the head is critical to rule out 'floating head' artifacts. Consider increasing its weight or merging its goals into the topology audit.",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A close-up shot of a grey whale's head and upper back surfacing in blue ocean water. The whale's skin is dark grey with distinctive white mottling and barnacle clusters. The rostrum is visible breaking the surface, but the body is partially submerged.",
+        "image_class": "grey whale",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is relatively short with arched rostrum and two blowholes on top.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The rostrum is visible and appears arched, but the top of the head where blowholes would be located is either submerged or obscured by the angle/waterline. Blowholes are not clearly visible."
+            },
+            {
+                "checkpoint": "Skin is mottled grey to greyish-black with distinctive white patches from barnacles and whale lice.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible skin clearly shows the characteristic mottled grey pattern with distinct white patches consistent with barnacle infestation."
+            },
+            {
+                "checkpoint": "No dorsal fin present; multiple dorsal knuckles along posterior back.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The posterior back and dorsal area are not visible in the frame; only the head and immediate shoulder area are shown."
+            },
+            {
+                "checkpoint": "Robust spindle-shaped body of enormous proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Only the head and a small portion of the back are visible; the full body shape cannot be assessed."
+            },
+            {
+                "checkpoint": "Skin is mottled grey with white patches created by barnacles.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Consistent with the Head checkpoint, the visible skin texture matches the description perfectly."
+            },
+            {
+                "checkpoint": "Baleen plates are cream-colored, densely packed in numerous rows along each side.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The mouth is closed and submerged; baleen plates are internal and not visible in this surfacing pose."
+            },
+            {
+                "checkpoint": "Flippers (pectoral fins) are broad and paddle-shaped, remarkably elongated relative to body size.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Pectoral fins are located on the underside/lateral body and are completely submerged/out of frame."
+            },
+            {
+                "checkpoint": "Tail flukes are broad with smooth trailing edge and central notch.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is at the opposite end of the animal and is not in the frame."
+            },
+            {
+                "checkpoint": "Skin texture is rough with callosities.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The high-resolution texture of the head shows rough, bumpy skin consistent with callosities and barnacles."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Water surface around the whale's head",
+                "severity": 1.5,
+                "reasoning": "The water displacement ripple immediately surrounding the head looks slightly synthetic; the transition from the solid whale skin to the liquid water lacks some micro-turbulence detail, appearing slightly 'painted' rather than physically simulated."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Background water horizon",
+                "severity": 1.0,
+                "reasoning": "Standard depth-of-field blur, but the gradient is very uniform, which can sometimes indicate AI generation, though likely acceptable here."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "whale head",
+                "verification_goals": [
+                    "Confirm species identification as Eschrichtius gibbosus based on cranial shape and skin pattern.",
+                    "Distinguish from other baleen whales (e.g., humpback, right whale) based on rostrum arch."
+                ],
+                "reason": "Primary verification to ensure the generated subject is actually a grey whale and not a generic cetacean hallucination.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "whale-water interface",
+                "verification_goals": [
+                    "Verify the boundary between the whale's skin and the water surface is sharp and physically consistent.",
+                    "Check for edge bleeding or melting where the solid object meets the liquid."
+                ],
+                "reason": "AI images often struggle with the refraction and displacement effects at the waterline; this auditor checks for structural integrity at the interface.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the water texture and lighting reflections.",
+                    "Detect any subtle noise patterns or repetitive textures in the barnacles."
+                ],
+                "reason": "Holistic quality check to catch low-level artifacts that specific geometry auditors might miss.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "whale head",
+                "verification_goals": [
+                    "Verify the 3D volume of the head is consistent with a surfacing whale (not flat).",
+                    "Check if the water line follows a logical plane across the object."
+                ],
+                "reason": "Ensures the head isn't a 2D texture mapped onto a flat plane, which is a common failure mode in aquatic AI generations.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "No dorsal fin present; multiple dorsal knuckles along posterior back.",
+            "Robust spindle-shaped body of enormous proportions.",
+            "Baleen plates are cream-colored, densely packed in numerous rows along each side.",
+            "Flippers (pectoral fins) are broad and paddle-shaped, remarkably elongated relative to body size.",
+            "Tail flukes are broad with smooth trailing edge and central notch."
+        ],
+        "focus_areas": [
+            "Skin texture fidelity (barnacles/callosities)",
+            "Water-line physics and refraction",
+            "Rostrum shape accuracy"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the 'water-whale interface'. AI often fails to render the correct meniscus and wetness where an animal breaks the surface. Also, verify if the barnacle patterns look procedurally generated (repetitive) or organic (random).",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000089.png",
+            "class_id": 147,
+            "class_label": "grey whale, gray whale, devilfish, Eschrichtius gibbosus, Eschrichtius rostus',",
+            "router_cost_seconds": 30.28,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "whale head",
+                "reason": "Primary verification to ensure the generated subject is actually a grey whale and not a generic cetacean hallucination.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "whale-water interface",
+                "reason": "AI images often struggle with the refraction and displacement effects at the waterline; this auditor checks for structural integrity at the interface.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to catch low-level artifacts that specific geometry auditors might miss.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "whale head",
+                "reason": "Ensures the head isn't a 2D texture mapped onto a flat plane, which is a common failure mode in aquatic AI generations.",
+                "weight": 0.1
+            }
+        ]
+    }
+}

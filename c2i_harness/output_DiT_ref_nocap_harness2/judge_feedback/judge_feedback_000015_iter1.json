@@ -1,0 +1,187 @@
+{
+    "image_id": "000015",
+    "class_label": "European fire salamander, Salamandra salamandra",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:38:25",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical error in Expert Selection: it assigns the `animal_pose_auditor` to a salamander. The expert registry explicitly states this expert is 'NOT for limbless (fish, snakes)' and implies suitability for standard limbed vertebrates (humans/animals with distinct jointed limbs). Salamanders have a sprawling gait and limb morphology that often confuses standard pose estimators trained on mammals/birds, leading to high false-positive failure rates. Furthermore, the plan fails to utilize the `open_vocabulary_detector`, which is defined as the 'primary Bridge expert' necessary to provide bounding box priors for the `topology_boundary_auditor`. Without this precursor step, the boundary audit lacks spatial grounding.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial Grounding & Segmentation Priors",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The `topology_boundary_auditor` requires precise object localization to segment the salamander from the complex pine needle background. The `open_vocabulary_detector` must be run first to generate BBox priors, as mandated by its description."
+            },
+            {
+                "type": "expert_misapplication",
+                "point": "Pose Auditing on Amphibians",
+                "recommended_expert": "N/A (Remove animal_pose_auditor)",
+                "reason": "Replace `animal_pose_auditor` with `perceptual_quality_auditor` or rely on `fine_grained_classifier` for structural plausibility. Standard pose auditors are ill-suited for the sprawling anatomy of salamanders and will likely yield noisy/incorrect keypoint data."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Verification of 'is_present=false' checkpoints",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "The checkpoint for 'gold-flecked irises' was marked false due to resolution. The `fine_grained_classifier` should be explicitly tasked to verify if the eye region morphology is consistent with the species, even if fine texture is missing, to rule out generic 'black bead' eyes common in low-quality generations."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A high-angle, close-up shot of a European fire salamander (Salamandra salamandra) resting on a bed of dry pine needles and forest debris. The amphibian has a glossy black body with distinct, irregular yellow spots and bands. Its skin appears wet and glandular. The head is broad, and the limbs are visible but partially obscured by the angle and substrate. The tail extends towards the upper right.",
+        "image_class": "European fire salamander",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is broad and flattened with prominent parotoid glands (poison glands) behind the eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head shape is clearly broad and somewhat flattened. While the specific texture of the parotoid glands is hard to resolve perfectly due to image resolution, the bulging anatomical structure behind the eyes consistent with these glands is visible."
+            },
+            {
+                "checkpoint": "Eyes are small, dark, and protruding with gold-flecked irises.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eyes are visible as dark protrusions, but the image resolution and lighting prevent verification of 'gold-flecked irises'. They appear mostly black/dark brown without distinct flecking visible at this scale."
+            },
+            {
+                "checkpoint": "Body is robust and cylindrical.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The torso exhibits the characteristic robust, cylindrical shape of a salamander, distinct from the flatter bodies of newts or lizards."
+            },
+            {
+                "checkpoint": "Vivid black and yellow (or orange) warning coloration: glossy black dorsal surface with irregular yellow spots, stripes, or bands.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coloration pattern is textbook for the species: high-contrast glossy black base with irregular, bright yellow maculations (spots and partial bands)."
+            },
+            {
+                "checkpoint": "Skin is smooth, moist, and glandular with a glossy, wet-looking appearance.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Strong specular highlights on the black skin confirm a moist, glossy texture typical of healthy amphibian skin."
+            },
+            {
+                "checkpoint": "Limbs are short and stout with four digits on forelimbs and five on hindlimbs; digits are blunt and unwebbed.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While limbs are present, the specific digit count (4 vs 5) and the 'blunt/unwebbed' nature are not resolvable. The feet blend into the pine needle substrate, making precise anatomical auditing impossible visually."
+            },
+            {
+                "checkpoint": "Tail is laterally compressed and shorter than body length, with a rounded tip.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tail is visible extending to the right. It appears roughly equal to or slightly shorter than the snout-vent length (body), and maintains a consistent thickness suggesting lateral compression rather than a thin whip-like shape."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Interface between salamander belly/limbs and pine needles",
+                "severity": 2,
+                "reasoning": "There is slight ambiguity in the boundary where the black skin meets the dark pine needles. Some needles appear to 'melt' slightly into the limb contours, likely due to low contrast and shadow, but could indicate minor segmentation fusion."
+            },
+            {
+                "artifact_type": "blur",
+                "location": "Background pine needles (top left and bottom right)",
+                "severity": 1,
+                "reasoning": "Standard depth-of-field blur is present. However, the transition from sharp subject to blurred background is slightly abrupt in the top-left corner, which can sometimes indicate AI generation, though it is likely just lens bokeh here."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "European fire salamander",
+                "verification_goals": [
+                    "Confirm species identity as Salamandra salamandra based on spot pattern and body morphology.",
+                    "Distinguish from similar species like Fire-bellied toads or other salamanders."
+                ],
+                "reason": "Primary verification of the class label. The spot pattern is the most reliable identifier for this species.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "European fire salamander",
+                "verification_goals": [
+                    "Verify limb connectivity and structural integrity.",
+                    "Check for missing or fused digits despite visual occlusion.",
+                    "Validate the biological plausibility of the limb-to-body ratio."
+                ],
+                "reason": "Crucial for detecting common AI failures in limb generation (extra legs, melted toes) which are suspected due to the complex substrate interaction.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
+                "verification_goals": [
+                    "Audit the boundary sharpness between the glossy black skin and the dark pine needles.",
+                    "Verify the salamander is a single continuous mesh without floating parts.",
+                    "Check for 'melting' artifacts at the contact points with the ground."
+                ],
+                "reason": "To verify the 'texture_anomaly' observed in Step 2 and ensure the subject is physically grounded, not composited or hallucinated into the background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "European fire salamander",
+                "verification_goals": [
+                    "Assess the realism of the skin glossiness and wetness.",
+                    "Evaluate if the lighting on the yellow spots matches the environmental light source.",
+                    "Check for unnatural noise patterns in the dark areas of the skin."
+                ],
+                "reason": "AI images often struggle with realistic subsurface scattering and specular highlights on wet organic surfaces. This expert validates the material properties.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Gold-flecked irises (resolution limit)",
+            "Exact digit count (occlusion by substrate)"
+        ],
+        "focus_areas": [
+            "Limb-substrate interface for fusion artifacts",
+            "Skin texture realism (gloss/wetness)",
+            "Species-specific spot pattern accuracy"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the interaction between the salamander's limbs and the pine needles. AI generators often fail to correctly occlude limbs behind foreground objects or create 'sticky' boundaries where the animal merges with the ground. Also, verify that the yellow spots follow the curvature of the body realistically and do not look like flat textures mapped onto a cylinder.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000015.png",
+            "class_id": 25,
+            "class_label": "European fire salamander, Salamandra salamandra",
+            "router_cost_seconds": 32.38,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "European fire salamander",
+                "reason": "Primary verification of the class label. The spot pattern is the most reliable identifier for this species.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "European fire salamander",
+                "reason": "Crucial for detecting common AI failures in limb generation (extra legs, melted toes) which are suspected due to the complex substrate interaction.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "European fire salamander",
+                "reason": "To verify the 'texture_anomaly' observed in Step 2 and ensure the subject is physically grounded, not composited or hallucinated into the background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "European fire salamander",
+                "reason": "AI images often struggle with realistic subsurface scattering and specular highlights on wet organic surfaces. This expert validates the material properties.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

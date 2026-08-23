@@ -1,0 +1,192 @@
+{
+    "image_id": "000078",
+    "class_label": "spoonbill",
+    "iteration": 2,
+    "timestamp": "2026-08-23 12:42:58",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'Bill color' checkpoint was marked false due to a mismatch with the general taxonomy (which specifies black/grey/yellow). However, Roseate Spoonbills typically have grey bills. The plan should explicitly verify if the observed pale/grey bill is consistent with the specific species identified by the classifier, rather than just flagging it as a mismatch against the generic description.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The 'Leg color' checkpoint was marked false because legs are pink, not dark grey/black. Since the subject is identified as a Roseate Spoonbill (which has pink legs), this 'failure' is actually a correct biological feature. The verification plan should confirm that the leg color matches the specific species traits, overriding the generic taxonomy error.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A medium shot of a Roseate Spoonbill standing in shallow water. The bird features distinctive pink plumage on its wings and body, a white neck with some ruffled texture, and a long, flat, spatulate bill. It has red eyes and long pinkish-red legs. The background is a blurred blue-grey, suggesting water or sky.",
+        "image_class": "spoonbill",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Elongated flat bill with spatulate tip resembling a spoon, notably long relative to head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bill is clearly visible, elongated, and terminates in a distinct flattened, spoon-like shape characteristic of the species."
+            },
+            {
+                "checkpoint": "Bill color ranges from black to grey with yellow tip depending on species.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill appears entirely pale grey/whitish in this image. It lacks the black/grey base or distinct yellow tip described in the general taxonomy, though some juvenile/adult variations exist. Strictly matching the provided text, it is a mismatch."
+            },
+            {
+                "checkpoint": "Crest of elongated feathers extends from nape during breeding season.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The feathers on the nape appear ruffled and messy rather than forming a distinct, structured crest of elongated feathers."
+            },
+            {
+                "checkpoint": "Plumage is predominantly white with some species displaying pink, yellow, or black accents.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bird displays significant pink coloration on the wings and body, consistent with the 'pink accents' or specific species variation (Roseate Spoonbill)."
+            },
+            {
+                "checkpoint": "Body is of medium to large wading-bird proportions with broad wingspan.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body proportions are consistent with a large wading bird; wings are folded but appear broad."
+            },
+            {
+                "checkpoint": "Wings are broad with colored primary feathers visible in flight.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is standing with wings folded, not in flight. Therefore, primary feathers in flight configuration cannot be verified."
+            },
+            {
+                "checkpoint": "Legs are long and dark grey to black adapted for wading.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The legs are clearly visible but are pink/reddish, not 'dark grey to black' as specified in the checkpoint."
+            },
+            {
+                "checkpoint": "Neck is long and S-curved.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The neck is long and exhibits a slight curvature, though the S-shape is subtle due to the head position."
+            },
+            {
+                "checkpoint": "Flight posture features neck retraction in S-curve.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bird is standing, not in flight. This checkpoint is not applicable to the current pose."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Neck and upper chest feathers",
+                "severity": 2,
+                "reasoning": "The feather texture on the white neck area appears somewhat smudged and lacks distinct individual feather definition, looking slightly like painted strokes rather than natural plumage."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Feet/Water interface",
+                "severity": 4,
+                "reasoning": "The feet are completely missing/truncated at the water line. The legs end abruptly without showing toes or proper interaction with the water surface, indicating a severe structural failure common in AI generation."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Confirm species identity as Roseate Spoonbill vs other spoonbill species based on overall morphology and pink plumage."
+                ],
+                "reason": "To verify if the subject is biologically plausible as a spoonbill species, acknowledging that classifiers confirm identity but not specific attribute colors.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Detect and localize 'pink legs' and 'pale bill' to verify their presence and color attributes against the taxonomy checkpoints.",
+                    "Provide bounding box priors for the leg region to assist boundary auditing."
+                ],
+                "reason": "Addresses the Judge's feedback: OVD is required to verify specific color attributes (leg/bill color) which fine-grained classifiers cannot do reliably.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Verify the continuity of the legs down to the water surface to confirm the complete absence of feet/toes (truncation artifact).",
+                    "Segment the bird from the background to check for edge bleeding around the ruffled neck feathers."
+                ],
+                "reason": "Directly addresses the critical missing artifact check: verifying the truncation of feet at the water line as a topological failure.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "spoonbill",
+                "verification_goals": [
+                    "Analyze the smudged texture on the neck for signs of generative smoothing or painterly artifacts.",
+                    "Evaluate the overall visual quality of the plumage rendering."
+                ],
+                "reason": "To assess the texture anomalies observed in the neck region that suggest AI generation artifacts.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Wings are broad with colored primary feathers visible in flight.",
+            "Flight posture features neck retraction in S-curve."
+        ],
+        "focus_areas": [
+            "Bill coloration accuracy vs taxonomy",
+            "Leg color accuracy vs taxonomy",
+            "Complete absence of feet/toes at water line",
+            "Feather texture realism on neck"
+        ],
+        "custom_prompts_for_reflector": "Please specifically analyze the color of the legs and bill using open-vocabulary detection capabilities. The taxonomy states legs should be dark grey/black and bills often have black/yellow tips, but this image shows pink legs and a pale bill. Determine if this represents a valid biological variant or an AI color hallucination. Additionally, critically inspect the water-line interface to confirm if the feet are genuinely missing (truncated) rather than just obscured, as this is a high-severity structural artifact.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000078.png",
+            "class_id": 129,
+            "class_label": "spoonbill",
+            "router_cost_seconds": 38.37,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "spoonbill",
+                "reason": "To verify if the subject is biologically plausible as a spoonbill species, acknowledging that classifiers confirm identity but not specific attribute colors.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "spoonbill",
+                "reason": "Addresses the Judge's feedback: OVD is required to verify specific color attributes (leg/bill color) which fine-grained classifiers cannot do reliably.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "spoonbill",
+                "reason": "Directly addresses the critical missing artifact check: verifying the truncation of feet at the water line as a topological failure.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "spoonbill",
+                "reason": "To assess the texture anomalies observed in the neck region that suggest AI generation artifacts.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

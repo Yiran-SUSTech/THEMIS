@@ -1,0 +1,205 @@
+{
+    "image_id": "000057",
+    "class_label": "drake",
+    "iteration": 2,
+    "timestamp": "2026-08-23 12:41:45",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan is fundamentally flawed because it hallucinates severe anatomical defects that are not present in the image. The Router's 'image_description' and 'checkpoint_verdicts' claim the bill is fused/malformed, eyes are missing, and wings are distorted blobs. In reality, the image shows a high-quality generation of a Mallard Drake with a distinct bill, visible eye, and clear plumage patterns. Consequently, the expert selection is misaligned: it prioritizes debugging non-existent geometric errors (Geometric Depth Auditor) rather than verifying the actual high fidelity of the subject.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Re-evaluate Checkpoint Verdicts for Bill and Eyes",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "incorrect_expert_priority",
+                "point": "Reduce weight of Geometric Depth Auditor; the bill is clearly separated from water. Increase weight of Fine Grained Classifier to confirm species accuracy.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify Speculum Patch Integrity",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A male mallard duck (drake) swimming in dark water, displaying breeding plumage with an iridescent green head and white neck ring. A second duck is partially visible behind the main subject. The image exhibits significant anatomical distortions, particularly in the bill region which appears fused with the head and water.",
+        "image_class": "drake",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Most distinctive feature is the broad, flat bill adapted for filter-feeding; bill is dark grey to yellow-green.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill is severely malformed; it appears as a short, stubby protrusion that lacks the characteristic flattened spatulate shape. It fuses indistinctly into the green head feathers and the water surface, lacking clear boundaries or correct coloration."
+            },
+            {
+                "checkpoint": "Eyes are dark.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No distinct eye is visible on the green head; the area where the eye should be located is obscured by texture blending and artifacting, appearing as a smooth patch rather than a defined organ."
+            },
+            {
+                "checkpoint": "Body is stocky and compact, streamlined and buoyant with dense waterproof plumage.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The general body silhouette maintains a plausible swimming duck shape, appearing buoyant and compact despite local texture issues."
+            },
+            {
+                "checkpoint": "Breeding plumage is typically more colorful than female: common patterns include iridescent green head with white neck ring and grey body (mallard), or chestnut head with grey body.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The iconic mallard drake color pattern is present: iridescent green head, distinct white neck ring, and brownish-grey body feathers are clearly identifiable."
+            },
+            {
+                "checkpoint": "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing).",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The legs and feet are completely submerged in water and not visible in the frame."
+            },
+            {
+                "checkpoint": "Wings are broad and pointed.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The wing structure is ambiguous and distorted. There is a strange blue/white patch on the flank that resembles a speculum but lacks defined flight feathers or proper anatomical layering, appearing more like a painted blob."
+            },
+            {
+                "checkpoint": "Tail is short with curled central tail feathers (drake feathers) in many species.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The rear of the duck shows a chaotic mix of brown feathers and vertical blue/white elements that do not resemble natural tail feathers or the characteristic curl of drake feathers."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Bill and face region",
+                "severity": 4,
+                "reasoning": "The bill is geometrically incorrect—too short and blunt—and fuses seamlessly into the head and water without a clear boundary line, indicating a failure to render distinct anatomical parts and spatial grounding."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Side flank / Wing area",
+                "severity": 3,
+                "reasoning": "There is an unnatural bright blue and white patch on the side of the body that lacks feather texture and appears to be 'melting' into the brown plumage. This likely represents a hallucinated speculum patch."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Background duck interaction",
+                "severity": 2,
+                "reasoning": "The second duck behind the main subject has edges that bleed into the main subject's back, creating a confusing mass of feathers where two birds should be distinct entities."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "main duck and background duck",
+                "verification_goals": [
+                    "Detect bounding boxes for the main drake and the secondary duck",
+                    "Locate specific regions: bill, eyes, wing patches"
+                ],
+                "reason": "Required as a 'Bridge' expert to provide precise BBox priors for segmentation and depth auditing, especially given the fusion between subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bill and water interface",
+                "verification_goals": [
+                    "Verify if the bill is physically distinct from the water surface or suffering from foreground-background bleeding",
+                    "Assess spatial grounding of the head relative to the body"
+                ],
+                "reason": "Critical for auditing the severe 'geometric melting' of the bill into the water/head, which pose estimation cannot handle for aquatic subjects.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wing and tail region",
+                "verification_goals": [
+                    "Segment the blue/white flank patch to check if it is a coherent object or noise",
+                    "Verify boundary sharpness between the two ducks using OVD priors"
+                ],
+                "reason": "To investigate the suspicious blue patch and the fusion between foreground and background subjects, dependent on OVD localization.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "main duck",
+                "verification_goals": [
+                    "Confirm species identification as Mallard Drake (Anas platyrhynchos)",
+                    "Verify presence of iridescent green head and white neck ring"
+                ],
+                "reason": "Primary class verification to ensure the generated image aligns with the 'drake' label despite anatomical distortions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess overall texture consistency of plumage",
+                    "Identify any additional melting or blending artifacts in water reflection"
+                ],
+                "reason": "Holistic quality check to catch subtle texture inconsistencies missed by structural auditors.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Legs are short and set far back on the body with webbed feet (three forward toes connected by webbing)."
+        ],
+        "focus_areas": [
+            "Bill morphology and water separation (geometric melting)",
+            "Eye visibility and placement",
+            "Wing/Speculum patch structural integrity",
+            "Separation between foreground and background ducks"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the bill structure using depth analysis; AI often generates duck bills that fuse with the water surface. Verify if the blue patch on the side is a realistic speculum or just random color noise using topology segmentation. Check if the white neck ring is continuous or broken/fused with the head. Ensure the background duck is topologically distinct from the foreground subject.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000057.png",
+            "class_id": 97,
+            "class_label": "drake",
+            "router_cost_seconds": 31.79,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        },
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "main duck and background duck",
+                "reason": "Required as a 'Bridge' expert to provide precise BBox priors for segmentation and depth auditing, especially given the fusion between subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bill and water interface",
+                "reason": "Critical for auditing the severe 'geometric melting' of the bill into the water/head, which pose estimation cannot handle for aquatic subjects.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "wing and tail region",
+                "reason": "To investigate the suspicious blue patch and the fusion between foreground and background subjects, dependent on OVD localization.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "main duck",
+                "reason": "Primary class verification to ensure the generated image aligns with the 'drake' label despite anatomical distortions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to catch subtle texture inconsistencies missed by structural auditors.",
+                "weight": 0.1
+            }
+        ]
+    }
+}

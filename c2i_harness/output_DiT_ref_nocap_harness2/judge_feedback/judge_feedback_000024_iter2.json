@@ -1,0 +1,173 @@
+{
+    "image_id": "000024",
+    "class_label": "mud turtle",
+    "iteration": 2,
+    "timestamp": "2026-08-23 12:40:20",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection: it assigns the `animal_pose_auditor` to audit a turtle. The expert registry explicitly states this tool is 'NOT for limbless (fish, snakes)' and implies it is designed for limbed vertebrates with standard skeletal keypoint definitions (17 keypoints). Turtles have unique anatomical structures (limbs retracting into shell, distinct carapace/plastron geometry) that standard pose estimators often fail to map correctly or are not trained on. Using this expert will likely yield noisy or invalid data. Additionally, the plan misses an opportunity to use `topology_boundary_auditor` to definitively resolve the 'missing scute seams' artifact by checking if the shell is a single continuous mesh or lacks internal boundary definitions.",
+        "suggestions": [
+            {
+                "type": "expert_mismatch",
+                "point": "Replace `animal_pose_auditor` with `topology_boundary_auditor` or rely solely on `perceptual_quality_auditor` for structural checks.",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "Turtles do not fit the standard 17-keypoint skeleton model used by the pose auditor. The topology auditor can better verify if the shell is a coherent physical object and if the limbs are properly connected to the body without merging artifacts."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify the absence of scute seams (shell plates).",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The checkpoint notes the shell lacks visible scute seams. A topology auditor can segment the shell surface to confirm if it is a single smooth manifold (artifact) or if subtle boundaries exist that the perceptual auditor missed."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A side-profile view of a turtle walking on a forest floor covered in dry leaves and twigs. The turtle has a smooth, light greyish-brown domed shell that lacks visible scute seams. The head is extended with a pointed snout and small lateral eye. One front limb is partially visible but obscured by the shell angle and ground debris.",
+        "image_class": "mud turtle",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is relatively large with a pointed snout and small eyes positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head is clearly visible in profile. It exhibits a distinct pointed snout and the eye is visible on the side of the head. The proportions appear consistent with a mud turtle, though species confirmation is needed."
+            },
+            {
+                "checkpoint": "Carapace is high-domed and oval, dark brown to black with a smooth, slightly glossy surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the shell is high-domed and oval, the color is a uniform light grey/taupe rather than the 'dark brown to black' specified. The surface appears matte and dusty rather than 'slightly glossy'. This is a significant deviation from the specific class description."
+            },
+            {
+                "checkpoint": "Carapace has three longitudinal keels in juveniles that become less prominent with age.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The carapace appears very smooth and rounded. There are no visible longitudinal keels (ridges) running down the back. The shell looks overly smoothed, potentially an artifact or indicative of a different species."
+            },
+            {
+                "checkpoint": "Plastron is small and yellowish with two hinges allowing partial closure.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The turtle is viewed from the side/top; the plastron (bottom shell) is completely occluded by the body and the ground. Impossible to verify color or hinges."
+            },
+            {
+                "checkpoint": "Skin is grey to brown with a rough, scaly texture.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible skin on the neck and head is greyish-brown. While resolution limits detailed scale inspection, the texture appears rough and consistent with reptilian skin."
+            },
+            {
+                "checkpoint": "Limbs are short and stout with webbed feet and sharp claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Only the tip of one front limb is barely visible and largely obscured. It is impossible to confirm 'webbed feet' or 'sharp claws'. Marking as testable but absent because specific features required for verification are not resolved."
+            },
+            {
+                "checkpoint": "Tail is short and thick.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The rear of the turtle is cut off by the frame or obscured by the angle. The tail is not visible."
+            },
+            {
+                "checkpoint": "No ability to fully retract into shell due to small plastron.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "This is a functional/behavioral trait that cannot be verified from a single static image, especially since the plastron size is not visible."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Carapace (Shell)",
+                "severity": 3.0,
+                "reasoning": "The shell texture is unnaturally smooth and uniform, lacking the scute seams (lines between shell plates) typically seen on turtles. It resembles a smooth stone or plastic model more than a biological shell. This contributes to the 'grey' color mismatch and suggests generative smoothing."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Front right limb area",
+                "severity": 2.0,
+                "reasoning": "The area where the front limb meets the ground/shell is ambiguous. The limb seems to merge slightly with the leaf litter, and the anatomy of the foot is undefined, appearing as a blurry stump rather than a distinct paw."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle head morphology",
+                "verification_goals": [
+                    "Verify if the subject belongs to the Kinosternidae family (mud/musk turtles) despite the unusual grey coloration.",
+                    "Distinguish between Mud Turtle and Box Turtle based on snout shape and eye position, as shell color is unreliable here."
+                ],
+                "reason": "The visual appearance deviates significantly from standard mud turtle descriptions. A classifier focused on head morphology is needed to determine if this is a valid variant or a different species/hallucination, addressing the Judge's feedback on verifying head anatomy.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "turtle shell surface",
+                "verification_goals": [
+                    "Assess surface texture homogeneity and lack of biological patterning (scutes).",
+                    "Confirm if the smoothness is an artifact of generation or simply photographic limitations.",
+                    "Evaluate the structural plausibility of the visible neck-head connection."
+                ],
+                "reason": "Replaces the incorrectly assigned topology_boundary_auditor. This expert is specifically trained to detect texture anomalies like missing scute seams and can assess the realism of the shell material and neck structure as requested by the Judge.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Audit the biological structural correctness of the visible head-neck-limb connection.",
+                    "Verify if the partially visible limb maintains valid anatomical proportions relative to the body."
+                ],
+                "reason": "Replaces the inefficient open_vocabulary_detector task for obscured limbs. This expert can directly assess the structural plausibility of the visible anatomy (neck/head/limb junction) which was flagged as a potential collapse area.",
+                "weight": 0.25
+            }
+        ],
+        "unverifiable_points": [
+            "Plastron is small and yellowish with two hinges allowing partial closure.",
+            "Tail is short and thick.",
+            "No ability to fully retract into shell due to small plastron."
+        ],
+        "focus_areas": [
+            "Shell texture and color accuracy (Grey vs Dark Brown/Black)",
+            "Presence of scute seams on the carapace",
+            "Anatomical correctness of the visible head-neck-limb connection"
+        ],
+        "custom_prompts_for_reflector": "The primary concern is the discrepancy between the 'mud turtle' label (typically dark, keeled shell with scutes) and the image (smooth, light grey shell without scutes). Is this a valid albino/leucistic variant, a different species entirely (e.g., Eastern Box Turtle), or a textural artifact? Please prioritize verifying the species identity via head morphology and the biological plausibility of the shell texture using the perceptual quality auditor.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000024.png",
+            "class_id": 35,
+            "class_label": "mud turtle",
+            "router_cost_seconds": 31.59,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle head morphology",
+                "reason": "The visual appearance deviates significantly from standard mud turtle descriptions. A classifier focused on head morphology is needed to determine if this is a valid variant or a different species/hallucination, addressing the Judge's feedback on verifying head anatomy.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "turtle shell surface",
+                "reason": "Replaces the incorrectly assigned topology_boundary_auditor. This expert is specifically trained to detect texture anomalies like missing scute seams and can assess the realism of the shell material and neck structure as requested by the Judge.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "turtle",
+                "reason": "Replaces the inefficient open_vocabulary_detector task for obscured limbs. This expert can directly assess the structural plausibility of the visible anatomy (neck/head/limb junction) which was flagged as a potential collapse area.",
+                "weight": 0.25
+            }
+        ]
+    }
+}

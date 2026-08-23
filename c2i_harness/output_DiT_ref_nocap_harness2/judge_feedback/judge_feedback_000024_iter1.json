@@ -1,0 +1,189 @@
+{
+    "image_id": "000024",
+    "class_label": "mud turtle",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:39:39",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification goals. The Router identified that the shell lacks 'scute seams' (a key biological feature) and suspects it is a 'melted blob', yet it assigned the `topology_boundary_auditor` to verify this. The `topology_boundary_auditor` is defined for auditing object-instance connectivity and edge sharpness against the background, NOT for detecting internal surface textures or biological patterns like scutes. This requires a texture-aware expert (e.g., `perceptual_quality_auditor` with specific texture prompting) or a specialized segmentation mask analysis, not just boundary topology. Additionally, the `open_vocabulary_detector` is tasked with finding 'webbed feet' and 'claws' on a limb that the Router already admitted is 'barely visible' and 'obscured'. This is a low-yield task; the detector will likely fail or return low-confidence boxes, providing little value compared to a direct anatomical audit of the visible head/neck structure.",
+        "suggestions": [
+            {
+                "type": "expert_mismatch",
+                "point": "Topology Boundary Auditor cannot detect missing scute seams.",
+                "recommended_expert": "Replace `topology_boundary_auditor` with `perceptual_quality_auditor` focused specifically on 'surface texture homogeneity and lack of biological patterning (scutes)'."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of 'Head and Face' anatomy (snout/eyes) which was marked 'present' but needs confirmation against Mud Turtle vs Box Turtle morphology.",
+                "recommended_expert": "Add `fine_grained_classifier` target: 'turtle head morphology' to distinguish species based on snout shape and eye position, as shell color is unreliable here."
+            },
+            {
+                "type": "inefficient_task",
+                "point": "Open Vocabulary Detector targeting obscured limbs.",
+                "recommended_expert": "Remove `open_vocabulary_detector` for limbs. Instead, use `animal_pose_auditor` (if applicable to reptiles/turtles in its training data) or rely on `perceptual_quality_auditor` to assess the structural plausibility of the visible neck-head connection."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A side-profile view of a turtle, likely a mud turtle or similar species, walking on a forest floor covered in dry leaves and twigs. The turtle has a smooth, greyish-brown domed shell and a visible head with a pointed snout. One front limb is partially visible.",
+        "image_class": "mud turtle",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is relatively large with a pointed snout and small eyes positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head is clearly visible in profile. It exhibits a distinct pointed snout and the eye is visible on the side of the head. The proportions appear consistent with a mud turtle."
+            },
+            {
+                "checkpoint": "Carapace is high-domed and oval, dark brown to black with a smooth, slightly glossy surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the shell is high-domed and oval, the color is a uniform light grey/taupe rather than the 'dark brown to black' specified in the taxonomy. The surface appears matte and dusty rather than 'slightly glossy'. This is a significant deviation from the specific class description provided."
+            },
+            {
+                "checkpoint": "Carapace has three longitudinal keels in juveniles that become less prominent with age.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The carapace appears very smooth and rounded. There are no visible longitudinal keels (ridges) running down the back, which are characteristic of many mud turtle species (especially younger ones) or at least should show some texture variation. The shell looks overly smoothed, potentially an artifact or a different species."
+            },
+            {
+                "checkpoint": "Plastron is small and yellowish with two hinges allowing partial closure.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The turtle is viewed from the side/top; the plastron (bottom shell) is completely occluded by the body and the ground. It is impossible to verify color or hinges."
+            },
+            {
+                "checkpoint": "Skin is grey to brown with a rough, scaly texture.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible skin on the neck and head is greyish-brown. While the resolution limits detailed scale inspection, the texture appears rough and consistent with reptilian skin, not smooth like a dolphin or frog."
+            },
+            {
+                "checkpoint": "Limbs are short and stout with webbed feet and sharp claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Only the tip of one front limb is barely visible and it is largely obscured by the shell angle and ground debris. It is impossible to confirm 'webbed feet' or 'sharp claws' with certainty. Marking as testable but absent because the specific features required for verification are not resolved."
+            },
+            {
+                "checkpoint": "Tail is short and thick.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The rear of the turtle is cut off by the frame or obscured by the angle. The tail is not visible."
+            },
+            {
+                "checkpoint": "No ability to fully retract into shell due to small plastron.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "This is a functional/behavioral trait that cannot be verified from a single static image, especially since the plastron size (the cause) is not visible."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Carapace (Shell)",
+                "severity": 2.5,
+                "reasoning": "The shell texture is unnaturally smooth and uniform, lacking the scute seams (lines between shell plates) typically seen on turtles. It resembles a smooth stone or plastic model more than a biological shell. This contributes to the 'grey' color mismatch."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Front right limb area",
+                "severity": 2.0,
+                "reasoning": "The area where the front limb meets the ground/shell is ambiguous. The limb seems to merge slightly with the leaf litter, and the anatomy of the foot is undefined, appearing as a blurry stump rather than a distinct paw."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Verify if the subject belongs to the Kinosternidae family (mud/musk turtles) despite the unusual grey coloration.",
+                    "Distinguish between Mud Turtle and Box Turtle based on shell dome height and head shape."
+                ],
+                "reason": "The visual appearance (smooth grey shell) deviates significantly from the standard 'dark brown/black' mud turtle description. A classifier is needed to determine if this is a valid color variant, a different species (like a Box Turtle), or an AI hallucination.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "turtle shell",
+                "verification_goals": [
+                    "Check for the presence of scute seams (lines separating shell plates) which are missing in the visual inspection.",
+                    "Verify the boundary sharpness between the shell and the background foliage."
+                ],
+                "reason": "The shell lacks expected biological texture (scutes). Segmentation will help determine if the shell is a single melted blob or if texture details are just low-resolution.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the shell's material properties (matte vs glossy).",
+                    "Evaluate the structural integrity of the partially visible limb."
+                ],
+                "reason": "To confirm if the smoothness of the shell and the ambiguity of the limb are artifacts of generation or simply photographic limitations (motion blur/focus).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle limbs",
+                "verification_goals": [
+                    "Locate all four limbs to determine if any are missing or fused.",
+                    "Identify specific features like claws or webbing if resolvable."
+                ],
+                "reason": "Visual inspection failed to confirm limb details. Detection can provide bounding boxes to see if the model 'knows' where the limbs should be, even if they are poorly rendered.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Plastron is small and yellowish with two hinges allowing partial closure.",
+            "Tail is short and thick.",
+            "No ability to fully retract into shell due to small plastron."
+        ],
+        "focus_areas": [
+            "Shell texture and color accuracy (Grey vs Dark Brown/Black)",
+            "Presence of scute seams on the carapace",
+            "Anatomical correctness of the visible front limb"
+        ],
+        "custom_prompts_for_reflector": "The primary concern is the discrepancy between the 'mud turtle' label (typically dark, keeled shell) and the image (smooth, light grey shell). Is this a valid albino/leucistic variant, a different species entirely (e.g., Eastern Box Turtle), or a textural artifact? Please prioritize verifying the species identity and the biological plausibility of the shell texture.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000024.png",
+            "class_id": 35,
+            "class_label": "mud turtle",
+            "router_cost_seconds": 33.11,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "reason": "The visual appearance (smooth grey shell) deviates significantly from the standard 'dark brown/black' mud turtle description. A classifier is needed to determine if this is a valid color variant, a different species (like a Box Turtle), or an AI hallucination.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "turtle shell",
+                "reason": "The shell lacks expected biological texture (scutes). Segmentation will help determine if the shell is a single melted blob or if texture details are just low-resolution.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "To confirm if the smoothness of the shell and the ambiguity of the limb are artifacts of generation or simply photographic limitations (motion blur/focus).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle limbs",
+                "reason": "Visual inspection failed to confirm limb details. Detection can provide bounding boxes to see if the model 'knows' where the limbs should be, even if they are poorly rendered.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

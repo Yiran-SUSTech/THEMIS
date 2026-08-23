@@ -1,0 +1,199 @@
+{
+    "image_id": "000091",
+    "class_label": "sea lion",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:43:10",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and verification coverage. The `animal_pose_auditor` is explicitly defined as 'NOT for limbless (fish, snakes)' and designed for subjects with standard limb structures (17 keypoints). Sea lions are pinnipeds with modified flippers that do not map to standard quadrupedal/humanoid pose estimation models; applying this expert will likely result in failure or noisy data. Furthermore, the plan fails to utilize the `open_vocabulary_detector`, which is required as a precursor to provide bounding box priors for the `topology_boundary_auditor` to effectively segment the two overlapping animals.",
+        "suggestions": [
+            {
+                "type": "expert_replacement",
+                "point": "Remove animal_pose_auditor",
+                "recommended_expert": "None (Rely on fine_grained_classifier for anatomical feature validation)",
+                "reason": "Sea lion flipper anatomy is incompatible with standard pose estimation keypoint models. Anatomical correctness of the head/crest is better handled by the classifier and perceptual auditor."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Segmentation Priors for Topology Audit",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "The topology_boundary_auditor requires precise instance segmentation to audit the fusion artifact between the two sea lions. The open_vocabulary_detector must first identify and box the two distinct subjects to guide the segmentation process."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Geometric Grounding",
+                "recommended_expert": "geometric_depth_auditor",
+                "reason": "The image involves complex occlusion (one animal behind another) on a wooden dock. A depth audit would verify if the spatial relationship between the animals and the dock is physically consistent, addressing the 'structural collapse' concern more rigorously than texture analysis alone."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays two sea lions resting on a wooden structure, likely a dock or pier. The primary subject is a large male sea lion in the foreground, characterized by a prominent sagittal crest (bump on forehead) and a thick neck mane. A second, lighter-colored sea lion (likely female or juvenile) is visible to the left, partially behind the male. The background consists of blurred wooden planks and water.",
+        "image_class": "sea lion",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Head is broad with prominent sagittal crest in males.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The main subject clearly exhibits the characteristic bony bump (sagittal crest) on the top of the head, identifying it as a mature male."
+            },
+            {
+                "checkpoint": "External ear pinnae (visible ear flaps) distinguish from true seals.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small but distinct external ear flaps are visible on the side of the head of the primary subject, confirming it is an otariid (eared seal/sea lion) and not a phocid (true seal)."
+            },
+            {
+                "checkpoint": "Whiskers (vibrissae) are prominent and sensitive.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Long, light-colored whiskers are clearly visible extending from the muzzle area of both animals."
+            },
+            {
+                "checkpoint": "Fur is short and coarse ranging from brown to dark grey, lighter on ventral surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coat texture appears short and wet/coarse. The coloration matches the description: dark brown/grey dorsally, with the secondary animal showing lighter tan/brown tones."
+            },
+            {
+                "checkpoint": "Body exhibits streamlined fusiform form of substantial marine mammal proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is robust, tapered, and streamlined, consistent with a large pinniped."
+            },
+            {
+                "checkpoint": "Males develop thick neck mane and are significantly larger than females.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The primary subject has a noticeably thicker neck and darker, coarser fur around the neck/shoulders compared to the adjacent animal, indicating sexual dimorphism typical of sea lions."
+            },
+            {
+                "checkpoint": "Foreflippers are large, broad, and hairless on underside used for terrestrial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The foreflippers are tucked under the body or obscured by the angle and the other animal; the hairless underside is not visible."
+            },
+            {
+                "checkpoint": "Hind flippers can rotate forward for walking on land.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The hind flippers are completely occluded by the body position and the wooden structure."
+            },
+            {
+                "checkpoint": "Body exhibits bilateral symmetry.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the pose, the visible anatomy (head, neck, shoulders) maintains natural biological symmetry without distortion."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Primary subject's neck/chest area",
+                "severity": 1.5,
+                "reasoning": "There is a slight 'smearing' or overly smooth gradient in the wet fur texture on the chest, lacking the distinct individual hair strands seen on the face. This is common in AI generation of wet fur but could also be motion blur or compression."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Junction between the two animals",
+                "severity": 2.0,
+                "reasoning": "The boundary where the secondary animal's head meets the primary animal's shoulder is slightly ambiguous. The fur textures seem to blend rather than having a sharp occlusion boundary, suggesting potential fusion."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "primary sea lion",
+                "verification_goals": [
+                    "Confirm species identification as California Sea Lion (Zalophus californianus) based on sagittal crest and ear morphology.",
+                    "Verify the image represents a biological sea lion and not a hybrid or misclassified pinniped."
+                ],
+                "reason": "Essential to confirm the specific taxonomy matches the 'sea lion' label and distinguishes it from fur seals or true seals.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "interface between two sea lions",
+                "verification_goals": [
+                    "Audit the segmentation boundary between the foreground male and background female/juvenile.",
+                    "Verify that the blending of fur at the contact point is physical occlusion and not generative fusion/melting."
+                ],
+                "reason": "Addresses the observed texture anomaly and potential structural collapse at the junction of the two subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "primary sea lion",
+                "verification_goals": [
+                    "Verify keypoint consistency for head, neck, and shoulder alignment.",
+                    "Ensure the sagittal crest and ear placement are anatomically valid relative to the snout and eyes."
+                ],
+                "reason": "Confirms that the prominent features (crest, ears) are structurally sound and not hallucinated artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Assess the realism of the wet fur texture on the chest.",
+                    "Evaluate lighting consistency between the animals and the wooden dock environment."
+                ],
+                "reason": "Holistic check for subtle rendering issues like the smearing noted in artifact observations.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Foreflippers are large, broad, and hairless on underside used for terrestrial locomotion.",
+            "Hind flippers can rotate forward for walking on land."
+        ],
+        "focus_areas": [
+            "Sagittal crest morphology",
+            "External ear pinnae visibility",
+            "Fur texture continuity at subject boundaries",
+            "Anatomical symmetry of the head and neck"
+        ],
+        "custom_prompts_for_reflector": "Focus heavily on the distinction between the two animals. Ensure the 'fusion' at the neck/shoulder interface is evaluated as either valid occlusion or AI artifact. Verify the sagittal crest is a bony protrusion and not a texture glitch.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000091.png",
+            "class_id": 150,
+            "class_label": "sea lion",
+            "router_cost_seconds": 35.13,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "primary sea lion",
+                "reason": "Essential to confirm the specific taxonomy matches the 'sea lion' label and distinguishes it from fur seals or true seals.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "interface between two sea lions",
+                "reason": "Addresses the observed texture anomaly and potential structural collapse at the junction of the two subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "primary sea lion",
+                "reason": "Confirms that the prominent features (crest, ears) are structurally sound and not hallucinated artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic check for subtle rendering issues like the smearing noted in artifact observations.",
+                "weight": 0.2
+            }
+        ]
+    }
+}

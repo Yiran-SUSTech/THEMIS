@@ -1,0 +1,200 @@
+{
+    "image_id": "000081",
+    "class_label": "pelican",
+    "iteration": 1,
+    "timestamp": "2026-08-23 12:42:23",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in expert selection and sequencing. The `topology_boundary_auditor` is tasked with auditing the boundary between two overlapping pelicans, but the plan fails to include the `open_vocabulary_detector` as a prerequisite step to generate bounding box priors for *both* subjects. The current plan lists `open_vocabulary_detector` but assigns it a low weight (0.2) and places it after the topology auditor in the reasoning flow, whereas it must be the primary 'Bridge' expert to define the regions for segmentation. Furthermore, the `fine_grained_classifier` is targeted only at the foreground pelican, ignoring the background bird which exhibits complex plumage and potential structural anomalies (fusion). The plan also fails to explicitly verify the 'webbed feet' checkpoint using visual cues from the water surface interaction, marking it unverifiable despite partial visibility of leg structures.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Prerequisite BBox generation for multi-object topology audit",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "incorrect_weighting",
+                "point": "Open Vocabulary Detector should have higher priority/weight as it enables the Topology Auditor",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Background pelican species/structural integrity verification",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "logical_error",
+                "point": "Legs/feet checkpoint marked unverifiable; should use Geometric Depth or Perceptual Quality to analyze water-line intersections for webbing clues",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays two pelicans in a natural water setting with green foliage in the background. The foreground features a white pelican (likely an American White Pelican) facing right, displaying its characteristic long orange bill and gular pouch. Behind it stands a second pelican, appearing darker (possibly a Brown Pelican or a juvenile/non-breeding plumage variant), with wings partially spread or ruffled. Both birds are situated near the water's edge.",
+        "image_class": "pelican",
+        "checkpoint_verdicts": [
+            {
+                "checkpoint": "Enormous bill with distensible gular pouch extending from lower mandible.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground pelican clearly exhibits the massive, elongated bill and the distinctive throat pouch structure typical of the species."
+            },
+            {
+                "checkpoint": "Bill is enormous and elongated, vastly exceeding head length, with bright orange, yellow, or pink coloration during breeding.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bill is prominently orange-pink and significantly longer than the bird's head, matching the breeding season description for white pelicans."
+            },
+            {
+                "checkpoint": "Head is large with prominent pouch.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head proportions are consistent with a pelican, and the pouch area is visually distinct below the bill."
+            },
+            {
+                "checkpoint": "Plumage is predominantly white, grey, or brown depending on species and season.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground bird is predominantly white; the background bird shows dark brown/black plumage, both fitting the 'depending on species' criteria."
+            },
+            {
+                "checkpoint": "Body exhibits heavy barrel-shaped torso of very large proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible torsos of both birds appear robust and barrel-shaped, consistent with pelican anatomy."
+            },
+            {
+                "checkpoint": "Wings are extremely broad and long with dark flight feathers contrasting lighter body.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the background bird has dark wings, the specific contrast pattern of 'dark flight feathers on a lighter body' is not clearly verifiable on the white foreground bird (wings are folded/white) nor fully clear on the dark background bird due to pose. The feature is partially obscured or inconsistent across subjects."
+            },
+            {
+                "checkpoint": "Legs are short and webbed with all four toes connected.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The legs and feet of both birds are submerged in water or occluded by the body/rocks, making anatomical verification of webbing impossible."
+            },
+            {
+                "checkpoint": "Neck is long and S-curved.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The foreground pelican displays a distinctively long neck with a gentle curve leading to the head."
+            },
+            {
+                "checkpoint": "Tail is short and wedge-shaped.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail region is obscured by the angle of the birds and the water/rock interface; it cannot be clearly seen to verify shape."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Interface between the two pelicans' bodies/necks",
+                "severity": 2.5,
+                "reasoning": "There is a suspicious blending where the dark plumage of the rear bird meets the white neck of the front bird. The boundaries lack sharp definition, suggesting potential AI fusion or severe motion blur artifact."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Feathers on the rear pelican's wing",
+                "severity": 2.0,
+                "reasoning": "The feather texture on the raised wing of the background bird appears somewhat smudged and lacks the crisp individual strand definition expected in high-resolution wildlife photography, resembling generative smoothing."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground_pelican",
+                "verification_goals": [
+                    "Confirm species identity as Pelecanus erythrorhynchos (American White Pelican) based on bill knob and plumage.",
+                    "Verify if the image represents a valid biological entity within the Pelican class."
+                ],
+                "reason": "Primary subject verification to ensure the generated image matches the specific taxonomic details of the class label.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "pelican_pair_interface",
+                "verification_goals": [
+                    "Audit the boundary sharpness between the foreground white pelican and background dark pelican.",
+                    "Detect if the fusion observed is a topological error (melting) or valid occlusion."
+                ],
+                "reason": "To rigorously test the suspected fusion artifact at the intersection of the two subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Assess overall feather texture consistency and realism.",
+                    "Evaluate if the 'smudged' wing texture is a compression artifact or generative failure."
+                ],
+                "reason": "Holistic quality check to distinguish between photographic limitations (motion blur) and AI generation artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "pelicans",
+                "verification_goals": [
+                    "Generate bounding boxes for both pelicans to establish spatial separation.",
+                    "Confirm presence of distinct 'bill', 'pouch', and 'wing' regions for both entities."
+                ],
+                "reason": "Provides necessary spatial priors for the topology auditor to correctly segment the overlapping birds.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Legs are short and webbed with all four toes connected.",
+            "Tail is short and wedge-shaped."
+        ],
+        "focus_areas": [
+            "Boundary integrity between the two overlapping birds",
+            "Texture fidelity of the rear bird's wing feathers",
+            "Anatomical correctness of the bill-to-head ratio"
+        ],
+        "custom_prompts_for_reflector": "Focus specifically on the junction where the dark bird's chest overlaps the white bird's neck. Determine if this is a plausible lighting shadow/occlusion or a generative melting artifact. Also, verify if the bill structure of the foreground bird maintains structural rigidity and correct connection to the skull, as AI often struggles with the complex geometry of the gular pouch attachment.",
+        "metadata": {
+            "original_image": "/mnt/afs/zhengmingkai/zyr/THEMIS/DiT-XL-2-sample_class_num-100-per_class_img-5/000081.png",
+            "class_id": 144,
+            "class_label": "pelican",
+            "router_cost_seconds": 30.76,
+            "plan_valid": true
+        },
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "foreground_pelican",
+                "reason": "Primary subject verification to ensure the generated image matches the specific taxonomic details of the class label.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "pelican_pair_interface",
+                "reason": "To rigorously test the suspected fusion artifact at the intersection of the two subjects.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Holistic quality check to distinguish between photographic limitations (motion blur) and AI generation artifacts.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "pelicans",
+                "reason": "Provides necessary spatial priors for the topology auditor to correctly segment the overlapping birds.",
+                "weight": 0.2
+            }
+        ]
+    }
+}
