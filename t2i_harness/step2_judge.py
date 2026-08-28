@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(T2I_DIR) not in sys.path:
     sys.path.insert(0, str(T2I_DIR))
 
-from common import api_call_with_retry
+from common import api_call_with_retry, dump_debug_raw
 
 # common.py may have inserted c2i_harness at position 0 (e.g. due to drive-letter
 # casing differences on Windows), which would shadow t2i_harness modules of the
@@ -201,6 +201,7 @@ def review_plan(
     if not model_name:
         model_name = JUDGE_MODEL
     atoms = atomized_data.get("atoms", [])
+    tag = f"[Judge][{prompt_id}]" if prompt_id else "[Judge]"
 
     start_time = time.time()
 
@@ -256,17 +257,24 @@ def review_plan(
         if raw_content is None or raw_content.strip() == "":
             reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
             usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
-            print(f"  [ERROR] Judge returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
+            print(f"  {tag} [ERROR] Returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
             if reasoning:
-                print(f"  [WARN] Judge reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
+                print(f"  {tag} [WARN] reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
                 raw_content = reasoning
             else:
                 msg = completion.choices[0].message
-                print(f"  [DEBUG] Judge full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                print(f"  {tag} [DEBUG] Full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                dump_debug_raw("judge_empty_content", prompt_id or "unknown",
+                               repr(msg.content),
+                               note=f"{tag} empty content, finish_reason={finish_reason}")
                 return None
         result = parse_json_safely(raw_content)
         if result is None:
-            print(f"  [ERROR] Judge returned unparseable JSON: {raw_content[:200]}")
+            dump_path = dump_debug_raw("judge_unparseable", prompt_id or "unknown",
+                                       raw_content, note=f"{tag} unparseable JSON response")
+            hint = f" (full response saved to: {dump_path})" if dump_path else ""
+            print(f"  {tag} [ERROR] Returned unparseable JSON{hint}")
+            print(f"  {tag} [ERROR] Head: {raw_content[:200]}")
             return None
 
         result["judge_cost_seconds"] = round(cost_time, 2)
@@ -277,9 +285,9 @@ def review_plan(
             cached = getattr(details, "cached_tokens", 0) if details else 0
             created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
             if cached or created:
-                print(f"  [CACHE] Judge: hit={cached} tokens, created={created} tokens")
+                print(f"  [CACHE] {tag}: hit={cached} tokens, created={created} tokens")
 
         return result
     except Exception as e:
-        print(f"  [ERROR] Judge API call failed: {type(e).__name__}: {e}")
+        print(f"  {tag} [ERROR] API call failed: {type(e).__name__}: {e}")
         return None

@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import time
+import traceback
 from pathlib import Path
 from openai import OpenAI
 
@@ -16,7 +17,7 @@ from common import (
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     resolve_image_path, save_judge_feedback,
     ATOMIZED_DIR, GENEVAL2_DATA_JSONL,
-    load_geneval2_data,
+    load_geneval2_data, record_failure, bump_progress,
 )
 
 from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
@@ -45,6 +46,7 @@ def _run_single_image(
     api_retry: int = 0,
     temp_router: float = 0.0,
     temp_judge: float = 0.0,
+    stats: dict | None = None,
 ) -> dict | None:
     """Run Router+Judge loop for a single image (synchronous)."""
     print(f"\n{'#'*60}")
@@ -81,8 +83,11 @@ def _run_single_image(
         )
 
         if judge_result is None:
-            print(f"  [Step 2] FAILED - Judge returned no valid response")
+            print(f"  [Step 2] FAILED - Judge returned no valid response "
+                  f"(see [Judge][{img_id}] errors above / debug_raw/)")
             iteration_log.append(f"Iteration {iteration}: Judge Error")
+            record_failure(stats, img_id, "step2_judge",
+                           "Judge returned no valid response (empty content, unparseable JSON, or API error)")
             break
 
         is_approved = judge_result.get("is_approved", False)
@@ -129,6 +134,11 @@ def _run_single_image(
 
             if revised_plan is not None:
                 current_plan = revised_plan
+            else:
+                print(f"  [Step 1] WARN: Router revision failed at iteration "
+                      f"{iteration}, keeping previous plan")
+                record_failure(stats, img_id, "step1_router_revision",
+                               "revise_plan returned None; keeping pre-revision plan")
 
     current_plan["metadata"]["iteration_log"] = iteration_log
 
@@ -187,7 +197,10 @@ def run_sync_pipeline(
         for img_name, img_id, prompt_text in valid_images:
             img_path = resolve_image_path(image_dir, img_id)
             if img_path is None:
-                print(f"[WARN] Image not found: {img_id}")
+                print(f"[WARN] Image not found: {img_id} "
+                      f"(expected {img_id}.png/.jpg/.jpeg in {image_dir})")
+                record_failure(stats, img_id, "image_lookup",
+                               f"No image file found in {image_dir} for prompt_id {img_id}")
                 stats["api_fail"] += 1
                 continue
 
@@ -196,6 +209,8 @@ def run_sync_pipeline(
             prompt_data = geneval2_data.get(img_id, {})
             if not prompt_data:
                 print(f"  [WARN] No GenEval2 data for prompt_id={img_id}")
+                record_failure(stats, img_id, "step0_atomize",
+                               f"No GenEval2 record for prompt_id={img_id} in JSONL")
                 stats["atomize_fail"] += 1
                 stats["api_fail"] += 1
                 continue
@@ -207,6 +222,7 @@ def run_sync_pipeline(
             atomized_data = enrich_with_generic_taxonomy(
                 atomized_data, client,
                 api_retry=api_retry, temperature=0.0,
+                ctx_id=img_id,
             )
             save_atomized_prompt(atomized_data, ATOMIZED_DIR, img_id)
             stats["atomize_ok"] += 1
@@ -219,11 +235,15 @@ def run_sync_pipeline(
                 experts_registry_str, max_iterations,
                 plan_dir, approved_dir, judge_feedback_dir,
                 api_retry=api_retry, temp_router=temp_router, temp_judge=temp_judge,
+                stats=stats,
             )
             if plan is not None:
                 stats["api_ok"] += 1
             else:
                 stats["api_fail"] += 1
+                record_failure(stats, img_id, "step1_router",
+                               "Router returned no valid plan (see [Router] errors above / debug_raw/)")
+            bump_progress("Step1+2", len(valid_images))
 
     # ── Step 3 + Step 4: Expert Execution + Reflector ───────────
     if run_step3 or run_step4:
@@ -247,6 +267,10 @@ def run_sync_pipeline(
 
             image_path = resolve_image_path_global(image_path_raw)
             if image_path is None:
+                print(f"  [WARN] Image not found for plan: {image_path_raw}")
+                record_failure(stats, prompt_id or Path(image_path_raw).stem,
+                               "step3_image_lookup",
+                               f"Could not resolve image path from plan metadata: {image_path_raw}")
                 stats["gpu_fail"] += 1
                 if run_step4:
                     stats["step4_fail"] += 1
@@ -273,9 +297,24 @@ def run_sync_pipeline(
                     )
                     save_testimony_bundle(bundle, expert_results_dir)
                     stats["gpu_ok"] += 1
+
+                    # Per-expert failure visibility (mirrors async dispatcher)
+                    testimonies = bundle.get("expert_testimonies", [])
+                    failed_experts = [
+                        t.get("expert_id", "?") for t in testimonies
+                        if t.get("status") != "success"
+                    ]
+                    if failed_experts:
+                        print(f"  [Step 3] WARN: {len(failed_experts)}/{len(testimonies)} "
+                              f"expert call(s) failed: {failed_experts} (details in "
+                              f"{expert_results_dir}/expert_results_{image_id}.json)")
                 except Exception as e:
                     print(f"  [FATAL] {type(e).__name__}: {e}")
+                    print(traceback.format_exc())
+                    record_failure(stats, image_id, "step3_expert",
+                                   f"{type(e).__name__}: {e}")
                     stats["gpu_fail"] += 1
+                bump_progress("Step3", len(plans))
 
             if run_step4 and bundle is not None and client:
                 print(f"\n  [Step 4] Reflector evaluating {image_id}...")
@@ -297,6 +336,8 @@ def run_sync_pipeline(
                     if report is None:
                         print(f"  [Step 4] FAILED - Reflector returned no valid response")
                         stats["step4_fail"] += 1
+                        record_failure(stats, image_id, "step4_reflector",
+                                       "Reflector returned no valid report (see [Reflector] errors above / debug_raw/)")
                     else:
                         if final_reports_dir:
                             final_reports_dir.mkdir(parents=True, exist_ok=True)
@@ -305,8 +346,14 @@ def run_sync_pipeline(
                         stats["step4_ok"] += 1
                 except Exception as e:
                     print(f"  [Step 4] FATAL: {type(e).__name__}: {e}")
+                    print(traceback.format_exc())
+                    record_failure(stats, image_id, "step4_reflector",
+                                   f"{type(e).__name__}: {e}")
                     stats["step4_fail"] += 1
+                bump_progress("Step4", len(plans))
             elif run_step4 and bundle is None:
                 stats["step4_fail"] += 1
+                record_failure(stats, image_id, "step4_reflector",
+                               "skipped: expert bundle missing (Step 3 failed for this image)")
 
     return stats

@@ -28,7 +28,7 @@ T2I_DIR = Path(__file__).resolve().parent
 if str(T2I_DIR) not in sys.path:
     sys.path.insert(0, str(T2I_DIR))
 
-from common import api_call_with_retry
+from common import api_call_with_retry, dump_debug_raw
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
@@ -662,6 +662,7 @@ def generate_generic_taxonomy(
     api_retry: int = 0,
     temperature: float = 0.0,
     model_name: str = "",
+    ctx_id: str = "",
 ) -> dict:
     """为泛类物体生成通用诊断特征。
 
@@ -670,6 +671,15 @@ def generate_generic_taxonomy(
     Returns a dict matching the structure produced by link_taxonomy, with
     is_generic=True and class_name suffixed with "(generic)".
     """
+    tag = f"[Step0d][{ctx_id}]" if ctx_id else "[Step0d]"
+    _empty = {
+        "object_name": object_name,
+        "is_generic": True,
+        "class_id": None,
+        "class_name": f"{object_name} (generic)",
+        "taxonomy_description": "",
+        "diagnostic_checkpoints": {},
+    }
     prompt = (
         f'你是生物分类学专家。给定物体名称 "{object_name}"'
         f'（来自 prompt: "{prompt_text}"），'
@@ -708,24 +718,19 @@ def generate_generic_taxonomy(
             if reasoning:
                 raw = reasoning
             else:
-                return {
-                    "object_name": object_name,
-                    "is_generic": True,
-                    "class_id": None,
-                    "class_name": f"{object_name} (generic)",
-                    "taxonomy_description": "",
-                    "diagnostic_checkpoints": {},
-                }
+                finish_reason = getattr(completion.choices[0], "finish_reason", "unknown")
+                print(f"  {tag} [WARN] Generic taxonomy for '{object_name}': empty content "
+                      f"(finish_reason={finish_reason}), object runs WITHOUT checkpoints")
+                return _empty
         result = parse_json_safely(raw)
         if result is None:
-            return {
-                "object_name": object_name,
-                "is_generic": True,
-                "class_id": None,
-                "class_name": f"{object_name} (generic)",
-                "taxonomy_description": "",
-                "diagnostic_checkpoints": {},
-            }
+            dump_path = dump_debug_raw("generic_taxonomy_unparseable",
+                                        ctx_id or object_name, raw,
+                                        note=f"{tag} unparseable JSON for '{object_name}'")
+            hint = f" (raw saved to {dump_path})" if dump_path else ""
+            print(f"  {tag} [WARN] Generic taxonomy for '{object_name}': "
+                  f"unparseable JSON{hint}, object runs WITHOUT checkpoints")
+            return _empty
         return {
             "object_name": object_name,
             "is_generic": True,
@@ -735,15 +740,8 @@ def generate_generic_taxonomy(
             "diagnostic_checkpoints": result.get("diagnostic_checkpoints", {}),
         }
     except Exception as e:
-        print(f"  [WARN] Generic taxonomy generation failed for '{object_name}': {e}")
-        return {
-            "object_name": object_name,
-            "is_generic": True,
-            "class_id": None,
-            "class_name": f"{object_name} (generic)",
-            "taxonomy_description": "",
-            "diagnostic_checkpoints": {},
-        }
+        print(f"  {tag} [WARN] Generic taxonomy generation failed for '{object_name}': {e}")
+        return _empty
 
 
 def enrich_with_generic_taxonomy(
@@ -752,6 +750,7 @@ def enrich_with_generic_taxonomy(
     api_retry: int = 0,
     temperature: float = 0.0,
     model_name: str = "",
+    ctx_id: str = "",
 ) -> dict:
     """为 atomized_data 中没有 taxonomy 的泛类物体生成通用诊断特征。
 
@@ -761,13 +760,14 @@ def enrich_with_generic_taxonomy(
     objects = atomized_data.get("objects", [])
     for obj in objects:
         if obj.get("is_generic", False) and not obj.get("diagnostic_checkpoints"):
-            print(f"  [Step 0d] Generating generic taxonomy for '{obj['object_name']}'...")
+            print(f"  [Step0d][{ctx_id}] Generating generic taxonomy for '{obj['object_name']}'...")
             generated = generate_generic_taxonomy(
                 client, obj["object_name"],
                 atomized_data.get("prompt", ""),
                 api_retry=api_retry,
                 temperature=temperature,
                 model_name=model_name,
+                ctx_id=ctx_id,
             )
             obj.update(generated)
     return atomized_data

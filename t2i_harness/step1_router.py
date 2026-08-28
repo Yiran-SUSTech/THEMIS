@@ -23,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(T2I_DIR) not in sys.path:
     sys.path.insert(0, str(T2I_DIR))
 
-from common import api_call_with_retry
+from common import api_call_with_retry, dump_debug_raw
 
 # common.py may have inserted c2i_harness at position 0 (e.g. due to drive-letter
 # casing differences on Windows), which would shadow t2i_harness modules of the
@@ -338,73 +338,74 @@ Address ALL issues raised by the Judge."""
 #  Plan Validation (T2I-specific)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
+def validate_plan(plan: dict, experts_registry_str: str = "", ctx_id: str = "") -> bool:
+    tag = f"[Router][{ctx_id}]" if ctx_id else "[Router]"
     if "image_description" not in plan:
-        print("  [WARN] Plan missing 'image_description'")
+        print(f"  {tag} [WARN] Plan missing 'image_description'")
         return False
     if "selected_experts" not in plan or not isinstance(plan["selected_experts"], list):
         # selected_experts may be absent if the model only emitted
         # expert_verification_plan; the backward-compat mapping in
         # generate_plan/revise_plan normally synthesizes it.
         if "expert_verification_plan" not in plan:
-            print("  [WARN] Plan missing or invalid 'selected_experts' and 'expert_verification_plan'")
+            print(f"  {tag} [WARN] Plan missing or invalid 'selected_experts' and 'expert_verification_plan'")
             return False
-        print("  [WARN] Plan missing 'selected_experts' (will be synthesized from expert_verification_plan)")
+        print(f"  {tag} [WARN] Plan missing 'selected_experts' (will be synthesized from expert_verification_plan)")
     # NEW (Change C): validate expert_verification_plan
     if "expert_verification_plan" not in plan or not isinstance(plan["expert_verification_plan"], list):
-        print("  [WARN] Plan missing or invalid 'expert_verification_plan'")
+        print(f"  {tag} [WARN] Plan missing or invalid 'expert_verification_plan'")
         return False
     for ev in plan["expert_verification_plan"]:
         if "expert_name" not in ev:
-            print(f"  [WARN] expert_verification_plan entry missing 'expert_name': {ev}")
+            print(f"  {tag} [WARN] expert_verification_plan entry missing 'expert_name': {ev}")
             return False
         if "verification_goals" not in ev or not ev["verification_goals"]:
-            print(f"  [WARN] Expert '{ev.get('expert_name')}' has no verification_goals")
+            print(f"  {tag} [WARN] Expert '{ev.get('expert_name')}' has no verification_goals")
             return False
         if "target_subject" not in ev:
-            print(f"  [WARN] expert_verification_plan entry missing 'target_subject': {ev}")
+            print(f"  {tag} [WARN] expert_verification_plan entry missing 'target_subject': {ev}")
             return False
     if "focus_areas" not in plan or not isinstance(plan["focus_areas"], list):
-        print("  [WARN] Plan missing or invalid 'focus_areas'")
+        print(f"  {tag} [WARN] Plan missing or invalid 'focus_areas'")
         return False
 
     # Validate atom_verdicts
     if "atom_verdicts" not in plan or not isinstance(plan["atom_verdicts"], list):
-        print("  [WARN] Plan missing or invalid 'atom_verdicts'")
+        print(f"  {tag} [WARN] Plan missing or invalid 'atom_verdicts'")
         return False
     for av in plan["atom_verdicts"]:
         if "atom_index" not in av:
-            print(f"  [WARN] atom_verdict missing 'atom_index': {av}")
+            print(f"  {tag} [WARN] atom_verdict missing 'atom_index': {av}")
             return False
         if "is_correct" not in av:
-            print(f"  [WARN] atom_verdict missing 'is_correct': {av}")
+            print(f"  {tag} [WARN] atom_verdict missing 'is_correct': {av}")
             return False
 
     # Validate checkpoint_verdicts
     if "checkpoint_verdicts" not in plan or not isinstance(plan["checkpoint_verdicts"], list):
-        print("  [WARN] Plan missing or invalid 'checkpoint_verdicts'")
+        print(f"  {tag} [WARN] Plan missing or invalid 'checkpoint_verdicts'")
         return False
     for cv in plan["checkpoint_verdicts"]:
         if "checkpoint" not in cv:
-            print(f"  [WARN] checkpoint_verdict missing 'checkpoint': {cv}")
+            print(f"  {tag} [WARN] checkpoint_verdict missing 'checkpoint': {cv}")
             return False
         if "is_testable" not in cv:
-            print(f"  [WARN] checkpoint_verdict missing 'is_testable': {cv}")
+            print(f"  {tag} [WARN] checkpoint_verdict missing 'is_testable': {cv}")
             return False
         if "is_present" not in cv:
-            print(f"  [WARN] checkpoint_verdict missing 'is_present': {cv}")
+            print(f"  {tag} [WARN] checkpoint_verdict missing 'is_present': {cv}")
             return False
 
     # Validate artifact_observations
     if "artifact_observations" not in plan or not isinstance(plan["artifact_observations"], list):
-        print("  [WARN] Plan missing or invalid 'artifact_observations'")
+        print(f"  {tag} [WARN] Plan missing or invalid 'artifact_observations'")
         return False
     for ao in plan["artifact_observations"]:
         if "artifact_type" not in ao:
-            print(f"  [WARN] artifact_observation missing 'artifact_type': {ao}")
+            print(f"  {tag} [WARN] artifact_observation missing 'artifact_type': {ao}")
             return False
         if "severity" not in ao:
-            print(f"  [WARN] artifact_observation missing 'severity': {ao}")
+            print(f"  {tag} [WARN] artifact_observation missing 'severity': {ao}")
             return False
 
     valid_expert_ids = set(extract_expert_ids(experts_registry_str)) if experts_registry_str else {
@@ -419,25 +420,25 @@ def validate_plan(plan: dict, experts_registry_str: str = "") -> bool:
     total_weight = 0.0
     for expert in plan.get("selected_experts", []):
         if "expert_name" not in expert:
-            print(f"  [WARN] Expert entry missing 'expert_name': {expert}")
+            print(f"  {tag} [WARN] Expert entry missing 'expert_name': {expert}")
             return False
         if expert["expert_name"] not in valid_expert_ids:
             print(
-                f"  [WARN] Invalid expert_name '{expert['expert_name']}', "
+                f"  {tag} [WARN] Invalid expert_name '{expert['expert_name']}', "
                 f"must be one of: {valid_expert_ids}"
             )
             return False
         if "target_subject" not in expert or not expert["target_subject"].strip():
-            print(f"  [WARN] Expert '{expert['expert_name']}' missing 'target_subject'")
+            print(f"  {tag} [WARN] Expert '{expert['expert_name']}' missing 'target_subject'")
             return False
         if "weight" not in expert:
-            print(f"  [WARN] Expert '{expert['expert_name']}' missing 'weight'")
+            print(f"  {tag} [WARN] Expert '{expert['expert_name']}' missing 'weight'")
             return False
         total_weight += expert["weight"]
 
     if abs(total_weight - 1.0) > 0.05:
         print(
-            f"  [WARN] Expert weights sum to {total_weight:.2f}, expected ~1.0"
+            f"  {tag} [WARN] Expert weights sum to {total_weight:.2f}, expected ~1.0"
         )
     return True
 
@@ -479,9 +480,11 @@ def _call_router_api(
     api_retry: int = 0,
     temperature: float = 0.0,
     model_name: str = "",
+    ctx_id: str = "",
 ) -> dict | None:
     if not model_name:
         model_name = ROUTER_MODEL
+    tag = f"[Router][{ctx_id}]" if ctx_id else "[Router]"
     if registry_summary:
         system_message = _build_cached_system_message(
             system_msg, registry_summary, formatted_instructions
@@ -520,17 +523,24 @@ def _call_router_api(
         if raw_content is None or raw_content.strip() == "":
             reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
             usage_info = f"prompt_tokens={usage.prompt_tokens}, completion_tokens={usage.completion_tokens}" if usage else "no usage info"
-            print(f"  [ERROR] Router returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
+            print(f"  {tag} [ERROR] Returned empty content (content is {'None' if raw_content is None else 'empty string'}, finish_reason={finish_reason}, {usage_info})")
             if reasoning:
-                print(f"  [WARN] Router reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
+                print(f"  {tag} [WARN] reasoning_content found ({len(reasoning)} chars), attempting to extract JSON")
                 raw_content = reasoning
             else:
                 msg = completion.choices[0].message
-                print(f"  [DEBUG] Router full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                print(f"  {tag} [DEBUG] Full message: content={repr(msg.content)}, role={getattr(msg, 'role', 'N/A')}, function_call={getattr(msg, 'function_call', None)}, tool_calls={getattr(msg, 'tool_calls', None)}, refusal={getattr(msg, 'refusal', None)}")
+                dump_debug_raw("router_empty_content", ctx_id or "unknown",
+                               repr(msg.content),
+                               note=f"{tag} empty content, finish_reason={finish_reason}")
                 return None
         result = parse_json_safely(raw_content)
         if result is None:
-            print(f"  [ERROR] Router returned unparseable JSON: {raw_content[:200]}")
+            dump_path = dump_debug_raw("router_unparseable", ctx_id or "unknown",
+                                       raw_content, note=f"{tag} unparseable JSON response")
+            hint = f" (full response saved to: {dump_path})" if dump_path else ""
+            print(f"  {tag} [ERROR] Returned unparseable JSON{hint}")
+            print(f"  {tag} [ERROR] Head: {raw_content[:200]}")
 
         usage = getattr(completion, "usage", None)
         if usage:
@@ -538,11 +548,11 @@ def _call_router_api(
             cached = getattr(details, "cached_tokens", 0) if details else 0
             created = getattr(details, "cache_creation_input_tokens", 0) if details else 0
             if cached or created:
-                print(f"  [CACHE] Router: hit={cached} tokens, created={created} tokens")
+                print(f"  [CACHE] {tag}: hit={cached} tokens, created={created} tokens")
 
         return result
     except Exception as e:
-        print(f"  [ERROR] Router API call failed: {type(e).__name__}: {e}")
+        print(f"  {tag} [ERROR] API call failed: {type(e).__name__}: {e}")
         return None
 
 
@@ -618,6 +628,7 @@ def generate_plan(
         api_retry=api_retry,
         temperature=temperature,
         model_name=model_name,
+        ctx_id=prompt_id,
     )
 
     cost_time = time.time() - start_time
@@ -643,7 +654,7 @@ def generate_plan(
         "prompt_id": prompt_id,
         "prompt_text": prompt_text,
         "router_cost_seconds": round(cost_time, 2),
-        "plan_valid": validate_plan(plan, experts_registry_str),
+        "plan_valid": validate_plan(plan, experts_registry_str, ctx_id=prompt_id),
     }
 
     return plan
@@ -689,6 +700,7 @@ def revise_plan(
         api_retry=api_retry,
         temperature=temperature,
         model_name=model_name,
+        ctx_id=f"{prompt_id}/rev",
     )
 
     cost_time = time.time() - start_time
@@ -714,7 +726,7 @@ def revise_plan(
         "prompt_id": prompt_id,
         "prompt_text": prompt_text,
         "router_cost_seconds": round(cost_time, 2),
-        "plan_valid": validate_plan(plan, experts_registry_str),
+        "plan_valid": validate_plan(plan, experts_registry_str, ctx_id=f"{prompt_id}/rev"),
         "is_revision": True,
         "revision_feedback_count": len(feedback_history),
     }

@@ -10,6 +10,7 @@ import sys
 import json
 import time
 import asyncio
+import traceback
 from pathlib import Path
 from openai import OpenAI
 
@@ -17,7 +18,7 @@ from common import (
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     resolve_image_path, save_judge_feedback,
     ATOMIZED_DIR, GENEVAL2_DATA_JSONL,
-    load_geneval2_data,
+    load_geneval2_data, record_failure, bump_progress,
 )
 
 from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
@@ -49,15 +50,20 @@ def _sync_router_judge(
     api_retry: int = 0,
     temp_router: float = 0.0,
     temp_judge: float = 0.0,
+    stats: dict | None = None,
 ) -> dict | None:
     """Synchronous Router+Judge for one image. Runs in thread pool."""
+    start_time = time.time()
     current_plan = generate_plan(
         client, image_path, img_id, prompt_text, atomized_data,
         experts_registry_str,
         api_retry=api_retry, temperature=temp_router,
     )
     if current_plan is None:
-        print(f"  [{img_id}] Router FAILED")
+        print(f"  [{img_id}] Router FAILED "
+              f"(see [Router][{img_id}] errors above / output debug_raw/)")
+        record_failure(stats, img_id, "step1_router",
+                       "Router returned no valid plan (empty content, unparseable JSON, or API error)")
         return None
 
     plan_save_path = plan_dir / f"plan_{img_id}.json"
@@ -76,6 +82,10 @@ def _sync_router_judge(
 
         if judge_result is None:
             iteration_log.append(f"Iteration {iteration}: Judge Error")
+            print(f"  [{img_id}] WARN: Judge error at iteration {iteration} "
+                  f"— saving plan WITHOUT approval and continuing pipeline")
+            record_failure(stats, img_id, "step2_judge",
+                           "Judge returned no valid response (empty content, unparseable JSON, or API error)")
             break
 
         is_approved = judge_result.get("is_approved", False)
@@ -117,6 +127,11 @@ def _sync_router_judge(
                 revision_path = plan_dir / f"plan_{img_id}_rev{iteration}.json"
                 with open(revision_path, "w", encoding="utf-8") as f:
                     json.dump(revised_plan, f, indent=4, ensure_ascii=False)
+            else:
+                print(f"  [{img_id}] WARN: Router revision failed at iteration "
+                      f"{iteration}, keeping previous plan")
+                record_failure(stats, img_id, "step1_router_revision",
+                               "revise_plan returned None; keeping pre-revision plan")
 
     current_plan["metadata"]["iteration_log"] = iteration_log
 
@@ -124,7 +139,9 @@ def _sync_router_judge(
     with open(approved_save_path, "w", encoding="utf-8") as f:
         json.dump(current_plan, f, indent=4, ensure_ascii=False)
 
-    print(f"  [{img_id}] Plan approved ({iteration_log[-1] if iteration_log else 'OK'})")
+    elapsed = time.time() - start_time
+    print(f"  [{img_id}] Plan approved "
+          f"({iteration_log[-1] if iteration_log else 'OK'}) in {elapsed:.1f}s")
     return current_plan
 
 
@@ -143,6 +160,7 @@ async def _api_worker(
     api_retry: int = 0,
     temp_router: float = 0.0,
     temp_judge: float = 0.0,
+    total: int = 0,
 ) -> None:
     """Async worker: atomize prompt → Router → Judge loop."""
     loop = asyncio.get_event_loop()
@@ -161,10 +179,13 @@ async def _api_worker(
                 prompt_data = geneval2_data.get(img_id, {})
                 if not prompt_data:
                     print(f"  [{img_id}] No GenEval2 data found, skipping")
+                    record_failure(stats, img_id, "step0_atomize",
+                                   f"No GenEval2 record for prompt_id={img_id} in JSONL")
                     stats["api_fail"] += 1
                     task_queue.task_done()
                     continue
 
+                atomize_start = time.time()
                 atomized_data = await loop.run_in_executor(
                     None, atomize_prompt, prompt_data,
                 )
@@ -178,12 +199,16 @@ async def _api_worker(
                     lambda: enrich_with_generic_taxonomy(
                         atomized_data, client,
                         api_retry=api_retry, temperature=0.0,
+                        ctx_id=img_id,
                     ),
                 )
                 await loop.run_in_executor(
                     None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
                 )
                 stats["atomize_ok"] += 1
+                print(f"  [{img_id}] Atomize ok: {atomized_data['atom_count']} atoms, "
+                      f"{len(atomized_data['objects'])} objects "
+                      f"({time.time() - atomize_start:.1f}s)")
 
                 # Steps 1+2: Router + Judge
                 plan = await loop.run_in_executor(
@@ -192,7 +217,7 @@ async def _api_worker(
                     client, image_path, img_id, prompt_text, atomized_data,
                     experts_registry_str, max_iterations,
                     plan_dir, approved_dir, judge_feedback_dir,
-                    api_retry, temp_router, temp_judge,
+                    api_retry, temp_router, temp_judge, stats,
                 )
 
                 if plan is not None:
@@ -200,8 +225,12 @@ async def _api_worker(
                     stats["api_ok"] += 1
                 else:
                     stats["api_fail"] += 1
+                bump_progress("Step1+2", total)
             except Exception as e:
                 print(f"  [{img_id}] API worker error: {type(e).__name__}: {e}")
+                print(traceback.format_exc())
+                record_failure(stats, img_id, "step0_12_api_worker",
+                               f"{type(e).__name__}: {e}")
                 stats["api_fail"] += 1
 
         task_queue.task_done()
@@ -217,6 +246,7 @@ async def _gpu_worker(
     done_event: asyncio.Event,
     reflector_queue: asyncio.Queue | None = None,
     cpu_semaphore: object | None = None,
+    total: int = 0,
 ) -> None:
     """Async worker: execute expert plan on GPU."""
     loop = asyncio.get_event_loop()
@@ -239,6 +269,8 @@ async def _gpu_worker(
             try:
                 resolved_path = resolve_image_path_global(image_path)
                 if resolved_path is None:
+                    print(f"  [GPU-{worker_id}][{img_id}] WARN: image not found at "
+                          f"'{image_path}', passing raw path to experts")
                     resolved_path = image_path
 
                 bundle = await loop.run_in_executor(
@@ -249,6 +281,20 @@ async def _gpu_worker(
                     None, save_testimony_bundle, bundle, expert_results_dir,
                 )
                 stats["gpu_ok"] += 1
+
+                # Per-expert failure visibility: the bundle may succeed overall
+                # while individual expert calls failed — surface those here.
+                testimonies = bundle.get("expert_testimonies", [])
+                failed_experts = [
+                    t.get("expert_id", "?") for t in testimonies
+                    if t.get("status") != "success"
+                ]
+                if failed_experts:
+                    print(f"  [GPU-{worker_id}][{img_id}] WARN: "
+                          f"{len(failed_experts)}/{len(testimonies)} expert call(s) "
+                          f"failed: {failed_experts} (details in "
+                          f"{expert_results_dir}/expert_results_{img_id}.json)")
+
                 print(f"  [GPU-{worker_id}][{img_id}] Done "
                       f"({bundle['execution_summary']['total_execution_time_ms']:.0f}ms)")
 
@@ -259,7 +305,11 @@ async def _gpu_worker(
                     ))
             except Exception as e:
                 print(f"  [GPU-{worker_id}][{img_id}] FATAL: {type(e).__name__}: {e}")
+                print(traceback.format_exc())
+                record_failure(stats, img_id, "step3_expert",
+                               f"{type(e).__name__}: {e}")
                 stats["gpu_fail"] += 1
+            bump_progress("Step3", total)
 
         plan_queue.task_done()
 
@@ -315,6 +365,7 @@ async def _reflector_worker(
     enable_self_reflection: bool = True,
     api_retry: int = 0,
     temp_reflector: float = 0.5,
+    total: int = 0,
 ) -> None:
     """Async worker: pull GPU results from reflector_queue, call Reflector API."""
     loop = asyncio.get_event_loop()
@@ -347,9 +398,15 @@ async def _reflector_worker(
                     stats["reflector_ok"] += 1
                 else:
                     stats["reflector_fail"] += 1
+                    record_failure(stats, img_id, "step4_reflector",
+                                   "Reflector returned no valid report (see [Reflector] errors above / debug_raw/)")
             except Exception as e:
                 print(f"  [{img_id}] Reflector worker error: {type(e).__name__}: {e}")
+                print(traceback.format_exc())
+                record_failure(stats, img_id, "step4_reflector",
+                               f"{type(e).__name__}: {e}")
                 stats["reflector_fail"] += 1
+            bump_progress("Step4", total)
 
         reflector_queue.task_done()
 
@@ -398,14 +455,33 @@ async def _run_full_pipeline(
     gpu_done_event = asyncio.Event()
     reflector_done_event = asyncio.Event()
 
+    stats["resumed"] = 0
+    queued = 0
     for img_name, img_id, prompt_text in valid_images:
         image_path = resolve_image_path(image_dir, img_id)
         if image_path is None:
+            print(f"  [WARN] Image file not found for prompt_id={img_id} "
+                  f"(expected {img_id}.png/.jpg/.jpeg in {image_dir})")
+            record_failure(stats, img_id, "image_lookup",
+                           f"No image file found in {image_dir} for prompt_id {img_id}")
             stats["api_fail"] += 1
             continue
-        await task_queue.put((img_id, str(image_path), prompt_text))
 
-    num_api_workers = min(api_concurrency, len(valid_images))
+        # Resume: skip images that already have a final report
+        if run_step4 and final_reports_dir is not None:
+            report_path = final_reports_dir / f"final_evaluation_report_{img_id}.json"
+            if report_path.exists():
+                stats["resumed"] += 1
+                continue
+
+        await task_queue.put((img_id, str(image_path), prompt_text))
+        queued += 1
+
+    if stats["resumed"] > 0:
+        print(f"  [RESUME] {stats['resumed']} image(s) skipped — final report already exists")
+        print(f"  [RESUME] {queued} image(s) to process")
+
+    num_api_workers = min(api_concurrency, max(queued, 1))
     for _ in range(num_api_workers):
         await task_queue.put(None)
 
@@ -414,7 +490,7 @@ async def _run_full_pipeline(
             task_queue, plan_queue, client, experts_registry_str,
             geneval2_data, max_iterations, plan_dir, approved_dir,
             judge_feedback_dir, api_semaphore, stats,
-            api_retry, temp_router, temp_judge,
+            api_retry, temp_router, temp_judge, queued,
         ))
         for _ in range(num_api_workers)
     ]
@@ -425,6 +501,7 @@ async def _run_full_pipeline(
             gpu_semaphore, i, stats, gpu_done_event,
             reflector_queue=reflector_queue,
             cpu_semaphore=cpu_semaphore,
+            total=queued,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -432,7 +509,7 @@ async def _run_full_pipeline(
     reflector_tasks = []
     if run_step4:
         reflector_api_semaphore = asyncio.Semaphore(api_concurrency)
-        num_reflector_workers = min(api_concurrency, len(valid_images))
+        num_reflector_workers = min(api_concurrency, max(queued, 1))
         for _ in range(num_reflector_workers):
             reflector_tasks.append(
                 asyncio.create_task(_reflector_worker(
@@ -440,7 +517,7 @@ async def _run_full_pipeline(
                     final_reports_dir, reflector_api_semaphore,
                     stats, reflector_done_event,
                     ref_image_dir, enable_self_reflection,
-                    api_retry, temp_reflector,
+                    api_retry, temp_reflector, queued,
                 ))
             )
 
@@ -482,11 +559,35 @@ async def _run_step12_only(
     api_concurrency: int,
     temp_router: float = 0.0,
     temp_judge: float = 0.0,
+    api_retry: int = 0,
 ) -> dict:
     """Run Step 0+1+2 only (Atomize + Router + Judge)."""
-    stats = {"atomize_ok": 0, "api_ok": 0, "api_fail": 0}
+    stats = {"atomize_ok": 0, "api_ok": 0, "api_fail": 0, "resumed": 0}
     api_semaphore = asyncio.Semaphore(api_concurrency)
     loop = asyncio.get_event_loop()
+
+    todo: list[tuple] = []
+    for img_name, img_id, prompt_text in valid_images:
+        image_path = resolve_image_path(image_dir, img_id)
+        if image_path is None:
+            print(f"  [WARN] Image file not found for prompt_id={img_id} "
+                  f"(expected {img_id}.png/.jpg/.jpeg in {image_dir})")
+            record_failure(stats, img_id, "image_lookup",
+                           f"No image file found in {image_dir} for prompt_id {img_id}")
+            stats["api_fail"] += 1
+            continue
+
+        # Resume: skip images with an existing approved plan
+        if (approved_dir / f"approved_plan_{img_id}.json").exists():
+            stats["resumed"] += 1
+            continue
+        todo.append((img_name, img_id, prompt_text))
+
+    if stats["resumed"] > 0:
+        print(f"  [RESUME] {stats['resumed']} image(s) skipped — approved plan already exists")
+        print(f"  [RESUME] {len(todo)} image(s) to process")
+
+    total = len(todo)
 
     async def process_one(img_name, img_id, prompt_text):
         image_path = resolve_image_path(image_dir, img_id)
@@ -495,50 +596,61 @@ async def _run_step12_only(
             return
 
         async with api_semaphore:
-            # Step 0: Atomize
-            prompt_data = geneval2_data.get(img_id, {})
-            if not prompt_data:
-                print(f"  [{img_id}] No GenEval2 data found, skipping")
-                stats["api_fail"] += 1
-                return
+            try:
+                # Step 0: Atomize
+                prompt_data = geneval2_data.get(img_id, {})
+                if not prompt_data:
+                    print(f"  [{img_id}] No GenEval2 data found, skipping")
+                    record_failure(stats, img_id, "step0_atomize",
+                                   f"No GenEval2 record for prompt_id={img_id} in JSONL")
+                    stats["api_fail"] += 1
+                    return
 
-            atomized_data = await loop.run_in_executor(
-                None, atomize_prompt, prompt_data,
-            )
-            await loop.run_in_executor(
-                None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
-            )
+                atomized_data = await loop.run_in_executor(
+                    None, atomize_prompt, prompt_data,
+                )
+                await loop.run_in_executor(
+                    None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
+                )
 
-            # Step 0d: Enrich with generic taxonomy
-            atomized_data = await loop.run_in_executor(
-                None,
-                lambda: enrich_with_generic_taxonomy(
-                    atomized_data, client,
-                    api_retry=0, temperature=0.0,
-                ),
-            )
-            await loop.run_in_executor(
-                None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
-            )
-            stats["atomize_ok"] += 1
+                # Step 0d: Enrich with generic taxonomy
+                atomized_data = await loop.run_in_executor(
+                    None,
+                    lambda: enrich_with_generic_taxonomy(
+                        atomized_data, client,
+                        api_retry=api_retry, temperature=0.0,
+                        ctx_id=img_id,
+                    ),
+                )
+                await loop.run_in_executor(
+                    None, save_atomized_prompt, atomized_data, ATOMIZED_DIR, img_id,
+                )
+                stats["atomize_ok"] += 1
 
-            # Steps 1+2: Router + Judge
-            plan = await loop.run_in_executor(
-                None,
-                _sync_router_judge,
-                client, str(image_path), img_id, prompt_text, atomized_data,
-                experts_registry_str, max_iterations,
-                plan_dir, approved_dir, judge_feedback_dir,
-                0, temp_router, temp_judge,
-            )
-            if plan is not None:
-                stats["api_ok"] += 1
-            else:
+                # Steps 1+2: Router + Judge
+                plan = await loop.run_in_executor(
+                    None,
+                    _sync_router_judge,
+                    client, str(image_path), img_id, prompt_text, atomized_data,
+                    experts_registry_str, max_iterations,
+                    plan_dir, approved_dir, judge_feedback_dir,
+                    api_retry, temp_router, temp_judge, stats,
+                )
+                if plan is not None:
+                    stats["api_ok"] += 1
+                else:
+                    stats["api_fail"] += 1
+                bump_progress("Step1+2", total)
+            except Exception as e:
+                print(f"  [{img_id}] Step12 worker error: {type(e).__name__}: {e}")
+                print(traceback.format_exc())
+                record_failure(stats, img_id, "step0_12_api_worker",
+                               f"{type(e).__name__}: {e}")
                 stats["api_fail"] += 1
 
     tasks = [
         asyncio.create_task(process_one(n, iid, pt))
-        for n, iid, pt in valid_images
+        for n, iid, pt in todo
     ]
     await asyncio.gather(*tasks)
     return stats
@@ -551,7 +663,7 @@ async def run_step3_async(
     cpu_semaphore: object | None = None,
 ) -> dict:
     """Run Step 3 with parallel GPU groups."""
-    stats = {"gpu_ok": 0, "gpu_fail": 0}
+    stats = {"gpu_ok": 0, "gpu_fail": 0, "resumed": 0}
 
     plans = load_approved_plans(approved_dir)
     if not plans:
@@ -564,24 +676,43 @@ async def run_step3_async(
 
     geneval2_data = load_geneval2_data(GENEVAL2_DATA_JSONL)
 
+    queued = 0
     for plan in plans:
-        metadata = plan.get("metadata", {})
-        image_path = metadata.get("original_image", "")
-        prompt_text = metadata.get("prompt_text", "")
-        prompt_id = metadata.get("prompt_id", "")
-        image_id = Path(image_path).stem if image_path else "unknown"
+        try:
+            metadata = plan.get("metadata", {})
+            image_path = metadata.get("original_image", "")
+            prompt_text = metadata.get("prompt_text", "")
+            prompt_id = metadata.get("prompt_id", "")
+            image_id = Path(image_path).stem if image_path else "unknown"
 
-        # Load atomized data for reflector queue
-        atomized_path = ATOMIZED_DIR / f"atomized_{image_id}.json"
-        atomized_data = {}
-        if atomized_path.exists():
-            with open(atomized_path, "r", encoding="utf-8") as f:
-                atomized_data = json.load(f)
-        elif prompt_id and prompt_id in geneval2_data:
-            atomized_data = atomize_prompt(geneval2_data[prompt_id])
-            save_atomized_prompt(atomized_data, ATOMIZED_DIR, image_id)
+            # Resume: skip images with existing expert results
+            if (expert_results_dir / f"expert_results_{image_id}.json").exists():
+                stats["resumed"] += 1
+                continue
 
-        await plan_queue.put((image_id, image_path, prompt_text, atomized_data, plan))
+            # Load atomized data for reflector queue
+            atomized_path = ATOMIZED_DIR / f"atomized_{image_id}.json"
+            atomized_data = {}
+            if atomized_path.exists():
+                with open(atomized_path, "r", encoding="utf-8") as f:
+                    atomized_data = json.load(f)
+            elif prompt_id and prompt_id in geneval2_data:
+                atomized_data = atomize_prompt(geneval2_data[prompt_id])
+                save_atomized_prompt(atomized_data, ATOMIZED_DIR, image_id)
+
+            await plan_queue.put((image_id, image_path, prompt_text, atomized_data, plan))
+            queued += 1
+        except Exception as e:
+            prompt_id = plan.get("metadata", {}).get("prompt_id", "?")
+            print(f"  [{prompt_id}] Step3 plan loading error: {type(e).__name__}: {e}")
+            print(traceback.format_exc())
+            record_failure(stats, prompt_id, "step3_plan_load",
+                           f"{type(e).__name__}: {e}")
+            stats["gpu_fail"] += 1
+
+    if stats["resumed"] > 0:
+        print(f"  [RESUME] {stats['resumed']} image(s) skipped — expert results already exist")
+        print(f"  [RESUME] {queued} image(s) to process")
 
     done_event.set()
 
@@ -590,6 +721,7 @@ async def run_step3_async(
             plan_queue, em, expert_results_dir,
             gpu_semaphore, i, stats, done_event,
             cpu_semaphore=cpu_semaphore,
+            total=queued,
         ))
         for i, em in enumerate(expert_managers)
     ]
@@ -621,64 +753,95 @@ async def _run_step4_only(
     api_retry: int = 0,
 ) -> dict:
     """Run Step 4 (Reflector) only, loading expert results and plans from disk."""
-    stats = {"reflector_ok": 0, "reflector_fail": 0}
+    stats = {"reflector_ok": 0, "reflector_fail": 0, "resumed": 0}
     client = OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
     loop = asyncio.get_event_loop()
     api_semaphore = asyncio.Semaphore(api_concurrency)
 
     geneval2_data = load_geneval2_data(GENEVAL2_DATA_JSONL)
 
+    todo: list[tuple] = []
+    for img_name, img_id, prompt_text in valid_images:
+        # Resume: skip images with an existing final report
+        if (final_reports_dir / f"final_evaluation_report_{img_id}.json").exists():
+            stats["resumed"] += 1
+            continue
+        todo.append((img_name, img_id, prompt_text))
+
+    if stats["resumed"] > 0:
+        print(f"  [RESUME] {stats['resumed']} image(s) skipped — final report already exists")
+        print(f"  [RESUME] {len(todo)} image(s) to process")
+
+    total = len(todo)
+
     async def process_one(img_name, img_id, prompt_text):
-        image_path = resolve_image_path(image_dir, img_id)
-        if image_path is None:
-            stats["reflector_fail"] += 1
-            return
-
-        # Load approved plan
-        plan_path = approved_dir / f"approved_plan_{img_id}.json"
-        if not plan_path.exists():
-            print(f"  [{img_id}] No approved plan found, skipping")
-            stats["reflector_fail"] += 1
-            return
-        with open(plan_path, "r", encoding="utf-8") as f:
-            plan = json.load(f)
-
-        # Load expert results bundle
-        bundle_path = expert_results_dir / f"expert_results_{img_id}.json"
-        if not bundle_path.exists():
-            print(f"  [{img_id}] No expert results found, skipping")
-            stats["reflector_fail"] += 1
-            return
-        with open(bundle_path, "r", encoding="utf-8") as f:
-            bundle = json.load(f)
-
-        # Load atomized data
-        atomized_path = ATOMIZED_DIR / f"atomized_{img_id}.json"
-        atomized_data = {}
-        if atomized_path.exists():
-            with open(atomized_path, "r", encoding="utf-8") as f:
-                atomized_data = json.load(f)
-        elif img_id in geneval2_data:
-            atomized_data = atomize_prompt(geneval2_data[img_id])
-            save_atomized_prompt(atomized_data, ATOMIZED_DIR, img_id)
-
         async with api_semaphore:
-            report = await loop.run_in_executor(
-                None,
-                _sync_reflector,
-                client, str(image_path), img_id, prompt_text, atomized_data,
-                bundle, experts_registry_str, plan, final_reports_dir,
-                ref_image_dir, enable_self_reflection,
-                api_retry, temp_reflector,
-            )
-            if report is not None:
-                stats["reflector_ok"] += 1
-            else:
+            try:
+                image_path = resolve_image_path(image_dir, img_id)
+                if image_path is None:
+                    print(f"  [{img_id}] No image file found, skipping")
+                    record_failure(stats, img_id, "image_lookup",
+                                   f"No image file found in {image_dir} for prompt_id {img_id}")
+                    stats["reflector_fail"] += 1
+                    return
+
+                # Load approved plan
+                plan_path = approved_dir / f"approved_plan_{img_id}.json"
+                if not plan_path.exists():
+                    print(f"  [{img_id}] No approved plan found, skipping")
+                    record_failure(stats, img_id, "step4_missing_plan",
+                                   f"No approved plan at {plan_path} — run Step 1+2 first")
+                    stats["reflector_fail"] += 1
+                    return
+                with open(plan_path, "r", encoding="utf-8") as f:
+                    plan = json.load(f)
+
+                # Load expert results bundle
+                bundle_path = expert_results_dir / f"expert_results_{img_id}.json"
+                if not bundle_path.exists():
+                    print(f"  [{img_id}] No expert results found, skipping")
+                    record_failure(stats, img_id, "step4_missing_expert_results",
+                                   f"No expert results at {bundle_path} — run Step 3 first")
+                    stats["reflector_fail"] += 1
+                    return
+                with open(bundle_path, "r", encoding="utf-8") as f:
+                    bundle = json.load(f)
+
+                # Load atomized data
+                atomized_path = ATOMIZED_DIR / f"atomized_{img_id}.json"
+                atomized_data = {}
+                if atomized_path.exists():
+                    with open(atomized_path, "r", encoding="utf-8") as f:
+                        atomized_data = json.load(f)
+                elif img_id in geneval2_data:
+                    atomized_data = atomize_prompt(geneval2_data[img_id])
+                    save_atomized_prompt(atomized_data, ATOMIZED_DIR, img_id)
+
+                report = await loop.run_in_executor(
+                    None,
+                    _sync_reflector,
+                    client, str(image_path), img_id, prompt_text, atomized_data,
+                    bundle, experts_registry_str, plan, final_reports_dir,
+                    ref_image_dir, enable_self_reflection,
+                    api_retry, temp_reflector,
+                )
+                if report is not None:
+                    stats["reflector_ok"] += 1
+                else:
+                    stats["reflector_fail"] += 1
+                    record_failure(stats, img_id, "step4_reflector",
+                                   "Reflector returned no valid report (see [Reflector] errors above / debug_raw/)")
+                bump_progress("Step4", total)
+            except Exception as e:
+                print(f"  [{img_id}] Step4 worker error: {type(e).__name__}: {e}")
+                print(traceback.format_exc())
+                record_failure(stats, img_id, "step4_reflector",
+                               f"{type(e).__name__}: {e}")
                 stats["reflector_fail"] += 1
 
     tasks = [
         asyncio.create_task(process_one(n, iid, pt))
-        for n, iid, pt in valid_images
+        for n, iid, pt in todo
     ]
     await asyncio.gather(*tasks)
     return stats
@@ -773,6 +936,7 @@ def run_async_pipeline(
             api_concurrency=api_concurrency,
             temp_router=temp_router,
             temp_judge=temp_judge,
+            api_retry=api_retry,
         ))
 
     elif run_step3 and not run_step12:

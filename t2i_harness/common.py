@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import time
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -60,6 +61,138 @@ GPU_PRESETS_DIR = PROJECT_ROOT / "gpu_configs"
 
 DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Debug Logging Infrastructure
+#  - install_run_log(): tee stdout to OUTPUT_DIR/run_<ts>.log (timestamped)
+#  - dump_debug_raw(): save full raw LLM responses for offline inspection
+#  - record_failure(): collect per-image failures into stats['failed_images']
+#  - bump_progress(): periodic "done/total" progress lines
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_LOG_LOCK = threading.Lock()
+_LOG_STREAM = None
+_LOG_FILE_PATH: Path | None = None
+
+
+def install_run_log() -> Path | None:
+    """Tee stdout AND stderr into OUTPUT_DIR/run_<timestamp>.log with per-line timestamps.
+
+    Console output stays unchanged; only the file copy gets timestamps
+    (stderr lines get a [ERR] marker so tracebacks are easy to grep).
+    Capturing stderr is essential: unhandled exception tracebacks and
+    library warnings go to stderr, not stdout.
+    Thread-safe (prints may come from asyncio loop + executor threads).
+    Call once at process start (run.py main).
+    """
+    global _LOG_STREAM, _LOG_FILE_PATH
+    if _LOG_STREAM is not None:
+        return _LOG_FILE_PATH
+    try:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        _LOG_FILE_PATH = OUTPUT_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        _LOG_STREAM = open(_LOG_FILE_PATH, "a", encoding="utf-8", buffering=1)
+    except Exception as e:
+        print(f"[WARN] Failed to open run log file: {e}")
+        return None
+
+    import atexit
+    atexit.register(_flush_run_log)
+
+    class _TeeStream:
+        def __init__(self, orig, err_marker: bool):
+            self._orig = orig
+            self._err_marker = err_marker
+            self._pending = ""
+
+        def write(self, data):
+            self._orig.write(data)
+            with _LOG_LOCK:
+                self._pending += data
+                while "\n" in self._pending:
+                    line, self._pending = self._pending.split("\n", 1)
+                    if line.strip():
+                        ts = datetime.now().strftime("%H:%M:%S")
+                        marker = "[ERR] " if self._err_marker else ""
+                        _LOG_STREAM.write(f"[{ts}] {marker}{line}\n")
+
+        def flush(self):
+            self._orig.flush()
+            with _LOG_LOCK:
+                _LOG_STREAM.flush()
+
+        def __getattr__(self, name):
+            return getattr(self._orig, name)
+
+    sys.stdout = _TeeStream(sys.stdout, err_marker=False)
+    sys.stderr = _TeeStream(sys.stderr, err_marker=True)
+    print(f"[LOG] Run log file: {_LOG_FILE_PATH}")
+    return _LOG_FILE_PATH
+
+
+def _flush_run_log() -> None:
+    try:
+        if _LOG_STREAM is not None:
+            with _LOG_LOCK:
+                _LOG_STREAM.flush()
+    except Exception:
+        pass
+
+
+DEBUG_RAW_DIR = OUTPUT_DIR / "debug_raw"
+
+
+def dump_debug_raw(stage: str, img_id: str, raw_text, note: str = "") -> str | None:
+    """Save a raw LLM response under OUTPUT_DIR/debug_raw/ for offline inspection.
+
+    Called when JSON parsing fails so the FULL response is preserved instead of
+    the truncated console preview. Returns the saved path, or None on failure.
+    """
+    try:
+        DEBUG_RAW_DIR.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%H%M%S_%f")[:-3]
+        path = DEBUG_RAW_DIR / f"{stage}_{img_id}_{ts}.txt"
+        with open(path, "w", encoding="utf-8") as f:
+            if note:
+                f.write(note.rstrip() + "\n\n")
+            f.write(raw_text if raw_text is not None else "<None>")
+        return str(path)
+    except Exception:
+        return None
+
+
+_FAILURES_LOCK = threading.Lock()
+
+
+def record_failure(stats: dict, img_id, stage: str, error) -> None:
+    """Append an image-level failure entry to stats['failed_images'].
+
+    stats is the shared pipeline stats dict; safe to call from any thread.
+    run.py turns the collected list into failed_images.json at the end.
+    """
+    if stats is None:
+        return
+    entry = {
+        "img_id": str(img_id),
+        "stage": stage,
+        "error": str(error)[:500],
+        "time": datetime.now().strftime("%H:%M:%S"),
+    }
+    with _FAILURES_LOCK:
+        stats.setdefault("failed_images", []).append(entry)
+
+
+_PROGRESS_LOCK = threading.Lock()
+_PROGRESS_STATE: dict[str, int] = {}
+
+
+def bump_progress(label: str, total: int, every: int = 25) -> None:
+    """Increment and periodically report progress for a pipeline stage."""
+    with _PROGRESS_LOCK:
+        _PROGRESS_STATE[label] = _PROGRESS_STATE.get(label, 0) + 1
+        done = _PROGRESS_STATE[label]
+    if total > 0 and (done % every == 0 or done >= total):
+        print(f"  [PROGRESS] {label}: {done}/{total}")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  API Retry Utility

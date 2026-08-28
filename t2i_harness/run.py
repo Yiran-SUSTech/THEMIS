@@ -13,8 +13,10 @@ Modes:
 
 import os
 import sys
+import json
 import time
 import argparse
+import traceback
 from pathlib import Path
 
 T2I_DIR = Path(__file__).resolve().parent
@@ -45,6 +47,7 @@ from common import (
     OUTPUT_DIR, WITHOUT_EXPERT_REPORTS_DIR,
     DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL,
     build_t2i_image_list, preload_expert_managers,
+    install_run_log,
 )
 from step1_router import load_experts_registry
 
@@ -141,6 +144,10 @@ Examples:
                         help="Disable Reflector self-reflection (single-round mode for faster processing)")
 
     args = parser.parse_args()
+
+    # Install tee'd run log (stdout is unchanged; a timestamped copy goes to
+    # OUTPUT_DIR/run_<ts>.log so failures can be analyzed post-mortem).
+    install_run_log()
 
     # ── Override LLM model names if specified ───────────────────
     if args.model_router or args.model_judge or args.model_reflector:
@@ -249,68 +256,129 @@ Examples:
 
     # ── Dispatch to mode ───────────────────────────────────────
     stats = {}
+    interrupted = False
 
-    if args.mode == "sync":
-        from dispatch_sync import run_sync_pipeline
-        final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
-        stats = run_sync_pipeline(
-            valid_images=valid_images,
-            image_dir=image_dir,
-            experts_registry_str=experts_registry_str,
-            max_iterations=args.max_iterations,
-            plan_dir=plan_dir,
-            approved_dir=approved_dir,
-            judge_feedback_dir=judge_feedback_dir,
-            expert_results_dir=expert_results_dir,
-            expert_managers=expert_managers,
-            step=step,
-            final_reports_dir=final_reports_dir,
-            ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
-            enable_self_reflection=args.enable_self_reflection,
-            api_retry=args.api_retry,
-            temp_router=args.temp_router,
-            temp_judge=args.temp_judge,
-            temp_reflector=args.temp_reflector,
-        )
+    try:
+        if args.mode == "sync":
+            from dispatch_sync import run_sync_pipeline
+            final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
+            stats = run_sync_pipeline(
+                valid_images=valid_images,
+                image_dir=image_dir,
+                experts_registry_str=experts_registry_str,
+                max_iterations=args.max_iterations,
+                plan_dir=plan_dir,
+                approved_dir=approved_dir,
+                judge_feedback_dir=judge_feedback_dir,
+                expert_results_dir=expert_results_dir,
+                expert_managers=expert_managers,
+                step=step,
+                final_reports_dir=final_reports_dir,
+                ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
+                enable_self_reflection=args.enable_self_reflection,
+                api_retry=args.api_retry,
+                temp_router=args.temp_router,
+                temp_judge=args.temp_judge,
+                temp_reflector=args.temp_reflector,
+            )
 
-    elif args.mode == "async":
-        from dispatch_async import run_async_pipeline
-        final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
-        stats = run_async_pipeline(
-            valid_images=valid_images,
-            image_dir=image_dir,
-            experts_registry_str=experts_registry_str,
-            max_iterations=args.max_iterations,
-            plan_dir=plan_dir,
-            approved_dir=approved_dir,
-            judge_feedback_dir=judge_feedback_dir,
-            expert_results_dir=expert_results_dir,
-            expert_managers=expert_managers,
-            api_concurrency=args.api_concurrency,
-            step=step,
-            final_reports_dir=final_reports_dir,
-            ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
-            enable_self_reflection=args.enable_self_reflection,
-            temp_router=args.temp_router,
-            temp_judge=args.temp_judge,
-            temp_reflector=args.temp_reflector,
-            cpu_semaphore=cpu_semaphore,
-            api_retry=args.api_retry,
-        )
+        elif args.mode == "async":
+            from dispatch_async import run_async_pipeline
+            final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
+            stats = run_async_pipeline(
+                valid_images=valid_images,
+                image_dir=image_dir,
+                experts_registry_str=experts_registry_str,
+                max_iterations=args.max_iterations,
+                plan_dir=plan_dir,
+                approved_dir=approved_dir,
+                judge_feedback_dir=judge_feedback_dir,
+                expert_results_dir=expert_results_dir,
+                expert_managers=expert_managers,
+                api_concurrency=args.api_concurrency,
+                step=step,
+                final_reports_dir=final_reports_dir,
+                ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
+                enable_self_reflection=args.enable_self_reflection,
+                temp_router=args.temp_router,
+                temp_judge=args.temp_judge,
+                temp_reflector=args.temp_reflector,
+                cpu_semaphore=cpu_semaphore,
+                api_retry=args.api_retry,
+            )
+    except KeyboardInterrupt:
+        # Debug-phase runs are frequently Ctrl-C'ed; keep partial results
+        # and still emit the summary + failure manifest below.
+        interrupted = True
+        print(f"\n{'='*60}")
+        print("  [INTERRUPT] Pipeline interrupted by user (Ctrl+C)")
+        print("  Partial results already on disk are kept and will be")
+        print("  reused when you re-run with the same --output-dir.")
+        print(f"{'='*60}")
+    except Exception as e:
+        interrupted = True
+        print(f"\n[FATAL] Unhandled exception in dispatcher: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        print("  The run log in the output dir preserves everything above.")
+        stats = stats if isinstance(stats, dict) else {}
 
     # ── Summary ────────────────────────────────────────────────
     total_elapsed = time.time() - total_start
+
+    if interrupted:
+        print(f"\n  NOTE: stats below may be incomplete because the run did not finish.")
 
     print(f"\n{'='*60}")
     print(f"  Pipeline Summary ({args.mode} mode)")
     print(f"{'='*60}")
     print(f"  Total images:     {len(valid_images)}")
+
+    # On-disk artifact counts — ground truth of what actually completed,
+    # available even when in-memory stats were lost (Ctrl+C / crash).
+    artifact_dirs = [
+        ("atomized", OUTPUT_DIR / "atomized"),
+        ("plans", plan_dir),
+        ("approved", approved_dir),
+        ("expert_results", expert_results_dir),
+    ]
+    if run_step4:
+        artifact_dirs.append(("final_reports", OUTPUT_DIR / "final_reports"))
+    counts = []
+    for label, d in artifact_dirs:
+        try:
+            n = len(list(d.glob("*.json")))
+        except Exception:
+            n = 0
+        counts.append(f"{label}={n}")
+    print(f"  On-disk artifacts: {', '.join(counts)}")
+
+    failed_images = stats.pop("failed_images", []) if isinstance(stats, dict) else []
     for k, v in stats.items():
         print(f"  {k:20s}  {v}")
     print(f"  Total elapsed:    {total_elapsed:.2f}s")
     if len(valid_images) > 0 and total_elapsed > 0:
         throughput = len(valid_images) / total_elapsed
         print(f"  Throughput:       {throughput:.2f} img/s ({1/throughput:.1f} s/img)")
+
+    # ── Failure manifest: which images failed, at which stage ──
+    if failed_images:
+        fail_path = OUTPUT_DIR / "failed_images.json"
+        try:
+            with open(fail_path, "w", encoding="utf-8") as f:
+                json.dump(failed_images, f, indent=2, ensure_ascii=False)
+            print(f"\n  FAILED images:    {len(failed_images)}")
+            print(f"  Failure manifest: {fail_path}")
+        except Exception as e:
+            print(f"\n  FAILED images:    {len(failed_images)} (manifest write failed: {e})")
+        by_stage: dict[str, int] = {}
+        for item in failed_images:
+            stage = item.get("stage", "?")
+            by_stage[stage] = by_stage.get(stage, 0) + 1
+        print(f"  Failures by stage: {by_stage}")
+        print(f"  Tip: fix the root cause (see run log / debug_raw/), then re-run")
+        print(f"       with the same --output-dir — completed images are reused.")
+    else:
+        print(f"\n  Failed images:     0")
 
     if run_step3 and expert_managers:
         all_failed = set()

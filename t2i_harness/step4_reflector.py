@@ -28,7 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(T2I_DIR) not in sys.path:
     sys.path.insert(0, str(T2I_DIR))
 
-from common import api_call_with_retry
+from common import api_call_with_retry, dump_debug_raw
 
 TAXONOMY_DIR = PROJECT_ROOT / "taxonomy_info"
 TAXONOMY_STRUCTURAL_DIR = PROJECT_ROOT / "taxonomy_info_structural"
@@ -687,6 +687,7 @@ def run_reflector(
 ) -> dict | None:
     if not model_name:
         model_name = REFLECTOR_MODEL
+    tag = f"[Reflector][{prompt_id}]" if prompt_id else "[Reflector]"
     expert_results_str = _build_expert_context_str(expert_results, experts_registry_str)
     base64_image = encode_image(image_path)
 
@@ -727,7 +728,7 @@ def run_reflector(
                 },
             })
         except Exception as e:
-            print(f"  [WARN] Failed to encode auxiliary image {aux_path}: {e}")
+            print(f"  {tag} [WARN] Failed to encode auxiliary image {aux_path}: {e}")
 
     for ref in ref_images:
         try:
@@ -743,7 +744,7 @@ def run_reflector(
                 "image_url": {"url": f"data:image/png;base64,{ref_b64}"},
             })
         except Exception as e:
-            print(f"  [WARN] Failed to load reference image {ref['image_path']}: {e}")
+            print(f"  {tag} [WARN] Failed to load reference image {ref['image_path']}: {e}")
 
     system_message = {
         "role": "system",
@@ -782,29 +783,36 @@ def run_reflector(
                 f"completion_tokens={usage.completion_tokens}"
             ) if usage else "no usage info"
             print(
-                f"  [ERROR] Reflector returned empty content "
+                f"  {tag} [ERROR] Returned empty content "
                 f"(content is {'None' if raw_content is None else 'empty string'}, "
                 f"finish_reason={finish_reason}, {usage_info})"
             )
             if reasoning:
                 print(
-                    f"  [WARN] Reflector reasoning_content found "
+                    f"  {tag} [WARN] reasoning_content found "
                     f"({len(reasoning)} chars), attempting to extract JSON"
                 )
                 raw_content = reasoning
             else:
                 msg = completion.choices[0].message
                 print(
-                    f"  [DEBUG] Reflector full message: content={repr(msg.content)}, "
+                    f"  {tag} [DEBUG] Full message: content={repr(msg.content)}, "
                     f"role={getattr(msg, 'role', 'N/A')}, "
                     f"function_call={getattr(msg, 'function_call', None)}, "
                     f"tool_calls={getattr(msg, 'tool_calls', None)}, "
                     f"refusal={getattr(msg, 'refusal', None)}"
                 )
+                dump_debug_raw("reflector_empty_content", prompt_id or "unknown",
+                               repr(msg.content),
+                               note=f"{tag} empty content, finish_reason={finish_reason}")
                 return None
         result = parse_json_safely(raw_content)
         if result is None:
-            print(f"  [ERROR] Reflector returned unparseable JSON: {raw_content[:300]}")
+            dump_path = dump_debug_raw("reflector_unparseable", prompt_id or "unknown",
+                                       raw_content, note=f"{tag} unparseable JSON response")
+            hint = f" (full response saved to: {dump_path})" if dump_path else ""
+            print(f"  {tag} [ERROR] Returned unparseable JSON{hint}")
+            print(f"  {tag} [ERROR] Head: {raw_content[:300]}")
             return None
 
         round2_result = None
@@ -816,11 +824,11 @@ def run_reflector(
             )
             if round2_result is not None:
                 result = _merge_self_reflection(result, round2_result)
-                print(f"  [INFO] Self-reflection completed. "
+                print(f"  {tag} [INFO] Self-reflection completed. "
                       f"Alignment: {result.get('alignment_score', 'N/A')}, "
                       f"Authenticity: {result.get('authenticity_score', 'N/A')}")
             else:
-                print(f"  [WARN] Self-reflection round failed, using Round 1 scores")
+                print(f"  {tag} [WARN] Self-reflection round failed, using Round 1 scores")
 
         result["metadata"] = {
             "original_image": image_path,
@@ -837,7 +845,7 @@ def run_reflector(
 
     except Exception as e:
         cost_time = time.time() - start_time
-        print(f"  [ERROR] Reflector API call failed: {type(e).__name__}: {e}")
+        print(f"  {tag} [ERROR] API call failed after {cost_time:.1f}s: {type(e).__name__}: {e}")
         return None
 
 
