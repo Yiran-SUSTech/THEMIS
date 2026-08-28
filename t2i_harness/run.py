@@ -52,6 +52,26 @@ from common import (
 from step1_router import load_experts_registry
 
 
+def _load_t2i_dispatcher(name: str):
+    """Import a t2i_harness dispatcher module and verify it is not shadowed.
+
+    c2i_harness/ contains identically-named modules (dispatch_async,
+    dispatch_sync). If sys.path ordering ever regresses, the bare import
+    silently loads the C2I copy and crashes later with confusing errors
+    (e.g. ImportError: compute_router_scores). This guard fails fast with
+    an actionable message instead.
+    """
+    mod = __import__(name)
+    mod_file = Path(mod.__file__).resolve()
+    if T2I_DIR.resolve() not in mod_file.parents:
+        raise ImportError(
+            f"{name} resolved to {mod_file}, expected the T2I copy in {T2I_DIR}. "
+            f"sys.path shadowing by c2i_harness/ — check the path-ordering block "
+            f"at the top of t2i_harness/common.py."
+        )
+    return mod
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="THEMIS T2I Unified Dispatcher",
@@ -260,9 +280,8 @@ Examples:
 
     try:
         if args.mode == "sync":
-            from dispatch_sync import run_sync_pipeline
             final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
-            stats = run_sync_pipeline(
+            stats = _load_t2i_dispatcher("dispatch_sync").run_sync_pipeline(
                 valid_images=valid_images,
                 image_dir=image_dir,
                 experts_registry_str=experts_registry_str,
@@ -283,9 +302,8 @@ Examples:
             )
 
         elif args.mode == "async":
-            from dispatch_async import run_async_pipeline
             final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
-            stats = run_async_pipeline(
+            stats = _load_t2i_dispatcher("dispatch_async").run_async_pipeline(
                 valid_images=valid_images,
                 image_dir=image_dir,
                 experts_registry_str=experts_registry_str,
@@ -356,7 +374,7 @@ Examples:
     for k, v in stats.items():
         print(f"  {k:20s}  {v}")
     print(f"  Total elapsed:    {total_elapsed:.2f}s")
-    if len(valid_images) > 0 and total_elapsed > 0:
+    if not interrupted and len(valid_images) > 0 and total_elapsed >= 1.0:
         throughput = len(valid_images) / total_elapsed
         print(f"  Throughput:       {throughput:.2f} img/s ({1/throughput:.1f} s/img)")
 

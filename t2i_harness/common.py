@@ -23,15 +23,23 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 T2I_DIR = Path(__file__).resolve().parent
 C2I_DIR = PROJECT_ROOT / "c2i_harness"
 
-# Insert in reverse priority order so T2I_DIR ends up first in sys.path.
-# This ensures "import common" resolves to t2i_harness/common.py, not
-# c2i_harness/common.py (both define a module named "common").
+# Force T2I_DIR to the FRONT of sys.path: both harnesses define identically
+# named modules (common, step1_router, dispatch_async, dispatch_sync, ...), so
+# bare imports must always resolve to the t2i_harness copies.
+#
+# "not in sys.path" checks are not enough: when launched as
+# `python t2i_harness/run.py`, the script dir is already in sys.path (as a
+# relative path like "t2i_harness" on Python 3.10, which != the absolute
+# T2I_DIR), so the T2I insert gets skipped and C2I_DIR ends up at position 0 —
+# which made run.py load the C2I dispatch_async and crash with
+# "cannot import name 'compute_router_scores' from 'common'".
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 if str(C2I_DIR) not in sys.path:
     sys.path.insert(0, str(C2I_DIR))
-if str(T2I_DIR) not in sys.path:
-    sys.path.insert(0, str(T2I_DIR))
+while str(T2I_DIR) in sys.path:
+    sys.path.remove(str(T2I_DIR))
+sys.path.insert(0, str(T2I_DIR))
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Path Constants
