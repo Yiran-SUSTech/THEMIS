@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import json
+import threading
 from pathlib import Path
 from openai import OpenAI
 
@@ -293,22 +294,25 @@ def extract_objects_from_atoms(atoms: list[dict]) -> list[str]:
 
 # Hardcoded mapping from common object names to ImageNet class IDs.
 # These are best-effort mappings for objects that frequently appear in
-# GenEval2 prompts. Objects not in this map will have class_id=None and
-# no taxonomy context (the atomization still succeeds; experts will work
-# without prior taxonomy knowledge).
+# GenEval2 prompts. Objects without an exact ImageNet class are deliberately
+# LEFT OUT of this map: they fall through to the generic LLM taxonomy path
+# (enrich_with_generic_taxonomy), which produces object-specific checkpoints.
 #
-# ImageNet class IDs are approximate; some objects (e.g., "croissant",
-# "trumpet") may not have exact ImageNet equivalents and use the closest
-# available class.
+# NOTE: every class_id below has been verified against the project's own
+# taxonomy DB (taxonomy_info/taxonomy_enriched_Batch_*.json), which follows
+# standard ImageNet-1k 0-based indices. Do NOT trust memory for these IDs —
+# earlier versions of this table had plausible-looking but wrong entries
+# (e.g. croissant->925=consomme, backpack->412=ashcan, donut->596=hatchet).
 _COMMON_OBJECT_TO_CLASSID: dict[str, int] = {
     # --- Primates ---
-    "monkey": 376,          # guenon
-    "baboon": 379,          # baboon
+    "monkey": 370,          # guenon (typical monkey representative)
+    "baboon": 372,          # baboon
     "chimpanzee": 367,      # chimpanzee / chimp
     "chimp": 367,
     "gorilla": 366,         # gorilla
     "gibbon": 368,          # gibbon, Hylobates lar
-    "orangutan": 374,       # orangutan / siamang
+    "orangutan": 365,       # orangutan
+    "koala": 105,           # koala
 
     # --- Canines & felines ---
     "dog": 235,             # German shepherd (representative)
@@ -333,11 +337,9 @@ _COMMON_OBJECT_TO_CLASSID: dict[str, int] = {
     "ox": 345,
     "pig": 341,             # pig / hog
     "hog": 341,
-    "horse": 339,           # sorrel
-    "giraffe": 350,         # gazelle / closest large herbivore
+    "horse": 339,          # sorrel (horse)
     "kangaroo": 104,        # wallaby (closest)
     "deer": 351,            # hartebeest (closest)
-    "raccoon": 358,         # raccoon
     "rabbit": 331,          # wood rabbit, hare
     "hare": 331,
     "hamster": 333,         # hamster
@@ -348,7 +350,7 @@ _COMMON_OBJECT_TO_CLASSID: dict[str, int] = {
     # --- Birds ---
     "bird": 7,              # cock / rooster
     "rooster": 7,
-    "parrot": 85,           # African grey / macaw
+    "parrot": 88,           # macaw (colorful parrot representative)
     "duck": 97,             # drake
     "owl": 24,              # great grey owl
     "penguin": 145,         # king penguin
@@ -361,8 +363,8 @@ _COMMON_OBJECT_TO_CLASSID: dict[str, int] = {
     "turtle": 36,           # mud turtle, terrapin
     "butterfly": 323,       # monarch butterfly
     "spider": 72,           # garden spider
-    "snake": 54,            # green snake / snake
-    "lizard": 49,           # green lizard / American chameleon
+    "snake": 55,            # green snake
+    "lizard": 46,           # green lizard
 
     # --- Vehicles ---
     "bicycle": 444,         # bicycle
@@ -371,32 +373,30 @@ _COMMON_OBJECT_TO_CLASSID: dict[str, int] = {
     "truck": 717,           # pickup truck
     "motorcycle": 670,      # motor scooter
     "bus": 654,             # minibus
-    "ambulance": 408,       # ambulance
+    "ambulance": 407,       # ambulance
     "train": 466,           # bullet train / high-speed train
     "airplane": 404,        # airliner / passenger plane
     "boat": 472,           # canoe / closest watercraft
     "ship": 472,
 
     # --- Everyday objects ---
-    "backpack": 412,        # backpack, back pack
-    "umbrella": 814,        # umbrella (parasol)
+    "backpack": 414,        # backpack, back pack
+    "umbrella": 879,        # umbrella (parasol)
     "clock": 892,           # wall clock
-    "trumpet": 558,         # French horn (closest brass instrument)
-    "donut": 596,           # doughnut, donut
-    "doughnut": 596,
+    "trumpet": 513,        # cornet (closest brass)
     "bagel": 931,           # bagel
     "flower": 985,          # daisy
     "daisy": 985,
-    "rose": 949,            # rose (not exact, but close floral)
-    "croissant": 925,       # closest food item
-    "pretzel": 930,         # pretzel
+    "pretzel": 932,         # pretzel
     "pizza": 963,           # pizza
     "banana": 954,          # banana
     "apple": 948,           # Granny Smith / apple
     "orange": 950,          # orange (fruit)
     "bottle": 898,          # water bottle / wine bottle
-    "cup": 641,             # cup / coffee mug
-    "book": 931,            # (closest; ImageNet has no direct "book")
+    "cup": 504,             # coffee mug
+    "mushroom": 947,        # mushroom
+    "violin": 889,          # violin
+    "candle": 470,          # candle
     "chair": 559,           # folding chair
     "table": 532,           # dining table
     "guitar": 546,          # acoustic guitar / electric guitar
@@ -655,6 +655,15 @@ def parse_json_safely(raw_text: str) -> dict | None:
 #  Generic Taxonomy Generation (Step 0d)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+# Cache for generic taxonomies, keyed by object_name. A given object
+# (e.g. 'suitcase', 'croissant') appears in many prompts; generating its
+# taxonomy once per run saves LLM calls AND guarantees every image of the
+# same object is judged against identical checkpoints. Failures are NOT
+# cached so a transient API error can't poison the whole run.
+_GENERIC_TAXONOMY_CACHE: dict[str, dict] = {}
+_GENERIC_TAXONOMY_LOCK = threading.Lock()
+
+
 def generate_generic_taxonomy(
     client: OpenAI,
     object_name: str,
@@ -668,6 +677,7 @@ def generate_generic_taxonomy(
 
     Calls the LLM to produce taxonomy_description and diagnostic_checkpoints
     for an object that has no ImageNet class_id mapping (is_generic=True).
+    Results are cached per object_name (thread-safe).
     Returns a dict matching the structure produced by link_taxonomy, with
     is_generic=True and class_name suffixed with "(generic)".
     """
@@ -680,6 +690,13 @@ def generate_generic_taxonomy(
         "taxonomy_description": "",
         "diagnostic_checkpoints": {},
     }
+
+    with _GENERIC_TAXONOMY_LOCK:
+        cached = _GENERIC_TAXONOMY_CACHE.get(object_name)
+    if cached is not None:
+        print(f"  {tag} Generic taxonomy for '{object_name}': cache hit, reusing")
+        return cached
+
     prompt = (
         f'你是生物分类学专家。给定物体名称 "{object_name}"'
         f'（来自 prompt: "{prompt_text}"），'
@@ -731,7 +748,7 @@ def generate_generic_taxonomy(
             print(f"  {tag} [WARN] Generic taxonomy for '{object_name}': "
                   f"unparseable JSON{hint}, object runs WITHOUT checkpoints")
             return _empty
-        return {
+        result = {
             "object_name": object_name,
             "is_generic": True,
             "class_id": None,
@@ -739,6 +756,9 @@ def generate_generic_taxonomy(
             "taxonomy_description": result.get("taxonomy_description", ""),
             "diagnostic_checkpoints": result.get("diagnostic_checkpoints", {}),
         }
+        with _GENERIC_TAXONOMY_LOCK:
+            _GENERIC_TAXONOMY_CACHE[object_name] = result
+        return result
     except Exception as e:
         print(f"  {tag} [WARN] Generic taxonomy generation failed for '{object_name}': {e}")
         return _empty
