@@ -23,7 +23,10 @@ from common import (
 from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
 from step1_router import generate_plan, revise_plan, load_experts_registry
 from step2_judge import review_plan
-from step4_reflector import run_reflector, save_final_report, print_final_summary
+from step4_reflector import (
+    run_reflector, save_final_report, print_final_summary,
+    build_checklist_annotation, save_checklist_annotation,
+)
 
 # Import expert execution from c2i_harness (reused)
 from c2i_harness.step3_execute import (
@@ -167,6 +170,8 @@ def run_sync_pipeline(
     final_reports_dir: Path | None = None,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     api_retry: int = 0,
 ) -> dict:
     """Run the full pipeline in synchronous serial mode.
@@ -330,6 +335,7 @@ def run_sync_pipeline(
                         router_plan=plan,
                         ref_image_dir=ref_image_dir,
                         enable_self_reflection=enable_self_reflection,
+                        enable_checklist=enable_checklist,
                         api_retry=api_retry,
                         temperature=temp_reflector,
                     )
@@ -342,6 +348,12 @@ def run_sync_pipeline(
                         if final_reports_dir:
                             final_reports_dir.mkdir(parents=True, exist_ok=True)
                             save_final_report(report, final_reports_dir)
+                        if enable_checklist and checklist_dir is not None:
+                            annotation = build_checklist_annotation(
+                                report, image_id,
+                                os.path.basename(image_path), prompt_text,
+                            )
+                            save_checklist_annotation(annotation, checklist_dir)
                         print_final_summary(report)
                         stats["step4_ok"] += 1
                 except Exception as e:

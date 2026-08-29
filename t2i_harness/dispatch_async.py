@@ -24,7 +24,10 @@ from common import (
 from step0_atomize import atomize_prompt, save_atomized_prompt, enrich_with_generic_taxonomy
 from step1_router import generate_plan, revise_plan, load_experts_registry
 from step2_judge import review_plan
-from step4_reflector import run_reflector, save_final_report, print_final_summary
+from step4_reflector import (
+    run_reflector, save_final_report, print_final_summary,
+    build_checklist_annotation, save_checklist_annotation,
+)
 
 from c2i_harness.step3_execute import (
     ExpertManager, execute_plan, save_testimony_bundle,
@@ -326,6 +329,8 @@ def _sync_reflector(
     final_reports_dir: Path,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     api_retry: int = 0,
     temperature: float = 0.5,
 ) -> dict | None:
@@ -341,6 +346,7 @@ def _sync_reflector(
         router_plan=router_plan,
         ref_image_dir=ref_image_dir,
         enable_self_reflection=enable_self_reflection,
+        enable_checklist=enable_checklist,
         temperature=temperature,
         api_retry=api_retry,
     )
@@ -349,6 +355,11 @@ def _sync_reflector(
         return None
 
     save_final_report(report, final_reports_dir)
+    if enable_checklist and checklist_dir is not None:
+        annotation = build_checklist_annotation(
+            report, img_id, os.path.basename(image_path), prompt_text,
+        )
+        save_checklist_annotation(annotation, checklist_dir)
     print_final_summary(report)
     return report
 
@@ -363,6 +374,8 @@ async def _reflector_worker(
     done_event: asyncio.Event,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     api_retry: int = 0,
     temp_reflector: float = 0.5,
     total: int = 0,
@@ -392,6 +405,7 @@ async def _reflector_worker(
                     client, image_path, img_id, prompt_text, atomized_data,
                     expert_results, experts_registry_str, router_plan,
                     final_reports_dir, ref_image_dir, enable_self_reflection,
+                    enable_checklist, checklist_dir,
                     api_retry, temp_reflector,
                 )
                 if report is not None:
@@ -435,6 +449,8 @@ async def _run_full_pipeline(
     cpu_semaphore: object | None = None,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     api_retry: int = 0,
 ) -> dict:
     """Run full pipeline: Atomize → Router → Judge → Expert → Reflector."""
@@ -468,9 +484,19 @@ async def _run_full_pipeline(
             continue
 
         # Resume: skip images that already have a final report
+        # (and a checklist annotation when checklist mode is on, so that
+        # re-running with --enable-checklist backfills missing checklists
+        # instead of silently skipping completed images)
         if run_step4 and final_reports_dir is not None:
             report_path = final_reports_dir / f"final_evaluation_report_{img_id}.json"
-            if report_path.exists():
+            checklist_path = (
+                checklist_dir / f"checklist_{img_id}.json"
+                if checklist_dir is not None else None
+            )
+            done = report_path.exists() and (
+                checklist_path is None or checklist_path.exists()
+            )
+            if done:
                 stats["resumed"] += 1
                 continue
 
@@ -517,6 +543,7 @@ async def _run_full_pipeline(
                     final_reports_dir, reflector_api_semaphore,
                     stats, reflector_done_event,
                     ref_image_dir, enable_self_reflection,
+                    enable_checklist, checklist_dir,
                     api_retry, temp_reflector, queued,
                 ))
             )
@@ -749,6 +776,8 @@ async def _run_step4_only(
     api_concurrency: int,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     temp_reflector: float = 0.5,
     api_retry: int = 0,
 ) -> dict:
@@ -762,14 +791,21 @@ async def _run_step4_only(
 
     todo: list[tuple] = []
     for img_name, img_id, prompt_text in valid_images:
-        # Resume: skip images with an existing final report
-        if (final_reports_dir / f"final_evaluation_report_{img_id}.json").exists():
+        # Resume: skip images with an existing final report (and checklist
+        # annotation when checklist mode is on — see _run_full_pipeline)
+        report_exists = (final_reports_dir / f"final_evaluation_report_{img_id}.json").exists()
+        checklist_ok = (
+            checklist_dir is None
+            or (checklist_dir / f"checklist_{img_id}.json").exists()
+        )
+        if report_exists and checklist_ok:
             stats["resumed"] += 1
             continue
         todo.append((img_name, img_id, prompt_text))
 
     if stats["resumed"] > 0:
-        print(f"  [RESUME] {stats['resumed']} image(s) skipped — final report already exists")
+        print(f"  [RESUME] {stats['resumed']} image(s) skipped — final report"
+              f"{' + checklist' if checklist_dir is not None else ''} already exists")
         print(f"  [RESUME] {len(todo)} image(s) to process")
 
     total = len(todo)
@@ -823,6 +859,7 @@ async def _run_step4_only(
                     client, str(image_path), img_id, prompt_text, atomized_data,
                     bundle, experts_registry_str, plan, final_reports_dir,
                     ref_image_dir, enable_self_reflection,
+                    enable_checklist, checklist_dir,
                     api_retry, temp_reflector,
                 )
                 if report is not None:
@@ -870,6 +907,8 @@ def run_async_pipeline(
     cpu_semaphore: object | None = None,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
+    checklist_dir: Path | None = None,
     api_retry: int = 0,
 ) -> dict:
     """Public entry: run async pipeline. Called from run.py."""
@@ -891,6 +930,8 @@ def run_async_pipeline(
             api_concurrency=api_concurrency,
             ref_image_dir=ref_image_dir,
             enable_self_reflection=enable_self_reflection,
+            enable_checklist=enable_checklist,
+            checklist_dir=checklist_dir,
             temp_reflector=temp_reflector,
             api_retry=api_retry,
         ))
@@ -918,6 +959,8 @@ def run_async_pipeline(
             cpu_semaphore=cpu_semaphore,
             ref_image_dir=ref_image_dir,
             enable_self_reflection=enable_self_reflection,
+            enable_checklist=enable_checklist,
+            checklist_dir=checklist_dir,
             api_retry=api_retry,
         ))
 

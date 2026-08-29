@@ -346,6 +346,48 @@ _REFLECTOR_SYSTEM_TEMPLATE = r"""You are the Reflector of a T2I image evaluation
 """
 
 
+_REFLECTOR_CHECKLIST_ADDENDUM = r"""
+
+**Atom-Level Q&A (fine_grained_details) — REQUIRED in checklist mode:**
+- You MUST answer EVERY atomic QA listed in [Atomic QA Pairs] by examining the image — no omissions.
+- Answer each question exactly the way a human annotator would, in ONE word or short phrase:
+  - Binary questions (e.g. "Are there any croissants in the image?", "Are the croissants green?") → answer exactly "Yes" or "No".
+  - Counting questions (e.g. "How many croissants are in the image?") → answer with the number only, as a digit or word (e.g. "7" or "seven").
+  - Any other question → answer with the observed value in as few words as possible.
+- Judge ONLY what the image actually shows, never what the prompt intended. If the image fails to show the expected content, your answer must reflect that failure — "No", or the count actually visible (including "0"/"zero" when the object is absent).
+- NEVER refuse to answer and NEVER mark a question as unanswerable. Atoms are derived from the prompt itself, so any answer that does not match the expected one means the image failed that requirement — answer what you observe.
+- Count carefully: include EVERY instance of the target object, including partially occluded ones.
+- Use expert evidence (detection boxes, classifier labels, counts) to inform your answers where relevant, but the final answer must be your own visual judgment.
+- Organize entries by skill category. Use EXACTLY these category names:
+  - skill "object"    → "Object_Presence"
+  - skill "count"     → "Object_Counting"
+  - skill "attribute" → "Attribute_Binding"
+  - skill "position"  → "Spatial_Position"
+  - skill "verb"      → "Action_Verbs"
+  - anything else     → "Other_Atoms"
+- Within each category, each key must be the EXACT atom question string, and each value is your answer to that question.
+
+**Veto Mechanism (veto_activated):**
+- Set `veto_activated` to true if the image has catastrophic failure (complete structural collapse, subject unrecognizable, multiple severe anatomical errors) that makes meaningful evaluation impossible.
+- Otherwise set it to false.
+
+**Output JSON (checklist mode) — in addition to the schema above, include:**
+{
+  "veto_activated": false,
+  "fine_grained_details": {
+    "Object_Counting": {
+      "How many croissants are in the image?": "7"
+    },
+    "Attribute_Binding": {
+      "Are the croissants green?": "Yes"
+    }
+  }
+}
+"""
+
+_REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE = _REFLECTOR_SYSTEM_TEMPLATE + _REFLECTOR_CHECKLIST_ADDENDUM
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Prompt Building
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -653,6 +695,13 @@ def _merge_self_reflection(round1: dict, round2: dict) -> dict:
     merged = round2.copy()
     merged["preliminary_scores"] = round1_scores
     merged["self_reflection_notes"] = round2.get("self_reflection_notes", "")
+    # Checklist mode: self-reflection may drop fine_grained_details/veto_activated
+    # even though it was told to output the same schema — carry Round 1's over
+    # instead of losing the atom answers entirely (otherwise every unanswered
+    # atom would be recorded as incorrect and deflate alignment to 0).
+    for _key in ("fine_grained_details", "veto_activated"):
+        if _key in round1 and _key not in merged:
+            merged[_key] = round1[_key]
 
     r1_align = round1.get("alignment_score", 0)
     r2_align = round2.get("alignment_score", 0)
@@ -681,6 +730,7 @@ def run_reflector(
     router_plan: dict | None = None,
     ref_image_dir: Path | None = None,
     enable_self_reflection: bool = True,
+    enable_checklist: bool = False,
     api_retry: int = 0,
     temperature: float = 0.5,
     model_name: str = "",
@@ -746,12 +796,16 @@ def run_reflector(
         except Exception as e:
             print(f"  {tag} [WARN] Failed to load reference image {ref['image_path']}: {e}")
 
+    system_msg = (
+        _REFLECTOR_CHECKLIST_SYSTEM_TEMPLATE if enable_checklist
+        else _REFLECTOR_SYSTEM_TEMPLATE
+    )
     system_message = {
         "role": "system",
         "content": [
             {
                 "type": "text",
-                "text": _REFLECTOR_SYSTEM_TEMPLATE,
+                "text": system_msg,
                 "cache_control": {"type": "ephemeral"},
             }
         ],
@@ -835,11 +889,14 @@ def run_reflector(
             "prompt_id": prompt_id,
             "prompt_text": prompt_text,
             "auxiliary_images_included": [Path(p).name for p in aux_images],
+            "checklist_enabled": enable_checklist,
             "reflector_cost_seconds": round(cost_time, 2),
             "self_reflection_enabled": enable_self_reflection,
             "self_reflection_succeeded": round2_result is not None if enable_self_reflection else None,
         }
         result = _calibrate_scores(result)
+        if enable_checklist:
+            result = _normalize_checklist_output(result, atomized_data)
 
         return result
 
@@ -847,6 +904,242 @@ def run_reflector(
         cost_time = time.time() - start_time
         print(f"  {tag} [ERROR] API call failed after {cost_time:.1f}s: {type(e).__name__}: {e}")
         return None
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Checklist Annotation (GenEval2-style atom Q&A)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_SKILL_TO_CATEGORY = {
+    "object": "Object_Presence",
+    "count": "Object_Counting",
+    "attribute": "Attribute_Binding",
+    "position": "Spatial_Position",
+    "verb": "Action_Verbs",
+}
+
+# GenEval2 answer normalization (mirrors GenEval2/benchmark_schema.py)
+_GENEVAL2_NUMBER_WORDS = {
+    "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+    "ten": "10", "eleven": "11", "twelve": "12",
+}
+
+
+def _infer_answer_type(question, answer) -> str:
+    """Mirror of GenEval2 benchmark_schema.infer_answer_type."""
+    answer_text = str(answer).strip()
+    question_text = str(question).strip().lower()
+    answer_lower = answer_text.lower()
+    if question_text.startswith("how many"):
+        return "count"
+    if answer_lower in {"yes", "no"}:
+        return "binary"
+    if answer_lower in _GENEVAL2_NUMBER_WORDS or answer_text.isdigit():
+        return "count"
+    return "string"
+
+
+def _normalize_answer_text(text) -> str:
+    return " ".join(str(text).strip().lower().split()).rstrip(".").strip()
+
+
+def _canonical_count(text) -> str | None:
+    """Map a free-form answer to a canonical integer string, if numeric.
+
+    Accepts digit forms ("7", "07") and number words ("seven"), either as the
+    whole answer or as the leading token ("7 croissants").
+    """
+    t = _normalize_answer_text(text)
+    candidates = [t]
+    first = t.split()[0] if t.split() else ""
+    if first:
+        candidates.append(first)
+    for cand in candidates:
+        if cand.isdigit():
+            return str(int(cand))
+        if cand in _GENEVAL2_NUMBER_WORDS:
+            return _GENEVAL2_NUMBER_WORDS[cand]
+    return None
+
+
+def _answers_match(expected, predicted, answer_type: str) -> bool:
+    """Compare the Reflector's answer against the expected GenEval2 answer.
+
+    Normalization follows GenEval2's answer handling: Yes/No is
+    case/punctuation-insensitive; counts accept digit and word forms
+    ("seven" == "7"); anything else is a normalized exact match.
+    An empty/unparseable prediction never matches.
+    """
+    exp = _normalize_answer_text(expected)
+    pred = _normalize_answer_text(predicted)
+    if not pred:
+        return False
+    if answer_type == "binary":
+        return exp == pred
+    if answer_type == "count":
+        exp_count = _canonical_count(exp)
+        pred_count = _canonical_count(pred)
+        if exp_count is not None and pred_count is not None:
+            return exp_count == pred_count
+        return exp == pred
+    return exp == pred
+
+
+def _normalize_checklist_output(result: dict, atomized_data: dict) -> dict:
+    """Normalize the Reflector's atom answers into GenEval2-style Q&A records.
+
+    Rebuilds the structure from atomized_data (the ground-truth atoms): entries
+    are grouped by canonical skill category, and every atom gets
+      {question: {"expected": ..., "answer": ..., "correct": bool, "weight": ...}}
+    The Reflector's answer is matched against the expected answer using
+    GenEval2's normalization. There is deliberately NO "N/A" outcome: atoms are
+    derived from the prompt, so an atom not satisfied by the image is simply
+    wrong. An atom the Reflector failed to answer is recorded as an empty,
+    incorrect answer (with a visible warning).
+    """
+    atoms = atomized_data.get("atoms", []) if isinstance(atomized_data, dict) else []
+    raw_fine = result.get("fine_grained_details", {})
+    if not isinstance(raw_fine, dict):
+        raw_fine = {}
+
+    lookup: dict[str, str] = {}
+    for entries in raw_fine.values():
+        if not isinstance(entries, dict):
+            continue
+        for key, answer in entries.items():
+            norm = " ".join(str(key).lower().split())
+            lookup.setdefault(norm, answer)
+            prefix = norm.split(" (expected:")[0].strip()
+            if prefix:
+                lookup.setdefault(prefix, answer)
+
+    normalized: dict[str, dict[str, dict]] = {}
+    unanswered = []
+    for atom in atoms:
+        question = atom.get("question", "")
+        expected = atom.get("answer", "")
+        answer_type = atom.get("answer_type") or _infer_answer_type(question, expected)
+        weight = float(atom.get("weight", 1.0))
+
+        norm = " ".join(question.lower().split())
+        prefix = norm.split(" (expected:")[0].strip()
+        if norm in lookup:
+            answer = lookup[norm]
+        elif prefix and prefix in lookup:
+            answer = lookup[prefix]
+        else:
+            answer = ""
+            unanswered.append(question)
+
+        correct = _answers_match(expected, answer, answer_type)
+        category = _SKILL_TO_CATEGORY.get(atom.get("skill", ""), "Other_Atoms")
+        normalized.setdefault(category, {})[question] = {
+            "expected": expected,
+            "answer": answer,
+            "correct": correct,
+            "weight": weight,
+        }
+
+    result["fine_grained_details"] = normalized
+
+    if unanswered:
+        print(f"  [Reflector] [WARN] Checklist normalization: {len(unanswered)} atom(s) "
+              f"not answered by the Reflector, recorded as incorrect: {unanswered}")
+    if atoms and not lookup:
+        print("  [Reflector] [WARN] Checklist mode: Reflector returned no "
+              "fine_grained_details — all atoms recorded as incorrect")
+
+    result.setdefault("veto_activated", False)
+    result["veto_activated"] = bool(result["veto_activated"])
+    return result
+
+
+def build_checklist_annotation(
+    report: dict,
+    prompt_id: str,
+    image_name: str,
+    prompt_text: str = "",
+) -> dict:
+    """Build a GenEval2-style annotation record from the reflector report.
+
+    Format: this project's T2I checklist is a GenEval2 atom Q&A evaluated with
+    an agentic framework (multi-expert evidence) plus an authenticity rating.
+
+    Scoring rules (GenEval2 hard-TIFA style, no N/A — every atom counts):
+    - alignment_score: 5 * (weighted correct atoms) / (total weight),
+      rounded to 2 decimals. Atoms come from the prompt, so an atom the image
+      fails to satisfy is simply wrong and stays in the denominator.
+    - authenticity_score: integer 0-5, quantized from the Reflector's
+      authenticity_score to mimic human discrete scoring.
+    - total_score: alignment_score * authenticity_score
+    """
+    fine_grained = report.get("fine_grained_details", {})
+    total_weight = 0.0
+    correct_weight = 0.0
+    for category_items in fine_grained.values():
+        if not isinstance(category_items, dict):
+            continue
+        for record in category_items.values():
+            if not isinstance(record, dict):
+                continue
+            weight = float(record.get("weight", 1.0))
+            total_weight += weight
+            if record.get("correct"):
+                correct_weight += weight
+
+    if total_weight > 0:
+        checklist_alignment = round(5.0 * correct_weight / total_weight, 2)
+    else:
+        checklist_alignment = 0.0
+
+    try:
+        reflector_authenticity = float(report.get("authenticity_score", 0.0))
+    except (TypeError, ValueError):
+        reflector_authenticity = 0.0
+    checklist_authenticity = min(5, max(0, round(reflector_authenticity)))
+
+    total_score = round(checklist_alignment * checklist_authenticity, 2)
+
+    return {
+        "image_name": image_name,
+        "prompt_id": prompt_id,
+        "prompt_text": prompt_text,
+        "veto_activated": bool(report.get("veto_activated", False)),
+        "scores": {
+            "alignment_score": checklist_alignment,
+            "authenticity_score": checklist_authenticity,
+            "total_score": total_score,
+        },
+        "fine_grained_details": fine_grained,
+    }
+
+
+def save_checklist_annotation(
+    annotation: dict,
+    output_dir: str | Path | None = None,
+) -> str:
+    """Save a single image's checklist annotation as a JSON file."""
+    if output_dir is None:
+        output_dir = (
+            Path(__file__).resolve().parent
+            / os.environ.get("T2I_OUTPUT_DIR_NAME", "output")
+            / "checklist_annotations"
+        )
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_id = annotation.get("prompt_id", "unknown")
+    filename = f"checklist_{prompt_id}.json"
+    filepath = output_dir / filename
+
+    safe_annotation = _sanitize_evidence(annotation)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(safe_annotation, f, indent=4, ensure_ascii=False)
+
+    print(f"  [SAVED] {filename}")
+    return str(filepath)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

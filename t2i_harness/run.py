@@ -162,6 +162,11 @@ Examples:
                              "Default: enabled. Use --no-self-reflection to disable.")
     parser.add_argument("--no-self-reflection", action="store_false", dest="enable_self_reflection",
                         help="Disable Reflector self-reflection (single-round mode for faster processing)")
+    parser.add_argument("--enable-checklist", action="store_true", default=False,
+                        help="Enable per-image checklist annotation output: the Reflector "
+                             "answers every atom question GenEval2-style (Yes/No or specific "
+                             "values, no N/A), saved to <output-dir>/checklist_annotations/ "
+                             "(default: False)")
 
     args = parser.parse_args()
 
@@ -263,6 +268,8 @@ Examples:
     print(f"  Step:             {step}")
     print(f"  Images:           {len(valid_images)}")
     print(f"  GenEval2 JSONL:   {args.geneval2_jsonl}")
+    if run_step4:
+        print(f"  Checklist:        {'enabled -> ' + str(OUTPUT_DIR / 'checklist_annotations') if args.enable_checklist else 'disabled'}")
     if args.mode == "async":
         print(f"  API concurrency:  {args.api_concurrency}")
     if run_step3:
@@ -279,6 +286,7 @@ Examples:
     interrupted = False
 
     try:
+        checklist_dir = OUTPUT_DIR / "checklist_annotations" if args.enable_checklist else None
         if args.mode == "sync":
             final_reports_dir = OUTPUT_DIR / "final_reports" if run_step4 else None
             stats = _load_t2i_dispatcher("dispatch_sync").run_sync_pipeline(
@@ -295,6 +303,8 @@ Examples:
                 final_reports_dir=final_reports_dir,
                 ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
                 enable_self_reflection=args.enable_self_reflection,
+                enable_checklist=args.enable_checklist,
+                checklist_dir=checklist_dir,
                 api_retry=args.api_retry,
                 temp_router=args.temp_router,
                 temp_judge=args.temp_judge,
@@ -318,6 +328,8 @@ Examples:
                 final_reports_dir=final_reports_dir,
                 ref_image_dir=Path(args.ref_image_dir) if args.ref_image_dir else None,
                 enable_self_reflection=args.enable_self_reflection,
+                enable_checklist=args.enable_checklist,
+                checklist_dir=checklist_dir,
                 temp_router=args.temp_router,
                 temp_judge=args.temp_judge,
                 temp_reflector=args.temp_reflector,
@@ -361,6 +373,8 @@ Examples:
     ]
     if run_step4:
         artifact_dirs.append(("final_reports", OUTPUT_DIR / "final_reports"))
+        if args.enable_checklist:
+            artifact_dirs.append(("checklists", OUTPUT_DIR / "checklist_annotations"))
     counts = []
     for label, d in artifact_dirs:
         try:
