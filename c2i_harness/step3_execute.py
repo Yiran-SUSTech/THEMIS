@@ -499,6 +499,10 @@ def execute_plan(
         eid = "open_vocabulary_detector"
         instance = expert_manager.get_expert(eid)
         target = detector_entry.get("target_subject", "")
+        if "," in target or " and " in target.lower():
+            print(f"    [WARN] Detector query '{target}' combines multiple objects — "
+                  f"per-object queries are required so each object gets its own box; "
+                  f"combined queries degrade per-target classifier crops")
 
         if instance is not None:
             if cpu_semaphore is not None:

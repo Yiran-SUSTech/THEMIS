@@ -202,6 +202,10 @@ Expert Capability Mapping:
 Rules:
 - Select 3-8 experts. Same expert_id may appear with different target_subjects.
 - Each expert entry MUST specify verification_goals (list of checkpoint/atom IDs).
+- "open_vocabulary_detector" and "fine_grained_classifier" target_subject MUST be a
+  SINGLE object noun (e.g. "guitar", "lion"). NEVER combine multiple objects into one
+  entry (e.g. "guitar, lion") — emit one entry per object so each object gets its own
+  detection box and per-object classification.
 - "fine_grained_classifier" is recommended for each main object.
 - "animal_pose_auditor" ONLY for limbed subjects (people, dogs, cats, etc.).
 - "image_text_auditor" ONLY if text is visible.
