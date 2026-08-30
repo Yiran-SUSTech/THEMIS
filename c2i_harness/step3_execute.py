@@ -570,10 +570,35 @@ def execute_plan(
                     if box is None and hint_box_map:
                         box = next(iter(hint_box_map.values()))
 
+                # Multi-object images (T2I/GenEval2): crop the classifier to its
+                # own target's detection box. Full-image classification is only
+                # correct for single-subject images — with two targets the same
+                # dominant object wins both calls, producing identical, target-
+                # unrelated evidence. Single-target images keep full-image
+                # behavior (matches validated C2I runs).
+                img_for_expert = img_bgr
+                if eid == "fine_grained_classifier" and len(hint_box_map) > 1:
+                    target = entry.get("target_subject", "")
+                    tbox = hint_box_map.get(target)
+                    if tbox is not None:
+                        x1, y1, x2, y2 = [int(v) for v in tbox]
+                        h, w = img_bgr.shape[:2]
+                        pad_x = max(1, int(0.1 * (x2 - x1)))
+                        pad_y = max(1, int(0.1 * (y2 - y1)))
+                        cx1, cy1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
+                        cx2, cy2 = min(w, x2 + pad_x), min(h, y2 + pad_y)
+                        # Skip degenerate/tiny boxes (e.g. zero-width detector
+                        # output): a sliver crop classifies noise, full image is
+                        # the safer fallback.
+                        if cx2 - cx1 >= 16 and cy2 - cy1 >= 16:
+                            img_for_expert = img_bgr[cy1:cy2, cx1:cx2]
+                            print(f"    [{eid}] target '{target}': cropped to box "
+                                  f"[{x1},{y1},{x2},{y2}] (+10% pad) of {w}x{h}")
+
                 pose_viz = entry_pose_viz.get(idx)
 
                 result = _invoke_expert_audit(
-                    instance, eid, img_bgr, image_path, class_label,
+                    instance, eid, img_for_expert, image_path, class_label,
                     entry["target_subject"], hint_box=box,
                     save_pose_viz=save_pose_viz, pose_viz_path=pose_viz,
                 )
