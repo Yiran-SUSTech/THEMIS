@@ -1,0 +1,163 @@
+{
+    "image_id": "160",
+    "prompt": "five black rabbits and a sheep",
+    "iteration": 1,
+    "timestamp": "2026-08-30 21:00:01",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan fails to address the critical 'Anatomical Fusion' artifact identified in the observations. The `animal_pose_auditor` is assigned to rabbits, but it cannot effectively audit fused boundaries between separate instances; this requires the `topology_boundary_auditor`. Additionally, the `open_vocabulary_detector` is tasked with verifying color attributes ('black'), which is outside its primary capability (detection/localization); color verification should be handled by a visual QA or perceptual expert. The plan also lacks a specific check for the sheep's structural integrity despite it being a main subject.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Audit boundary separation and topological connectivity between the five closely grouped rabbits to resolve the 'Anatomical Fusion' artifact.",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "incorrect_assignment",
+                "point": "Remove 'Verify color attribute black' from open_vocabulary_detector goals. Color verification is not a detection task.",
+                "recommended_expert": "perceptual_quality_auditor or fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Ensure the sheep's biological structure (limbs/head connection) is audited, as it is a primary subject.",
+                "recommended_expert": "animal_pose_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A photorealistic image showing five black rabbits sitting in a row on straw bedding in the foreground, with a single sheep (white wool, black face) standing behind them. The background features a blurred wooden fence structure.",
+        "checkpoint_verdicts": [
+            {
+                "object": "rabbit",
+                "checkpoint": "Head_and_Face: Exceptionally long ears with black tips, markedly longer than rabbit ears.",
+                "category": "Taxonomy Mismatch",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The animals depicted are clearly domestic rabbits (Oryctolagus cuniculus), not hares (Lepus). Their ears are proportional to rabbits, not 'exceptionally long' as defined for hares in the taxonomy prior. The prompt asked for 'rabbits', but the taxonomy provided is for 'hares'. Visually, they match the common definition of rabbits perfectly."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Body_and_Plumage: Elongated body with powerful hind limbs, notably larger than rabbit.",
+                "category": "Taxonomy Mismatch",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bodies are compact and rounded, typical of rabbits, not the elongated, athletic build of hares described in the taxonomy."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Head_and_Face: Broad head with laterally spiraling horns (in horned breeds).",
+                "category": "Attribute Absence",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The sheep depicted is polled (hornless). While the taxonomy mentions horns for 'ram', many sheep breeds are naturally hornless or dehorned. This is a valid variation of a sheep, though it lacks the specific 'ram' characteristic of horns."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body_and_Plumage: Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Visual Confirmation",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sheep has a dense, textured white woolly fleece consistent with the description."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Anatomical Fusion",
+                "location": "Between the third and fourth rabbit (center-right)",
+                "severity": 0.6,
+                "reasoning": "The ears and heads of the middle rabbits appear slightly merged or overlapping in an unnatural way, suggesting a generation artifact where distinct boundaries between adjacent subjects were not fully resolved."
+            },
+            {
+                "artifact_type": "Texture Repetition",
+                "location": "Straw bedding",
+                "severity": 0.3,
+                "reasoning": "The straw texture shows some repetitive patterns typical of AI generation, though it is relatively well-blended."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbits and sheep",
+                "verification_goals": [
+                    "Confirm exact count of rabbits is five.",
+                    "Confirm exact count of sheep is one.",
+                    "Verify color attribute 'black' for all rabbits."
+                ],
+                "reason": "Primary counting and attribute verification expert. Essential to validate Atom 0, 1, 2, 3, 4 against the visual evidence before deeper analysis.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbits",
+                "verification_goals": [
+                    "Distinguish between 'rabbit' (Oryctolagus) and 'hare' (Lepus) based on ear length and body proportions.",
+                    "Validate if the visual instance matches the prompt 'rabbit' despite the taxonomy providing 'hare' data."
+                ],
+                "reason": "The taxonomy provided describes 'hares' (long ears, large size), but the prompt asks for 'rabbits'. This expert is needed to resolve the conflict between the prompt's intent and the provided taxonomy ground truth by identifying the actual species shown.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbits",
+                "verification_goals": [
+                    "Audit limb completeness for all five rabbits.",
+                    "Check for fused limbs or missing paws due to close proximity."
+                ],
+                "reason": "Rabbits are limbed subjects. Given the close grouping, limb fusion is a high-risk artifact. This expert ensures biological structural correctness.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Detect any subtle texture artifacts in the wool or fur.",
+                    "Assess overall lighting consistency between the dark rabbits and the bright sheep."
+                ],
+                "reason": "Holistic quality check to catch low-level distortions that specific anatomical experts might miss, especially regarding the contrast between black fur and white wool.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Whether the sheep is specifically a 'ram' (male) as per taxonomy, since it lacks horns and secondary sexual characteristics are not clearly visible from this angle.",
+            "The exact breed of the black rabbits (e.g., Dutch Black, Rex) without genetic testing or clearer breed-standard markers."
+        ],
+        "focus_areas": [
+            "Count verification: Ensure there are exactly 5 distinct rabbit heads/bodies.",
+            "Species identification: Resolve Rabbit vs. Hare discrepancy between prompt and taxonomy.",
+            "Boundary integrity: Check interfaces between adjacent rabbits for merging artifacts."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbits and sheep",
+                "reason": "Primary counting and attribute verification expert. Essential to validate Atom 0, 1, 2, 3, 4 against the visual evidence before deeper analysis.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbits",
+                "reason": "The taxonomy provided describes 'hares' (long ears, large size), but the prompt asks for 'rabbits'. This expert is needed to resolve the conflict between the prompt's intent and the provided taxonomy ground truth by identifying the actual species shown.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbits",
+                "reason": "Rabbits are limbed subjects. Given the close grouping, limb fusion is a high-risk artifact. This expert ensures biological structural correctness.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Holistic quality check to catch low-level distortions that specific anatomical experts might miss, especially regarding the contrast between black fur and white wool.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/160.png",
+            "prompt_id": "160",
+            "prompt_text": "five black rabbits and a sheep",
+            "router_cost_seconds": 24.61,
+            "plan_valid": false
+        }
+    }
+}

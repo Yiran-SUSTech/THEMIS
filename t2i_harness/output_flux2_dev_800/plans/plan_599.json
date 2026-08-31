@@ -1,0 +1,126 @@
+{
+    "checkpoint_verdicts": [
+        {
+            "object": "cat",
+            "checkpoint": "Coat is grey or tawny mottled with black in a tabby pattern.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The cats in the image are solid black. They completely lack the 'grey or tawny mottled with black' tabby pattern described in the taxonomy prior knowledge. This is a direct visual contradiction of the provided ground truth for the 'tabby cat' class."
+        },
+        {
+            "object": "cat",
+            "checkpoint": "Characteristic M-shaped marking on the forehead, dark stripes along the body, and ringed tail.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "Visual inspection confirms the cats have uniform black fur with no M-shaped forehead markings, body stripes, or ringed tails. The specific diagnostic features of the tabby pattern are absent."
+        },
+        {
+            "object": "cow",
+            "checkpoint": "Short dense coat in white, brown, black, or pied coloration.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The cows exhibit a short, dense reddish-brown coat, which falls within the acceptable coloration range (brown) defined in the taxonomy prior knowledge."
+        },
+        {
+            "object": "zebra",
+            "checkpoint": "Distinctive black-and-white striped coat pattern unique to each individual.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The zebras clearly display the distinctive black-and-white striped coat pattern extending across their bodies, legs, and manes, matching the ground truth description perfectly."
+        }
+    ],
+    "artifact_observations": [],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "cats, cows, zebras",
+            "verification_goals": [
+                "Generate bounding boxes for all instances of cats, cows, and zebras to enable precise counting.",
+                "Verify the spatial relationship: confirm if the zebra bounding boxes are strictly to the right of the cat bounding boxes.",
+                "Provide region priors for the fine_grained_classifier and animal_pose_auditor."
+            ],
+            "reason": "This is the primary 'Bridge' expert required to validate Atom 0, 2, 5 (counts) and Atom 4 (spatial relation). It must first locate the objects before anatomical or taxonomic audits can occur.",
+            "weight": 0.35
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "cats",
+            "verification_goals": [
+                "Classify the detected cat instances to determine if they match the 'tabby cat' taxonomy class provided in the prompt context.",
+                "Identify if the solid black phenotype constitutes a mismatch against the specific 'tabby' ground truth (grey/tawny mottled)."
+            ],
+            "reason": "The prompt provides specific taxonomy info for 'tabby cat', but the image shows black cats. This expert is needed to rigorously verify if this is a classification error (wrong species/breed generated) or a valid variation, specifically addressing the checkpoint failure regarding coat pattern.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "cats, cows, zebras",
+            "verification_goals": [
+                "Detect 17 keypoints for all animals to ensure biological structural correctness.",
+                "Verify that cows have valid cloven hooves and horns (if applicable).",
+                "Verify that zebras have valid single dark hooves and erect manes.",
+                "Verify that cats have valid limb proportions and ear placement."
+            ],
+            "reason": "Essential for auditing the anatomical integrity of the generated animals. AI generation often fails at limb counts or hoof structures (e.g., merging legs). This ensures the 'objects' are biologically plausible mammals.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire image",
+            "verification_goals": [
+                "Check for texture blending artifacts where the solid black cats meet the grass (haloing or smearing).",
+                "Inspect the stripe continuity on zebras for logical breaks or melting patterns.",
+                "Assess overall lighting consistency between the foreground animals and the background savanna."
+            ],
+            "reason": "Acts as a holistic quality filter. Specifically important here because solid black objects (cats) against bright grass often reveal segmentation artifacts, and complex patterns (zebra stripes) are prone to geometric melting.",
+            "weight": 0.2
+        }
+    ],
+    "unverifiable_points": [
+        "The uniqueness of individual zebra stripe patterns (Atom 2/3 context) cannot be fully verified without a database of known zebras, though visual distinctness can be assessed.",
+        "The specific breed of the reddish-brown cows cannot be determined beyond the general 'ox/bovine' taxonomy without closer inspection of ear tags or specific morphological details not visible at this resolution."
+    ],
+    "focus_areas": [
+        "Taxonomic Mismatch: The conflict between the 'tabby cat' taxonomy description (mottled grey/tawny) and the visual reality of solid black cats.",
+        "Spatial Logic: Verifying the 'to the right of' constraint for the zebras relative to the cats.",
+        "Counting Accuracy: Ensuring exactly 2 cows, 7 zebras, and 3 cats are present (visual count suggests 5 cats, which would be a failure of Atom 5).",
+        "Anatomical Integrity: Checking for fused limbs or incorrect hoof structures common in AI-generated quadrupeds."
+    ],
+    "selected_experts": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "cats, cows, zebras",
+            "reason": "This is the primary 'Bridge' expert required to validate Atom 0, 2, 5 (counts) and Atom 4 (spatial relation). It must first locate the objects before anatomical or taxonomic audits can occur.",
+            "weight": 0.35
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "cats",
+            "reason": "The prompt provides specific taxonomy info for 'tabby cat', but the image shows black cats. This expert is needed to rigorously verify if this is a classification error (wrong species/breed generated) or a valid variation, specifically addressing the checkpoint failure regarding coat pattern.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "cats, cows, zebras",
+            "reason": "Essential for auditing the anatomical integrity of the generated animals. AI generation often fails at limb counts or hoof structures (e.g., merging legs). This ensures the 'objects' are biologically plausible mammals.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire image",
+            "reason": "Acts as a holistic quality filter. Specifically important here because solid black objects (cats) against bright grass often reveal segmentation artifacts, and complex patterns (zebra stripes) are prone to geometric melting.",
+            "weight": 0.2
+        }
+    ],
+    "metadata": {
+        "original_image": "geneval2_flux2_dev/599.png",
+        "prompt_id": "599",
+        "prompt_text": "two cows, and seven zebras to the right of three black cats",
+        "router_cost_seconds": 25.98,
+        "plan_valid": false
+    }
+}
