@@ -154,13 +154,13 @@ def build_judge_prompt(
 1. **Atom QA Coverage:** Did the Router answer ALL atoms? Are the predicted answers and is_correct judgments reasonable? Are confidence scores calibrated?
 2. **Taxonomy Checkpoint Reasonableness:** For each object, are is_testable/is_present judgments reasonable? Did the Router avoid evaluating too many checkpoints by marking them untestable?
 3. **Artifact Observations:** Are severity ratings consistent? If no artifacts found, does the image suggest missed issues?
-4. **专家验证覆盖度 (Expert Verification Coverage):** Review the Router's expert_verification_plan:
-   1. 所有 count 类型的原子是否都分配了 open_vocabulary_detector？
-   2. 所有 object-presence 原子是否有检测器或分类器覆盖？
-   3. 所有 is_present=false 的 taxonomy checkpoint，是否有专家可以提供反证？
-   4. verification_goals 是否与 checkpoint/atom 一一对应？
-   5. unverifiable_points 中的点是否确实无法用专家验证？
-   如果覆盖不完整，在 suggestions 中指出缺失的验证目标。
+4. **Expert Verification Coverage:** Review the Router's expert_verification_plan:
+   1. Does every count-type atom have an open_vocabulary_detector assigned?
+   2. Does every object-presence atom have detector or classifier coverage?
+   3. For every taxonomy checkpoint marked is_present=false, is there an expert that could provide contrary evidence?
+   4. Do verification_goals map one-to-one to checkpoints/atoms?
+   5. Are the points in unverifiable_points genuinely unverifiable by any expert?
+   If coverage is incomplete, list the missing verification targets in suggestions.
 5. **Weights:** Do weights reflect structural criticality (main objects > auxiliary)?
 
 **[Output]**

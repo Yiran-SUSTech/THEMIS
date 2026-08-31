@@ -698,20 +698,24 @@ def generate_generic_taxonomy(
         return cached
 
     prompt = (
-        f'你是生物分类学专家。给定物体名称 "{object_name}"'
-        f'（来自 prompt: "{prompt_text}"），'
-        '生成简洁但能区分该大类与其他大类的诊断特征。\n\n'
-        '要求：\n'
-        '1. 3-5 个 checkpoint，每个一句话\n'
-        '2. 每个 checkpoint 必须是图片中可视觉验证的特征\n'
-        '3. 不要涉及物种级特征（如特定花纹、颊囊等）\n'
-        '4. 重点：能将该大类与其他易混淆大类区分开的特征\n'
-        '5. 输出 JSON：{"taxonomy_description": "一句话总述", '
-        '"diagnostic_checkpoints": {"部位": "特征描述"}}'
+        f'You are a biology taxonomy expert. Given the object name "{object_name}" '
+        f'(from prompt: "{prompt_text}"), generate concise diagnostic features '
+        'that distinguish this broad category from other related categories.\n\n'
+        'Requirements:\n'
+        '1. 3-5 checkpoints, one sentence each\n'
+        '2. Every checkpoint must be a visually verifiable feature in an image\n'
+        '3. Do NOT include species-level features (e.g. specific patterns, cheek pouches)\n'
+        '4. Focus on: features that separate this broad category from easily confused categories\n'
+        '5. Checkpoint keys MUST use Title_Case_With_Underscores (e.g. "Overall_Shape", '
+        '"Surface_Texture", "Material_and_Context"), matching the taxonomy database style\n'
+        '6. ALL output (keys and values) MUST be in English\n'
+        '7. Output JSON: {"taxonomy_description": "one-sentence summary", '
+        '"diagnostic_checkpoints": {"Body_Part": "feature description"}}'
     )
 
     messages = [
-        {"role": "system", "content": "You are a biology taxonomy expert. Output JSON only."},
+        {"role": "system",
+         "content": "You are a biology taxonomy expert. Output JSON only, in English."},
         {"role": "user", "content": prompt},
     ]
 
