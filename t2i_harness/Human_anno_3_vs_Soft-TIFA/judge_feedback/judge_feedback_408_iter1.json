@@ -1,0 +1,178 @@
+{
+    "image_id": "408",
+    "prompt": "a black horse, and a dog to the left of seven brown suitcases",
+    "iteration": 1,
+    "timestamp": "2026-09-01 03:36:57",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Horse' taxonomy checkpoint. The Router marked the horse as failing the checkpoint because it is black (matching the prompt) while the checkpoint expected 'sorrel/chestnut'. This indicates the Router blindly followed an incorrect internal taxonomy prior rather than evaluating against the user prompt. A black horse should pass the 'Is the horse black?' atom. Additionally, the plan fails to explicitly assign an expert to verify the 'Brown' color attribute of the suitcases (Atom 7), relying only on counting and topology experts.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Horse Color Checkpoint",
+                "recommendation": "Update the 'Horse' checkpoint verdict. The image shows a black horse, which satisfies the prompt 'a black horse'. The failure against a 'sorrel' taxonomy prior is irrelevant to prompt adherence. The verdict should be 'is_present: true' for the prompt requirement."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Suitcase Color Verification (Atom 7)",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Dog Presence/Classification (Atoms 3, 4)",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "dog",
+                "checkpoint": "Head_and_Face: Ears are large, erect, pointed, and set high.",
+                "category": "anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The dog in the image has floppy, drop ears rather than the large, erect, pointed ears characteristic of a German Shepherd. This is a significant anatomical deviation from the taxonomy prior."
+            },
+            {
+                "object": "dog",
+                "checkpoint": "Body_and_Plumage: Coat is medium-length double coat in black-and-tan, sable, or solid black.",
+                "category": "appearance",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The dog displays a black-and-tan coloration consistent with the German Shepherd palette, although the ear structure contradicts the breed standard."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Body_and_Plumage: Uniform brownish-orange to light chestnut coat coloration with no black points.",
+                "category": "appearance",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The prompt requested a 'black horse', but the taxonomy provided for 'sorrel' describes a reddish-brown/chestnut horse. The image correctly renders a black horse (matching the prompt) but fails the specific 'sorrel' taxonomy checkpoint which demands a chestnut coat. This indicates a conflict between prompt intent and taxonomy definition."
+            },
+            {
+                "object": "suitcase",
+                "checkpoint": "Count verification: Expected seven suitcases.",
+                "category": "counting",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Visual inspection reveals only five distinct suitcases arranged in a row, failing the prompt requirement for seven."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "prompt_adherence_failure",
+                "location": "foreground_right",
+                "severity": 0.8,
+                "reasoning": "The prompt explicitly requested 'seven brown suitcases', but only five are visible. This is a clear counting error by the generative model."
+            },
+            {
+                "artifact_type": "taxonomy_mismatch",
+                "location": "midground_left",
+                "severity": 0.9,
+                "reasoning": "The dog is labeled as a 'German shepherd' in the taxonomy, but possesses floppy ears inconsistent with the breed's defining 'erect, pointed' ear structure. It resembles a mixed breed or different shepherd type."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcases",
+                "verification_goals": [
+                    "Generate precise bounding boxes for each suitcase to enable accurate counting.",
+                    "Verify spatial relationship: confirm dog is strictly to the left of the suitcase cluster."
+                ],
+                "reason": "Primary bridge expert needed to resolve the counting discrepancy (5 vs 7) and validate spatial constraints before segmentation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Audit keypoint 17 (ears) to confirm drop vs. erect orientation.",
+                    "Verify skeletal proportions against German Shepherd standards (sloping topline, limb length)."
+                ],
+                "reason": "Critical for validating the anatomical mismatch observed in the floppy ears versus the German Shepherd taxonomy requirement.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Classify coat color precisely (black vs. sorrel/chestnut).",
+                    "Determine if the horse matches the 'black horse' prompt or the 'sorrel' taxonomy label."
+                ],
+                "reason": "Resolves the conflict between the prompt's 'black horse' request and the taxonomy's 'sorrel' (chestnut) definition.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_scene",
+                "verification_goals": [
+                    "Check for geometric melting at suitcase handles and edges.",
+                    "Verify lighting consistency across horse, dog, and suitcases."
+                ],
+                "reason": "Holistic quality check to ensure rigid objects (suitcases) maintain structural integrity and scene coherence.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "suitcases",
+                "verification_goals": [
+                    "Segment individual suitcases to confirm they are distinct physical entities.",
+                    "Check for merged boundaries or floating parts between adjacent suitcases."
+                ],
+                "reason": "Ensures the five visible suitcases are topologically separate and not artifacts of merging.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Taxonomy prior for 'suitcase' is empty; cannot verify material composition or brand-specific features beyond visual appearance.",
+            "Horse taxonomy specifies 'sorrel' (chestnut) but prompt says 'black'; image shows black horse - taxonomy checkpoint inherently unverifiable against prompt intent."
+        ],
+        "focus_areas": [
+            "Suitcase count accuracy (5 visible vs 7 requested)",
+            "Dog ear morphology (floppy vs erect German Shepherd standard)",
+            "Horse coat color classification (black prompt vs sorrel taxonomy)",
+            "Spatial validation: dog position relative to suitcase cluster"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcases",
+                "reason": "Primary bridge expert needed to resolve the counting discrepancy (5 vs 7) and validate spatial constraints before segmentation.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "dog",
+                "reason": "Critical for validating the anatomical mismatch observed in the floppy ears versus the German Shepherd taxonomy requirement.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "horse",
+                "reason": "Resolves the conflict between the prompt's 'black horse' request and the taxonomy's 'sorrel' (chestnut) definition.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_scene",
+                "reason": "Holistic quality check to ensure rigid objects (suitcases) maintain structural integrity and scene coherence.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "suitcases",
+                "reason": "Ensures the five visible suitcases are topologically separate and not artifacts of merging.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/408.png",
+            "prompt_id": "408",
+            "prompt_text": "a black horse, and a dog to the left of seven brown suitcases",
+            "router_cost_seconds": 24.79,
+            "plan_valid": false
+        }
+    }
+}

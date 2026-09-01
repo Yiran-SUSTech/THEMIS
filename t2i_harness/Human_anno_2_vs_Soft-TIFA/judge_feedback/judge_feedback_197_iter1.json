@@ -1,0 +1,144 @@
+{
+    "image_id": "197",
+    "prompt": "a cat and a green cookie and a truck",
+    "iteration": 1,
+    "timestamp": "2026-09-01 01:20:28",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan is marked as 'plan_valid: false' in the metadata but lacks specific rejection reasons. More importantly, the verification plan fails to address critical structural and semantic atoms derived from the prompt:\n1. **Missing Color Verification for Cookie:** Atom 3 explicitly asks 'Is the cookie green?'. The current plan assigns `perceptual_quality_auditor` to the cookie, which focuses on texture/artifacts, not semantic color validation. A dedicated color check or VLM query is missing.\n2. **Incomplete Truck Verification:** The `geometric_depth_auditor` checks for 3D structure but does not verify the object identity ('truck') against the prompt. There is no `open_vocabulary_detector` or `fine_grained_classifier` step explicitly confirming the background object is a truck (Atom 5/6).\n3. **Redundant/Over-specific Cat Taxonomy:** The `fine_grained_classifier` targets 'tabby cat' features (M-marking, etc.). The prompt only requests 'a cat'. While valid for quality, it is not strictly required for prompt compliance and adds unnecessary computational cost compared to a general 'cat' presence check.\n4. **Unverified Spatial Relationships:** The prompt implies a scene with three distinct objects. The plan lacks a holistic check to ensure they are not merged or hallucinated into one another (e.g., cat merging with cookie), which `topology_boundary_auditor` could address.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the cookie is green (Atom 3).",
+                "recommended_expert": "image_text_auditor (modified for color) or open_vocabulary_detector with color attribute check"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Confirm the background object is a truck (Atom 5/6).",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Ensure distinct boundaries between cat, cookie, and truck (no melting/bleeding).",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "optimization",
+                "point": "Relax fine-grained taxonomy requirements for 'cat' to general class verification unless 'tabby' was specified.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat, cookie, truck",
+                "verification_goals": [
+                    "Locate the cat in the foreground and verify it is a single instance.",
+                    "Locate the green cookie on the rock/sand mound and verify it is a single instance.",
+                    "Locate the truck in the background and verify it is a single instance.",
+                    "Provide bounding box priors for downstream segmentation experts."
+                ],
+                "reason": "Primary bridge expert to identify 'WHERE' the subjects are before detailed anatomical or geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Detect 17 keypoints on the tabby cat to audit biological structural correctness.",
+                    "Verify the cat has complete limbs, valid ear placement, and correct facial proportions.",
+                    "Check for any AI-generated anatomical distortions (e.g., extra legs, malformed paws)."
+                ],
+                "reason": "ONLY for limbed subjects — ensures the generated cat has biologically plausible anatomy.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Classify the cat as 'tabby cat' using ImageNet-21K/1K pre-trained ViT.",
+                    "Verify presence of diagnostic features: M-shaped forehead marking, striped legs, ringed tail, grey/tawny coat with black mottling.",
+                    "Confirm eye color is green/gold/copper and ears are pointed/erect."
+                ],
+                "reason": "High-speed sieve to verify taxonomic accuracy at professional level — critical for prompt compliance ('a cat').",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "truck",
+                "verification_goals": [
+                    "Generate relative depth map to expose geometric melting or spatial grounding errors.",
+                    "Verify truck has enclosed cab + open cargo bed transition visible from side profile.",
+                    "Check elevated ground clearance, protruding wheel arches, and utilitarian proportions.",
+                    "Ensure no floating parts or blurred edges between truck components."
+                ],
+                "reason": "Audits 3D structure and physical separation of rigid objects — essential for verifying 'truck' geometry per taxonomy.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cookie",
+                "verification_goals": [
+                    "Analyze fine-grained image degradations around the green cookie.",
+                    "Verify cookie texture shows realistic cracks, chocolate chip distribution, and surface imperfections.",
+                    "Check for unnatural blending with the sand/rock base or AI artifacts like smearing or duplication.",
+                    "Confirm color is consistently green without chromatic aberration."
+                ],
+                "reason": "Holistic quality filter to catch graphics-level distortions before heavy downstream audits — especially important for non-taxonomized object 'cookie'.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "No taxonomy prior knowledge available for 'cookie' or 'cooky' — cannot perform fine-grained classification beyond visual inspection.",
+            "Diagnostic checkpoints for 'cookie' are unstructured — relies entirely on perceptual quality auditor for validation.",
+            "Text on truck (e.g., 'YUGUR HITTE BW', logo) is not part of prompt atoms — excluded from verification scope unless OCR reveals unauthorized watermarks."
+        ],
+        "focus_areas": [
+            "Cat anatomy and tabby pattern fidelity (M-marking, stripes, eye color)",
+            "Truck geometry (cab-to-bed transition, ground clearance, wheel arches)",
+            "Cookie realism (texture, color consistency, integration with base)",
+            "Spatial relationships (cat-cookie proximity, truck-background depth)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat, cookie, truck",
+                "reason": "Primary bridge expert to identify 'WHERE' the subjects are before detailed anatomical or geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cat",
+                "reason": "ONLY for limbed subjects — ensures the generated cat has biologically plausible anatomy.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "reason": "High-speed sieve to verify taxonomic accuracy at professional level — critical for prompt compliance ('a cat').",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "truck",
+                "reason": "Audits 3D structure and physical separation of rigid objects — essential for verifying 'truck' geometry per taxonomy.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cookie",
+                "reason": "Holistic quality filter to catch graphics-level distortions before heavy downstream audits — especially important for non-taxonomized object 'cookie'.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/197.png",
+            "prompt_id": "197",
+            "prompt_text": "a cat and a green cookie and a truck",
+            "router_cost_seconds": 17.79,
+            "plan_valid": false
+        }
+    }
+}

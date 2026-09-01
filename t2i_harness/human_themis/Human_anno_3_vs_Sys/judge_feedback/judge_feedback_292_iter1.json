@@ -1,0 +1,176 @@
+{
+    "image_id": "292",
+    "prompt": "a mushroom and a spotted cat and a striped lion",
+    "iteration": 1,
+    "timestamp": "2026-09-01 03:29:38",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails critical coverage requirements for Text-to-Image verification. Specifically: 1) It completely omits the `open_vocabulary_detector`, which is mandatory for verifying count-based atoms (Atoms 0, 2, 5). 2) It lacks a dedicated expert to verify the 'spotted' attribute of the cat (Atom 3), relying instead on a general classifier that may not distinguish pattern types effectively. 3) The plan does not assign an expert to verify the presence/count of the mushroom (Atoms 0, 1), leaving the primary foreground object unverified by a detection or segmentation tool.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Count verification for all subjects (Mushroom, Cat, Lion)",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Visual confirmation of 'spotted' pattern on the cat",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Boundary and grounding check for the Lion (to complement the pose audit)",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "mushroom",
+                "checkpoint": "Cap (pileus) is distinctly fleshy and thick, convex becoming broadly convex to flat only when highly mature.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The mushroom displays a prominent, convex reddish-brown cap with white speckles, consistent with the fleshy morphology of an Amanita species."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cylindrical stem (stipe) is smooth, firm, and white, notably stout relative to the cap width.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A thick, white, cylindrical stem supports the cap, featuring a distinct ring (annulus) and basal volva, matching the diagnostic checkpoints."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Coat is grey or tawny mottled with black in a tabby pattern.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cat exhibits a spotted/rosette pattern on a tawny background. While the prompt requested 'spotted', the taxonomy notes 'spotted' as a valid tabby variant. The visual evidence confirms a distinct coat pattern."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Head is round with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The feline subject has a rounded head structure and a relatively short muzzle compared to wild cats like leopards, fitting the domestic cat taxonomy."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The large feline possesses a distinct, shaggy mane surrounding the head and neck, confirming it is intended to be a male lion despite the anomalous striping."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "CRITICAL FAILURE: The lion's coat is NOT uniform tawny. It features bold, black vertical stripes similar to a tiger. This contradicts the ground truth for a lion but aligns with the specific (albeit biologically impossible) prompt instruction 'striped lion'."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Biological Anomaly / Prompt Adherence Conflict",
+                "location": "Lion's body and limbs",
+                "severity": 0.9,
+                "reasoning": "The image depicts a 'striped lion'. Biologically, lions do not have stripes; this is a trait of tigers. However, the generation strictly adhered to the user prompt 'striped lion' over biological reality. This is a high-severity semantic artifact where the text prompt forced a visual hallucination of anatomy."
+            },
+            {
+                "artifact_type": "Texture Blending",
+                "location": "Cat's legs and paws",
+                "severity": 0.3,
+                "reasoning": "The transition from the spotted pattern on the cat's torso to the striped pattern on its lower legs is slightly abrupt, suggesting a blend of 'spotted' and 'tabby' generative concepts."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Confirm if the spotted pattern aligns with specific tabby variants (e.g., spotted tabby) or resembles a wild cat species (e.g., Bengal/Savannah) misclassified as domestic.",
+                    "Verify the 'M' marking on the forehead to confirm tabby lineage."
+                ],
+                "reason": "The cat has a very distinct spotted pattern that borders on wild-cat aesthetics. We need to verify if it fits the 'tabby cat' taxonomy provided or if it's a different species entirely.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Audit the skeletal structure of the forelimbs to ensure they are feline (lion-like) despite the tiger-like striping.",
+                    "Check keypoint alignment for the head and mane to ensure the 'lion' identity is structurally sound."
+                ],
+                "reason": "Since the texture (stripes) conflicts with the object class (lion), we must rely on structural keypoints (pose/anatomy) to confirm the base model is indeed a lion and not a tiger with a generated mane.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "Segment the mushroom cap and stem to ensure they are a single continuous object without floating artifacts.",
+                    "Verify the boundary between the mushroom base and the soil/leaves is physically grounded."
+                ],
+                "reason": "Mushrooms are prone to 'floating' or merging with the ground in AI generations. We need to ensure the stem connects logically to the substrate.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_scene",
+                "verification_goals": [
+                    "Analyze the lighting consistency between the three subjects (mushroom, cat, lion).",
+                    "Detect any warping or melting at the boundaries where the animals touch the leaves."
+                ],
+                "reason": "To ensure the composite nature of the image (three distinct subjects) doesn't result in lighting mismatches or edge artifacts.",
+                "weight": 0.25
+            }
+        ],
+        "unverifiable_points": [
+            "The biological validity of a 'striped lion' cannot be verified against ground truth because it does not exist in nature; verification is limited to prompt adherence vs. anatomical structure."
+        ],
+        "focus_areas": [
+            "Lion's coat pattern (Stripes vs. Tawny)",
+            "Cat's specific breed/tabby variant identification",
+            "Mushroom grounding and structural integrity"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "reason": "The cat has a very distinct spotted pattern that borders on wild-cat aesthetics. We need to verify if it fits the 'tabby cat' taxonomy provided or if it's a different species entirely.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "reason": "Since the texture (stripes) conflicts with the object class (lion), we must rely on structural keypoints (pose/anatomy) to confirm the base model is indeed a lion and not a tiger with a generated mane.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "mushroom",
+                "reason": "Mushrooms are prone to 'floating' or merging with the ground in AI generations. We need to ensure the stem connects logically to the substrate.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_scene",
+                "reason": "To ensure the composite nature of the image (three distinct subjects) doesn't result in lighting mismatches or edge artifacts.",
+                "weight": 0.25
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/292.png",
+            "prompt_id": "292",
+            "prompt_text": "a mushroom and a spotted cat and a striped lion",
+            "router_cost_seconds": 28.4,
+            "plan_valid": false
+        }
+    }
+}

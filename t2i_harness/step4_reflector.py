@@ -1184,6 +1184,11 @@ def print_final_summary(report: dict) -> None:
     key_defects = report.get("key_defects", [])
     code_adjustments = report.get("code_adjustments", [])
 
+    # LLM occasionally returns dicts instead of strings in these lists
+    def _as_text_items(seq):
+        return [it if isinstance(it, str) else json.dumps(it, ensure_ascii=False)
+                for it in seq]
+
     print(f"\n--- Final Evaluation Complete ---")
     print(f"Prompt: {prompt_text}")
     print(
@@ -1191,7 +1196,7 @@ def print_final_summary(report: dict) -> None:
         f"Authenticity: {authenticity_score:.2f}/5.0"
     )
     if code_adjustments:
-        for adj in code_adjustments:
+        for adj in _as_text_items(code_adjustments):
             print(f"  [Code Adjustment] {adj}")
     if key_defects:
-        print(f"Key Defects: {', '.join(key_defects)}")
+        print(f"Key Defects: {', '.join(_as_text_items(key_defects))}")

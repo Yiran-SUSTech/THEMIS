@@ -1,0 +1,497 @@
+{
+    "image_id": "442",
+    "prompt": "a turtle behind three elephants jumping over a glass monkey",
+    "iteration": 2,
+    "timestamp": "2026-09-01 03:42:23",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The Router's evaluation plan contains critical factual errors regarding the image content, leading to incorrect Atom verdicts and flawed expert assignments. Specifically:\n1. **Counting Error:** The Router claims there are only two elephants (Atom 3 predicted 'two'), whereas the image clearly shows three elephants (one left, one right, and one central turtle-like figure that is actually an elephant? No, looking closely at the image: There is a Turtle in the center top, and TWO Elephants on the sides. Wait. Let me re-examine the image provided in the prompt context vs the actual image.\n\n**Correction on Image Analysis:**\nLooking at the provided image:\n- Foreground: Glass Monkey.\n- Mid/Background Left: Elephant jumping.\n- Mid/Background Right: Elephant jumping.\n- Center Top: A large Turtle floating/jumping.\n- **Wait**, the prompt says \"a turtle behind three elephants\". \n- The image shows: One Turtle (center top), Two Elephants (left and right). \n- Where is the third elephant? \n- Looking extremely closely at the image... There are ONLY two elephants visible. The central figure is a Turtle. \n- Therefore, the Prompt asked for \"three elephants\", but the image generated only has **two**. \n- The Router correctly identified that there are only two elephants (Atom 3 predicted 'two', expected 'three', is_correct: false). This part of the Router's logic was actually **correct** in identifying the failure.\n\n**However**, let's look at Atom 2: \"Is the turtle behind the elephants?\". \n- In the image, the Turtle is physically located *above* and seemingly *behind* the plane of the glass monkey, but relative to the elephants? The elephants are to the left and right. The turtle is in the center. Depth-wise, the turtle appears to be on a similar or slightly further back plane than the elephants. The Router said \"No\" because it's \"between\" them. This is a semantic ambiguity, but acceptable.\n\n**The Real Issue:**\nLet's look at the **Expert Verification Plan** and **Checkpoint Reasoning**.\n\n1. **Elephant Species Classification:** The Router identifies the elephants as having \"small ears... consistent with Indian elephants\". \n   - **Visual Evidence:** The elephants in the image have **large ears** that cover the shoulder area. These are clearly **African Elephants**, not Indian (Asian) elephants. Asian elephants have smaller, rounded ears. African elephants have larger, fan-shaped ears. \n   - **Router Error:** The `fine_grained_classifier` checkpoint reasoning is factually wrong (`is_present: true` for small ears). This indicates a hallucination by the Router/VLM.\n\n2. **Turtle Anatomy:** The Router states the turtle has \"webbed feet\". \n   - **Visual Evidence:** The turtle's feet are clearly visible as stump-like legs with distinct toes/claws, typical of a tortoise or land turtle, not distinctly webbed like a sea turtle. While hard to see perfect detail, calling them \"webbed\" is a stretch compared to \"digitigrade/stumpy\". More importantly, the Router marks `is_present: true` for \"Plastron is large and hinged\". We can see the underside of the turtle. It looks like a standard plastron. This is acceptable.\n\n3. **Missing Expert for Spatial Logic:** \n   - Atom 2 asks if the turtle is *behind* the elephants. The Router assigned `open_vocabulary_detector` for this. OVD gives bounding boxes. It does **not** give depth ordering. \n   - The `geometric_depth_auditor` was assigned to the Turtle for \"depth ordering... relative to elephants\". This is good. \n\n4. **Critical Missing Verification:** \n   - The prompt specifies \"three elephants\". The image has two. The Router caught this count error via OVD. \n   - However, the Router failed to assign an expert to verify the **third missing elephant**. Is it occluded? Is it absent? OVD will just return 2 boxes. This is sufficient to prove the prompt failure. \n\n5. **Re-evaluating the \"Indian Elephant\" Hallucination:**\n   - The Router's `fine_grained_classifier` plan relies on the premise that the elephants are Indian. Since they are African, the checkpoints for \"Small ears\" should be `is_present: false`. The Router marked them `true`. This is a severe taxonomy error.\n   - Consequently, the `fine_grained_classifier` expert is being sent to verify incorrect premises. \n\n6. **Unverifiable Points:**\n   - \"Elephant toenail count\" is listed as unverifiable. This is reasonable given resolution.\n\n7. **Artifact Observations:**\n   - The Router noted \"structural_collapse\" in elephant legs. The legs look mostly fine, perhaps a bit stylized, but not collapsed. \n   - The Router missed the **Species Mismatch** as an artifact/error. The prompt didn't specify species, but the Router's internal checkpoints assumed Indian, while the image is African. This isn't a prompt adherence error (since prompt didn't specify), but it is a **Taxonomy Checkpoint Reasonableness** failure. The Router judged the checkpoints incorrectly.\n\n**Conclusion for Rejection:**\nThe primary reason for rejection is the **factual hallucination in the Taxonomy Checkpoints** regarding the elephant species. The Router claimed the elephants have small ears (Indian trait) when they clearly have large ears (African trait). This invalidates the `is_present` judgments for those checkpoints and suggests the `fine_grained_classifier` expert might be misled or that the Router's self-assessment is unreliable. Additionally, the `animal_pose_auditor` is needed for the **Turtle** as well, since it is in an unnatural floating/jumping pose, which is a significant anatomical/physical anomaly worth auditing, yet no expert was assigned to audit the Turtle's pose/anatomy specifically (only depth and count).\n\n**Suggestions:**\n1. Correct the Elephant species identification (African, not Indian).\n2. Add `animal_pose_auditor` for the **Turtle** to audit its limb structure in the floating pose.\n3. Ensure `geometric_depth_auditor` compares all three background elements (2 elephants + 1 turtle) for coherent depth.",
+        "suggestions": [
+            {
+                "type": "incorrect_checkpoint_judgment",
+                "point": "Elephant ear size classification",
+                "recommendation": "Update checkpoints to reflect African Elephant traits (large ears). The current plan incorrectly identifies them as Indian Elephants with small ears."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Turtle anatomical correctness in floating pose",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "expert_assignment_optimization",
+                "point": "Spatial relationship verification",
+                "recommendation": "Ensure geometric_depth_auditor explicitly outputs relative depth values between the Turtle and BOTH Elephants to resolve Atom 2 definitively."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A surreal digital composition featuring a transparent glass monkey figurine standing on reddish savanna soil in the foreground. Behind it, two elephants are depicted mid-jump in the air, flanking a large turtle that is also floating or jumping in the center background. The setting is an African savanna with acacia trees and a blue sky.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many turtles are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one turtle visible in the upper center of the image."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any turtles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A turtle is clearly visible in the upper center."
+            },
+            {
+                "atom_index": 2,
+                "question": "Is the turtle behind the elephants?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The turtle is positioned centrally between the two elephants, appearing to be on the same depth plane or slightly forward/backward but not strictly 'behind' both elephants as a group. It is more accurate to say it is between them."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many elephants are in the image?",
+                "expected": "three",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are only two elephants visible in the image, one on the left and one on the right."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any elephants in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two elephants are clearly visible."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are the elephants jumping over the monkey?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "The elephants are airborne and positioned spatially above and behind the monkey, consistent with a 'jumping over' action relative to the camera perspective."
+            },
+            {
+                "atom_index": 6,
+                "question": "How many monkeys are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is one glass monkey figure in the foreground."
+            },
+            {
+                "atom_index": 7,
+                "question": "Is the monkey glass?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The monkey has transparent, refractive properties characteristic of glass or crystal."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any monkeys in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A monkey figure is present in the foreground."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "elephant",
+                "checkpoint": "Broad head with twin-domed skull.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The elephants display the characteristic twin-domed head shape of Asian/Indian elephants."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Relatively small ears compared to African elephant.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The ears are relatively small and do not cover the shoulder, consistent with Indian elephants."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Trunk (proboscis) elongated and muscular with single finger-like projection at tip.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Trunks are visible and raised; while the single finger detail is hard to see at this resolution, the general morphology fits."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Tusks present primarily in males, shorter than African species.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both elephants have visible tusks that appear relatively short and downward curving."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Massive body with extraordinarily tall, immense proportions at the shoulder.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bodies are massive and barrel-shaped with high shoulders."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Thick wrinkled gray-brown skin with sparse body hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Skin texture is visibly wrinkled and gray-brown."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Barrel-shaped body with arched back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is distinctly barrel-like with an arched back profile."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Pillar-like legs with five toenails on forefeet.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While legs are pillar-like, the specific count of five toenails is not resolvable due to distance and angle; however, the structure is generally correct. Marking false for strict adherence to 'five toenails' visibility."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Long tail with terminal tuft.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Tails with terminal hair tufts are visible on both elephants."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Bare face with expressive features.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The monkey is made of glass; while it has facial features molded into the glass, it does not have biological 'bare skin' or expressive biological features. It is a stylized statue."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Forward-facing eyes with brown irises.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eyes are part of the glass sculpture and lack biological brown irises."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Narrow nose.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sculpted nose is narrow."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Small ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sculpted ears are small and rounded."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Long hair around face forming distinctive facial ruff.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "As a glass object, there is no hair or facial ruff."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Body with variable size ranging from small to moderately large across species.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The figure represents a small-to-moderate sized primate form."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Fur coloration variable by species in gray, brown, olive, or red.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is transparent glass, not furred."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Slender agile body.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sculpture depicts a slender, agile humanoid/primate form."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Elongated hind limbs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The legs of the figure are elongated relative to the torso."
+            },
+            {
+                "object": "monkey",
+                "checkpoint": "Long non-prehensile tail.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The glass figure does not appear to have a visible tail."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Head is moderately sized with a pointed snout and small eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The turtle's head matches the description of a terrapin/turtle with a pointed snout."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Skin coloration is grey to olive with distinctive striped or spotted patterning on the head and neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The skin appears textured and brownish-grey, but distinct stripes or spots are not clearly visible; it looks more like generic reptile skin texture."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Carapace is oval and moderately domed with a smooth surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The shell is oval and domed. Surface has scute texture but is generally smooth in contour."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Coloration varies from brown to olive with concentric growth rings visible on each scute.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The shell shows brown/olive tones and texture consistent with scutes/growth rings."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Some species exhibit ornate patterning with yellow or orange markings on dark scutes.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No distinct yellow/orange ornate markings are visible; the shell is fairly uniform brown/tan."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Plastron is large and hinged, enabling partial closure.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The underside (plastron) is visible and appears large and segmented/hinged."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Limbs are moderately long with webbed feet and sharp claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Limbs are visible with clawed digits; webbing is implied by the aquatic species type though hard to see perfectly."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Tail is short.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A small stubby tail is visible at the rear."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Skin texture is smooth with fine scales.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The skin on the legs and neck shows a scaled/reptilian texture."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Elephants' legs and feet",
+                "severity": 2,
+                "reasoning": "The elephants are in a jumping pose, but the anatomy of the feet and toes appears somewhat fused or indistinct, lacking clear separation of individual toes/nails typical of real elephants."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Glass monkey surface",
+                "severity": 1,
+                "reasoning": "The refraction and reflection on the glass monkey are stylized; some internal reflections look slightly inconsistent with a solid glass object, appearing more like a surface texture map than volumetric refraction."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Turtle vs Elephants scale",
+                "severity": 2,
+                "reasoning": "The turtle appears disproportionately large compared to the elephants if they are meant to be in the same physical space, suggesting a surreal scale rather than realistic perspective, though this may be intentional given the prompt."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4"
+                ],
+                "reason": "Verify the exact count of elephants (expected 3, observed 2) and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "Verify turtle count and spatial relationship (behind/between) relative to elephants.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "monkey",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "Confirm monkey presence, count, and material classification (glass).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Head_and_Face checkpoints",
+                    "Body_and_Plumage checkpoints"
+                ],
+                "reason": "Verify species-specific traits (Indian elephant vs African) such as ear size and head shape.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Limbs_and_Anatomy checkpoints",
+                    "Atom 5"
+                ],
+                "reason": "Audit limb structure during the jump pose and verify anatomical correctness of feet/toes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "monkey",
+                "verification_goals": [
+                    "texture_anomaly artifact",
+                    "Head_and_Face checkpoints"
+                ],
+                "reason": "Analyze the glass material rendering quality and verify if facial features meet biological standards or are purely stylistic.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Atom 2",
+                    "perspective_distortion artifact"
+                ],
+                "reason": "Verify the depth ordering of the turtle relative to elephants and assess scale consistency.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Elephant toenail count (five)",
+            "Turtle skin stripe/spotted pattern details",
+            "Monkey biological fur/eye color (due to glass material)"
+        ],
+        "focus_areas": [
+            "Elephant count discrepancy (Prompt says 3, Image shows 2)",
+            "Spatial relationship of turtle (Behind vs Between)",
+            "Material verification of monkey (Glass vs Biological)",
+            "Anatomical correctness of jumping elephants"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "reason": "Verify the exact count of elephants (expected 3, observed 2) and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "reason": "Verify turtle count and spatial relationship (behind/between) relative to elephants.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "monkey",
+                "reason": "Confirm monkey presence, count, and material classification (glass).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "elephant",
+                "reason": "Verify species-specific traits (Indian elephant vs African) such as ear size and head shape.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "reason": "Audit limb structure during the jump pose and verify anatomical correctness of feet/toes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "monkey",
+                "reason": "Analyze the glass material rendering quality and verify if facial features meet biological standards or are purely stylistic.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "turtle",
+                "reason": "Verify the depth ordering of the turtle relative to elephants and assess scale consistency.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/442.png",
+            "prompt_id": "442",
+            "prompt_text": "a turtle behind three elephants jumping over a glass monkey",
+            "router_cost_seconds": 73.65,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

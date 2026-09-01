@@ -1,0 +1,200 @@
+{
+    "image_id": "717",
+    "prompt": "seven blue candles in front of three motorcycles under three purple sheeps",
+    "iteration": 1,
+    "timestamp": "2026-08-31 23:44:46",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan fails to address the critical semantic ambiguity of the preposition 'under' in Atom 6. The Router marks this as 'unverifiable' and notes a spatial mismatch (behind vs. under), but fails to assign an expert to definitively audit the vertical spatial relationship (Z-axis/occlusion) which is required to judge if the prompt constraint was met or failed. Additionally, the plan lacks a specific color verification step for the candles (Atom 1), relying on a generic quality auditor rather than a targeted check.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Atom 6 (Spatial Relationship: 'under') requires explicit geometric auditing to determine if the sheep are vertically above the motorcycles or merely behind them. The current plan lists this as unverifiable, but the geometric_depth_auditor can resolve this by analyzing occlusion boundaries and relative height.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 1 (Are the candles blue?) is not explicitly covered. While open_vocabulary detects 'candles', it does not strictly verify color attributes against the prompt. A specific attribute check is needed.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "logic_correction",
+                "point": "The 'fine_grained_classifier' is assigned to resolve a taxonomy discrepancy (Scooter vs Motorcycle). However, since the prompt explicitly requested 'motorcycles' and the image contains motorcycles, this checkpoint failure is a false positive in the evaluation logic. The expert should be re-tasked to simply confirm the class 'motorcycle' rather than resolving a non-existent error.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A surreal outdoor scene featuring three large purple sheep standing behind three black motorcycles, with seven blue pillar candles arranged in a row on the pavement in the immediate foreground.",
+        "checkpoint_verdicts": [
+            {
+                "object": "candle",
+                "checkpoint": "Cylindrical stick of wax of moderate height with narrow diameter relative to height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The objects in the foreground are clearly defined as vertical cylinders with uniform diameter (pillar style), matching the geometric description of candles."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Central wick cotton string extending from top.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Each blue cylinder has a distinct white string-like wick protruding from the center of the top surface."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Two-wheeled vehicle with step-through frame and small wheels...",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The vehicles depicted are full-sized motorcycles (likely naked or sport-touring bikes) with large wheels and exposed engines, not motor scooters with step-through frames and small wheels as described in the taxonomy prior knowledge."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Handlebars with hand grips and controls.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the taxonomy mismatch regarding vehicle type, the objects clearly possess motorcycle handlebars, mirrors, and control clusters."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the texture is correctly rendered as dense woolly fleece, the color is vibrant purple, which contradicts the natural color palette (white, brown, black) specified in the ground truth taxonomy, though it matches the prompt's specific instruction."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Broad head with laterally spiraling horns (in horned breeds).",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The sheep depicted appear to be polled (hornless) or have very small ears without the prominent laterally spiraling horns described in the 'ram' taxonomy."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Color Anomaly",
+                "location": "Sheep bodies",
+                "severity": 0.9,
+                "reasoning": "The sheep are uniformly purple. While this satisfies the prompt, it is a significant deviation from biological reality and standard taxonomy, requiring verification that the color is consistent and not a rendering artifact."
+            },
+            {
+                "artifact_type": "Spatial Occlusion",
+                "location": "Motorcycle rear wheels / Sheep legs",
+                "severity": 0.4,
+                "reasoning": "The positioning of the sheep directly behind the motorcycles creates complex occlusion boundaries. The legs of the sheep seem to merge slightly with the tires or disappear into the shadows, which needs geometric auditing."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candles, motorcycles, sheep",
+                "verification_goals": [
+                    "Count the exact number of blue candles in the foreground to verify Atom 0 (Expected: 7).",
+                    "Count the motorcycles to verify Atom 4 (Expected: 3).",
+                    "Count the sheep to verify Atom 7 (Expected: 3).",
+                    "Generate bounding boxes for all instances to serve as priors for segmentation experts."
+                ],
+                "reason": "This is the primary 'Bridge' expert needed to establish object counts and locations before detailed anatomical or geometric analysis can occur.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "motorcycles",
+                "verification_goals": [
+                    "Classify the specific type of motorcycle (e.g., naked bike vs. scooter) to resolve the discrepancy between the visual evidence and the 'motor scooter' taxonomy provided.",
+                    "Verify if the visual features align with general 'motorcycle' class despite the specific taxonomy mismatch."
+                ],
+                "reason": "The taxonomy provided describes a 'motor scooter', but the image shows full-sized motorcycles. This expert will clarify if the generation failed the specific taxonomy or if the taxonomy was merely a proxy label.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep",
+                "verification_goals": [
+                    "Detect keypoints on the sheep to verify limb integrity (4 legs per sheep).",
+                    "Check for biological structural correctness despite the unnatural purple color.",
+                    "Verify head orientation and ear placement."
+                ],
+                "reason": "Essential for auditing the biological structure of the limbed subjects (sheep) to ensure they aren't morphologically distorted, regardless of their color.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "verification_goals": [
+                    "Verify the spatial relationship: Candles (front) -> Motorcycles (middle) -> Sheep (back).",
+                    "Check for 'melting' or boundary errors where the sheep legs meet the motorcycle tires.",
+                    "Ensure the depth ordering is physically consistent."
+                ],
+                "reason": "The prompt specifies a strict layered arrangement ('in front of', 'under'). This expert validates the 3D coherence of these layers.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "candles",
+                "verification_goals": [
+                    "Assess the surface finish of the candles (matte vs glossy) to match wax properties.",
+                    "Check for rendering artifacts on the uniform blue surfaces.",
+                    "Verify wick alignment and straightness."
+                ],
+                "reason": "Acts as a holistic quality filter for the foreground objects which are simple geometric shapes and prone to subtle texture failures.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Whether the sheep are 'under' the motorcycles (Atom 6): The image shows them *behind* the motorcycles, not physically underneath them. The preposition 'under' might be interpreted loosely as 'in the background of' or strictly as 'vertically below'. Strict interpretation fails.",
+            "Taxonomy compliance for Motorcycles: The generated objects are visually correct as 'motorcycles' but fail the specific 'motor scooter' taxonomy description provided in the context."
+        ],
+        "focus_areas": [
+            "Object Counting Accuracy (specifically the 7 candles)",
+            "Spatial Relationship Validation (Front/Middle/Back layering)",
+            "Biological Plausibility of Purple Sheep (Limb count and head structure)",
+            "Vehicle Classification Discrepancy (Scooter vs Motorcycle)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candles, motorcycles, sheep",
+                "reason": "This is the primary 'Bridge' expert needed to establish object counts and locations before detailed anatomical or geometric analysis can occur.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "motorcycles",
+                "reason": "The taxonomy provided describes a 'motor scooter', but the image shows full-sized motorcycles. This expert will clarify if the generation failed the specific taxonomy or if the taxonomy was merely a proxy label.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep",
+                "reason": "Essential for auditing the biological structure of the limbed subjects (sheep) to ensure they aren't morphologically distorted, regardless of their color.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "reason": "The prompt specifies a strict layered arrangement ('in front of', 'under'). This expert validates the 3D coherence of these layers.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "candles",
+                "reason": "Acts as a holistic quality filter for the foreground objects which are simple geometric shapes and prone to subtle texture failures.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_flux2_dev/717.png",
+            "prompt_id": "717",
+            "prompt_text": "seven blue candles in front of three motorcycles under three purple sheeps",
+            "router_cost_seconds": 31.23,
+            "plan_valid": false
+        }
+    }
+}
