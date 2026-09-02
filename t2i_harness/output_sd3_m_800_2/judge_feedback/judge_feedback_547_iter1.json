@@ -1,0 +1,313 @@
+{
+    "image_id": "547",
+    "prompt": "a turtle behind four black guitars, and six striped candles",
+    "iteration": 1,
+    "timestamp": "2026-09-02 02:06:34",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections regarding object counting. The Router failed to correctly identify that the image contains hybrid objects (guitars with candle necks/flames) which should likely be counted towards both categories or treated as a specific failure mode of 'fusion'. Specifically:\n1. **Counting Error**: The Router predicts '7 guitars' and '3 candles'. However, visually, there are 7 guitar bodies. 4 have standard necks, and 3 have candle necks. If the prompt asks for '4 guitars' and '6 candles', the model generated 7 guitar-bodies (fail) and 3 candle-hybrids (fail count). The Router's reasoning for Atom 6 ('Only three objects exhibit candle characteristics') is factually correct based on the image, but the verification plan lacks a specific expert to audit the *hybrid nature* of these objects beyond just 'perceptual quality'.\n2. **Missing Expert for Hybrid/Topology Audit**: The `topology_boundary_auditor` is missing. The core failure here is the topological fusion of two distinct semantic classes (guitar + candle). The `perceptual_quality_auditor` is assigned to assess 'severity', but `topology_boundary_auditor` is better suited to define the boundary failure between the guitar body and the candle neck, which is crucial for determining if they are 'separate' objects as requested.\n3. **Inconsistent Checkpoint Logic**: The checkpoint for 'candle' states `is_present: false` because they are fused. However, the `open_vocabulary_detector` is tasked with counting 'candles'. If the detector finds them, it contradicts the checkpoint. The plan needs a `topology_boundary_auditor` to resolve whether the fused neck counts as a 'candle' instance or a 'guitar part'.\n4. **Spatial Relation Verification**: The `geometric_depth_auditor` is correctly assigned to verify the turtle's position, but the `open_vocabulary_detector` for 'turtle' is weighted lower than necessary given it is the primary subject for the spatial check.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Topological integrity of guitar-candle hybrids",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Refine Atom 3 and 6 reasoning to explicitly account for hybrid objects. The current plan treats them as mutually exclusive (either guitar OR candle), whereas they are fused. The verifier should check if the 'candle' part of the hybrid satisfies the 'striped candle' prompt requirement independently of the guitar body.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Increase weight of 'turtle' detection and 'geometric_depth_auditor' as the spatial relationship (behind vs front) is a primary prompt constraint failure.",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A photorealistic image featuring a single turtle in the foreground on a wooden surface. Behind the turtle is a row of seven black electric guitars standing upright. Three of these guitars have been morphed into candles: their headstocks are replaced by lit flames, and their necks feature red-and-white striped wax patterns. The remaining four guitars appear structurally normal but share the same black finish. The background is dark.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many turtles are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is clearly one turtle centered in the foreground."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any turtles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A turtle is the primary subject in the foreground."
+            },
+            {
+                "atom_index": 2,
+                "question": "Is the turtle behind the guitars?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The turtle is positioned in front of the guitars, closer to the camera. The prompt asked for it to be behind, but the generation placed it in front."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many guitars are in the image?",
+                "expected": "four",
+                "predicted": "seven",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are seven distinct guitar bodies visible in the row. The prompt specified four."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are the guitars black?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All guitar bodies are black."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any guitars in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple guitars are present."
+            },
+            {
+                "atom_index": 6,
+                "question": "How many candles are in the image?",
+                "expected": "six",
+                "predicted": "three",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only three objects exhibit candle characteristics (flames and striped wax necks). The prompt requested six."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the candles striped?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The three candle-guitar hybrids have distinct red and white stripes."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any candles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three candle-like objects are visible."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "candle",
+                "checkpoint": "Cylindrical stick of wax of moderate height with narrow diameter relative to height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The 'candles' are not independent cylindrical sticks; they are fused onto guitar necks. While the neck portion mimics a cylinder, the overall object is a hybrid instrument-candle, failing the definition of a standard candle stick."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Simple vertical cylinder with thin wick protruding from center.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The flame emerges directly from the top of the guitar headstock/neck area without a distinct, separate wick structure typical of a standalone candle."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Central wick cotton string extending from top.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No cotton wick is visible; the fire appears to generate magically from the wood/wax hybrid material."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Flat base for standing.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "These objects do not stand on a flat candle base; they are supported by guitar stands or the guitar body itself."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Solid or semi-hollow body with no sound hole required.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The guitar bodies appear to be solid-body electrics (Stratocaster style) with no sound holes."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Headstock has 6 tuning pegs.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the non-candle guitars have headstocks, the tuning peg count is inconsistent or malformed (some look like 3+3, others are blurry). The candle-guitars lack headstocks entirely."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Carapace is oval and moderately domed with a smooth surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The turtle's shell is correctly shaped, domed, and has visible scute texture."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Limbs are moderately long with webbed feet and sharp claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The front limbs are visible with distinct claws and appropriate scaling texture."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Top of guitar necks (candle hybrids)",
+                "severity": 5,
+                "reasoning": "Catastrophic semantic fusion where guitar headstocks melt into candle flames and striped wax. This is a deliberate prompt adherence failure or hallucination, creating physically impossible objects."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Guitar headstocks (non-candle)",
+                "severity": 3,
+                "reasoning": "Several guitar headstocks show warped geometry, missing tuning pegs, or irregular shapes that deviate from standard manufacturing."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Candle flames",
+                "severity": 2,
+                "reasoning": "The flames have a solid, plastic-like opacity rather than the translucent, gaseous appearance of real fire."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "guitar",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4",
+                    "Atom 5"
+                ],
+                "reason": "To accurately count the total number of guitar bodies and verify their color, distinguishing them from the candle hybrids.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "To detect and count objects that visually classify as candles, verifying if the model recognizes the hybrids as candles.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "To confirm the presence of the turtle and establish its bounding box relative to the guitars for spatial relationship verification.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 2"
+                ],
+                "reason": "To definitively prove the depth ordering between the turtle and the guitars, confirming the turtle is in front (contradicting the prompt).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "turtle checkpoints"
+                ],
+                "reason": "To verify the species-level accuracy of the turtle generation against the 'terrapin' taxonomy.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "guitar-candle hybrids",
+                "verification_goals": [
+                    "fusion artifact",
+                    "structural_collapse artifact"
+                ],
+                "reason": "To assess the severity of the morphological errors where guitars transform into candles.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Spatial relationship between turtle and guitars (Prompt says behind, image shows front).",
+            "Count discrepancy: Prompt asks for 4 guitars/6 candles; Image shows 7 guitars/3 candle-hybrids.",
+            "Structural integrity of the candle-guitar fusion points."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "guitar",
+                "reason": "To accurately count the total number of guitar bodies and verify their color, distinguishing them from the candle hybrids.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "reason": "To detect and count objects that visually classify as candles, verifying if the model recognizes the hybrids as candles.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "reason": "To confirm the presence of the turtle and establish its bounding box relative to the guitars for spatial relationship verification.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "To definitively prove the depth ordering between the turtle and the guitars, confirming the turtle is in front (contradicting the prompt).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "reason": "To verify the species-level accuracy of the turtle generation against the 'terrapin' taxonomy.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "guitar-candle hybrids",
+                "reason": "To assess the severity of the morphological errors where guitars transform into candles.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/547.png",
+            "prompt_id": "547",
+            "prompt_text": "a turtle behind four black guitars, and six striped candles",
+            "router_cost_seconds": 42.31,
+            "plan_valid": true
+        }
+    }
+}

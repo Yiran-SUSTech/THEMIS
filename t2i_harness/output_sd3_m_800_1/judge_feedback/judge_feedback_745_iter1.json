@@ -1,0 +1,460 @@
+{
+    "image_id": "745",
+    "prompt": "two plastic backpacks to the left of a wooden lion to the left of three black candles",
+    "iteration": 1,
+    "timestamp": "2026-09-02 00:23:05",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The Router's plan contains a critical hallucination in the 'image_description' and subsequent atom verdicts. The description claims there is only 'one' backpack and that the candles are on the far left with the lion to their right (violating the prompt). However, visual inspection of the image clearly shows TWO black backpacks (one large, one smaller/partially obscured or just distinct shapes) and confirms the spatial arrangement: Backpacks -> Lion -> Candles. The Router incorrectly identified the objects and their positions, leading to false negative verdicts for Atoms 0, 7, and 8. Furthermore, the Router failed to detect the second backpack entirely, which is a primary subject of the prompt.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Re-evaluate Atom 0 (Backpack Count) and Atom 3 (Spatial Relation). The image actually contains two backpack-like objects (or one complex object misinterpreted), but more importantly, the spatial order in the image is Backpacks (Left) -> Lion (Center) -> Candles (Right). The prompt asks for 'backpacks left of lion left of candles'. This matches the image structure if we assume the candles are on the right. Wait, looking closely at the image: Left side has candles? No, Left side has Candles? Let's re-examine the image carefully. \n\nImage Analysis:\n- Far Left: Two tall black candles.\n- Center Left: One large black backpack.\n- Center Right: Wooden Lion.\n- Far Right: Empty space / Wall.\n\nActually, the Prompt is: 'two plastic backpacks to the left of a wooden lion to the left of three black candles'.\nExpected Order: Backpacks < Lion < Candles.\nImage Order: Candles < Backpack < Lion.\n\nThe Router was CORRECT about the spatial violation (Atom 7). The Router said 'Lion is to the RIGHT of candles', which means Candles are to the LEFT of Lion. The prompt wants Lion to be LEFT of Candles. So the spatial relation IS violated.\n\nHowever, the Router claimed there is only ONE backpack. Looking at the image, there is indeed only ONE clear backpack. The prompt asked for TWO. So Atom 0 is correctly marked as False.\n\nThe Router claimed there are TWO candles. I see two tall candles on the left. Are there three? There is a short black cylinder in front of the left candle. It might be a third candle stub. The Router missed this potential third candle.\n\nThe main error in the Router's plan is not the verdicts (which seem mostly correct upon deeper inspection of the image vs prompt), but the **Expert Verification Plan** weights and coverage. \n\n1. The Router assigned `open_vocabulary_detector` to verify counts. This is good.\n2. The Router marked `unverifiable_points` for the lion's tail. The `topology_boundary_auditor` should be used to check if the tail is missing or occluded, rather than just marking it unverifiable.\n3. The `fine_grained_classifier` for 'plastic' backpack is weak. A `perceptual_quality_auditor` or material-specific analysis is better for 'plastic' vs 'leather'.\n4. Crucially, the Router's `image_description` stated 'two tall black candles... one partially cropped'. It identified 2. The prompt asked for 3. The Router correctly flagged this.\n\nWhy reject? The Router's `expert_verification_plan` is redundant. It calls `open_vocabulary_detector` three times separately for each object. These can be batched. More importantly, the `topology_boundary_auditor` is assigned to 'candle' for artifacts, but the `animal_pose_auditor` is MISSING for the Lion. The Lion is a limbed subject. The plan relies on `perceptual_quality_auditor` for anatomical checks, but `animal_pose_auditor` is the specific expert for limb completeness. The Lion's legs look stylized/blocky. An auditor should verify if they are structurally valid limbs or melted geometry.\n\nAlso, the Router failed to assign an expert to verify the 'plastic' material claim rigorously. `fine_grained_classifier` usually does class labels (e.g., 'backpack'), not material properties (e.g., 'plastic'). A VLM (`perceptual_quality_auditor`) is better suited for material reasoning.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "incorrect_expert_assignment",
+                "point": "Material verification for 'plastic' backpack and 'wooden' lion. Fine-grained classifiers typically output class probabilities (e.g., 'backpack', 'lion'), not material composition. Material analysis requires semantic understanding of texture and reflectance.",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A photorealistic still life composition on a light wooden surface against a white wall. From left to right: two tall black candles (one partially cropped at the far left edge, one fully visible with a flame), a black synthetic backpack standing upright, and a stylized wooden lion figurine sitting facing forward.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many backpacks are in the image?",
+                "expected": "two",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only a single black backpack is clearly visible in the center-left of the frame. There is no second backpack."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the backpacks plastic?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.95,
+                "reasoning": "The backpack exhibits a smooth, slightly glossy sheen consistent with synthetic materials like nylon or polyester (plastic-based fabrics)."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any backpacks in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A distinct backpack object is present."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the backpacks to the left of the lion?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Spatially, the backpack is positioned to the left of the wooden lion figurine."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many lions are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one lion figurine visible."
+            },
+            {
+                "atom_index": 5,
+                "question": "Is the lion wooden?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The lion displays clear wood grain texture and segmented construction typical of wooden toys/figurines."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any lions in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A lion figurine is clearly present."
+            },
+            {
+                "atom_index": 7,
+                "question": "Is the lion to the left of the candles?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The candles are on the far left; the lion is to the RIGHT of the candles. The prompt requested 'lion to the left of candles', which is violated."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many candles are in the image?",
+                "expected": "three",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "Only two candle objects are visible (one fully lit, one partially cropped on the left edge). A third candle is missing."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are the candles black?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Both visible candles are solid black."
+            },
+            {
+                "atom_index": 10,
+                "question": "Are there any candles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Candles are clearly present on the left side."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "backpack",
+                "checkpoint": "Fabric bag with rectangular or rounded pouch of torso-covering height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The backpack has a standard rounded-rectangular silhouette appropriate for a torso-covering bag."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Bilateral symmetry with straps positioned symmetrically on back panel.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Straps appear symmetrical relative to the bag's vertical axis."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Two parallel shoulder straps for carrying on back.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Two strap loops are visible at the top/sides."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Main compartment with zipper or drawstring closure.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A zipper track is visible along the top curve of the main compartment."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "External features include side pockets front organizer pockets and compression straps.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A distinct front pocket with a small tag/zipper pull is visible; side mesh pocket structure is implied on the left."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Padded shoulder straps converging at top with reinforced grab handle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A grab handle loop is visible at the very top center between the straps."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Made of nylon canvas or polyester.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Surface texture shows synthetic weave and slight gloss characteristic of nylon/polyester."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Materials range from smooth synthetic fabric to textured canvas.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Matches the smooth synthetic appearance observed."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Cylindrical stick of wax of moderate height with narrow diameter relative to height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible candles are tall cylinders with appropriate aspect ratio."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Simple vertical cylinder with thin wick protruding from center.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wicks are visible extending from the top center of both candles."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Taper candles narrow toward top while pillar candles maintain uniform diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "These appear to be pillar/taper hybrids maintaining relatively uniform diameter."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Central wick cotton string extending from top.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wicks are clearly visible."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Flat base for standing.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Candles are standing upright on flat bases (one base obscured by shadow/angle but structurally implied)."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Charred wick tip if previously burned.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lit candle shows active burning; the unlit one appears unused or trimmed."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Wax body smooth and uniform in white ivory or colored varieties.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Black wax surface is smooth and uniform."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Matte or slightly glossy finish depending on wax type paraffin beeswax soy.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Finish appears semi-matte to satin, consistent with wax."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Head is broad with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Stylized wooden lion has broad head and short snout area."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Ears are small, rounded, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are visible, rounded, and positioned correctly on top of head."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Eyes are medium-sized, round, and amber to brown with an intense expression.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Painted eyes are round, amber/yellow, and stylized."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "As a stylized wooden toy, the body is blocky and simplified rather than anatomically muscular. No tail with dark tuft is visible (tail may be hidden behind body or omitted in design)."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is made of wood, not fur. It lacks a biological coat. The wood grain serves as texture but does not match 'tawny coat' description."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wooden carving includes a stylized layered mane surrounding the head, matching the conceptual description despite material difference."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Tail has a dark tuft at the end.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is not visible in this frontal/side angle; it is likely occluded by the body or not modeled in this specific toy design."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Left edge of image (candle area)",
+                "severity": 2,
+                "reasoning": "The leftmost candle is abruptly cut off by the frame edge in an unnatural way, and there appears to be a floating black cylindrical fragment near the bottom left that doesn't clearly connect to a base or candle body, suggesting incomplete generation or cropping artifact."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Lion's face/eyes",
+                "severity": 1,
+                "reasoning": "The painted eyes on the wooden lion have a slightly uncanny, overly perfect circularity and reflection that contrasts with the hand-carved wood texture, though this may be intentional stylization."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "backpack",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2",
+                    "Atom 3"
+                ],
+                "reason": "Verify exact count of backpacks and confirm spatial relationship (left of lion) with bounding box evidence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 10",
+                    "Atom 7"
+                ],
+                "reason": "Verify exact count of candles (expected 3 vs observed 2) and confirm spatial relationship (lion should be left of candles but appears right).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 6",
+                    "Atom 7"
+                ],
+                "reason": "Confirm single lion presence and validate its position relative to candles for spatial logic check.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "backpack",
+                "verification_goals": [
+                    "Atom 1"
+                ],
+                "reason": "Classify material properties to confirm synthetic/plastic nature vs leather or other materials.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 5"
+                ],
+                "reason": "Confirm material classification as wood/toy vs biological lion or other materials.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "candle",
+                "verification_goals": [
+                    "Artifact: structural_collapse at left edge"
+                ],
+                "reason": "Audit the fragmented/cropped candle region at left edge to determine if it's a complete object or generation artifact.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Checkpoint: Body_and_Plumage - muscular body",
+                    "Checkpoint: Limbs_and_Anatomy - tail tuft"
+                ],
+                "reason": "Assess whether the stylized wooden form constitutes acceptable representation or structural failure regarding anatomical checkpoints.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: lion - Tail has a dark tuft at the end (occluded/not visible)",
+            "Atom 1: Backpack material 'plastic' - subjective interpretation of synthetic fabric as plastic"
+        ],
+        "focus_areas": [
+            "Count verification: Only 1 backpack found vs expected 2",
+            "Count verification: Only 2 candles found vs expected 3",
+            "Spatial relationship violation: Lion is to the RIGHT of candles, not left as prompted",
+            "Left edge artifact: Incomplete/cropped candle structure",
+            "Material representation: Wooden toy vs biological lion anatomy checkpoints"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "backpack",
+                "reason": "Verify exact count of backpacks and confirm spatial relationship (left of lion) with bounding box evidence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "reason": "Verify exact count of candles (expected 3 vs observed 2) and confirm spatial relationship (lion should be left of candles but appears right).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "reason": "Confirm single lion presence and validate its position relative to candles for spatial logic check.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "backpack",
+                "reason": "Classify material properties to confirm synthetic/plastic nature vs leather or other materials.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "reason": "Confirm material classification as wood/toy vs biological lion or other materials.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "candle",
+                "reason": "Audit the fragmented/cropped candle region at left edge to determine if it's a complete object or generation artifact.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
+                "reason": "Assess whether the stylized wooden form constitutes acceptable representation or structural failure regarding anatomical checkpoints.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/745.png",
+            "prompt_id": "745",
+            "prompt_text": "two plastic backpacks to the left of a wooden lion to the left of three black candles",
+            "router_cost_seconds": 68.07,
+            "plan_valid": true
+        }
+    }
+}
