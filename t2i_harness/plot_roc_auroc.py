@@ -267,6 +267,12 @@ def main():
             auc = stats["auroc"]
             if auc is not None:
                 per_run_aurocs.append(auc)
+
+            if stats["positive_rate"] is None:
+                print(f"  {run_name}: no paired images (final_reports/checklists "
+                      f"empty or missing) — run skipped, no curve drawn")
+                continue
+
             y_true = np.array([r[f"cl_{metric}"] for r in records], dtype=float) \
                 >= thresholds[metric]
             y_score = np.array([r[f"sys_{metric}"] for r in records], dtype=float)
