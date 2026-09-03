@@ -2,35 +2,35 @@
     "image_id": "419",
     "prompt": "seven violins and two red bicycles and a wooden suitcase",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:55:40",
+    "timestamp": "2026-09-02 23:08:15",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains severe hallucinations regarding the image content and logical contradictions in its verification strategy. \n1. **Hallucinated Artifacts:** The plan claims 'severe fusion' between a cello and bicycle wheel and 'melted violin bodies.' The image actually shows distinct, separate objects (a collage style) with no physical fusion or melting. The 'structural collapse' described does not exist.\n2. **Incorrect Counting Logic:** The plan asserts there are exactly two bicycles to match the prompt, ignoring that the image clearly contains three distinct red bicycle frames (one tandem on the left, one standard in the middle, one chopper-style on the right). The reasoning explicitly dismisses the third bike as an artifact, which is factually wrong.\n3. **Contradictory Verification Goals:** The `geometric_depth_auditor` is tasked with validating 'tandem frame geometry' and 'fusion severity' for an object that is neither fused nor correctly identified. The `fine_grained_classifier` is asked to verify a 'bicycle-built-for-two' taxonomy for a scene containing multiple bike types, creating ambiguity.\n4. **Missed Objects:** The plan fails to account for the third bicycle, leading to an incorrect verdict on Atom 2 (Count: 2 vs Actual: 3).",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and fails to address critical structural artifacts. Specifically: 1) The Router incorrectly marked Atom 2 (Bicycle Count) as 'false' with a prediction of 3, whereas the image clearly contains exactly two red bicycles (one tandem on the left, one standard on the right). The third 'bike' identified by the router is actually a cello fused with a wheel, which should be counted as a violin/cello artifact, not a bicycle. 2) The plan fails to assign an expert to audit the 'wooden suitcase' for structural integrity against the prompt's specific material constraint, relying only on classification. 3) The 'unverifiable_points' list is empty, yet the fusion of the cello neck into the bicycle frame creates a complex topological ambiguity that requires explicit auditing.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Re-evaluate Bicycle Count (Atom 2). The image contains three distinct bicycle structures, not two. The current plan incorrectly merges/dismisses the third bike.",
+                "type": "logic_correction",
+                "point": "Atom 2 (Bicycle Count) verdict is incorrect. The image contains 2 bicycles. The object mistaken for a 3rd bike is a cello/wheel hybrid. The Router must correct the predicted answer to 'two' and mark is_correct as true.",
                 "recommended_expert": "open_vocabulary_detector"
             },
             {
                 "type": "missing_verification",
-                "point": "Verify Object Separation. The plan hallucinates 'fusion' artifacts. A topology audit is needed to confirm that the violins and bicycles are distinct, non-fused entities.",
+                "point": "The fusion of the vertical cello body with the bicycle wheel (bottom center) creates a hybrid object that confuses the bicycle count. This specific fusion boundary needs topological auditing to confirm it is NOT a bicycle part.",
                 "recommended_expert": "topology_boundary_auditor"
             },
             {
                 "type": "missing_verification",
-                "point": "Correct Violin/Cello Count (Atom 0). The plan identifies 7 instruments but relies on 'fused' logic. A precise count of distinct string instrument bodies is required.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "The prompt specifies a 'wooden suitcase'. While a classifier checks the label, a geometric/texture audit is needed to verify the material properties (grain, rigidity) and ensure it is not a plastic/metal mimic with wood texture.",
+                "recommended_expert": "perceptual_quality_auditor"
             },
             {
-                "type": "logical_correction",
-                "point": "Remove 'Geometric Depth' checks for fusion. Since no fusion exists, the geometric depth auditor should instead be used to verify the 2D collage nature vs 3D grounding errors if any, but primarily to debunk the fusion claim.",
-                "recommended_expert": "geometric_depth_auditor"
+                "type": "coverage_gap",
+                "point": "The 'fine_grained_classifier' for violins is tasked with checking geometry checkpoints, but classifiers generally output labels, not geometric validity. The 'geometric_depth_auditor' or 'topology_boundary_auditor' should handle the structural integrity of the fused violins.",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A collage-style composition featuring multiple string instruments (violins/cellos), red bicycles, and a wooden suitcase against a white background. The objects exhibit significant AI-generation artifacts, including severe fusion between the central cello and bicycle wheel, melted violin bodies in the top row, and structural distortions in the bicycle frames.",
+        "image_description": "A collage-style image featuring multiple string instruments (violins, cellos), red bicycles, and a wooden suitcase against a white background. The objects appear to be floating or arranged in a disjointed manner with significant structural anomalies.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -39,7 +39,7 @@
                 "predicted": "seven",
                 "is_correct": true,
                 "confidence": 0.95,
-                "reasoning": "Visual inspection confirms seven distinct string instrument entities: three fused horizontally at the top, one horizontal on the left, one vertical center (fused with bike), one floating body fragment near the suitcase, and one partial body on the far right. Despite fusion artifacts, seven discrete instrument forms are identifiable."
+                "reasoning": "Upon closer inspection, there are seven distinct violin/cello bodies: three fused at the top, one horizontal in the middle left, one vertical in the bottom center, and two smaller cases/bodies on the top right."
             },
             {
                 "atom_index": 1,
@@ -48,16 +48,16 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Multiple string instruments resembling violins and cellos are clearly visible throughout the composition."
+                "reasoning": "Multiple violin-shaped instruments are clearly visible."
             },
             {
                 "atom_index": 2,
                 "question": "How many bicycles are in the image?",
                 "expected": "two",
-                "predicted": "two",
-                "is_correct": true,
-                "confidence": 0.95,
-                "reasoning": "There is one tandem-style bicycle on the left and one standard red bicycle on the right. The previous count of three was incorrect; the 'third' bike was likely a misinterpretation of the central cello's neck or the floating body fragment."
+                "predicted": "three",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "There is a tandem bike on the left, a standard red bike in the center, and another red bike frame on the right. This totals three distinct bicycle structures."
             },
             {
                 "atom_index": 3,
@@ -66,7 +66,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Both visible bicycle frames are predominantly red."
+                "reasoning": "All visible bicycle frames are painted red."
             },
             {
                 "atom_index": 4,
@@ -75,7 +75,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Two distinct bicycle structures are present."
+                "reasoning": "Bicycles are prominent in the lower half of the image."
             },
             {
                 "atom_index": 5,
@@ -83,8 +83,8 @@
                 "expected": "one",
                 "predicted": "one",
                 "is_correct": true,
-                "confidence": 0.95,
-                "reasoning": "One distinct brown wooden suitcase is visible in the upper right quadrant. Other box-like shapes are instrument cases or bags."
+                "confidence": 1.0,
+                "reasoning": "There is one distinct brown wooden suitcase in the center-right area."
             },
             {
                 "atom_index": 6,
@@ -92,8 +92,8 @@
                 "expected": "Yes",
                 "predicted": "Yes",
                 "is_correct": true,
-                "confidence": 0.9,
-                "reasoning": "The suitcase displays wood-grain texture and brass latches consistent with vintage wooden luggage, though some plastic-like smoothing is noted."
+                "confidence": 0.95,
+                "reasoning": "The suitcase has a wood grain texture and brass latches typical of vintage wooden luggage."
             },
             {
                 "atom_index": 7,
@@ -102,7 +102,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A wooden suitcase is clearly visible."
+                "reasoning": "A suitcase is clearly visible."
             }
         ],
         "checkpoint_verdicts": [
@@ -112,7 +112,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The left bicycle attempts a tandem configuration but lacks proper elongation and functional geometry. The frame is distorted and partially fused with the central cello, failing to meet the 'notably extended length' criterion."
+                "reasoning": "While there is a tandem-like structure on the left, it is structurally malformed. The rear wheel is detached/floating, and the frame geometry does not form a valid continuous elongated triangle. It fails the 'notably extended length' criterion due to structural collapse."
             },
             {
                 "object": "bicycle",
@@ -120,7 +120,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No clean stretched profile exists. The left bike's structure is compromised by fusion with the cello, and the right bike is a standard single-rider frame."
+                "reasoning": "The left bicycle attempts a tandem profile but lacks structural integrity; the rear section is disconnected from the main frame, making it impossible to verify valid rider positions."
             },
             {
                 "object": "bicycle",
@@ -128,7 +128,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The top tube geometry on the left bike is structurally ambiguous due to artifacting; it does not clearly connect front and rear triangles in a valid tandem configuration."
+                "reasoning": "The top tube on the left bicycle appears broken or fused incorrectly with the vertical cello neck, failing to connect the triangles properly."
             },
             {
                 "object": "bicycle",
@@ -136,7 +136,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only one set of handlebars is clearly defined on the left bike; the rear handlebar area is indistinct or missing due to structural collapse."
+                "reasoning": "Only one set of handlebars is clearly visible on the left tandem attempt. The rear rider position lacks handlebars entirely."
             },
             {
                 "object": "bicycle",
@@ -144,15 +144,15 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While two seat-like structures exist on the left bike, their positioning is anatomically incorrect and obscured by the fused cello body."
+                "reasoning": "While two seat-like shapes exist on the left bike, the rear one is poorly defined and seems to float above the frame rather than being mounted to it."
             },
             {
                 "object": "bicycle",
                 "checkpoint": "Standard bicycle size wheels.",
                 "category": "Functional_Components",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Wheels appear to be of standard relative size despite perspective distortion and fusion artifacts."
+                "is_present": false,
+                "reasoning": "The rear wheel of the left bicycle is distorted and appears to be merging with the tire of the central vertical cello/bike hybrid. The rightmost bike has a wheel that looks disproportionately small or warped."
             },
             {
                 "object": "bicycle",
@@ -160,7 +160,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The left bike's frame is distorted rather than coherently elongated; it fails to demonstrate a functional tandem length."
+                "reasoning": "Due to the structural collapse and missing rear triangle connection, the frame cannot be verified as a valid 'significantly longer' unit; it looks like a broken standard bike."
             },
             {
                 "object": "bicycle",
@@ -168,7 +168,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The intended tandem configuration is structurally failed due to fusion with the cello and nonsensical spatial relationships."
+                "reasoning": "The configuration is physically impossible due to the disconnected rear wheel and frame segments."
             },
             {
                 "object": "bicycle",
@@ -176,31 +176,31 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Rider positions are not clearly defined due to severe melting and fusion artifacts."
+                "reasoning": "The rear rider position is structurally undefined and lacks necessary components (pedals, handlebars) to be considered a valid position."
             },
             {
                 "object": "violin",
                 "checkpoint": "Bowed stringed instrument with a curved wooden body of compact, handheld size.",
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Several instruments match the general silhouette of bowed stringed instruments, though sizes vary and some are fused."
+                "is_present": false,
+                "reasoning": "The top three violins are fused together into a single mass, violating the 'compact, handheld' individual unit definition. The bottom center instrument is oversized (cello-sized) and fused with a bike wheel."
             },
             {
                 "object": "violin",
                 "checkpoint": "Body has an hourglass shape with C-bouts on each side.",
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Visible instrument bodies display characteristic hourglass shapes and C-bouts, even when partially fused."
+                "is_present": false,
+                "reasoning": "The top cluster of violins has melted C-bouts where they join. The bottom instrument's body is intact but its context is compromised by fusion."
             },
             {
                 "object": "violin",
                 "checkpoint": "Neck extends from the body to a carved scroll at the top.",
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Necks and scrolls are visible on most instruments, though the central cello's neck merges with the bicycle wheel."
+                "is_present": false,
+                "reasoning": "In the top cluster, necks are truncated or merged. The bottom instrument's neck is present but intersects unnaturally with the bike wheel."
             },
             {
                 "object": "violin",
@@ -208,15 +208,15 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "String count is inconsistent; many instruments show fewer than four strings or strings that fade/merge into the body without reaching pegs."
+                "reasoning": "Strings are often missing, fused, or terminate abruptly in the melted regions of the top cluster. The bottom instrument has strings but they disappear into the wheel fusion."
             },
             {
                 "object": "violin",
                 "checkpoint": "Top plate has two f-shaped sound holes.",
                 "category": "Functional_Components",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "F-holes are visible on instrument bodies, though sometimes distorted by fusion."
+                "is_present": false,
+                "reasoning": "F-holes are visible on some bodies but are distorted or partially erased in the fused top section."
             },
             {
                 "object": "violin",
@@ -224,7 +224,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Chin rests are missing or poorly defined on several instruments; fingerboards lack clear definition in fused areas."
+                "reasoning": "Chin rests are missing or merged into the body in the top cluster. Fingerboards are inconsistent in color and continuity."
             },
             {
                 "object": "violin",
@@ -232,7 +232,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Textures appear generically woody or smooth; specific maple flame patterns are not distinctly visible."
+                "reasoning": "Texture mapping is inconsistent; some areas look plastic-like or lack the specific wood grain detail required for spruce/maple distinction, especially in fused areas."
             },
             {
                 "object": "violin",
@@ -240,7 +240,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Instruments display appropriate amber/reddish-brown varnish colors."
+                "reasoning": "The color palette generally matches amber/reddish-brown varnish, despite the structural failures."
             },
             {
                 "object": "violin",
@@ -248,45 +248,39 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No bows are clearly visible in the image."
+                "reasoning": "No bows are clearly visible in the image; only the instruments themselves are present."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "fusion",
-                "location": "Top row of instruments",
-                "severity": 4,
-                "reasoning": "Three violin bodies are melted together into a single continuous mass, sharing necks and strings in a physically impossible way."
+                "location": "Top row of violins",
+                "severity": 5,
+                "reasoning": "Three separate violin bodies are melted together into a single nonsensical mass, sharing wood grain and contours illegally."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Central cello and left bicycle front wheel",
+                "location": "Left bicycle (tandem)",
+                "severity": 4,
+                "reasoning": "The rear wheel is detached from the frame, and the chainstay/seatstay geometry is missing or broken. The frame does not support the rear axle."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Bottom center vertical cello/violin and bike wheel",
                 "severity": 5,
-                "reasoning": "Severe fusion where the central vertical cello's body and neck merge directly into the left bicycle's front wheel and frame, creating a nonsensical hybrid object with no physical separation."
+                "reasoning": "The body of the large string instrument merges seamlessly into the tire of a bicycle wheel, creating a physical impossibility."
             },
             {
                 "artifact_type": "missing_parts",
-                "location": "Center foreground cello/violin",
+                "location": "Rightmost bicycle",
                 "severity": 3,
-                "reasoning": "The instrument's neck terminates abruptly or merges with the bicycle wheel; strings are incomplete or missing."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "Right bicycle",
-                "severity": 2,
-                "reasoning": "Front wheel and fork geometry are warped; the wheel appears elliptical in a way inconsistent with standard perspective foreshortening."
+                "reasoning": "The front fork and handlebar stem area appear warped and incomplete; the connection to the front wheel is ambiguous."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Wooden suitcase",
-                "severity": 1,
-                "reasoning": "Wood grain texture is slightly repetitive and lacks fine detail, appearing somewhat plastic-like upon close inspection."
-            },
-            {
-                "artifact_type": "extra_limbs",
-                "location": "Middle bicycle",
-                "severity": 3,
-                "reasoning": "Phantom pedal cranks or chainring structures appear that do not connect logically to the frame or wheels."
+                "location": "Horizontal violin (middle left)",
+                "severity": 2,
+                "reasoning": "The transition from the body to the neck shows a sudden change in lighting and texture resolution, suggesting a copy-paste or generation seam."
             }
         ],
         "expert_verification_plan": [
@@ -297,7 +291,7 @@
                     "Atom 0",
                     "Atom 1"
                 ],
-                "reason": "To accurately count all seven distinct violin/cello instances, including fragmented/partial ones, and verify presence despite fusion artifacts.",
+                "reason": "To accurately count the number of distinct violin instances despite the severe fusion artifacts, providing bounding boxes for individual bodies.",
                 "weight": 0.25
             },
             {
@@ -307,103 +301,132 @@
                     "Atom 2",
                     "Atom 4"
                 ],
-                "reason": "To confirm exactly two bicycle instances and distinguish them from instrument parts or fused artifacts.",
+                "reason": "To detect and count bicycle instances, distinguishing between the malformed tandem, the central bike, and the right bike.",
                 "weight": 0.2
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "bicycle",
-                "verification_goals": [
-                    "Artifact: structural_collapse (Central cello and left bicycle front wheel)",
-                    "Checkpoint: Extended top tube connecting front and rear triangles"
-                ],
-                "reason": "To audit the severe fusion between the central cello and left bicycle wheel, confirming physical impossibility and validating tandem frame geometry claims.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "bicycle",
-                "verification_goals": [
-                    "Checkpoint: Elongated bicycle...",
-                    "Checkpoint: Tandem configuration..."
-                ],
-                "reason": "To classify whether detected bicycles match 'bicycle-built-for-two' taxonomy or are distorted standard bikes.",
-                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "violin",
                 "verification_goals": [
-                    "Checkpoint: Body has an hourglass shape...",
-                    "Checkpoint: Top plate has two f-shaped sound holes"
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Checkpoint: Functional_Components"
                 ],
-                "reason": "To verify taxonomic validity of violins despite fusion and distortion artifacts.",
+                "reason": "To verify if the fused masses can still be classified as violins or if they have degraded into unrecognizable shapes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Checkpoint: Functional_Components"
+                ],
+                "reason": "To audit the skeletal structure of the bicycles (wheels, frame triangles) to confirm the 'structural_collapse' verdicts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "violin",
+                "verification_goals": [
+                    "Artifact: fusion (Top row)",
+                    "Artifact: fusion (Bottom center)"
+                ],
+                "reason": "To segment the fused violin clusters and prove they are topologically connected when they should be separate instances.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Artifact: missing_parts"
+                ],
+                "reason": "To provide a holistic quality assessment of the bicycle deformations and confirm the severity of the mechanical failures.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "suitcase",
                 "verification_goals": [
                     "Atom 6",
-                    "Artifact: texture_anomaly (Wooden suitcase)"
+                    "Atom 7"
                 ],
-                "reason": "To assess material realism of the suitcase and confirm if wood texture is authentic or AI-generated noise per Judge feedback.",
-                "weight": 0.15
+                "reason": "To confirm the material classification of the suitcase as 'wooden' versus metal or plastic.",
+                "weight": 0.05
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "suitcase",
+                "verification_goals": [
+                    "Suitcase Structural Integrity"
+                ],
+                "reason": "To verify if the suitcase lid and handle are topologically connected to the body.",
+                "weight": 0.05
             }
         ],
-        "unverifiable_points": [
-            "Checkpoint: Top plate is spruce; back plate is maple with a distinctive flame pattern (Requires microscopic texture analysis beyond current expert capabilities)",
-            "Checkpoint: Bow is a wooden stick with horsehair (Object absent, cannot verify presence)"
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Structural integrity of the top-row fused violins",
-            "Geometric validity and fusion severity between central cello and left bicycle wheel",
-            "Accurate counting of seven distinct violin/cello instances vs. fused artifacts",
-            "Material realism of the wooden suitcase texture"
+            "Severe fusion of multiple violin bodies in the top row",
+            "Structural integrity of the left tandem bicycle (detached rear wheel)",
+            "Impossible fusion of the vertical cello body with the bicycle wheel",
+            "Accurate counting of violins given the merged instances",
+            "Suitcase structural integrity (lid alignment, handle connection)"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "violin",
-                "reason": "To accurately count all seven distinct violin/cello instances, including fragmented/partial ones, and verify presence despite fusion artifacts.",
+                "reason": "To accurately count the number of distinct violin instances despite the severe fusion artifacts, providing bounding boxes for individual bodies.",
                 "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bicycle",
-                "reason": "To confirm exactly two bicycle instances and distinguish them from instrument parts or fused artifacts.",
+                "reason": "To detect and count bicycle instances, distinguishing between the malformed tandem, the central bike, and the right bike.",
                 "weight": 0.2
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "bicycle",
-                "reason": "To audit the severe fusion between the central cello and left bicycle wheel, confirming physical impossibility and validating tandem frame geometry claims.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "bicycle",
-                "reason": "To classify whether detected bicycles match 'bicycle-built-for-two' taxonomy or are distorted standard bikes.",
-                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "violin",
-                "reason": "To verify taxonomic validity of violins despite fusion and distortion artifacts.",
+                "reason": "To verify if the fused masses can still be classified as violins or if they have degraded into unrecognizable shapes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bicycle",
+                "reason": "To audit the skeletal structure of the bicycles (wheels, frame triangles) to confirm the 'structural_collapse' verdicts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "violin",
+                "reason": "To segment the fused violin clusters and prove they are topologically connected when they should be separate instances.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
+                "target_subject": "bicycle",
+                "reason": "To provide a holistic quality assessment of the bicycle deformations and confirm the severity of the mechanical failures.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "suitcase",
-                "reason": "To assess material realism of the suitcase and confirm if wood texture is authentic or AI-generated noise per Judge feedback.",
-                "weight": 0.15
+                "reason": "To confirm the material classification of the suitcase as 'wooden' versus metal or plastic.",
+                "weight": 0.05
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "suitcase",
+                "reason": "To verify if the suitcase lid and handle are topologically connected to the body.",
+                "weight": 0.05
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/419.png",
             "prompt_id": "419",
             "prompt_text": "seven violins and two red bicycles and a wooden suitcase",
-            "router_cost_seconds": 61.95,
+            "router_cost_seconds": 64.94,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

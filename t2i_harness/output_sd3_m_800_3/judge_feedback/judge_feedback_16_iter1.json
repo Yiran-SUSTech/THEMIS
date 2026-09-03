@@ -1,0 +1,208 @@
+{
+    "image_id": "16",
+    "prompt": "four purple lions",
+    "iteration": 1,
+    "timestamp": "2026-09-03 00:50:41",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'fine_grained_classifier' is tasked with verifying color attributes (purple vs tawny). Standard ImageNet-trained classifiers will likely fail or misclassify purple lions as generic objects or other animals due to the domain shift. A VLM-based color auditor or simple histogram analysis would be more robust for non-biological colors.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "optimization",
+                "point": "Atom 2 ('Are there any lions') is logically redundant given Atom 0 ('How many lions'). While covered by the detector, it adds unnecessary computational overhead if treated as a separate verification goal.",
+                "recommended_expert": "N/A"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A cartoon-style illustration featuring four purple lions standing in a grassy field under a blue sky. The lions have vibrant purple fur, white bellies, and dark purple manes/tail tufts. They are arranged in a group with two larger lions in the back and two smaller ones in the front.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many lions are in the image?",
+                "expected": "four",
+                "predicted": "four",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are clearly four distinct lion figures visible in the composition."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the lions purple?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The primary coat color of all four subjects is a distinct shade of purple/violet."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any lions in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The subjects possess recognizable feline features (manes, ears, muzzles) consistent with stylized lions."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "lion",
+                "checkpoint": "Head is broad with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the cartoon style, the heads are proportioned broadly with short snouts typical of lion depictions."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Ears are small, rounded, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All visible lions have rounded, upright ears positioned on top of the head."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Eyes are medium-sized, round, and amber to brown with an intense expression.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eyes are bright green/yellow with black pupils, deviating significantly from the 'amber to brown' biological standard, though this matches the stylized art direction."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bodies show muscular definition appropriate for the style, and the visible tail on the rightmost lion has a distinct dark tuft."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The coat is purple, not tawny. However, the 'lighter underside' feature is present (white belly), satisfying the structural aspect of the checkpoint despite the color deviation mandated by the prompt."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Manes are present and surround the head/neck, but they are dark purple/blue, not blonde to dark brown. This is a prompt-adherence success but a taxonomy failure."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Tail has a dark tuft at the end.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tail of the lion on the right clearly terminates in a darker, bulbous tuft."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Lower center paws",
+                "severity": 2,
+                "reasoning": "The paws of the front-center lion appear slightly fused or indistinct where they meet the grass and each other, lacking clear digit separation compared to the cleaner lines elsewhere."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Mane edges",
+                "severity": 1,
+                "reasoning": "The transition between the dark purple mane and the lighter purple face is somewhat soft and painterly rather than having crisp vector-like edges seen in the rest of the body outline."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To rigorously confirm the count of four distinct lion instances and validate their presence against the prompt.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 1",
+                    "Checkpoint: Coat is short... tawny",
+                    "Checkpoint: Males have... mane"
+                ],
+                "reason": "To verify if the model recognizes these as 'lions' despite the non-biological purple coloring, and to classify the specific color attributes of the coat and mane.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Checkpoint: Body is large... powerful legs",
+                    "Checkpoint: Tail has a dark tuft"
+                ],
+                "reason": "To audit the skeletal structure and limb placement of the cartoon lions to ensure they maintain valid quadrupedal anatomy despite the stylization.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Artifact: texture_anomaly"
+                ],
+                "reason": "To perform a detailed inspection of the paw fusion and mane edge quality to determine if these are stylistic choices or generation artifacts.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Verification of lion count and distinctness",
+            "Anatomical correctness of limbs/paws in cartoon style",
+            "Color attribute classification (Purple vs Tawny)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "reason": "To rigorously confirm the count of four distinct lion instances and validate their presence against the prompt.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "reason": "To verify if the model recognizes these as 'lions' despite the non-biological purple coloring, and to classify the specific color attributes of the coat and mane.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "reason": "To audit the skeletal structure and limb placement of the cartoon lions to ensure they maintain valid quadrupedal anatomy despite the stylization.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
+                "reason": "To perform a detailed inspection of the paw fusion and mane edge quality to determine if these are stylistic choices or generation artifacts.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/16.png",
+            "prompt_id": "16",
+            "prompt_text": "four purple lions",
+            "router_cost_seconds": 29.55,
+            "plan_valid": true
+        }
+    }
+}

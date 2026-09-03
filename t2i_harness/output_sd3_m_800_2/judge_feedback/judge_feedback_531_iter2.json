@@ -2,35 +2,35 @@
     "image_id": "531",
     "prompt": "a sparkling cookie to the right of a metal cat jumping over a sparkling monkey",
     "iteration": 2,
-    "timestamp": "2026-09-02 02:06:55",
+    "timestamp": "2026-09-02 23:19:04",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and incomplete expert coverage for critical spatial relationships. Specifically: 1) The Router incorrectly marked Atom 3 ('Is the cookie to the right of the cat?') as 'false' (predicting 'No'), whereas the image clearly shows the cookie is to the RIGHT of the cat (Cat is center-left, Cookie is center-right). This misjudgment invalidates the primary spatial constraint check. 2) The `geometric_depth_auditor` is assigned to verify 'jumping over' but lacks a corresponding assignment to verify the 'cookie to the right of cat' spatial relationship, which was flagged as incorrect. 3) The `animal_pose_auditor` is missing for the monkey, despite checkpoint failures regarding limb elongation and tail presence, which are structural anatomical issues best handled by pose auditing rather than just classification.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in the Atom QA verdicts and misses critical verification steps for prompt adherence.",
         "suggestions": [
             {
-                "type": "logic_correction",
-                "point": "Atom 3 Judgment",
-                "recommendation": "Re-evaluate Atom 3. The prompt asks if the cookie is to the right of the cat. In the image, the cat is on the left/center and the cookie is on the right. Therefore, the answer should be 'Yes'. The current plan marks this as 'No' (incorrect), leading to a false negative for the prompt adherence."
+                "type": "logical_correction",
+                "point": "Atom 3 (Is the cookie to the right of the cat?) was marked 'False' based on image coordinates. However, the Prompt explicitly requested 'a sparkling cookie to the right of a metal cat'. Since the image shows the cookie to the LEFT, this is a Prompt Adherence Failure. The Router should have flagged this as a failure to follow instructions, not just a spatial fact check.",
+                "recommended_expert": "N/A (Router Logic)"
             },
             {
                 "type": "missing_verification",
-                "point": "Spatial Relationship (Cookie vs Cat)",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Atom 1 and Atom 9 verify if the Cookie and Monkey are 'sparkling'. The current plan relies on the Perceptual Quality Auditor. However, 'sparkle' is a specific texture attribute that requires distinguishing between the object's surface and the environmental glitter. A dedicated texture/material analysis is needed to confirm the monkey is matte vs the floor being sparkly.",
+                "recommended_expert": "perceptual_quality_auditor"
             },
             {
                 "type": "missing_verification",
-                "point": "Monkey Anatomical Structure (Tail/Limbs)",
-                "recommended_expert": "animal_pose_auditor"
+                "point": "The 'metal' attribute of the cat (Atom 5) is verified by visual inspection, but the 'sparkling' attribute of the cookie (Atom 1) is rejected. The plan needs to explicitly verify if the cookie has ANY specular highlights or glitter particles attached to it, distinct from the background.",
+                "recommended_expert": "perceptual_quality_auditor"
             },
             {
-                "type": "weight_adjustment",
-                "point": "Geometric Depth Auditor",
-                "recommendation": "Increase weight or scope of geometric_depth_auditor to explicitly cover the relative horizontal positioning of the cookie and cat, not just the vertical 'jumping over' depth."
+                "type": "coverage_gap",
+                "point": "The checkpoint 'Long non-prehensile tail' for the monkey is marked 'false' (not present). The plan does not assign an expert to verify if the tail is occluded or missing. Given the monkey is facing forward, the tail might be behind it. A depth/occlusion check is needed.",
+                "recommended_expert": "geometric_depth_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A surreal, high-quality 3D render featuring a large lattice-top cookie floating in the upper left. To its right, a silver, glitter-textured cat is depicted mid-jump, leaping over a small brown toy monkey standing on a surface covered in scattered glitter. The background is a soft purple gradient.",
+        "image_description": "A surreal composition featuring a large, round cookie with a lattice top floating in the upper left. To its right, a silver, glitter-textured cat is depicted mid-jump, reaching towards the cookie. Below the cat and slightly to the right of the cookie's center stands a small, brown, toy-like monkey figurine on a surface covered in scattered glitter against a soft purple gradient background.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -45,10 +45,10 @@
                 "atom_index": 1,
                 "question": "Is the cookie sparkling?",
                 "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 0.95,
-                "reasoning": "Upon closer inspection per Judge feedback, the cookie surface exhibits fine specular highlights and a subtle shimmer consistent with 'sparkling' or glitter-dusted baked goods, distinct from a purely matte finish."
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.98,
+                "reasoning": "The cookie has a matte, baked texture typical of shortbread or butter cookies. It does not exhibit sparkle or glitter; only the cat and the ground have sparkling textures. This is a clear prompt adherence failure."
             },
             {
                 "atom_index": 2,
@@ -66,7 +66,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Spatially, the cookie is located to the LEFT of the cat. The cat is on the right side of the frame relative to the cookie."
+                "reasoning": "Spatially, the cookie is located to the LEFT of the cat. The cat is on the right side of the image, reaching leftward toward the cookie. Therefore, the statement 'Cookie is to the right of the Cat' is False."
             },
             {
                 "atom_index": 4,
@@ -84,7 +84,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 0.95,
-                "reasoning": "The cat has a highly reflective, silver, granular texture resembling metallic glitter or chrome, fitting the 'metal' description in a stylized context."
+                "reasoning": "The cat has a highly reflective, silver, granular texture that strongly resembles metallic glitter or chrome, fitting the 'metal' description in a stylized context."
             },
             {
                 "atom_index": 6,
@@ -102,7 +102,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 0.95,
-                "reasoning": "The cat is positioned in the air above and behind the monkey, with limbs extended in a jumping motion that traverses the space above the monkey."
+                "reasoning": "The cat is positioned in the air above the monkey, with limbs extended in a jumping motion, spatially clearing the monkey below."
             },
             {
                 "atom_index": 8,
@@ -111,16 +111,16 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "One monkey figure is visible at the bottom center."
+                "reasoning": "One monkey figurine is standing on the ground."
             },
             {
                 "atom_index": 9,
                 "question": "Is the monkey sparkling?",
                 "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 0.9,
-                "reasoning": "While the monkey's fur is matte brown, it stands directly on a bed of glitter and exhibits specular highlights on its face and limbs consistent with the scene's 'sparkling' aesthetic, satisfying the prompt's intent more than a strict 'no'."
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.98,
+                "reasoning": "The monkey has a matte, plastic or clay-like brown texture. It is not sparkling; the sparkle is limited to the cat and the floor. This is a clear prompt adherence failure."
             },
             {
                 "atom_index": 10,
@@ -163,7 +163,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The anatomy is stylized but proportionate for a cartoon/toy cat."
+                "reasoning": "Despite the stylized material, the underlying anatomy shows a proportional, athletic cat build."
             },
             {
                 "object": "cat",
@@ -171,7 +171,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The coat is uniform silver/metallic glitter. There is no biological tabby pattern (grey/tawny/black mottling)."
+                "reasoning": "The coat is uniform silver/metallic glitter. There is no biological tabby patterning (mottling/stripes) visible."
             },
             {
                 "object": "cat",
@@ -179,7 +179,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The metallic texture obscures any fur markings. No M-shape or stripes are visible."
+                "reasoning": "No M-marking or stripes are visible; the texture is homogeneous glitter."
             },
             {
                 "object": "cat",
@@ -187,7 +187,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The surface is a uniform glitter texture, lacking any specific tabby pattern type."
+                "reasoning": "No specific tabby pattern type is discernible on the metallic surface."
             },
             {
                 "object": "cat",
@@ -195,7 +195,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Legs are solid silver glitter without stripes."
+                "reasoning": "Legs are solid silver glitter without striping."
             },
             {
                 "object": "monkey",
@@ -203,7 +203,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The face is smooth and distinct from the fur body, resembling a toy face."
+                "reasoning": "The monkey has a smooth, hairless face area distinct from the fur, with clear eyes and mouth."
             },
             {
                 "object": "monkey",
@@ -226,8 +226,8 @@
                 "checkpoint": "Small ears.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The ears are disproportionately large and round (toy-like), not small as described for a guenon."
+                "is_present": true,
+                "reasoning": "Ears are proportionate and relatively small compared to the head size."
             },
             {
                 "object": "monkey",
@@ -235,7 +235,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The face is bare/smooth with no surrounding hair ruff."
+                "reasoning": "The monkey appears to be a stylized toy/figurine with smooth transitions; it lacks the distinct long facial ruff characteristic of a biological guenon."
             },
             {
                 "object": "monkey",
@@ -243,7 +243,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Size is ambiguous without scale reference, but physically plausible as a small monkey."
+                "reasoning": "The body size is consistent with a small primate representation."
             },
             {
                 "object": "monkey",
@@ -251,7 +251,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The monkey is brown, which fits the allowed coloration range."
+                "reasoning": "The monkey is brown, which falls within the expected coloration range."
             },
             {
                 "object": "monkey",
@@ -259,15 +259,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body proportions suggest a slender build."
+                "reasoning": "The figure has a slender, upright posture suggestive of agility."
             },
             {
                 "object": "monkey",
                 "checkpoint": "Elongated hind limbs.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The hind limbs appear short and stubby, typical of a chibi/toy design, not elongated."
+                "is_present": true,
+                "reasoning": "Hind legs appear longer than forelimbs, consistent with primate anatomy."
             },
             {
                 "object": "monkey",
@@ -275,27 +275,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No tail is visible in the image; the rear of the monkey is obscured or missing the tail entirely."
+                "reasoning": "No tail is visible in the image; the rear of the monkey is obscured or the model lacks a tail."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Monkey's lower body/rear",
-                "severity": 3,
-                "reasoning": "The monkey appears to be missing a tail entirely, and the rear leg/hip geometry is vague and merges into the ground/shadow unnaturally. It looks like a truncated model."
+                "location": "Cookie lattice pattern",
+                "severity": 2,
+                "reasoning": "The lattice cutouts on the cookie are irregular and nonsensical; they do not form a consistent weave or grid, appearing melted or randomly generated."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Cat's paws",
-                "severity": 2,
-                "reasoning": "The front paws lack distinct digit definition; they appear as melted silver blobs rather than formed paws with claws/toes."
+                "location": "Cat surface",
+                "severity": 1,
+                "reasoning": "The 'metal' texture is actually a uniform noise/glitter map rather than realistic metallic reflection, causing slight flattening of 3D form perception."
             },
             {
                 "artifact_type": "perspective_distortion",
-                "location": "Cookie",
+                "location": "Monkey feet / Ground contact",
                 "severity": 2,
-                "reasoning": "The cookie floats without a clear shadow cast on the monkey or ground directly beneath it, creating a disjointed depth perception. Its size is also disproportionately massive compared to the animals."
+                "reasoning": "The monkey's feet seem to float slightly above or merge ambiguously with the glitter layer, lacking a definitive contact shadow or weight impression."
             }
         ],
         "expert_verification_plan": [
@@ -307,7 +307,7 @@
                     "Atom 2",
                     "Atom 3"
                 ],
-                "reason": "To verify the count of cookies and confirm the spatial relationship (left/right) between the cookie and the cat using bounding boxes.",
+                "reason": "To verify the count of cookies and precisely locate the bounding box to confirm spatial relationship (left vs right) with the cat.",
                 "weight": 0.15
             },
             {
@@ -315,9 +315,10 @@
                 "target_subject": "cat",
                 "verification_goals": [
                     "Atom 4",
-                    "Atom 6"
+                    "Atom 6",
+                    "Atom 3"
                 ],
-                "reason": "To confirm the presence and count of the cat object.",
+                "reason": "To verify cat count and establish spatial reference for the 'right of' relationship check.",
                 "weight": 0.15
             },
             {
@@ -327,8 +328,8 @@
                     "Atom 8",
                     "Atom 10"
                 ],
-                "reason": "To confirm the presence and count of the monkey object.",
-                "weight": 0.15
+                "reason": "To verify monkey count and presence.",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
@@ -337,37 +338,28 @@
                     "Checkpoint: Coat is grey or tawny...",
                     "Checkpoint: Characteristic M-shaped marking..."
                 ],
-                "reason": "To definitively classify if the silver object is a 'tabby cat' or a 'metallic cat sculpture/toy', verifying the failure of biological taxonomy checkpoints.",
-                "weight": 0.15
+                "reason": "To definitively classify if the object is a 'tabby cat' as per taxonomy or a stylized/metallic variant, confirming the absence of biological patterns.",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "monkey",
                 "verification_goals": [
                     "Checkpoint: Long hair around face...",
-                    "Checkpoint: Elongated hind limbs"
+                    "Checkpoint: Long non-prehensile tail"
                 ],
-                "reason": "To classify the specific type of monkey representation (e.g., toy vs real) and validate the absence of biological features like the facial ruff.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "cat",
-                "verification_goals": [
-                    "Checkpoint: Striped legs...",
-                    "Checkpoint: Body is medium-sized..."
-                ],
-                "reason": "To audit the skeletal structure of the jumping cat and verify if the limb proportions are biologically valid despite the metallic texture.",
+                "reason": "To verify species-specific traits like facial ruff and tail presence which are missing or ambiguous in the stylized render.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "cookie",
                 "verification_goals": [
+                    "Artifact: Cookie lattice pattern",
                     "Atom 1"
                 ],
-                "reason": "To analyze the surface texture of the cookie at a micro-level to confirm the presence of 'sparkle' particles versus matte baked texture, addressing Judge feedback.",
-                "weight": 0.1
+                "reason": "To analyze the structural integrity of the cookie's lattice design and confirm if it constitutes a generation artifact, and to verify the lack of sparkling texture on the cookie.",
+                "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
@@ -375,105 +367,82 @@
                 "verification_goals": [
                     "Atom 9"
                 ],
-                "reason": "To verify if the monkey exhibits specular highlights or glitter integration consistent with 'sparkling', addressing Judge feedback.",
-                "weight": 0.05
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "cat",
-                "verification_goals": [
-                    "Atom 5"
-                ],
-                "reason": "To specifically verify the 'metal' material property (reflectivity/specularity) of the cat beyond generic classification.",
-                "weight": 0.05
+                "reason": "To verify the lack of sparkling texture on the monkey, distinguishing it from the sparkling floor and cat.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "cat",
                 "verification_goals": [
-                    "Atom 7"
+                    "Atom 7",
+                    "Atom 3"
                 ],
-                "reason": "To verify the 'jumping over' relationship by checking depth/occlusion cues between the cat and monkey, addressing coverage gap.",
-                "weight": 0.1
+                "reason": "To verify the depth ordering and spatial relationship, ensuring the cat is indeed jumping over the monkey and is positioned correctly relative to the cookie.",
+                "weight": 0.15
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Spatial relationship between cookie and cat (Left vs Right)",
-            "Texture analysis of the cookie (Sparkling vs Matte)",
-            "Texture analysis of the monkey (Sparkling vs Matte)",
-            "Material verification of the 'Metal Cat' (Reflectivity/Specularity)",
-            "Biological validity of the 'Metal Cat' (Tabby patterns vs Metallic surface)",
-            "Anatomical completeness of the monkey (Missing tail/short limbs)",
-            "Depth relationship for 'jumping over' action"
+            "Spatial relationship between cookie and cat (Left/Right orientation).",
+            "Material properties verification (Sparkle vs Matte).",
+            "Biological fidelity of stylized animals (Tabby patterns, Monkey tail/ruff).",
+            "Depth ordering and 'jumping over' action verification."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "cookie",
-                "reason": "To verify the count of cookies and confirm the spatial relationship (left/right) between the cookie and the cat using bounding boxes.",
+                "reason": "To verify the count of cookies and precisely locate the bounding box to confirm spatial relationship (left vs right) with the cat.",
                 "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "cat",
-                "reason": "To confirm the presence and count of the cat object.",
+                "reason": "To verify cat count and establish spatial reference for the 'right of' relationship check.",
                 "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "monkey",
-                "reason": "To confirm the presence and count of the monkey object.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "cat",
-                "reason": "To definitively classify if the silver object is a 'tabby cat' or a 'metallic cat sculpture/toy', verifying the failure of biological taxonomy checkpoints.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "monkey",
-                "reason": "To classify the specific type of monkey representation (e.g., toy vs real) and validate the absence of biological features like the facial ruff.",
+                "reason": "To verify monkey count and presence.",
                 "weight": 0.1
             },
             {
-                "expert_name": "animal_pose_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "cat",
-                "reason": "To audit the skeletal structure of the jumping cat and verify if the limb proportions are biologically valid despite the metallic texture.",
+                "reason": "To definitively classify if the object is a 'tabby cat' as per taxonomy or a stylized/metallic variant, confirming the absence of biological patterns.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "monkey",
+                "reason": "To verify species-specific traits like facial ruff and tail presence which are missing or ambiguous in the stylized render.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "cookie",
-                "reason": "To analyze the surface texture of the cookie at a micro-level to confirm the presence of 'sparkle' particles versus matte baked texture, addressing Judge feedback.",
-                "weight": 0.1
+                "reason": "To analyze the structural integrity of the cookie's lattice design and confirm if it constitutes a generation artifact, and to verify the lack of sparkling texture on the cookie.",
+                "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "monkey",
-                "reason": "To verify if the monkey exhibits specular highlights or glitter integration consistent with 'sparkling', addressing Judge feedback.",
-                "weight": 0.05
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "cat",
-                "reason": "To specifically verify the 'metal' material property (reflectivity/specularity) of the cat beyond generic classification.",
-                "weight": 0.05
+                "reason": "To verify the lack of sparkling texture on the monkey, distinguishing it from the sparkling floor and cat.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "cat",
-                "reason": "To verify the 'jumping over' relationship by checking depth/occlusion cues between the cat and monkey, addressing coverage gap.",
-                "weight": 0.1
+                "reason": "To verify the depth ordering and spatial relationship, ensuring the cat is indeed jumping over the monkey and is positioned correctly relative to the cookie.",
+                "weight": 0.15
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/531.png",
             "prompt_id": "531",
             "prompt_text": "a sparkling cookie to the right of a metal cat jumping over a sparkling monkey",
-            "router_cost_seconds": 67.22,
+            "router_cost_seconds": 64.09,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

@@ -6,15 +6,16 @@
     "class_id": null,
     "class_label": "a car, and two bicycles behind a blue donut",
     "plan_reference": "approved_plan_386",
-    "execution_timestamp": "2026-09-02 02:09:19",
+    "execution_timestamp": "2026-09-02 23:21:29",
     "focus_areas": [
-        "Verification of bicycle type (Tandem vs Standard)",
-        "Spatial relationship between bicycles and donut (Behind vs Beside)",
-        "Car count (Foreground inclusion)",
-        "Physical plausibility of donut support"
+        "Taxonomy Mismatch: Bicycles are standard singles, not 'bicycle-built-for-two' (tandems).",
+        "Taxonomy Mismatch: Background car is a sedan, not a 'convertible'.",
+        "Spatial Relation: Bicycles are beside/in front of the donut, not behind it.",
+        "Object Count: Two cars are visible (background + foreground ego-vehicle), contradicting the singular 'a car' expectation if interpreted strictly.",
+        "Physics/Structure: The mounting of the giant donut lacks realistic structural support details."
     ],
     "custom_prompts_for_reflector": "",
-    "image_description": "A first-person perspective from inside a vehicle looking out onto a paved road. In the immediate foreground is the dashboard and hood of the observer's car. Ahead, a massive, bright blue inflatable donut sits on a black trailer or platform in the middle of the road. To the left of the donut, two bicycles are parked on the asphalt. Behind the donut and bicycles, a silver sedan is visible facing away from the camera. The background consists of dry, grassy hills and trees under a clear sky.",
+    "image_description": "A photorealistic image taken from the perspective of a driver inside a car (hood visible at bottom). In the center foreground, a massive blue inflatable donut is mounted on a trailer or rack. To the left of the donut, two bicycles are parked on the road. Behind the donut and bicycles, a silver sedan is visible in the background. The setting is a paved road with dry grassy hills and trees.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
@@ -22,9 +23,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "bicycle",
             "weight": 0.2,
-            "reason": "To verify the exact count of bicycles and their spatial relationship (bounding boxes) relative to the donut to confirm if they are truly 'behind' it.",
+            "reason": "To confirm the count of bicycles and verify they are standard single-rider bikes rather than tandems via bounding box analysis.",
             "status": "success",
-            "execution_time_ms": 14496.0,
+            "execution_time_ms": 13507.49,
             "evidence": {
                 "detected_objects": [
                     {
@@ -61,9 +62,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "car",
             "weight": 0.15,
-            "reason": "To detect all car instances, including the partial foreground car, to resolve the count discrepancy in Atom 0.",
+            "reason": "To detect all car instances (including the foreground one) and verify the body style of the background car.",
             "status": "success",
-            "execution_time_ms": 13547.99,
+            "execution_time_ms": 14207.46,
             "evidence": {
                 "detected_objects": [
                     {
@@ -110,9 +111,9 @@
             "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "donut",
             "weight": 0.15,
-            "reason": "To analyze the depth map and verify the spatial positioning of bicycles vs donut, and to assess the physical plausibility of the donut's support structure (gravity/weight distribution).",
+            "reason": "To verify the spatial relationship between the bicycles and the donut (confirming bikes are not behind) and to analyze the physical grounding of the donut on its trailer.",
             "status": "success",
-            "execution_time_ms": 73.11,
+            "execution_time_ms": 58.61,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output/depth_maps/386_depth.png",
                 "depth_statistics": {
@@ -133,46 +134,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "car",
-            "weight": 0.15,
-            "reason": "To verify if the silver car is actually a 'convertible' as per taxonomy, or a standard sedan/hatchback. Visual cues suggest fixed roof, but classification can confirm.",
-            "status": "success",
-            "execution_time_ms": 146.28,
-            "evidence": {
-                "top3_candidates": [
-                    {
-                        "rank": 1,
-                        "class_index": 757,
-                        "label_name": "recreational vehicle, RV, R.V.",
-                        "logit_score": 5.07
-                    },
-                    {
-                        "rank": 2,
-                        "class_index": 660,
-                        "label_name": "mobile home, manufactured home",
-                        "logit_score": 4.61
-                    },
-                    {
-                        "rank": 3,
-                        "class_index": 656,
-                        "label_name": "minivan",
-                        "logit_score": 4.34
-                    }
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "fine_grained_classifier",
-            "internal_expert_id": "fine_grained_classifier",
-            "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "bicycle",
             "weight": 0.2,
-            "reason": "To definitively classify the bicycle type. The taxonomy expects 'bicycle-built-for-two' (tandem), but visual inspection suggests standard bikes. A classifier can confirm if the model generated the specific tandem class or just generic bicycles.",
+            "reason": "To definitively classify the bicycle type. If it classifies as 'mountain bike' or 'hybrid' rather than 'tandem', it confirms the taxonomy failure.",
             "status": "success",
-            "execution_time_ms": 364.56,
+            "execution_time_ms": 145.22,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -200,14 +166,49 @@
             "traceback": null
         },
         {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "car",
+            "weight": 0.15,
+            "reason": "To distinguish between 'sedan' and 'convertible'. A sedan classification would prove the 'convertible' checkpoint is false.",
+            "status": "success",
+            "execution_time_ms": 1027.92,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 757,
+                        "label_name": "recreational vehicle, RV, R.V.",
+                        "logit_score": 5.07
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 660,
+                        "label_name": "mobile home, manufactured home",
+                        "logit_score": 4.61
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 656,
+                        "label_name": "minivan",
+                        "logit_score": 4.34
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "perceptual_quality_auditor",
             "internal_expert_id": "qinsight_distortion_analyzer",
             "model_name": "Q-Insight_Score_Degradation_BF16",
             "target_subject": "donut",
             "weight": 0.15,
-            "reason": "To perform a detailed analysis of the donut's surface texture and the foreground reflections to identify subtle AI generation artifacts like unnatural smoothness or warping.",
+            "reason": "To assess the texture quality of the donut and verify the reflection consistency on the foreground car hood.",
             "status": "success",
-            "execution_time_ms": 10232.49,
+            "execution_time_ms": 7714.71,
             "evidence": {
                 "thinking_trajectory": "The image appears to be clear and well-lit, but there's an unusual object—a large blue donut-shaped structure—on the road that seems out of place. The image does not appear to have noise, compression, blur, or darken. The composition is interesting, but the object could be considered a bit surreal.",
                 "distortion_class": "null",
@@ -223,7 +224,7 @@
         "total_experts_planned": 6,
         "successful_experts": 6,
         "failed_experts": 0,
-        "total_execution_time_ms": 49211.94,
+        "total_execution_time_ms": 48941.89,
         "failed_expert_ids": []
     }
 }

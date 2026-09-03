@@ -2,107 +2,37 @@
     "image_id": "583",
     "prompt": "four blue bagels and five trumpets and two plastic pigs",
     "iteration": 1,
-    "timestamp": "2026-09-02 02:10:37",
+    "timestamp": "2026-09-02 23:22:31",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The Router failed to detect a critical semantic error: the 'blue bagels' are visually rendered as blue pigs (specifically, one object is a pig-donut hybrid, and others have snouts/legs). The current plan treats them merely as 'non-food rings' or 'toys', missing the specific hallucination that the model applied the 'pig' morphology to the 'bagel' count. Additionally, the Router incorrectly marked the pig checkpoints as 'present' despite the pig being blue (violating the implicit expectation of natural color unless specified, though the prompt said 'plastic pigs', it didn't say 'blue plastic pigs'). The attribute binding error (Blue applied to Pig) was noted in artifacts but not rigorously audited by an expert for the pig itself.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'topology_boundary_auditor' is assigned to the bagel stack to check for fused legs. However, the 'animal_pose_auditor' is better suited to definitively audit the biological plausibility of the 'pig-bagel' hybrid (Atom 5/6) by attempting to map keypoints to the protrusions. If they map to valid limb positions, it confirms a fusion error rather than just a boundary blur.",
-                "recommended_expert": "animal_pose_auditor"
+                "point": "Verify if the 'blue ring' objects contain pig features (snouts, legs) indicating a semantic merge between 'bagel' and 'pig'.",
+                "recommended_expert": "fine_grained_classifier"
             },
             {
-                "type": "refinement",
-                "point": "The plan correctly identifies the trumpet count discrepancy. The 'open_vocabulary_detector' should be explicitly instructed to treat 'detached bells' as potential separate instances or parts of a whole, as the prompt asks for 'five trumpets' and the image contains fragmented geometry that might represent multiple failed generations.",
+                "type": "missing_verification",
+                "point": "Audit the color of the pig against the prompt. The prompt asked for 'plastic pigs' (implying standard pink/black/white) but the image shows a BLUE pig. This is an attribute binding error where 'blue' from bagels leaked to the pig.",
                 "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "checkpoint_correction",
+                "point": "The checkpoint 'Sparse coarse bristles...' for the pig was marked is_present=false correctly, but the checkpoint 'Large head with elongated snout...' was marked is_present=true. This is misleading because while it has a snout, the COLOR is wrong. The plan needs to explicitly verify the COLOR of the pig.",
+                "recommended_expert": "perceptual_quality_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A high-angle shot of a light wooden surface containing several objects. There are four bright blue, toroidal objects resembling bagels or donuts (one appears to have small feet/legs). There is one complete golden trumpet on the left, a partial trumpet at the top left, a detached trumpet bell section on the right, and another trumpet fragment near the center-right. There is one small blue plastic pig figurine in the foreground.",
-        "atom_verdicts": [
-            {
-                "atom_index": 0,
-                "question": "How many bagels are in the image?",
-                "expected": "four",
-                "predicted": "four",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "There are exactly four distinct blue toroidal shapes visible: one bottom-left, one bottom-right, and two stacked in the center."
-            },
-            {
-                "atom_index": 1,
-                "question": "Are the bagels blue?",
-                "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "All four toroidal objects are a uniform, vibrant cyan-blue color."
-            },
-            {
-                "atom_index": 2,
-                "question": "Are there any bagels in the image?",
-                "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "Four bagel-shaped objects are clearly present."
-            },
-            {
-                "atom_index": 3,
-                "question": "How many trumpets are in the image?",
-                "expected": "five",
-                "predicted": "three",
-                "is_correct": false,
-                "confidence": 0.95,
-                "reasoning": "I can identify three distinct trumpet-related entities: one full trumpet (left), one partial trumpet (top-left), and one fragmented/melted trumpet assembly (right). The prompt asks for five, but only three are visually distinguishable as separate instruments or major parts."
-            },
-            {
-                "atom_index": 4,
-                "question": "Are there any trumpets in the image?",
-                "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "Golden brass wind instruments are clearly visible."
-            },
-            {
-                "atom_index": 5,
-                "question": "How many pigs are in the image?",
-                "expected": "two",
-                "predicted": "one",
-                "is_correct": false,
-                "confidence": 1.0,
-                "reasoning": "Only one blue pig figurine is visible in the foreground. The second 'bagel' in the center stack has small blue protrusions that look like legs, suggesting a fusion error where a second pig may have merged into a bagel, but it does not count as a distinct pig."
-            },
-            {
-                "atom_index": 6,
-                "question": "Are the pigs plastic?",
-                "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 0.9,
-                "reasoning": "The visible pig has a smooth, matte/satin finish consistent with molded plastic toys."
-            },
-            {
-                "atom_index": 7,
-                "question": "Are there any pigs in the image?",
-                "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "One blue pig figurine is clearly present."
-            }
-        ],
         "checkpoint_verdicts": [
             {
                 "object": "bagel",
                 "checkpoint": "Ring-shaped bread roll with toroidal form and central hole that is narrow relative to the overall ring diameter.",
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The blue objects possess the correct toroidal geometry with a central hole."
+                "is_present": false,
+                "reasoning": "The blue ring objects have a toroidal shape but lack the specific geometry of a bagel; the central hole is too large relative to the ring thickness, and the surface texture is smooth plastic/rubber rather than baked dough."
             },
             {
                 "object": "bagel",
@@ -110,39 +40,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the shape is correct, the surface texture is smooth and rubbery/plastic-like, lacking the specific 'chewy crust' texture of a real bagel. They look like plastic toys."
-            },
-            {
-                "object": "bagel",
-                "checkpoint": "Smooth, shiny glaze from boiling before baking.",
-                "category": "Geometry_and_Silhouette",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "The surface is uniformly matte/satin blue, lacking the characteristic irregular shiny glaze of a boiled bagel."
-            },
-            {
-                "object": "bagel",
-                "checkpoint": "Dense interior crumb visible at cut surface.",
-                "category": "Functional_Components",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "No bagels are cut; interiors are not visible."
-            },
-            {
-                "object": "bagel",
-                "checkpoint": "Firm exterior with slight blistering from baking.",
-                "category": "Functional_Components",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "Surfaces are perfectly smooth without baking blisters."
-            },
-            {
-                "object": "bagel",
-                "checkpoint": "May be topped with sesame seeds, poppy seeds, or coarse salt.",
-                "category": "Functional_Components",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "No toppings are visible."
+                "reasoning": "While hand-sized, the objects appear to be made of a uniform synthetic material (like a toy or stress ball) rather than having a crust."
             },
             {
                 "object": "bagel",
@@ -150,7 +48,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bagels are bright blue, not golden-brown."
+                "reasoning": "The objects are bright cyan/blue, completely failing the color requirement for a standard bagel."
             },
             {
                 "object": "pig",
@@ -158,23 +56,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The blue pig figurine has a distinct snout and head structure appropriate for a stylized pig."
-            },
-            {
-                "object": "pig",
-                "checkpoint": "Small eyes.",
-                "category": "Head_and_Face",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "Small black dots representing eyes are visible."
-            },
-            {
-                "object": "pig",
-                "checkpoint": "Large floppy or erect ears depending on breed.",
-                "category": "Head_and_Face",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "Ears are visible and erect."
+                "reasoning": "The blue pig figure has a stylized snout consistent with a toy representation of a pig, though simplified."
             },
             {
                 "object": "pig",
@@ -182,7 +64,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The figurine has a stocky, barrel-like body shape."
+                "reasoning": "The object has the correct stocky, barrel-shaped silhouette of a pig."
             },
             {
                 "object": "pig",
@@ -190,23 +72,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The object is a smooth blue plastic toy, lacking biological skin texture or bristles."
-            },
-            {
-                "object": "pig",
-                "checkpoint": "Short stout legs with cloven hooves.",
-                "category": "Limbs_and_Anatomy",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "Legs are present but end in rounded stumps typical of toys, not anatomically correct cloven hooves."
-            },
-            {
-                "object": "pig",
-                "checkpoint": "Short curly tail.",
-                "category": "Limbs_and_Anatomy",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "A small curly tail is visible at the rear."
+                "reasoning": "The object is a smooth, solid blue plastic toy, lacking biological skin texture or bristles."
             },
             {
                 "object": "trumpet",
@@ -214,23 +80,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The instrument on the left shows the correct coiled tubing geometry."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Bell flares broadly, facing forward.",
-                "category": "Geometry_and_Silhouette",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "The bells on the visible instruments flare correctly."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Tubing diameter gradually increases from mouthpiece to bell.",
-                "category": "Geometry_and_Silhouette",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "The tapering of the tubing is visually consistent with a trumpet."
+                "reasoning": "Multiple golden brass instruments with coiled tubing and flared bells are visible, matching the geometry of trumpets/cornets."
             },
             {
                 "object": "trumpet",
@@ -238,23 +88,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The trumpet on the left clearly shows three vertical valve casings."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Cup-shaped detachable mouthpiece inserted into leadpipe.",
-                "category": "Functional_Components",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "Mouthpieces appear attached to the leadpipes."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Finger hooks and thumb ring present for grip.",
-                "category": "Functional_Components",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "Thumb rings and finger hooks are visible on the main trumpet."
+                "reasoning": "The trumpet on the left clearly shows the valve casing and piston mechanism typical of the instrument."
             },
             {
                 "object": "trumpet",
@@ -262,173 +96,91 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The instruments are a reflective golden-yellow brass color."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Valve casings are cylindrical with visible seam lines.",
-                "category": "Material_and_Context",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "Cylindrical valve casings are distinct."
-            },
-            {
-                "object": "trumpet",
-                "checkpoint": "Bell rim is rolled edge.",
-                "category": "Material_and_Context",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "The bell rims appear to have the standard rolled wire edge."
+                "reasoning": "The instruments exhibit a highly reflective, golden-yellow metallic finish consistent with lacquered brass."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "fusion",
-                "location": "Center stack of blue bagels",
-                "severity": 3,
-                "reasoning": "The upper-right bagel in the central stack has small blue leg-like protrusions underneath it, suggesting a semantic fusion where a 'pig' was generated inside or merged with a 'bagel'. This explains the missing second pig count."
+                "artifact_type": "Color Consistency / Material Hallucination",
+                "location": "Center (Blue Rings) and Bottom Center (Blue Pig)",
+                "severity": 0.9,
+                "reasoning": "The prompt requested 'blue bagels' and 'plastic pigs'. The image generated blue rings that look like plastic toys rather than food, and a blue pig instead of a standard colored plastic pig. This suggests the model bound the attribute 'blue' globally to all foreground objects or hallucinated a unified material theme not present in the prompt."
             },
             {
-                "artifact_type": "structural_collapse",
-                "location": "Right side trumpet assembly",
-                "severity": 4,
-                "reasoning": "The trumpet on the far right appears to be a nonsensical amalgamation of a bell and tubing that doesn't connect logically. It looks like two bells fused together or a trumpet melted into itself, failing to form a functional instrument."
-            },
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "Blue bagels",
-                "severity": 2,
-                "reasoning": "The bagels have a uniform, synthetic plastic/rubber texture rather than the porous, baked dough texture expected of bagels. While this matches the 'plastic pig' aesthetic, it fails the 'bagel' taxonomy for material."
+                "artifact_type": "Object Fusion / Structural anomaly",
+                "location": "Top Right (Golden Objects)",
+                "severity": 0.6,
+                "reasoning": "There is a cluster of golden trumpet bells that appear fused or detached from bodies, looking like a single malformed object rather than distinct instruments."
             }
         ],
         "expert_verification_plan": [
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "bagel",
+                "target_subject": "bagel, trumpet, pig",
                 "verification_goals": [
-                    "Atom 0",
-                    "Atom 1",
-                    "Atom 2"
+                    "Detect and count all instances of ring-shaped objects to verify if there are exactly four.",
+                    "Detect and count all instances of trumpet-like instruments to verify if there are five.",
+                    "Detect and count all instances of pig figures to verify if there are two."
                 ],
-                "reason": "Verify the exact count of blue toroidal objects and confirm their classification as bagels vs donuts vs generic rings.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "trumpet",
-                "verification_goals": [
-                    "Atom 3",
-                    "Atom 4"
-                ],
-                "reason": "Crucial for resolving the count discrepancy. Need to determine if the fragmented/melted gold objects on the right count as 1, 2, or 3 separate trumpets to see if the total reaches 5.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "pig",
-                "verification_goals": [
-                    "Atom 5",
-                    "Atom 6",
-                    "Atom 7"
-                ],
-                "reason": "Verify if there is a second pig hidden, occluded, or fused within the bagel stack. Confirm the material classification of the visible pig.",
-                "weight": 0.2
+                "reason": "Primary counting verification is needed as visual inspection suggests potential mismatches in counts (e.g., only 1 pig visible, ambiguous number of trumpets due to fusion).",
+                "weight": 1.0
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "bagel",
+                "target_subject": "blue rings",
                 "verification_goals": [
-                    "Checkpoint: Geometry_and_Silhouette",
-                    "Checkpoint: Material_and_Context"
+                    "Classify the blue ring objects to determine if they are identifiable as 'bagels' or 'toys/donuts'.",
+                    "Verify if the texture corresponds to baked goods or synthetic materials."
                 ],
-                "reason": "Determine if the blue objects are classified as 'bagel', 'donut', or 'toy'. The texture anomaly suggests they might be classified as toys.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "trumpet",
-                "verification_goals": [
-                    "Checkpoint: Functional_Components"
-                ],
-                "reason": "Verify if the fragmented gold objects on the right are recognizable as trumpet parts or just gold noise.",
-                "weight": 0.1
+                "reason": "To rigorously confirm the failure of the 'bagel' generation, distinguishing between a stylized food item and a non-food object.",
+                "weight": 0.8
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "scene",
+                "target_subject": "entire image",
                 "verification_goals": [
-                    "Artifact: fusion",
-                    "Artifact: structural_collapse"
+                    "Analyze the structural integrity of the trumpet cluster in the top right.",
+                    "Assess the lighting consistency between the metallic instruments and the matte blue objects."
                 ],
-                "reason": "Holistic audit of the fusion artifact in the bagel stack and the structural integrity of the right-side trumpet to confirm severity.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "bagel",
-                "verification_goals": [
-                    "Checkpoint: Geometry_and_Silhouette"
-                ],
-                "reason": "Check the boundaries of the stacked bagels to confirm if the 'legs' are topologically connected to the bagel above or are separate floating artifacts.",
-                "weight": 0.1
+                "reason": "To identify specific generation artifacts like melting/fusion in the complex metallic structures.",
+                "weight": 0.7
             }
         ],
-        "unverifiable_points": [],
+        "unverifiable_points": [
+            "Whether the blue rings are intended to be 'blueberry bagels' (flavor) vs 'blue colored bagels' (visual), though visually they fail both due to lack of food texture.",
+            "The exact count of trumpets in the top-right cluster due to severe object fusion."
+        ],
         "focus_areas": [
-            "Count verification of trumpets (distinguishing valid instruments from melted fragments)",
-            "Investigation of the central bagel stack for fused pig anatomy",
-            "Material classification of blue bagels (food vs plastic toy)"
+            "Count Verification: Specifically checking for the missing second pig and the exact number of trumpets.",
+            "Attribute Binding: Investigating why the pig is blue (likely erroneous binding of the 'blue' attribute from bagels).",
+            "Object Definition: Evaluating if the blue rings satisfy the definition of a 'bagel' beyond simple topology."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "bagel",
-                "reason": "Verify the exact count of blue toroidal objects and confirm their classification as bagels vs donuts vs generic rings.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "trumpet",
-                "reason": "Crucial for resolving the count discrepancy. Need to determine if the fragmented/melted gold objects on the right count as 1, 2, or 3 separate trumpets to see if the total reaches 5.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "pig",
-                "reason": "Verify if there is a second pig hidden, occluded, or fused within the bagel stack. Confirm the material classification of the visible pig.",
-                "weight": 0.2
+                "target_subject": "bagel, trumpet, pig",
+                "reason": "Primary counting verification is needed as visual inspection suggests potential mismatches in counts (e.g., only 1 pig visible, ambiguous number of trumpets due to fusion).",
+                "weight": 1.0
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "bagel",
-                "reason": "Determine if the blue objects are classified as 'bagel', 'donut', or 'toy'. The texture anomaly suggests they might be classified as toys.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "trumpet",
-                "reason": "Verify if the fragmented gold objects on the right are recognizable as trumpet parts or just gold noise.",
-                "weight": 0.1
+                "target_subject": "blue rings",
+                "reason": "To rigorously confirm the failure of the 'bagel' generation, distinguishing between a stylized food item and a non-food object.",
+                "weight": 0.8
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "scene",
-                "reason": "Holistic audit of the fusion artifact in the bagel stack and the structural integrity of the right-side trumpet to confirm severity.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "bagel",
-                "reason": "Check the boundaries of the stacked bagels to confirm if the 'legs' are topologically connected to the bagel above or are separate floating artifacts.",
-                "weight": 0.1
+                "target_subject": "entire image",
+                "reason": "To identify specific generation artifacts like melting/fusion in the complex metallic structures.",
+                "weight": 0.7
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/583.png",
             "prompt_id": "583",
             "prompt_text": "four blue bagels and five trumpets and two plastic pigs",
-            "router_cost_seconds": 65.06,
-            "plan_valid": true
+            "router_cost_seconds": 29.23,
+            "plan_valid": false
         }
     }
 }

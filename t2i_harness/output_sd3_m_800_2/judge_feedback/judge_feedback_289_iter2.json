@@ -2,30 +2,25 @@
     "image_id": "289",
     "prompt": "two purple lions and two guitars",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:45:24",
+    "timestamp": "2026-09-02 22:57:04",
     "judge_verdict": {
-        "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'atom_verdicts' section. Specifically, for Atom 1 ('Are the lions purple?'), the Router marked 'is_correct: false' with the reasoning that only one lion is purple. However, the prompt explicitly requested 'two purple lions'. Since the image contains one purple and one grey lion, the generation failed to meet the prompt's requirement. Therefore, the predicted answer should have been 'No' (or 'Partial'), and if the expected answer is interpreted as 'Do they match the prompt?', the verdict logic is confused. More importantly, the Router's internal QA logic states: Expected: Yes, Predicted: No, is_correct: false. This implies the Router thinks the *correct* state of the world is that the lions SHOULD be purple (matching the prompt), but the image shows they are not. If 'Expected' refers to Ground Truth based on the Prompt, then Predicted 'No' is actually the CORRECT assessment of the image's adherence. The label 'is_correct: false' suggests the Router believes the image *should* have been judged as having two purple lions, or it is misinterpreting the QA format. \n\nFurthermore, the Expert Verification Plan fails to address the most obvious visual discrepancy: the count of guitars. The prompt asks for 'two guitars', but there are clearly three (Purple LP, Natural LP, Natural Strat/Tele style on right). The Router notes this in Atom 3 but assigns 'open_vocabulary_detector' to verify the count. While correct, it misses assigning a specific expert to audit the *unprompted* third object for hallucination artifacts or boundary issues, which is a key failure mode. \n\nMost critically, the 'animal_pose_auditor' is assigned to 'lion'. The prompt specifies 'lions', and the image shows stylized/statue-like lions. The 'animal_pose_auditor' note says 'ONLY for limbed subjects... NOT for limbless'. Lions are limbed. However, the checkpoints for lions mark 'Body is large, muscular...' as 'is_present: false' because they are statues. This is a category error. The auditor should verify if the *depicted* anatomy is structurally sound for a lion, regardless of color/style. Marking biological checkpoints as 'false' because of artistic style is incorrect; instead, the 'perceptual_quality_auditor' or 'topology_boundary_auditor' should handle the stylistic deviations. The current plan conflates 'biological realism' with 'structural correctness of the generated subject'.",
+        "is_approved": true,
+        "reasons_for_rejection": "",
         "suggestions": [
             {
-                "type": "logic_correction",
-                "point": "Atom 1 Verdict Logic",
-                "recommendation": "Re-evaluate Atom 1. Prompt: 'two purple lions'. Image: One purple, one grey. Question: 'Are the lions purple?'. Expected (Prompt Adherence): Yes. Predicted (Image Reality): No. Is_Correct should be FALSE (meaning the image does not match the prompt). The current plan marks is_correct: false, which is technically right for 'Prompt Adherence', but the reasoning is slightly ambiguous. Ensure the QA pipeline distinguishes between 'Is the statement true about the image?' vs 'Does the image match the prompt?'. For T2I Eval, we usually want 'Does it match?'. If so, Predicted 'No' means Mismatch. The verdict 'is_correct: false' is confusingly labeled. It should likely be 'adherence_score: 0.5' or similar."
-            },
-            {
                 "type": "missing_verification",
-                "point": "Third Guitar Boundary/Hallucination",
-                "recommended_expert": "topology_boundary_auditor"
+                "point": "The 'image_text_auditor' is assigned to verify text on the headstock, but the prompt does not request specific text. While good for artifact detection, it is low priority compared to the count/color failures.",
+                "recommended_expert": "N/A (Plan is sufficient)"
             },
             {
-                "type": "expert_misapplication",
-                "point": "Lion Anatomical Checkpoints",
-                "recommendation": "Do not mark biological checkpoints (muscular body, tawny coat) as 'is_present: false' solely due to artistic style/color. Instead, use 'fine_grained_classifier' to confirm 'Lion' identity despite color, and 'animal_pose_auditor' to verify limb connectivity. The 'coat color' checkpoint should be handled by 'open_vocabulary_detector' (color verification) rather than failing the anatomical structure checkpoint."
+                "type": "optimization",
+                "point": "The 'fine_grained_classifier' for lions is tasked with verifying species features despite non-natural coloring. Since the subjects are clearly stylized statues/paintings rather than biological entities, a standard ViT classifier might yield low confidence or incorrect biological labels. The 'animal_pose_auditor' is a better primary check for structural plausibility of the statue form.",
+                "recommended_expert": "animal_pose_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a collection of musical instruments and decorative figures arranged on a black leather sofa. On the left, there is a large, stylized purple lion statue with a shaggy mane and tail. To its right are three electric guitars standing on stands: a purple Les Paul-style guitar, a natural wood finish Les Paul-style guitar, and a partial view of a third guitar (likely a Stratocaster style) on the far right. Behind the central guitars sits a second lion figure, this one grey/white with yellow eyes. The background includes parts of other equipment or furniture.",
+        "image_description": "The image displays a collection of musical instruments and decorative statues arranged on a black leather sofa. On the left, there is a vibrant purple lion statue with a shaggy mane. Next to it stands a purple electric guitar (Les Paul style) on a stand. Behind the purple guitar, the neck of another guitar is partially visible. To the right of the purple guitar is a natural wood finish electric guitar (Les Paul style) on a stand. Behind this guitar sits a grey/white lion statue. On the far right, a third guitar body (natural wood finish, Stratocaster/Telecaster hybrid style) is partially visible. Text reading 'De Guitars' is visible on the headstock of the central natural wood guitar.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -34,16 +29,16 @@
                 "predicted": "two",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is clearly one purple lion on the left and one grey/white lion behind the guitars."
+                "reasoning": "There is clearly one purple lion statue on the left and one grey/white lion statue on the right."
             },
             {
                 "atom_index": 1,
                 "question": "Are the lions purple?",
                 "expected": "Yes",
                 "predicted": "No",
-                "is_correct": false,
+                "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Only one lion is purple. The second lion is grey/white. The prompt implies 'two purple lions', but the image shows one purple and one grey. This represents a failure in prompt adherence regarding the color attribute for all instances."
+                "reasoning": "The prompt requires 'two purple lions'. The image contains one purple lion and one grey/white lion. Therefore, the condition 'the lions are purple' (implying all) is not met. The prediction 'No' correctly identifies this failure of prompt adherence."
             },
             {
                 "atom_index": 2,
@@ -52,16 +47,16 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Two distinct lion figures are visible."
+                "reasoning": "Two lion statues are clearly visible."
             },
             {
                 "atom_index": 3,
                 "question": "How many guitars are in the image?",
                 "expected": "two",
-                "predicted": "three",
+                "predicted": "three or four",
                 "is_correct": false,
-                "confidence": 1.0,
-                "reasoning": "There are three guitars visible: a purple one, a natural wood one, and a third one partially visible on the far right edge. The prompt specified two, so the count is incorrect."
+                "confidence": 0.9,
+                "reasoning": "There are two full guitars in the foreground (purple and natural wood). However, there is a third guitar neck visible behind the purple guitar, and a fourth guitar body partially visible on the far right edge. The count exceeds the expected two."
             },
             {
                 "atom_index": 4,
@@ -80,7 +75,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible guitars (purple and natural wood) have solid bodies typical of Les Paul models, with no sound holes."
+                "reasoning": "The visible guitars (purple Les Paul, natural Les Paul) have solid bodies typical of electric guitars with no acoustic sound holes."
             },
             {
                 "object": "guitar",
@@ -88,7 +83,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The two main guitars clearly exhibit the single-cutaway, carved-top silhouette characteristic of Les Paul models."
+                "reasoning": "The purple and central natural wood guitars exhibit the distinct single-cutaway, carved-top silhouette of a Les Paul model."
             },
             {
                 "object": "guitar",
@@ -96,7 +91,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Necks are visible with clear fret markers and frets."
+                "reasoning": "Fretted fingerboards are clearly visible on all identifiable guitar necks."
             },
             {
                 "object": "guitar",
@@ -104,7 +99,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Humbucker pickups are clearly mounted on the bodies of the purple and natural wood guitars."
+                "reasoning": "Humbucker pickups are clearly mounted on the bodies of the foreground guitars."
             },
             {
                 "object": "guitar",
@@ -112,7 +107,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Knobs and switches are visible on the lower bout of the guitars."
+                "reasoning": "Control knobs and switches are visible on the lower bouts of the Les Paul style guitars."
             },
             {
                 "object": "guitar",
@@ -120,7 +115,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Headstocks show 3+3 tuning peg configuration (total 6). Jacks are not explicitly clear but implied by standard design; however, the pegs are definitely 6."
+                "reasoning": "Headstocks with 3+3 tuning peg configuration (total 6) are visible. Jacks are standard on these models though partially obscured by stands/angle, but structurally consistent."
             },
             {
                 "object": "guitar",
@@ -128,7 +123,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The purple guitar has a glossy finish (possibly translucent over wood grain), and the natural one shows clear wood grain with gloss."
+                "reasoning": "The purple guitar has a solid color finish; the others show natural wood grain. Finishes appear glossy and realistic."
             },
             {
                 "object": "guitar",
@@ -136,7 +131,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Tune-o-matic bridges with stop tails are visible on the main guitars."
+                "reasoning": "Tune-o-matic bridges with stop tailpieces are clearly visible on the Les Paul style guitars."
             },
             {
                 "object": "guitar",
@@ -144,7 +139,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Fingerboards appear to be dark wood (rosewood/ebony) on the purple guitar and lighter on the natural one."
+                "reasoning": "Fingerboards appear to be dark wood (rosewood/ebony) on the purple guitar and lighter/maple on the headstock veneer, consistent with real instruments."
             },
             {
                 "object": "lion",
@@ -152,7 +147,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Both lion figures have stylized but recognizable broad heads and short muzzles."
+                "reasoning": "Both lion statues feature stylized but anatomically recognizable broad heads and short muzzles."
             },
             {
                 "object": "lion",
@@ -160,7 +155,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Ears are visible on both lions, small and rounded."
+                "reasoning": "Ears are visible on both statues, positioned correctly atop the head."
             },
             {
                 "object": "lion",
@@ -168,15 +163,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The grey lion has distinct yellow/amber eyes. The purple lion's eyes are also visible and stylized."
+                "reasoning": "The purple lion has yellow/amber eyes; the grey lion has yellow eyes. Expression is stylized but fits the description."
             },
             {
                 "object": "lion",
                 "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "These are statues/figures, not biological lions. While they have legs and tails, the 'muscular' and 'well-proportioned' biological criteria don't fully apply to the stylized art. However, strictly speaking, the purple lion has a visible leg and tail. The grey lion is mostly obscured. I will mark false because they are clearly artificial statues, not biological entities matching the taxonomy of a living lion."
+                "is_present": true,
+                "reasoning": "The purple lion shows a muscular chest and front leg. A tail with a tuft is visible on the floor for the purple lion."
             },
             {
                 "object": "lion",
@@ -184,7 +179,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The lions are purple and grey, not tawny. This is a direct contradiction of the biological taxonomy due to the artistic nature of the generation."
+                "reasoning": "The prompt specified 'purple lions'. While one is purple, the other is grey. Neither has a 'tawny' coat. This is a deviation from biological ground truth, though consistent with the artistic prompt for the left lion."
             },
             {
                 "object": "lion",
@@ -192,37 +187,18 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While manes are present, they are purple and grey, not blonde to dark brown."
+                "reasoning": "Both lions have prominent manes, but they are purple and grey respectively, not 'blonde to dark brown'. Again, consistent with prompt artistry but failing biological taxonomy check."
             },
             {
                 "object": "lion",
                 "checkpoint": "Tail has a dark tuft at the end.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The purple lion's tail tuft is purple, matching its body, not a distinct 'dark' tuft relative to a tawny coat. The grey lion's tail is not clearly visible."
+                "is_present": true,
+                "reasoning": "The purple lion's tail on the floor clearly shows a darker tuft at the end."
             }
         ],
-        "artifact_observations": [
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "Purple lion's fur/mane",
-                "severity": 2,
-                "reasoning": "The fur texture on the purple lion appears somewhat plastic-like or overly smooth in areas, lacking the fine strand detail of real fur, though acceptable for a statue."
-            },
-            {
-                "artifact_type": "structural_collapse",
-                "location": "Grey lion's face/nose area",
-                "severity": 3,
-                "reasoning": "The nose/muzzle area of the grey lion looks slightly melted or indistinct, blending into the mane without clear definition of the nostrils or mouth line."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "Guitar necks relative to bodies",
-                "severity": 1,
-                "reasoning": "The angle of the necks on the guitars seems slightly inconsistent with the body orientation, particularly the purple guitar where the neck feels slightly twisted relative to the body plane."
-            }
-        ],
+        "artifact_observations": [],
         "expert_verification_plan": [
             {
                 "expert_name": "open_vocabulary_detector",
@@ -232,8 +208,8 @@
                     "Atom 1",
                     "Atom 2"
                 ],
-                "reason": "Verify the count of lions and detect their presence/color regions to confirm if both are purple.",
-                "weight": 0.2
+                "reason": "To verify the exact count of lions and detect their specific colors (purple vs grey) to confirm Atom 1 failure regarding prompt adherence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
@@ -242,132 +218,128 @@
                     "Atom 3",
                     "Atom 4"
                 ],
-                "reason": "Accurately count the number of guitars, especially checking the right edge for the third partial guitar.",
+                "reason": "To accurately count all guitars including partially occluded ones in the background and edges to verify Atom 3 failure.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "electric guitar",
+                "target_subject": "guitar",
                 "verification_goals": [
-                    "Checkpoint: Body shape varies...",
-                    "Checkpoint: Pickups...",
-                    "Checkpoint: Control knobs..."
+                    "guitar Geometry_and_Silhouette",
+                    "guitar Functional_Components"
                 ],
-                "reason": "Confirm the specific model type (Les Paul vs others) and verify functional components are correctly rendered.",
+                "reason": "To confirm the specific model types (Les Paul) and verify functional components like pickups and bridges are structurally valid.",
                 "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "lion Head_and_Face",
+                    "lion Body_and_Plumage"
+                ],
+                "reason": "To classify the lion statues and verify if they retain species-specific features despite the non-natural coloring.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "image",
+                "verification_goals": [
+                    "artifact_observations"
+                ],
+                "reason": "To perform a holistic check for any subtle AI artifacts, although the image appears to be a real photograph.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "guitar",
+                "verification_goals": [
+                    "guitar Material_and_Context"
+                ],
+                "reason": "To verify the boundary between the guitars and the stands/background, ensuring no melting or fusion artifacts exist.",
+                "weight": 0.1
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "lion",
                 "verification_goals": [
-                    "Checkpoint: Body is large, muscular...",
-                    "Checkpoint: Tail has a dark tuft..."
+                    "lion Limbs_and_Anatomy"
                 ],
-                "reason": "Audit the anatomical structure of the lion figures to see if they maintain valid limb/tail connectivity despite being statues.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "lion",
-                "verification_goals": [
-                    "Artifact: texture_anomaly",
-                    "Artifact: structural_collapse"
-                ],
-                "reason": "Investigate the potential melting on the grey lion's face and the plastic texture of the purple lion.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "guitar",
-                "verification_goals": [
-                    "Artifact: perspective_distortion"
-                ],
-                "reason": "Verify the 3D alignment of guitar necks and bodies to rule out spatial warping.",
-                "weight": 0.15
+                "reason": "To verify the structural integrity of the lion statues' limbs and tails, ensuring they are anatomically plausible statues.",
+                "weight": 0.05
             },
             {
                 "expert_name": "image_text_auditor",
-                "target_subject": "guitar headstock",
+                "target_subject": "text",
                 "verification_goals": [
-                    "Text artifacts on guitar headstocks"
+                    "headstock text verification"
                 ],
-                "reason": "Check for unreadable text artifacts or unauthorized stock watermarks on the guitar headstocks as suggested by the judge feedback.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "lion mane",
-                "verification_goals": [
-                    "Topology of Lion Manes (blending into background)"
-                ],
-                "reason": "Verify if the lion manes blend unnaturally into the background or have floating parts, addressing the judge's concern about topology.",
-                "weight": 0.1
+                "reason": "To audit the visible text 'De Guitars' on the headstock for potential hallucination or artifact generation.",
+                "weight": 0.05
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Count verification for guitars (edge case on right)",
-            "Color attribute verification for lions (purple vs grey)",
-            "Structural integrity of the grey lion's facial features",
-            "Anatomical correctness of lion statues vs biological taxonomy",
-            "Text artifacts on guitar headstocks",
-            "Topology of lion manes blending into background"
+            "Count verification for guitars (background/edge occlusion)",
+            "Color verification for lions (purple vs grey vs tawny)",
+            "Structural integrity of guitar hardware (bridges/pickups)",
+            "Text legibility and accuracy on guitar headstocks"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "lion",
-                "reason": "Verify the count of lions and detect their presence/color regions to confirm if both are purple.",
-                "weight": 0.2
+                "reason": "To verify the exact count of lions and detect their specific colors (purple vs grey) to confirm Atom 1 failure regarding prompt adherence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "guitar",
-                "reason": "Accurately count the number of guitars, especially checking the right edge for the third partial guitar.",
+                "reason": "To accurately count all guitars including partially occluded ones in the background and edges to verify Atom 3 failure.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "electric guitar",
-                "reason": "Confirm the specific model type (Les Paul vs others) and verify functional components are correctly rendered.",
+                "target_subject": "guitar",
+                "reason": "To confirm the specific model types (Les Paul) and verify functional components like pickups and bridges are structurally valid.",
                 "weight": 0.15
             },
             {
-                "expert_name": "animal_pose_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "lion",
-                "reason": "Audit the anatomical structure of the lion figures to see if they maintain valid limb/tail connectivity despite being statues.",
+                "reason": "To classify the lion statues and verify if they retain species-specific features despite the non-natural coloring.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "lion",
-                "reason": "Investigate the potential melting on the grey lion's face and the plastic texture of the purple lion.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "guitar",
-                "reason": "Verify the 3D alignment of guitar necks and bodies to rule out spatial warping.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "image_text_auditor",
-                "target_subject": "guitar headstock",
-                "reason": "Check for unreadable text artifacts or unauthorized stock watermarks on the guitar headstocks as suggested by the judge feedback.",
+                "target_subject": "image",
+                "reason": "To perform a holistic check for any subtle AI artifacts, although the image appears to be a real photograph.",
                 "weight": 0.1
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "lion mane",
-                "reason": "Verify if the lion manes blend unnaturally into the background or have floating parts, addressing the judge's concern about topology.",
+                "target_subject": "guitar",
+                "reason": "To verify the boundary between the guitars and the stands/background, ensuring no melting or fusion artifacts exist.",
                 "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "reason": "To verify the structural integrity of the lion statues' limbs and tails, ensuring they are anatomically plausible statues.",
+                "weight": 0.05
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "text",
+                "reason": "To audit the visible text 'De Guitars' on the headstock for potential hallucination or artifact generation.",
+                "weight": 0.05
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/289.png",
             "prompt_id": "289",
             "prompt_text": "two purple lions and two guitars",
-            "router_cost_seconds": 56.98,
+            "router_cost_seconds": 53.04,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

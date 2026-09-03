@@ -2,33 +2,35 @@
     "image_id": "246",
     "prompt": "three sheeps and three spotted cows",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:41:07",
+    "timestamp": "2026-09-02 22:52:32",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The Router's evaluation plan contains significant factual errors regarding the image content, leading to incorrect Atom verdicts and a flawed verification strategy. Specifically:\n1. **Missed Object (Cow):** The Router claims 'zero' cows are present and that the background spotted mass is indistinct. However, the image clearly shows a brown and white spotted cow standing directly behind the middle sheep. Its head and body are visible. This leads to an incorrect 'False' verdict for Atom 2, 3, and 4.\n2. **Misidentified Hybrid:** The Router identifies the rightmost animal as a 'sheep-cow hybrid'. While it has cow-like facial markings (black face/ears), its body is woolly like a sheep. It is likely a specific breed of sheep (e.g., Valais Blacknose or similar cross) or a stylized generation, but labeling it a 'fusion artifact' with severity 4 is aggressive without verifying if such breeds exist. More importantly, the failure to identify the actual cow in the background is the primary error.\n3. **Inadequate Verification Plan:** Because the Router missed the cow, it did not assign an `animal_pose_auditor` or `fine_grained_classifier` to verify the cow in the background. The plan focuses on proving the *absence* of cows rather than detecting the *presence* of the one that is there.",
+        "reasons_for_rejection": "The evaluation plan contains significant factual hallucinations regarding the image content and fails to identify critical missing objects required by the prompt. Specifically: 1) The Router claims a 'partial view of a fourth animal' and a 'brown and white spotted cow... in the background', but the image shows only three animals total with no background cows. 2) The Router misidentifies the rightmost foreground animal as a 'semantic fusion/chimera' (Cow head/Sheep body), whereas it is visually a single coherent entity (likely a sheep with a cow-face filter or a specific breed anomaly) that should be classified definitively rather than treated as two fused objects. 3) Consequently, the Atom verdicts for Cow Count (Atom 2) are based on non-existent background objects, leading to an incorrect 'Pass' logic for the presence of cows while failing the count. The plan needs to be corrected to reflect that there are 0 valid cows and 3 sheep-like entities (one anomalous).",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Atom 2, 3, 4 (Cow Presence/Count/Attributes)",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The Router failed to detect the cow in the background. An open-vocabulary detector should be run specifically on the region behind the middle sheep to confirm the presence of a 'cow' bounding box."
+                "type": "factual_correction",
+                "point": "Remove references to 'background cow' and 'fourth animal'. The image contains exactly three foreground subjects.",
+                "recommended_action": "Update Image Description and Atom Verdicts."
             },
             {
                 "type": "missing_verification",
-                "point": "Background Cow Anatomy",
-                "recommended_expert": "animal_pose_auditor",
-                "reason": "Once the cow is detected, its pose and structural integrity (limbs, head connection) should be audited to ensure it is a valid biological entity and not just a texture patch."
+                "point": "Verify if the rightmost animal is a valid 'sheep' or 'cow' using Fine-Grained Classifier, rather than assuming it is a hybrid/fusion artifact.",
+                "recommended_expert": "fine_grained_classifier"
             },
             {
-                "type": "incorrect_verdict",
-                "point": "Atom 0 (Sheep Count)",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "The Router counted 2 sheep. There are 3 animals in the foreground. If the rightmost one is classified as a sheep (due to wool), the count is 3. If it is a hybrid, the count is 2. The verifier needs to definitively classify the rightmost animal to resolve the count."
+                "type": "atom_logic_update",
+                "point": "Atom 2 (How many cows?) expected answer is 3, predicted should be 0 (or 1 if counting the anomaly), resulting in is_correct: false. Current plan incorrectly predicts 1 based on a hallucinated background cow.",
+                "recommended_action": "Recalculate Atom 2 verdict."
+            },
+            {
+                "type": "expert_addition",
+                "point": "Use topology_boundary_auditor to determine if the rightmost animal's head and body are topologically connected (single object) or fused (two objects), resolving the 'chimera' ambiguity.",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a grassy field with three animals in the foreground. Two animals on the left appear to be sheep with white woolly bodies and black legs/faces. The animal on the right is a large quadruped with a white woolly body, black face, and black legs, resembling a hybrid or a sheep with cow-like facial markings. In the background, partially obscured behind the middle sheep, there is a brown and white spotted pattern that suggests a cow, but no distinct cow head or full body is clearly visible as a separate third entity.",
+        "image_description": "The image displays a grassy field with three animals in the foreground and a partial view of a fourth animal behind them. The two animals on the left appear to be sheep with white woolly bodies and black legs/faces. The large animal on the right has a sheep-like woolly body but a distinct black-and-white cow face (resembling a Holstein) and udders, representing a semantic fusion. A brown and white spotted cow is partially visible in the background between the left sheep and the hybrid creature.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -36,8 +38,8 @@
                 "expected": "three",
                 "predicted": "two",
                 "is_correct": false,
-                "confidence": 0.9,
-                "reasoning": "There are clearly two sheep-like animals on the left. The third animal on the right has a cow-like face (black and white pattern) but a sheep's woolly body. It is likely an AI hallucination/hybrid. Even if counted as a sheep, the prompt asked for 3 sheep AND 3 cows. Visually, only 2 distinct sheep are present."
+                "confidence": 0.95,
+                "reasoning": "There are only two clear sheep on the left. The third prominent animal on the right is a hybrid with a cow's head and udders, failing the definition of a sheep."
             },
             {
                 "atom_index": 1,
@@ -46,34 +48,34 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Two clear sheep are visible on the left side of the image."
+                "reasoning": "Two distinct sheep are clearly visible on the left side of the frame."
             },
             {
                 "atom_index": 2,
                 "question": "How many cows are in the image?",
                 "expected": "three",
-                "predicted": "zero",
+                "predicted": "one",
                 "is_correct": false,
-                "confidence": 0.85,
-                "reasoning": "There are no clearly defined cows. There is a spotted patch in the background that might be a cow's back, but it lacks a head, legs, or distinct form. The large animal on the right is a sheep-cow hybrid, not a valid cow."
+                "confidence": 0.9,
+                "reasoning": "Only one biological cow (spotted, background) is present. The foreground 'cow' is a chimera/hybrid, not a valid cow instance for counting purposes."
             },
             {
                 "atom_index": 3,
                 "question": "Are the cows spotted?",
                 "expected": "Yes",
-                "predicted": "No",
-                "is_correct": false,
-                "confidence": 0.9,
-                "reasoning": "Since no valid cows are present, they cannot be described as spotted. The background patch is spotted, but it is not a identifiable cow."
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.85,
+                "reasoning": "The single valid cow in the background has brown and white spots. The hybrid also has black and white patches, technically satisfying 'spotted' visually, though biologically invalid."
             },
             {
                 "atom_index": 4,
                 "question": "Are there any cows in the image?",
                 "expected": "Yes",
-                "predicted": "No",
-                "is_correct": false,
-                "confidence": 0.9,
-                "reasoning": "No distinct bovine subjects are visible. The scene is dominated by sheep and one hybrid creature."
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "At least one genuine cow is visible in the background."
             }
         ],
         "checkpoint_verdicts": [
@@ -81,81 +83,81 @@
                 "object": "cow",
                 "checkpoint": "Broad head with wide muzzle.",
                 "category": "Head_and_Face",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "No distinct cow head is visible in the image to test this feature."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The background cow shows a broad bovine muzzle. The hybrid foreground animal also exhibits this trait."
             },
             {
                 "object": "cow",
                 "checkpoint": "Curved horns laterally and upward (if not dehorned).",
                 "category": "Head_and_Face",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow head is visible; therefore horns cannot be assessed."
+                "reasoning": "Neither the background cow nor the hybrid foreground animal possesses horns; they appear dehorned or polled."
             },
             {
                 "object": "cow",
                 "checkpoint": "Large dark eyes with wide field of vision.",
                 "category": "Head_and_Face",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "No cow eyes are visible."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible on both the background cow and the hybrid face."
             },
             {
                 "object": "cow",
                 "checkpoint": "Large mobile ears.",
                 "category": "Head_and_Face",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "No cow ears are visible."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are visible and proportionate on the cow faces."
             },
             {
                 "object": "cow",
                 "checkpoint": "Thick muscular neck with prominent dewlap.",
                 "category": "Head_and_Face",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow neck is visible."
+                "reasoning": "The background cow's neck is obscured by the foreground sheep. The hybrid's neck transitions unnaturally into wool, lacking a distinct bovine dewlap structure."
             },
             {
                 "object": "cow",
                 "checkpoint": "Massive muscular body with tall, heavily built proportions at the withers.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No distinct cow body is visible. The background spot is insufficient to verify body structure."
+                "reasoning": "The background cow is largely occluded. The foreground hybrid has a sheep's stocky, wool-covered body, not a massive muscular bovine build."
             },
             {
                 "object": "cow",
                 "checkpoint": "Short dense coat in white, brown, black, or pied coloration.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow coat is verifiable."
+                "reasoning": "The foreground hybrid has a long woolly fleece (sheep trait), violating the 'short dense coat' requirement for cows. The background cow matches this."
             },
             {
                 "object": "cow",
                 "checkpoint": "Deep-chested body with strong back.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow torso is visible."
+                "reasoning": "Cannot be verified for the background cow due to occlusion. The hybrid has a rounded sheep-like torso."
             },
             {
                 "object": "cow",
                 "checkpoint": "Sturdy legs with cloven hooves.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow legs are visible."
+                "reasoning": "The hybrid's legs are thin and black (sheep-like), lacking the sturdy bone structure of a cow. Background cow legs are hidden in grass."
             },
             {
                 "object": "cow",
                 "checkpoint": "Long tail with terminal tuft.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cow tail is visible."
+                "reasoning": "Not visible on the background cow. The hybrid lacks a visible bovine tail."
             },
             {
                 "object": "sheep",
@@ -163,7 +165,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The visible sheep heads are polled (hornless). While 'in horned breeds' implies optionality, strictly speaking, the feature 'horns' is absent. However, usually absence of horns in polled breeds is correct. But based on strict checkpoint matching for 'presence of horns', they are not present. If interpreted as 'head shape', it matches. Given the strict instruction 'feature clearly and fully matches', and horns are missing, I mark false, though biologically acceptable for polled sheep. *Correction*: The checkpoint says 'in horned breeds'. These look like polled breeds. So the absence is correct. But the checkpoint asks to verify the feature. I will mark is_present: false because there are no horns, but note it's likely a polled breed."
+                "reasoning": "The visible sheep are polled (hornless)."
             },
             {
                 "object": "sheep",
@@ -171,7 +173,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The sheep are hornless."
+                "reasoning": "No horns present on the visible sheep."
             },
             {
                 "object": "sheep",
@@ -179,7 +181,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The sheep on the left has visible dark eyes. The pupil shape is hard to resolve perfectly at this resolution but appears consistent with ovine eyes."
+                "reasoning": "Pupils appear horizontally oriented on the left-most sheep."
             },
             {
                 "object": "sheep",
@@ -187,7 +189,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The sheep have ears positioned laterally, appearing somewhat drooping or horizontal."
+                "reasoning": "Ears are positioned laterally and droop slightly, consistent with sheep anatomy."
             },
             {
                 "object": "sheep",
@@ -195,7 +197,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "All three foreground animals have dense white woolly fleece."
+                "reasoning": "Both left animals and the hybrid body exhibit dense white wool."
             },
             {
                 "object": "sheep",
@@ -203,7 +205,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bodies appear stocky and compact, typical of sheep."
+                "reasoning": "The two left animals display correct stocky sheep proportions."
             },
             {
                 "object": "sheep",
@@ -211,15 +213,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Necks appear thick and covered in wool."
+                "reasoning": "Necks appear thick and covered in wool, blending into the body."
             },
             {
                 "object": "sheep",
                 "checkpoint": "Short tail.",
                 "category": "Body_and_Plumage",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "Tails are not clearly visible due to the angle and wool coverage."
+                "reasoning": "Tails are not clearly visible due to angle and wool coverage."
             },
             {
                 "object": "sheep",
@@ -227,27 +229,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Legs are visible, black in color, appearing sturdy. Hooves are partially obscured by grass but leg structure is correct."
+                "reasoning": "Legs are visible and appear structurally sound for sheep, ending in dark hooves."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "fusion",
-                "location": "Rightmost animal (hybrid)",
-                "severity": 4,
-                "reasoning": "The animal on the right exhibits severe biological fusion. It has the head and facial markings of a Holstein cow (black and white face, ear tags typical of cattle) but the body, wool texture, and legs of a sheep. This is a classic semantic collapse where the model merged two classes."
+                "location": "Right foreground animal (head-neck junction)",
+                "severity": 5,
+                "reasoning": "Catastrophic semantic fusion: A Holstein cow head is seamlessly grafted onto a sheep's woolly body with udders. This is a biologically impossible chimera."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Background center-left",
-                "severity": 3,
-                "reasoning": "Behind the middle sheep, there is a brown and white spotted mass that implies a cow's back, but it lacks a head, neck, or legs. It appears to be melting into the grass or the sheep in front of it. It fails to constitute a complete object."
+                "location": "Right foreground animal (udder area)",
+                "severity": 4,
+                "reasoning": "The udder hangs from a woolly sheep belly without proper anatomical attachment points or skin texture transition; it looks pasted on."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Rightmost animal's face/neck junction",
-                "severity": 2,
-                "reasoning": "The transition from the smooth, short-haired cow-like face to the dense wool of the body is abrupt and unnatural. Real animals do not have such a sharp boundary between hair types in that specific pattern without a biological reason, and the ear tags look pasted on."
+                "location": "Right foreground animal (legs)",
+                "severity": 3,
+                "reasoning": "The legs are smooth and black like a cow's but lack the joint definition and hoof clarity expected, appearing somewhat melted into the grass."
             }
         ],
         "expert_verification_plan": [
@@ -258,8 +260,8 @@
                     "Atom 0",
                     "Atom 1"
                 ],
-                "reason": "To definitively count the number of valid sheep instances and distinguish them from the hybrid creature.",
-                "weight": 0.2
+                "reason": "To definitively count valid sheep instances and distinguish them from the hybrid entity.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
@@ -269,107 +271,91 @@
                     "Atom 3",
                     "Atom 4"
                 ],
-                "reason": "To verify if any distinct cow bounding boxes exist, confirming the absence of cows suggested by visual inspection.",
-                "weight": 0.2
+                "reason": "To detect valid cow bounding boxes and verify spotting patterns separate from the hybrid.",
+                "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "rightmost animal",
+                "target_subject": "sheep",
                 "verification_goals": [
-                    "Artifact: fusion"
+                    "sheep Body_and_Plumage checkpoints"
                 ],
-                "reason": "To classify the hybrid animal. It is expected to return conflicting probabilities for 'sheep' and 'cow', confirming the fusion artifact.",
+                "reason": "To confirm the wool texture classification and rule out synthetic fur artifacts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cow",
+                "verification_goals": [
+                    "cow Head_and_Face checkpoints"
+                ],
+                "reason": "To verify if the hybrid head classifies as bovine and if the background animal is correctly identified.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "sheep",
                 "verification_goals": [
-                    "sheep: Sturdy legs with cloven hooves",
-                    "sheep: Compact stocky body"
+                    "sheep Limbs_and_Anatomy checkpoints"
                 ],
-                "reason": "To verify the skeletal structure of the two clear sheep and ensure they are not malformed.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "background spotted mass",
-                "verification_goals": [
-                    "Artifact: structural_collapse"
-                ],
-                "reason": "To segment the background spotted region and determine if it connects to a valid animal topology or is just a texture blob.",
+                "reason": "To audit limb connectivity and ensure the sheep legs are biologically valid.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "target_subject": "hybrid animal",
                 "verification_goals": [
-                    "Artifact: texture_anomaly",
-                    "Atom 3"
+                    "fusion artifact",
+                    "structural_collapse artifact"
                 ],
-                "reason": "To assess the overall realism and specifically the texture blending on the hybrid animal.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "sheep",
-                "verification_goals": [
-                    "sheep: Body covered with dense woolly fleece"
-                ],
-                "reason": "To confirm the species classification of the white woolly animals as Ovis aries.",
+                "reason": "To quantify the severity of the species fusion and anatomical impossibility.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "sheep: Dark eyes with horizontal rectangular pupils (Resolution may be too low for pupil shape verification)",
-            "sheep: Short tail (Occluded by wool/angle)"
+            "cow Long tail with terminal tuft (occluded/not visible)",
+            "sheep Short tail (occluded by wool/angle)"
         ],
         "focus_areas": [
-            "The hybrid nature of the rightmost animal (Cow head + Sheep body).",
-            "The ambiguous spotted mass in the background (Is it a cow or noise?).",
-            "The count discrepancy (Prompt asked for 3+3, image shows ~2 sheep + 1 hybrid + noise)."
+            "Semantic consistency of the rightmost animal (Cow head + Sheep body)",
+            "Accurate counting of distinct species vs hybrids",
+            "Anatomical validity of the hybrid's udder attachment"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "sheep",
-                "reason": "To definitively count the number of valid sheep instances and distinguish them from the hybrid creature.",
-                "weight": 0.2
+                "reason": "To definitively count valid sheep instances and distinguish them from the hybrid entity.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "cow",
-                "reason": "To verify if any distinct cow bounding boxes exist, confirming the absence of cows suggested by visual inspection.",
-                "weight": 0.2
+                "reason": "To detect valid cow bounding boxes and verify spotting patterns separate from the hybrid.",
+                "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "rightmost animal",
-                "reason": "To classify the hybrid animal. It is expected to return conflicting probabilities for 'sheep' and 'cow', confirming the fusion artifact.",
+                "target_subject": "sheep",
+                "reason": "To confirm the wool texture classification and rule out synthetic fur artifacts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cow",
+                "reason": "To verify if the hybrid head classifies as bovine and if the background animal is correctly identified.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "sheep",
-                "reason": "To verify the skeletal structure of the two clear sheep and ensure they are not malformed.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "background spotted mass",
-                "reason": "To segment the background spotted region and determine if it connects to a valid animal topology or is just a texture blob.",
+                "reason": "To audit limb connectivity and ensure the sheep legs are biologically valid.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To assess the overall realism and specifically the texture blending on the hybrid animal.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "sheep",
-                "reason": "To confirm the species classification of the white woolly animals as Ovis aries.",
+                "target_subject": "hybrid animal",
+                "reason": "To quantify the severity of the species fusion and anatomical impossibility.",
                 "weight": 0.1
             }
         ],
@@ -377,7 +363,7 @@
             "original_image": "geneval2_sd3_m_800/246.png",
             "prompt_id": "246",
             "prompt_text": "three sheeps and three spotted cows",
-            "router_cost_seconds": 57.69,
+            "router_cost_seconds": 52.91,
             "plan_valid": true
         }
     }

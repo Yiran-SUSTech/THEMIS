@@ -7,8 +7,8 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Expert detector found 1 giraffe with high confidence (0.9261). Visual inspection confirms a single, anatomically correct giraffe.",
-            "reasoning": "The count is accurate and matches the prompt expectation perfectly."
+            "expert_evidence": "open_vocabulary_detector detected 1 giraffe with high confidence (0.9261). animal_pose_auditor found 4 instances but only instance 4 had high confidence (0.9036), others were low confidence artifacts.",
+            "reasoning": "The image clearly shows exactly one giraffe standing on the right side. The pose auditor's multiple detections are likely false positives from background noise or partial features, but visually there is only one complete giraffe."
         },
         {
             "atom_index": 1,
@@ -17,8 +17,8 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Expert detector confirmed presence. Fine-grained classifier ranked 'zebra' #1 but 'giraffe' features (ossicones, neck) are visually unambiguous despite classifier confusion.",
-            "reasoning": "Presence is undeniable. The classifier's top-1 prediction of 'zebra' is likely due to the pattern/neck similarity in training data, but visual verification overrides this for simple presence detection."
+            "expert_evidence": "open_vocabulary_detector confirmed presence with 0.9261 confidence. animal_pose_auditor identified a high-confidence instance (instance 4) with proper giraffe anatomy.",
+            "reasoning": "A giraffe is prominently visible and correctly rendered with characteristic long neck, ossicones, and spotted pattern."
         },
         {
             "atom_index": 2,
@@ -27,18 +27,18 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Spatial layout is clear: giraffe occupies right ~40% of frame, bicycles occupy left ~40%.",
-            "reasoning": "Relative positioning is correctly rendered."
+            "expert_evidence": "Spatial analysis confirms giraffe bounding box [527,157,767,921] is to the right of bicycle cluster bounding boxes (all x-coordinates < 589).",
+            "reasoning": "The giraffe occupies the right portion of the frame while all bicycles are clustered on the left side, satisfying the spatial relationship requirement."
         },
         {
             "atom_index": 3,
             "question": "How many bicycles are in the image?",
             "expected": "two",
             "qa_score": 0.0,
-            "tax_score": 1.0,
+            "tax_score": 0.0,
             "atom_score": 0.0,
-            "expert_evidence": "Router identified three distinct frames. Expert detector returned 6 overlapping bounding boxes, confirming a complex cluster exceeding the requested count of two. Visual inspection shows at least 3 distinct handlebars/saddles.",
-            "reasoning": "The prompt explicitly requested 'two bicycles'. The image contains three (or more, given the fusion). This is a definitive counting error."
+            "expert_evidence": "Router identified three distinct bicycles. open_vocabulary_detector found 6 overlapping bicycle detections indicating fusion artifacts. Visual inspection confirms three separate bike frames/wheels despite structural merging.",
+            "reasoning": "The prompt specified two bicycles but the image contains three. This is a clear counting error. Additionally, the bicycles exhibit severe fusion artifacts making them structurally invalid as separate objects."
         },
         {
             "atom_index": 4,
@@ -47,13 +47,13 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Multiple bicycle instances detected. Despite fusion artifacts, the semantic category 'bicycle' is clearly present.",
-            "reasoning": "Presence is satisfied even if count and structure are flawed."
+            "expert_evidence": "Multiple bicycle detections confirm presence. While taxonomy checkpoints for 'bicycle-built-for-two' failed, the atom question asks about generic bicycle presence, not class conformity. The fine_grained_classifier ranked 'mountain bike' #1 and 'tandem bicycle' #2, confirming bicycle-class objects exist.",
+            "reasoning": "Bicycles are clearly present in the image. The tax_score should be 1.0 because this atom tests object presence, not class alignment. Class mismatch is captured in checkpoint evaluations, not in the presence atom. My initial assessment incorrectly penalized tax_score for a presence question."
         }
     ],
-    "authenticity_review": "The image suffers from severe structural artifacts localized to the bicycle cluster. The bicycles exhibit extreme object fusion: wheels merge into frames, spokes dissolve into adjacent tires, and handlebars lack clear separation. This 'melting' effect violates physical boundary integrity. Additionally, the ground contact points are structurally unsound; kickstands are either missing or fused into the grass texture, making the bikes appear to float or lean impossibly. In contrast, the giraffe is rendered with high fidelity—correct ossicones, coat pattern, and limb proportions—and the fine-grained classifier's misidentification as 'zebra' does not reflect actual visual defects. However, the catastrophic failure of the bicycle geometry (a primary subject) significantly degrades overall authenticity. The SAM mask confidence (0.9055) indicates the model sees a coherent region, but this masks the internal structural collapse within that region.",
+    "authenticity_review": "The image exhibits significant structural defects primarily in the bicycle cluster. Three bicycles are physically fused together with overlapping wheels, merged handlebars, and indistinct boundaries - a classic AI generation artifact where separate objects collapse into a single malformed mesh. The giraffe shows minor texture softness at leg-hoof transitions but maintains overall anatomical correctness. The background and lighting appear natural. The severe bicycle fusion artifact substantially reduces authenticity as it represents a fundamental failure in object separation and physical plausibility.",
     "alignment_score": 4.0,
-    "authenticity_score": 2.5,
+    "authenticity_score": 2.3,
     "per_atom_scores": [
         1.0,
         1.0,
@@ -62,10 +62,10 @@
         1.0
     ],
     "key_defects": [
-        "Bicycle count mismatch (3+ visible vs 2 requested)",
-        "Severe object fusion/melting in bicycle cluster (wheels, frames, handlebars merging)",
-        "Structural collapse at bicycle ground contact points (missing/merged kickstands)",
-        "Taxonomy mismatch: standard bicycles generated instead of requested 'bicycle-built-for-two' (tandem)"
+        "Bicycle count mismatch: 3 present vs 2 requested",
+        "Severe fusion artifacts in bicycle cluster - wheels, frames and handlebars merge impossibly",
+        "Bicycles fail taxonomy requirements for 'bicycle-built-for-two' class - all are standard single-rider models",
+        "Structural collapse in bicycle kickstands and ground contact points"
     ],
     "veto_activated": false,
     "fine_grained_details": {
@@ -106,16 +106,16 @@
             }
         }
     },
-    "self_reflection_notes": "Changes made: (1) Added explicit mention of taxonomy mismatch (standard bikes vs tandem) to key_defects, which was noted in Router's checkpoint verdicts but omitted from my initial key_defects list. This is a critical alignment failure beyond just counting. (2) Clarified that the fine-grained classifier's 'zebra' prediction for the giraffe is a known limitation (pattern/neck similarity) and does not indicate a visual defect, preventing over-penalization of the giraffe's authenticity. (3) Strengthened the description of bicycle fusion artifacts by referencing specific visual evidence (spokes dissolving, handlebars lacking separation) rather than generic 'melting'. (4) Verified that the SAM mask confidence (0.9055) does not contradict the artifact assessment—the mask captures the fused cluster as one region, but internal structure is still broken. Scores remain unchanged: alignment=4.0 (count error + taxonomy mismatch justify deduction from perfect 5.0), authenticity=2.5 (severe structural artifacts in primary subject warrant major penalty, but giraffe quality prevents lower score). Checklist items triggered: #2 (Expert Evidence Utilization - incorporated taxonomy mismatch from Router checkpoints), #5 (Harshness Bias - avoided penalizing giraffe for classifier error), #6 (Atom Score Review - verified all atom scores against visual evidence independently).",
+    "self_reflection_notes": "Changes made: Raised atom 4 tax_score from 0.0 to 1.0 and atom_score from 0.0 to 1.0. Triggered by Checklist Item 1 (Score-Reasoning Consistency) and Item 6 (Atom Score Review). The atom question 'Are there any bicycles in the image?' tests object presence, not class conformity. My initial assessment incorrectly applied taxonomy penalties to a presence question. The fine_grained_classifier confirmed bicycle-class objects exist (top-2 predictions were bicycle variants). Class mismatch with 'bicycle-built-for-two' is properly captured in the checkpoint evaluations (all 8 geometry/functional checkpoints failed), not in the presence atom. Final scores: atom 4 increased from 0.0 to 1.0; overall alignment unchanged at 2.0 since atom 3 (count error) remains the dominant alignment failure. Authenticity score unchanged at 2.3 as bicycle fusion artifacts remain severe.",
     "preliminary_scores": {
-        "alignment_score": 4.0,
-        "authenticity_score": 2.5,
+        "alignment_score": 2.0,
+        "authenticity_score": 2.3,
         "per_atom_scores": [
             1.0,
             1.0,
             1.0,
             0.0,
-            1.0
+            0.0
         ]
     },
     "metadata": {
@@ -126,8 +126,11 @@
             "153_mask.png"
         ],
         "checklist_enabled": true,
-        "reflector_cost_seconds": 18.97,
+        "reflector_cost_seconds": 23.77,
         "self_reflection_enabled": true,
         "self_reflection_succeeded": true
-    }
+    },
+    "code_adjustments": [
+        "Alignment recalculated from per_atom_scores: 2.00 -> 4.0"
+    ]
 }

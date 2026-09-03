@@ -2,25 +2,25 @@
     "image_id": "303",
     "prompt": "a flower on top of a raccoon on top of a yellow giraffe",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:45:05",
+    "timestamp": "2026-09-02 22:57:06",
     "judge_verdict": {
         "is_approved": true,
         "reasons_for_rejection": "",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'flower' taxonomy checkpoints failed due to color mismatch (Yellow vs White). While fine_grained_classifier is assigned, adding topology_boundary_auditor would verify if the flower is a single coherent object or if the stem merges incorrectly with the raccoon, addressing potential structural artifacts not covered by pose/color audits.",
-                "recommended_expert": "topology_boundary_auditor"
+                "point": "The 'open_vocabulary_detector' is assigned to verify the flower stem's grounding ('Stem base attaches to ground'). However, this expert only provides bounding boxes and cannot determine physical connectivity or depth ordering (floating vs. attached). This specific checkpoint requires a spatial/depth analysis.",
+                "recommended_expert": "geometric_depth_auditor"
             },
             {
                 "type": "missing_verification",
-                "point": "The giraffe is described as 'toy-like' with 'poreless plastic texture'. The current plan uses perceptual_quality_auditor for this. However, geometric_depth_auditor could provide stronger evidence regarding the physical separation of the 'toy' giraffe from the background and the depth consistency of the stacked objects (Flower > Raccoon > Giraffe), ensuring no spatial bleeding occurs in this complex stack.",
-                "recommended_expert": "geometric_depth_auditor"
+                "point": "Atom 7 asks if the giraffe is yellow. While the geometric_depth_auditor is assigned to the giraffe, its primary function is depth/structure. A color verification is better suited for a classifier or perceptual auditor to ensure the 'yellow' attribute is correctly identified against the prompt expectation.",
+                "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A stylized, toy-like yellow giraffe with brown spots stands against a cyan background. A realistic-looking raccoon is perched on the giraffe's back. A large yellow flower (resembling a Black-eyed Susan or sunflower) sits atop the raccoon's head, supported by a green stem.",
+        "image_description": "A stylized, toy-like yellow giraffe with brown spots stands against a cyan background. A realistic-looking raccoon sits on the giraffe's back. A large yellow flower (resembling a Black-eyed Susan or sunflower) emerges from behind the raccoon, appearing to float above it.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -46,8 +46,8 @@
                 "expected": "Yes",
                 "predicted": "Yes",
                 "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "The flower stem emerges from behind/above the raccoon's head, placing it spatially on top."
+                "confidence": 0.95,
+                "reasoning": "The flower stem appears to originate from behind/above the raccoon, placing it visually on top of the stack."
             },
             {
                 "atom_index": 3,
@@ -56,7 +56,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "One raccoon is clearly visible riding the giraffe."
+                "reasoning": "One raccoon is clearly visible sitting on the giraffe."
             },
             {
                 "atom_index": 4,
@@ -74,7 +74,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The raccoon is positioned directly on the giraffe's back."
+                "reasoning": "The raccoon is seated directly on the giraffe's back."
             },
             {
                 "atom_index": 6,
@@ -111,7 +111,7 @@
                 "category": "Flower_or_Top",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The flower in the image has YELLOW ray petals and a dark brown/black center disc. The taxonomy requires WHITE petals and a YELLOW center. This is a complete color inversion mismatch."
+                "reasoning": "The flower in the image has YELLOW petals and a dark brown/black center. The taxonomy requires WHITE petals and a YELLOW center. This is a complete color inversion mismatch."
             },
             {
                 "object": "flower",
@@ -119,7 +119,7 @@
                 "category": "Flower_or_Top",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Petals are yellow, not white. Additionally, the flower appears disproportionately large relative to the raccoon, contradicting 'modest size' if interpreted strictly, but the color failure is primary."
+                "reasoning": "Petals are yellow, not white. Size is also disproportionately large compared to the 'modest' description relative to the animals."
             },
             {
                 "object": "flower",
@@ -135,7 +135,7 @@
                 "category": "Stem_and_Leaves",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shape and arrangement of the petals match the description, despite the wrong color."
+                "reasoning": "The shape and arrangement of the petals match the structural description, despite the wrong color."
             },
             {
                 "object": "flower",
@@ -151,7 +151,7 @@
                 "category": "Stem_and_Leaves",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The stem appears smooth and bare; no distinct leaves are visible along its length."
+                "reasoning": "The stem appears smooth and bare; no leaves are visible along its length."
             },
             {
                 "object": "flower",
@@ -159,7 +159,7 @@
                 "category": "Root_and_Base",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The stem does not attach to the ground; it emerges from the raccoon/giraffe assembly, floating in the air relative to the ground plane."
+                "reasoning": "The stem emerges from behind the raccoon/giraffe assembly, floating in mid-air relative to the ground plane. It does not attach to the ground."
             },
             {
                 "object": "flower",
@@ -181,21 +181,21 @@
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Raccoon rear/tail junction with giraffe back",
+                "location": "Flower stem base",
                 "severity": 3,
-                "reasoning": "The raccoon's hindquarters and tail appear to merge into the giraffe's back without clear anatomical separation or weight displacement. The fur texture blends unnaturally into the smooth plastic-like surface of the giraffe."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "Giraffe legs and hooves",
-                "severity": 2,
-                "reasoning": "The front legs are splayed slightly awkwardly, and the hooves lack distinct toe definition, appearing as fused black blobs rather than distinct digits, typical of AI generation on small extremities."
+                "reasoning": "The flower stem lacks a physical anchor. It appears to merge into the raccoon's fur or float without a clear insertion point, violating physical grounding."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Giraffe body surface",
-                "severity": 1,
-                "reasoning": "The giraffe has a uniform, poreless plastic/toy texture which contradicts biological reality, though this may be stylistic. However, the transition between the 'toy' giraffe and 'realistic' raccoon creates a jarring material inconsistency."
+                "location": "Giraffe body",
+                "severity": 2,
+                "reasoning": "The giraffe has a plastic/toy-like texture which contrasts sharply with the realistic fur of the raccoon. While stylistic, it creates a material inconsistency in the scene."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Raccoon paws",
+                "severity": 2,
+                "reasoning": "The raccoon's front paws rest on the giraffe but lack distinct finger definition and seem to meld slightly with the giraffe's surface."
             }
         ],
         "expert_verification_plan": [
@@ -211,49 +211,49 @@
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "raccoon",
+                "target_subject": "flower",
                 "verification_goals": [
-                    "How many raccoons are in the image?",
-                    "Is the raccoon on top of the giraffe?"
+                    "Stem base attaches to ground.",
+                    "Is the flower on top of the raccoon?"
                 ],
-                "reason": "To verify the count and spatial relationship of the raccoon relative to the giraffe.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "giraffe",
-                "verification_goals": [
-                    "How many giraffes are in the image?",
-                    "Is the giraffe yellow?"
-                ],
-                "reason": "To verify the presence, count, and dominant color of the giraffe.",
+                "reason": "To verify the spatial relationship and grounding of the flower stem, specifically checking if it connects to the ground or floats.",
                 "weight": 0.2
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "raccoon",
                 "verification_goals": [
-                    "structural_collapse at Raccoon rear/tail junction"
+                    "Is the raccoon on top of the giraffe?"
                 ],
-                "reason": "To audit the limb connectivity and structural integrity of the raccoon, specifically checking for fusion artifacts at the contact point with the giraffe.",
+                "reason": "To verify the anatomical correctness of the raccoon's pose and its contact points with the giraffe.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Is the giraffe yellow?",
+                    "Is the raccoon on top of the giraffe?"
+                ],
+                "reason": "To verify the depth ordering of the stack (Giraffe -> Raccoon -> Flower) and ensure no z-fighting or melting occurs between layers.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "giraffe",
+                "target_subject": "flower",
                 "verification_goals": [
-                    "texture_anomaly on Giraffe body surface",
-                    "perspective_distortion on Giraffe legs"
+                    "Small alternate leaves along stem.",
+                    "Slender green stem supporting flower head."
                 ],
-                "reason": "To assess the material consistency and geometric validity of the giraffe's stylized rendering.",
+                "reason": "To detect subtle rendering artifacts in the stem and check for missing details like leaves that might be blurred out.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Flower color verification (Yellow vs White)",
-            "Raccoon-Giraffe interface fusion",
-            "Giraffe limb geometry"
+            "Flower color and morphology verification (Critical failure expected)",
+            "Flower stem grounding and physical plausibility",
+            "Raccoon-Giraffe interaction boundary"
         ],
         "selected_experts": [
             {
@@ -264,26 +264,26 @@
             },
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "raccoon",
-                "reason": "To verify the count and spatial relationship of the raccoon relative to the giraffe.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "giraffe",
-                "reason": "To verify the presence, count, and dominant color of the giraffe.",
+                "target_subject": "flower",
+                "reason": "To verify the spatial relationship and grounding of the flower stem, specifically checking if it connects to the ground or floats.",
                 "weight": 0.2
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "raccoon",
-                "reason": "To audit the limb connectivity and structural integrity of the raccoon, specifically checking for fusion artifacts at the contact point with the giraffe.",
+                "reason": "To verify the anatomical correctness of the raccoon's pose and its contact points with the giraffe.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "giraffe",
+                "reason": "To verify the depth ordering of the stack (Giraffe -> Raccoon -> Flower) and ensure no z-fighting or melting occurs between layers.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "giraffe",
-                "reason": "To assess the material consistency and geometric validity of the giraffe's stylized rendering.",
+                "target_subject": "flower",
+                "reason": "To detect subtle rendering artifacts in the stem and check for missing details like leaves that might be blurred out.",
                 "weight": 0.15
             }
         ],
@@ -291,7 +291,7 @@
             "original_image": "geneval2_sd3_m_800/303.png",
             "prompt_id": "303",
             "prompt_text": "a flower on top of a raccoon on top of a yellow giraffe",
-            "router_cost_seconds": 43.42,
+            "router_cost_seconds": 43.29,
             "plan_valid": true
         }
     }

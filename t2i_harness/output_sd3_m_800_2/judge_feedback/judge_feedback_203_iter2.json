@@ -2,25 +2,30 @@
     "image_id": "203",
     "prompt": "a glass lion and a bear and four kangaroos",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:39:09",
+    "timestamp": "2026-09-02 22:51:01",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical factual error in the 'image_description' and subsequent 'atom_verdicts'. The Router failed to detect all four kangaroos present in the image (one large adult, two medium joeys, and one small joey partially behind/next to the others). Consequently, Atom 5 was incorrectly marked as 'false' (predicting 3 instead of 4), leading to an unnecessary and misdirected verification plan focused on counting rather than quality. Additionally, the taxonomy checkpoints for the 'glass lion' are logically flawed; evaluating biological features like 'fur texture' or 'eye color' against a stylized glass object results in inevitable false negatives that do not reflect generation quality.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' is assigned to the lion to verify material properties. However, standard ImageNet-trained classifiers often struggle with non-biological materials (glass) or may misclassify a glass lion as a real lion due to shape dominance. It is recommended to add 'perceptual_quality_auditor' or rely on 'geometric_depth_auditor' to specifically analyze refraction/reflection artifacts which are the true indicators of glass, rather than just semantic classification.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "factual_correction",
+                "point": "Atom 5 (Kangaroo Count)",
+                "recommendation": "Update image description to identify 4 kangaroos. Mark Atom 5 as is_correct: true. Remove open_vocabulary_detector from the expert plan as the count is visually verifiable and correct."
             },
             {
-                "type": "optimization",
-                "point": "The 'topology_boundary_auditor' is assigned to the bear's tail. While valid, the 'animal_pose_auditor' already covers limb/anatomy structure. If the pose auditor detects the tail keypoints, it can verify length/position simultaneously. The topology expert might be redundant unless the tail is merging with the background, which doesn't appear to be the case here. Consider removing to save cost if pose audit is sufficient.",
-                "recommended_expert": "N/A"
+                "type": "logic_adjustment",
+                "point": "Lion Taxonomy Checkpoints",
+                "recommendation": "Disable or adjust checkpoints related to biological materials (fur, eye pigment, mane texture) for the 'glass lion'. These should be evaluated by 'perceptual_quality_auditor' for material consistency (glass vs. prompt) rather than 'fine_grained_classifier' for biological taxonomy, which causes false failures."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Bear Paw Structure",
+                "recommended_expert": "animal_pose_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A surreal outdoor scene featuring a translucent glass lion statue on the left, a group of four kangaroos (one adult, one juvenile, and two joeys) in the center, and an anthropomorphic brown bear standing upright on the right. The background is a soft-focus green landscape.",
+        "image_description": "A surreal outdoor scene featuring four distinct animal figures on a grassy field. On the left is a translucent, glass-like lion statue with a blueish tint and visible refraction. In the center are three kangaroos: one large adult standing upright and two smaller joeys beside it. On the right stands a brown bear on its hind legs, facing the other animals. The background is a soft-focus green landscape.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -38,7 +43,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The lion has a transparent, refractive material appearance consistent with glass or crystal, showing internal reflections and transparency."
+                "reasoning": "The lion exhibits clear transparency, refraction, and specular highlights consistent with glass or crystal material."
             },
             {
                 "atom_index": 2,
@@ -56,7 +61,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is exactly one bear figure visible on the right side."
+                "reasoning": "There is exactly one bear figure standing on the right."
             },
             {
                 "atom_index": 4,
@@ -71,10 +76,10 @@
                 "atom_index": 5,
                 "question": "How many kangaroos are in the image?",
                 "expected": "four",
-                "predicted": "four",
-                "is_correct": true,
+                "predicted": "three",
+                "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Upon closer inspection, there is one large adult kangaroo, one medium-sized juvenile, and two small joeys clustered together near the adult's feet, totaling four individuals."
+                "reasoning": "I can clearly see one large kangaroo and two small joeys, totaling three kangaroos. The prompt requested four, but only three are rendered."
             },
             {
                 "atom_index": 6,
@@ -93,7 +98,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bear's face is stylized and cartoonish; the muzzle is not distinctly short or dished in the biological sense of a brown bear, appearing more like a generic animated character."
+                "reasoning": "The bear's face appears somewhat stylized and cartoonish; the muzzle is not distinctly short or dished as per biological taxonomy, appearing more generic."
             },
             {
                 "object": "bear",
@@ -101,15 +106,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The ears are visible, rounded, and positioned on the sides of the head, matching the description adequately despite the stylization."
+                "reasoning": "The ears are visible, rounded, and positioned correctly on the head."
             },
             {
                 "object": "bear",
                 "checkpoint": "Eyes are small, dark, and deep-set.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The eyes are large, glossy, and forward-facing in an anthropomorphic style, not 'small and deep-set' as per biological taxonomy."
+                "is_present": true,
+                "reasoning": "Eyes are visible, dark, and appear relatively small compared to the head size."
             },
             {
                 "object": "bear",
@@ -117,7 +122,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bear is standing bipedally with a slender, humanoid torso. It lacks the quadrupedal massiveness and the distinctive shoulder hump of a real brown bear."
+                "reasoning": "While the bear is standing, the distinctive muscular shoulder hump characteristic of a brown bear is not clearly defined; the torso looks somewhat smooth and uniform."
             },
             {
                 "object": "bear",
@@ -125,7 +130,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The texture appears furry and brown, consistent with the color range, though the 'coarse' quality is hard to verify due to smooth rendering."
+                "reasoning": "The fur texture is visible and matches the color description (light brown/tan)."
             },
             {
                 "object": "bear",
@@ -133,15 +138,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No shoulder hump is visible; the anatomy is upright and humanoid."
+                "reasoning": "The shoulder area lacks the specific protruding muscle hump expected in a brown bear taxonomy; it slopes too smoothly into the neck."
             },
             {
                 "object": "bear",
                 "checkpoint": "Tail is very short and hidden in fur.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "A long, thick tail is clearly visible extending behind the bear on the ground, contradicting the 'very short and hidden' requirement for a brown bear."
+                "is_present": true,
+                "reasoning": "No long tail is visible; a small stub or hidden tail is consistent with the rear view."
             },
             {
                 "object": "kangaroo",
@@ -149,7 +154,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The ears are actually quite long and pointed, typical of standard kangaroos/wallabies, not 'short and rounded' as specified in this specific taxonomy checkpoint."
+                "reasoning": "The ears on the main kangaroo are actually quite long and pointed, typical of a red kangaroo, contradicting the 'short and rounded' wallaby description provided in the taxonomy."
             },
             {
                 "object": "kangaroo",
@@ -157,7 +162,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The faces are solid brown/tan without distinct pale cheek stripes or dark eye bands."
+                "reasoning": "The faces appear solid colored without distinct pale cheek stripes or dark eye bands."
             },
             {
                 "object": "kangaroo",
@@ -165,7 +170,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The heads are proportionally small compared to the bodies, fitting the macropod plan."
+                "reasoning": "Proportions look correct for a macropod."
             },
             {
                 "object": "kangaroo",
@@ -173,7 +178,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The animals display reddish-brown tones consistent with the description."
+                "reasoning": "The fur is reddish-brown, fitting the description."
             },
             {
                 "object": "kangaroo",
@@ -189,7 +194,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The tails appear roughly equal to or longer than the torso length, which is typical for kangaroos but contradicts this specific 'shorter than torso' checkpoint."
+                "reasoning": "The tail of the main kangaroo appears quite long, extending well beyond the torso length, which contradicts the 'shorter than torso' checkpoint (though accurate for real kangaroos, it fails this specific taxonomy check)."
             },
             {
                 "object": "kangaroo",
@@ -197,7 +202,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Hind limbs are clearly developed for jumping."
+                "reasoning": "Hind limbs are clearly defined and muscular."
             },
             {
                 "object": "kangaroo",
@@ -205,7 +210,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Forelimbs are small and held close to the chest; digit count is plausible though hard to see perfectly."
+                "reasoning": "Forelimbs are small and held close to the chest; digit count is hard to see but general structure is correct."
             },
             {
                 "object": "kangaroo",
@@ -213,7 +218,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Tails are thick and extend behind the animals for balance."
+                "reasoning": "A thick tail is visible extending behind the animal."
             },
             {
                 "object": "lion",
@@ -221,7 +226,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Despite being glass, the sculpted features show a broad head and relatively short muzzle typical of lions."
+                "reasoning": "Despite being glass, the sculpted features show a broad head and short muzzle."
             },
             {
                 "object": "lion",
@@ -229,7 +234,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Ears are visible atop the mane, small and rounded."
+                "reasoning": "Ears are visible through the glass material and match the shape."
             },
             {
                 "object": "lion",
@@ -237,7 +242,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The eyes are rendered as solid blue/glassy orbs, lacking the amber/brown color and biological intensity of a real lion."
+                "reasoning": "The eyes appear blue/green due to the glass material/refraction, not the expected amber/brown biological color."
             },
             {
                 "object": "lion",
@@ -245,7 +250,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the shape is correct, the material is glass, not muscular flesh. Crucially, the tail lacks a 'dark tuft'—it is uniform clear/blue glass."
+                "reasoning": "The body is glass, so 'muscular' is implied by shape but not texture. Crucially, the tail lacks a 'dark tuft'—it is transparent glass throughout."
             },
             {
                 "object": "lion",
@@ -253,7 +258,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The 'coat' is transparent glass, not tawny fur."
+                "reasoning": "The lion is made of glass, not tawny fur. This is a material mismatch with the biological taxonomy, though consistent with the prompt 'glass lion'."
             },
             {
                 "object": "lion",
@@ -261,7 +266,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The mane is sculpted glass, colored blue/white/clear, not blonde or brown hair."
+                "reasoning": "The mane is sculpted glass, not shaggy hair, and is transparent/blue-tinted rather than blonde/brown."
             },
             {
                 "object": "lion",
@@ -269,21 +274,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The tail tip is clear glass, identical to the rest of the tail, with no dark tuft."
+                "reasoning": "The tail tip is clear glass, lacking the biological dark tuft."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Bear's hands and feet",
-                "severity": 3,
-                "reasoning": "The bear exhibits significant anatomical structural collapse. It stands fully upright like a human, with hands that have distinct fingers and thumbs rather than paws, and feet that look like human shoes or bare feet rather than bear paws. This is a severe deviation from biological reality."
+                "location": "Bear's left hand/paw",
+                "severity": 2,
+                "reasoning": "The bear's raised left paw appears to have fused or melted fingers; the digits are not clearly separated and look like a single mass."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Lion's body",
+                "location": "Glass lion surface",
+                "severity": 1,
+                "reasoning": "Some internal reflections within the glass lion look slightly inconsistent with physical refraction, appearing somewhat painted-on rather than optically generated."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Kangaroo tails",
                 "severity": 2,
-                "reasoning": "The lion is rendered as a solid glass object. While likely intentional per prompt ('glass lion'), strictly speaking, it lacks the texture of fur. However, as an artifact of generation, the refraction inside the glass looks slightly inconsistent near the legs, suggesting minor rendering issues."
+                "reasoning": "The tails of the kangaroos seem to merge slightly with the ground or lack proper grounding shadows, making them look like they are floating or clipped."
             }
         ],
         "expert_verification_plan": [
@@ -293,84 +304,101 @@
                 "verification_goals": [
                     "Atom 5"
                 ],
-                "reason": "To definitively confirm the count of kangaroos is four, providing bounding boxes for each instance including the clustered joeys.",
+                "reason": "To definitively count the number of kangaroos and verify if a fourth one is occluded or missing.",
                 "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "verification_goals": [
+                    "bear Head_and_Face",
+                    "bear Body_and_Plumage"
+                ],
+                "reason": "To verify if the bear's facial structure and shoulder hump align with 'brown bear' taxonomy despite the stylized rendering.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "kangaroo Head_and_Face",
+                    "kangaroo Body_and_Plumage"
+                ],
+                "reason": "To distinguish between wallaby and kangaroo features (ear length, tail length) as the taxonomy specifies wallaby traits but the image shows kangaroo traits.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "bear",
                 "verification_goals": [
-                    "Checkpoint: Body is massive... shoulder hump",
-                    "Checkpoint: Tail is very short"
+                    "Bear's left hand/paw artifact"
                 ],
-                "reason": "To verify the bipedal stance and lack of shoulder hump, confirming the anatomical deviation from a real brown bear.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "lion",
-                "verification_goals": [
-                    "Artifact: texture_anomaly (lion)",
-                    "Checkpoint: Coat is short, dense..."
-                ],
-                "reason": "To verify if the glass lion has valid internal refraction and structural continuity (no melting limbs), addressing the specific failure mode for transparent objects mentioned in feedback.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "lion",
-                "verification_goals": [
-                    "Atom 1"
-                ],
-                "reason": "To classify the material properties and confirm it is recognized as 'glass' or 'statue' rather than biological lion, validating the 'glass' attribute.",
+                "reason": "To audit the structural integrity of the bear's raised limb and confirm digit fusion.",
                 "weight": 0.15
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "bear",
+                "target_subject": "lion",
                 "verification_goals": [
-                    "Checkpoint: Tail is very short and hidden in fur"
+                    "lion Body_and_Plumage",
+                    "lion Limbs_and_Anatomy"
                 ],
-                "reason": "To segment the tail region and prove its existence and length, contradicting the 'hidden/short' checkpoint.",
+                "reason": "To verify the boundary of the glass object and confirm the absence of biological features like fur texture or tail tufts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "texture_anomaly",
+                    "perspective_distortion"
+                ],
+                "reason": "To assess the overall realism of the glass refraction and ground contact shadows.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Count verification for kangaroos (expected 4 vs observed 4)",
-            "Anatomical correctness of the bear (anthropomorphic vs biological)",
-            "Material classification and structural integrity of the glass lion",
-            "Tail morphology of the bear (long visible tail vs short hidden)"
+            "Count verification for kangaroos (expected 4 vs observed 3)",
+            "Material consistency of the glass lion against biological checkpoints",
+            "Structural integrity of the bear's raised paw",
+            "Taxonomic mismatch between 'wallaby' description and 'kangaroo' visual features"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "kangaroo",
-                "reason": "To definitively confirm the count of kangaroos is four, providing bounding boxes for each instance including the clustered joeys.",
+                "reason": "To definitively count the number of kangaroos and verify if a fourth one is occluded or missing.",
                 "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "reason": "To verify if the bear's facial structure and shoulder hump align with 'brown bear' taxonomy despite the stylized rendering.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "reason": "To distinguish between wallaby and kangaroo features (ear length, tail length) as the taxonomy specifies wallaby traits but the image shows kangaroo traits.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "bear",
-                "reason": "To verify the bipedal stance and lack of shoulder hump, confirming the anatomical deviation from a real brown bear.",
-                "weight": 0.25
-            },
-            {
-                "expert_name": "geometric_depth_auditor",
-                "target_subject": "lion",
-                "reason": "To verify if the glass lion has valid internal refraction and structural continuity (no melting limbs), addressing the specific failure mode for transparent objects mentioned in feedback.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "lion",
-                "reason": "To classify the material properties and confirm it is recognized as 'glass' or 'statue' rather than biological lion, validating the 'glass' attribute.",
+                "reason": "To audit the structural integrity of the bear's raised limb and confirm digit fusion.",
                 "weight": 0.15
             },
             {
                 "expert_name": "topology_boundary_auditor",
-                "target_subject": "bear",
-                "reason": "To segment the tail region and prove its existence and length, contradicting the 'hidden/short' checkpoint.",
+                "target_subject": "lion",
+                "reason": "To verify the boundary of the glass object and confirm the absence of biological features like fur texture or tail tufts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scene",
+                "reason": "To assess the overall realism of the glass refraction and ground contact shadows.",
                 "weight": 0.15
             }
         ],
@@ -378,7 +406,7 @@
             "original_image": "geneval2_sd3_m_800/203.png",
             "prompt_id": "203",
             "prompt_text": "a glass lion and a bear and four kangaroos",
-            "router_cost_seconds": 62.6,
+            "router_cost_seconds": 64.12,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

@@ -2,29 +2,36 @@
     "image_id": "194",
     "prompt": "six giraffes and a stone truck",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:36:38",
+    "timestamp": "2026-09-02 22:48:36",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection: it assigns the `fine_grained_classifier` (a ViT trained on ImageNet categories) to verify material properties ('stone' vs 'metal'). This model cannot distinguish materials; it only classifies object identity. Additionally, the plan fails to assign an expert to audit the license plate text, which is a prominent feature that often reveals generation artifacts or unauthorized watermarks.",
         "suggestions": [
             {
+                "type": "incorrect_expert_assignment",
+                "point": "Atom 3 (Is the truck stone?) and Checkpoint: Material_and_Context",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "Replace `fine_grained_classifier` with `perceptual_quality_auditor`. The VLM-based perceptual auditor can reason about texture, reflectivity, and physical plausibility to determine if the truck looks like stone or metal. The classifier is semantically blind to materials."
+            },
+            {
                 "type": "missing_verification",
-                "point": "The 'stone' material attribute of the truck (Atom 3) is a critical failure. While fine_grained_classifier is assigned, adding topology_boundary_auditor would help verify if the truck's surface texture exhibits the granular noise or lack of specular highlights typical of stone vs metal.",
-                "recommended_expert": "topology_boundary_auditor"
+                "point": "License Plate / Text Artifacts",
+                "recommended_expert": "image_text_auditor",
+                "reason": "The image contains a visible license plate on the truck. The current plan ignores this. An `image_text_auditor` is required to check for gibberish text, hallucinated characters, or stock watermarks, which are common failure modes in T2I generation."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a savanna landscape featuring five giraffes standing in the foreground and mid-ground. To the right, there is a beige, vintage-style heavy-duty truck (resembling a military or utility transport vehicle) with a flat front cab and a cargo area behind it. The background consists of dry grassland and scattered acacia trees under a clear sky.",
+        "image_description": "The image displays a savanna landscape with dry grass and scattered acacia trees. In the foreground, there are five clearly visible giraffes standing in a row, with parts of a sixth giraffe visible behind the truck on the right. To the right of the giraffes is a beige, vintage-style heavy-duty truck (resembling a military or utility transport vehicle) with a cab-over-engine design. The truck has a solid cargo box rather than an open bed.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
                 "question": "How many giraffes are in the image?",
                 "expected": "six",
-                "predicted": "five",
-                "is_correct": false,
-                "confidence": 1.0,
-                "reasoning": "Visual count reveals exactly five distinct giraffe heads/bodies: one on the far left, two in the center-left cluster, one center-right next to the truck, and one on the far right behind the truck. The prompt requested six."
+                "predicted": "six",
+                "is_correct": true,
+                "confidence": 0.95,
+                "reasoning": "There are five fully visible giraffes in the front line and one giraffe head/neck visible behind the truck on the far right, totaling six."
             },
             {
                 "atom_index": 1,
@@ -33,7 +40,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Multiple giraffes are clearly visible as the primary subjects."
+                "reasoning": "Multiple giraffes are clearly the main subject of the image."
             },
             {
                 "atom_index": 2,
@@ -42,7 +49,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is a single vehicle visible on the right side of the frame."
+                "reasoning": "A single beige truck is visible on the right side."
             },
             {
                 "atom_index": 3,
@@ -51,7 +58,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The truck appears to be made of painted metal (beige/tan color) with glass windows, rubber tires, and standard automotive features. It does not exhibit the texture, color, or structural properties of stone."
+                "reasoning": "The truck appears to be made of painted metal (steel/aluminum) with glass windows and rubber tires. It does not have the texture, color, or structural properties of stone."
             },
             {
                 "atom_index": 4,
@@ -60,7 +67,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A large utility truck is clearly present."
+                "reasoning": "A vehicle identifiable as a truck is present."
             }
         ],
         "checkpoint_verdicts": [
@@ -70,7 +77,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The vehicle resembles a medium/heavy-duty tactical or utility truck (cab-over or conventional long-nose) rather than a 'light-duty' pickup. The cargo area is obscured by giraffes, making the 'open bed' verification difficult, but the overall scale and wheel size suggest a heavier class than specified."
+                "reasoning": "The vehicle has a solid, box-like cargo area attached to the cab, not an open cargo bed with low side walls typical of a pickup/light-duty truck."
             },
             {
                 "object": "truck",
@@ -78,7 +85,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The truck is significantly larger than a passenger car, consistent with a utility vehicle."
+                "reasoning": "The vehicle is a large commercial/military style truck, significantly larger than a passenger car."
             },
             {
                 "object": "truck",
@@ -86,23 +93,23 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The wheels are large and the chassis sits high off the ground."
+                "reasoning": "The wheels are large and the chassis sits high off the ground, consistent with a heavy-duty truck."
             },
             {
                 "object": "truck",
                 "checkpoint": "Open rear cargo bed occupying roughly half the vehicle's total length.",
                 "category": "Geometry_and_Silhouette",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "The rear section of the truck is heavily occluded by the bodies of the giraffes standing directly beside/behind it. It is impossible to verify if there is an open bed or a closed box/canvas cover."
+                "reasoning": "The rear section is an enclosed box structure, not an open bed."
             },
             {
                 "object": "truck",
                 "checkpoint": "Low side walls approximately knee-height with flat floor and hinged tailgate.",
                 "category": "Functional_Components",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "Occluded by giraffes; cannot see the bed walls or tailgate."
+                "reasoning": "Side walls are full-height enclosure panels, not low knee-height walls."
             },
             {
                 "object": "truck",
@@ -110,7 +117,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The cab is visible and appears to be a standard single-row configuration."
+                "reasoning": "The vehicle has a distinct cab section for the driver/passengers."
             },
             {
                 "object": "truck",
@@ -118,15 +125,15 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The front fascia is clearly visible with a vertical slat grille, round headlights, and a heavy bumper."
+                "reasoning": "A large vertical grille, round headlights, and a heavy bumper are clearly visible."
             },
             {
                 "object": "truck",
                 "checkpoint": "Protruding wheel arches above bed sides.",
                 "category": "Functional_Components",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Large, protruding fenders are visible over the front wheels."
+                "is_present": false,
+                "reasoning": "Wheel arches are integrated into the fenders/cab structure, not protruding above separate bed sides."
             },
             {
                 "object": "truck",
@@ -134,7 +141,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The surface reflects light like painted metal; no stone texture is present."
+                "reasoning": "Surface reflects light like painted metal; seams and rivets suggest panel construction."
             },
             {
                 "object": "truck",
@@ -142,35 +149,35 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The design is functional and rugged, fitting the utilitarian description."
+                "reasoning": "The design is functional and boxy, typical of utility vehicles."
             },
             {
                 "object": "truck",
                 "checkpoint": "Cab-to-bed transition visible from side profile.",
                 "category": "Material_and_Context",
-                "is_testable": false,
-                "is_present": false,
-                "reasoning": "The transition point is blocked by the legs and bodies of the central giraffes."
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There is a clear visual separation between the driver's cab and the rear cargo box."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "fusion",
-                "location": "Center giraffe legs and truck body",
-                "severity": 3,
-                "reasoning": "The legs of the third giraffe (center) appear to merge unnaturally with the dark shadow/body of the fourth giraffe and potentially the truck's wheel well area. There is a lack of clear separation between the limbs and the background objects."
-            },
-            {
                 "artifact_type": "structural_collapse",
-                "location": "Far right giraffe neck/base",
-                "severity": 2,
-                "reasoning": "The neck of the giraffe on the far right seems to emerge from behind the truck without a clearly defined shoulder or body connection visible, creating a 'floating head' effect relative to the expected anatomy."
+                "location": "Giraffe legs (center-left group)",
+                "severity": 3,
+                "reasoning": "The legs of the second and third giraffes from the left exhibit unnatural thinning, merging, and ambiguous joint structures near the hooves. Some legs appear to float or lack proper connection to the body mass."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Truck license plate",
+                "location": "Giraffe patterns (center)",
                 "severity": 2,
-                "reasoning": "The license plate contains gibberish text/symbols that do not form valid characters, typical of AI generation."
+                "reasoning": "The spot patterns on the central giraffes show slight warping and inconsistent scaling where the neck meets the body, suggesting generative smoothing artifacts."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Truck front wheel",
+                "severity": 2,
+                "reasoning": "The front tire appears slightly elliptical and flattened against the ground in a way that doesn't perfectly match the perspective of the rest of the vehicle, looking somewhat 'painted on'."
             }
         ],
         "expert_verification_plan": [
@@ -181,95 +188,108 @@
                     "Atom 0",
                     "Atom 1"
                 ],
-                "reason": "To rigorously verify the count of giraffes (Atom 0) which was incorrect in the initial pass, and confirm presence (Atom 1). Bounding boxes will help distinguish overlapping individuals.",
-                "weight": 0.3
+                "reason": "To rigorously verify the count of six giraffes and confirm their presence, especially checking if the partially occluded giraffe behind the truck is correctly identified.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Atom 1"
+                ],
+                "reason": "To confirm the biological classification of the subjects as giraffes and rule out other long-necked animals or hallucinated hybrids.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "verification_goals": [
+                    "Atom 2",
+                    "Atom 4"
+                ],
+                "reason": "To detect the vehicle and provide bounding box evidence for its classification as a truck versus other vehicle types.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "truck",
                 "verification_goals": [
                     "Atom 3",
-                    "Checkpoint: Painted steel or aluminum panel construction"
+                    "Checkpoint: Material_and_Context"
                 ],
-                "reason": "To definitively classify the material and type of the vehicle, confirming it is a metal truck and not a stone sculpture or other object, addressing the failed Atom 3.",
-                "weight": 0.2
+                "reason": "To analyze the material properties of the truck surface to definitively determine if it is stone or metal/paint, addressing the specific prompt constraint.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "giraffe",
                 "verification_goals": [
-                    "Artifact: fusion (Center giraffe legs)",
-                    "Artifact: structural_collapse (Far right giraffe)"
+                    "Artifact: structural_collapse"
                 ],
-                "reason": "To audit the skeletal structure of the giraffes, specifically checking for limb fusion in the center group and valid neck-body connectivity for the rightmost giraffe.",
-                "weight": 0.2
+                "reason": "To audit the skeletal structure of the giraffes, specifically verifying limb connectivity and joint validity in the center group where artifacts were observed.",
+                "weight": 0.15
             },
             {
-                "expert_name": "geometric_depth_auditor",
+                "expert_name": "perceptual_quality_auditor",
                 "target_subject": "truck",
                 "verification_goals": [
-                    "Checkpoint: Open rear cargo bed...",
-                    "Checkpoint: Cab-to-bed transition..."
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Artifact: perspective_distortion"
                 ],
-                "reason": "To analyze the depth map around the occluded areas of the truck to determine if a cargo bed physically exists behind the giraffes or if the geometry collapses into void.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "image_text_auditor",
-                "target_subject": "license plate",
-                "verification_goals": [
-                    "Artifact: texture_anomaly (Truck license plate)"
-                ],
-                "reason": "To confirm the text on the license plate is gibberish, supporting the artifact detection.",
-                "weight": 0.15
+                "reason": "To perform a holistic quality check on the truck's geometry, verifying if the 'stone' attribute manifests as a texture overlay error or a fundamental shape failure.",
+                "weight": 0.1
             }
         ],
-        "unverifiable_points": [
-            "Checkpoint: Low side walls approximately knee-height with flat floor and hinged tailgate (Due to severe occlusion by giraffes)"
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Giraffe counting accuracy (verify if 5 or 6 exist)",
-            "Truck material composition (Metal vs Stone)",
-            "Leg fusion artifacts in the center cluster",
-            "Occluded truck bed geometry"
+            "Verify the exact count of giraffes including occluded instances.",
+            "Confirm the material composition of the truck (Stone vs Metal).",
+            "Audit the anatomical correctness of the giraffe legs in the center cluster.",
+            "Verify the truck type (Pickup/Open Bed vs Enclosed Box)."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "giraffe",
-                "reason": "To rigorously verify the count of giraffes (Atom 0) which was incorrect in the initial pass, and confirm presence (Atom 1). Bounding boxes will help distinguish overlapping individuals.",
-                "weight": 0.3
+                "reason": "To rigorously verify the count of six giraffes and confirm their presence, especially checking if the partially occluded giraffe behind the truck is correctly identified.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "reason": "To confirm the biological classification of the subjects as giraffes and rule out other long-necked animals or hallucinated hybrids.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "reason": "To detect the vehicle and provide bounding box evidence for its classification as a truck versus other vehicle types.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "truck",
-                "reason": "To definitively classify the material and type of the vehicle, confirming it is a metal truck and not a stone sculpture or other object, addressing the failed Atom 3.",
-                "weight": 0.2
+                "reason": "To analyze the material properties of the truck surface to definitively determine if it is stone or metal/paint, addressing the specific prompt constraint.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "giraffe",
-                "reason": "To audit the skeletal structure of the giraffes, specifically checking for limb fusion in the center group and valid neck-body connectivity for the rightmost giraffe.",
-                "weight": 0.2
+                "reason": "To audit the skeletal structure of the giraffes, specifically verifying limb connectivity and joint validity in the center group where artifacts were observed.",
+                "weight": 0.15
             },
             {
-                "expert_name": "geometric_depth_auditor",
+                "expert_name": "perceptual_quality_auditor",
                 "target_subject": "truck",
-                "reason": "To analyze the depth map around the occluded areas of the truck to determine if a cargo bed physically exists behind the giraffes or if the geometry collapses into void.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "image_text_auditor",
-                "target_subject": "license plate",
-                "reason": "To confirm the text on the license plate is gibberish, supporting the artifact detection.",
-                "weight": 0.15
+                "reason": "To perform a holistic quality check on the truck's geometry, verifying if the 'stone' attribute manifests as a texture overlay error or a fundamental shape failure.",
+                "weight": 0.1
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/194.png",
             "prompt_id": "194",
             "prompt_text": "six giraffes and a stone truck",
-            "router_cost_seconds": 42.13,
+            "router_cost_seconds": 42.94,
             "plan_valid": true
         }
     }

@@ -2,34 +2,35 @@
     "image_id": "470",
     "prompt": "four checkered bicycles, and a violin under three rabbits",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:59:27",
+    "timestamp": "2026-09-02 23:11:50",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains critical logical errors in Atom QA judgments and fails to utilize the most appropriate expert for verifying spatial relationships. Specifically: 1) The Router incorrectly judged Atom 0 (Bicycle Count) as False (predicting 3 instead of 4), ignoring the fourth bicycle clearly visible in the bottom-left quadrant. 2) The Router incorrectly judged Atom 5 (Violin under rabbits) as False, failing to recognize that one violin is physically positioned underneath a rabbit on the shelf. 3) The `geometric_depth_auditor` was assigned to verify this spatial relationship, but the `open_vocabulary_detector` is the scientifically valid tool for establishing bounding box overlaps required to answer 'under/over' questions. 4) The plan misses the verification of the 'checkered' attribute for the specific bicycles identified by the detector.",
+        "reasons_for_rejection": "The evaluation plan contains critical logical errors in Atom QA judgments and fails to address a major structural artifact. Specifically: 1) The Router incorrectly judged Atom 0 (Bicycle Count) as 'False' (predicting 3 instead of 4), missing the fourth bicycle which is clearly visible in the bottom-left quadrant (partially behind the leftmost rabbit). 2) The Router failed to identify that the 'Tilted Violin' in the top-right of the bottom section is actually a Cello or Double Bass due to its size relative to the other violin and rabbits, leading to an incorrect count judgment for Atom 3. 3) The spatial relationship in Atom 5 ('Violin under rabbits') was judged 'No', but one violin is clearly positioned on the shelf between/under the central rabbit's visual plane, warranting a more nuanced check. 4) The 'structural_collapse' artifact noted in the tandem bike is minor, but the plan misses the severe 'floating/disconnected' nature of the upper violin/cello which lacks proper grounding shadows compared to the shelf items.",
         "suggestions": [
             {
-                "type": "logic_correction",
-                "point": "Atom 0 (Bicycle Count) judgment is factually incorrect. The image contains four bicycles (Top-Left Red, Top-Right Tandem, Bottom-Left Black, and potentially a partial view or the black bike is being miscounted). Re-evaluate the bottom-left quadrant. If the black bike is present, the count is at least 3. Wait, looking closely at the bottom left, there is a black bike. Looking at the top right, there is a tandem. Top left is red. That is 3. Is there a 4th? The prompt asks for 4. The router says 3. Let's look really closely. There are only 3 distinct bicycles. The router is correct about the count being 3, so the generation failed Atom 0. However, the Router's reasoning for Atom 5 is flawed."
-            },
-            {
                 "type": "missing_verification",
-                "point": "Atom 5 (Is the violin under the rabbits?) requires precise bounding box overlap analysis. The current plan assigns this to `geometric_depth_auditor`, which is suboptimal for 2D compositional logic. `open_vocabulary_detector` should provide BBoxes for 'violin' and 'rabbit' to mathematically verify if Violin_BBox.y > Rabbit_BBox.y (assuming y-down) or if they share x-coordinates with vertical stacking.",
+                "point": "Atom 0 (Bicycle Count): Re-evaluate the bottom-left quadrant. There is a black bicycle partially occluded by the leftmost rabbit. The count is 4, not 3.",
                 "recommended_expert": "open_vocabulary_detector"
             },
             {
-                "type": "expert_misallocation",
-                "point": "The `fine_grained_classifier` is assigned to verify bicycle geometry checkpoints. This is inefficient; `topology_boundary_auditor` or `perceptual_quality_auditor` is better suited for structural integrity (wheels, frames), while `fine_grained_classifier` is best for species/type ID. The current assignment risks false negatives on structural issues due to classification focus.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_verification",
+                "point": "Atom 3 (Violin Count/Taxonomy): The larger string instrument floating above the shelf has proportions of a Cello or Double Bass, not a Violin. This affects the count of 'violins' specifically.",
+                "recommended_expert": "fine_grained_classifier"
             },
             {
-                "type": "unverifiable_point_review",
-                "point": "The point 'Two handlebars... rear rider having fixed or adjustable handlebars' is marked unverifiable due to occlusion. However, `topology_boundary_auditor` could attempt to segment the 'handlebar' class in the rear region to see if any structure exists beneath the fabric texture, rather than dismissing it entirely.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "missing_verification",
+                "point": "Atom 5 (Spatial Relationship): The upright violin is on the same shelf as the rabbits, effectively 'under' their eye-level or between them. The current 'No' verdict is too strict; verify depth overlap.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "artifact_missed",
+                "point": "Shadow Consistency: The floating violin/cello lacks a cast shadow on the shelf or background, unlike the rabbits and upright violin. This indicates a generation artifact (floating object).",
+                "recommended_expert": "geometric_depth_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a collage of four bicycles and three rabbits with two violins against a white background. The top row features two bicycles: one red cruiser-style bike with checkered accents and one tandem bicycle covered in red-and-white checkered fabric. The bottom row shows a black cruiser bicycle, three small brown-and-white rabbits sitting on a wooden plank, and two violins (one upright, one angled).",
+        "image_description": "The image displays a collage of four bicycles and three rabbits with two violins against a white background. The top row features two bicycles: one red cruiser-style bike with checkered accents and one tandem bicycle covered in red-and-white checkered fabric. The bottom row shows a black cruiser bicycle, three small brown-and-white rabbits sitting on a wooden shelf, and two violins (one upright, one tilted).",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -38,7 +39,7 @@
                 "predicted": "three",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are clearly only three distinct bicycles visible: one red cruiser (top left), one tandem bike (top right), and one black cruiser (bottom left). The prompt asked for four."
+                "reasoning": "There are clearly only three distinct bicycles visible: one red cruiser (top left), one tandem bike (top right), and one black cruiser (bottom left)."
             },
             {
                 "atom_index": 1,
@@ -47,7 +48,7 @@
                 "predicted": "Partially",
                 "is_correct": false,
                 "confidence": 0.95,
-                "reasoning": "Only the top-right tandem bike is fully checkered. The top-left bike has checkered fenders/chain guard but a solid red frame. The bottom-left bike is solid black with no checkers. 'Yes' implies all or predominantly, which is inaccurate."
+                "reasoning": "Only the top-right tandem bike is fully checkered. The top-left bike has checkered fenders/chain guard but a solid red frame. The bottom-left bike is solid black with no checkers."
             },
             {
                 "atom_index": 2,
@@ -65,7 +66,7 @@
                 "predicted": "two",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are two distinct violin bodies visible in the bottom right quadrant: one standing upright and one floating/angled above it."
+                "reasoning": "There are two distinct violin bodies visible in the bottom right quadrant: one standing upright and one floating/tilted above it."
             },
             {
                 "atom_index": 4,
@@ -83,7 +84,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The violins are positioned to the right of the rabbits, not underneath them. One rabbit is to the left of the upright violin, one is behind/between, and one is to the far right. None are physically on top of the violins."
+                "reasoning": "The violins are positioned to the right of the rabbits or between them, not underneath them. The rabbits are sitting on a shelf; the violins are also on or near the shelf but not below the animals."
             },
             {
                 "atom_index": 6,
@@ -92,7 +93,7 @@
                 "predicted": "three",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Three rabbits are clearly visible on the wooden plank."
+                "reasoning": "Three rabbits are clearly visible on the wooden shelf."
             },
             {
                 "atom_index": 7,
@@ -111,7 +112,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The top-right bicycle clearly exhibits the elongated frame, dual seats, and tandem pedal configuration characteristic of a bicycle-built-for-two."
+                "reasoning": "The top-right bicycle matches the tandem description perfectly with extended frame, two seats, and two pedal sets."
             },
             {
                 "object": "bicycle",
@@ -119,7 +120,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The tandem bike shows two clear seating areas separated by an extended frame section."
+                "reasoning": "Visible on the top-right tandem bike."
             },
             {
                 "object": "bicycle",
@@ -127,15 +128,15 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The long horizontal beam connecting the handlebars to the rear seat area is visible on the tandem bike."
+                "reasoning": "Clearly visible on the tandem bike structure."
             },
             {
                 "object": "bicycle",
                 "checkpoint": "Two handlebars with front rider steering and rear rider having fixed or adjustable handlebars.",
                 "category": "Functional_Components",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "While the front handlebars are visible, the rear handlebars are obscured by the checkered fabric covering the frame, making them impossible to verify as present."
+                "is_present": true,
+                "reasoning": "Both sets of handlebars are visible on the tandem bike."
             },
             {
                 "object": "bicycle",
@@ -143,7 +144,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Two distinct black saddles are visible on the tandem bike, with the rear one appearing slightly lower or level with the front."
+                "reasoning": "Two distinct seats are visible on the tandem bike."
             },
             {
                 "object": "bicycle",
@@ -151,7 +152,31 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "All visible bicycles have standard-sized wheels proportional to their frames."
+                "reasoning": "Wheels appear proportional to standard bicycle sizes across all three bikes."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Frame significantly longer than standard bicycle.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tandem bike frame is visibly elongated compared to the standard cruisers."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Tandem configuration with one rider behind another.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The seating arrangement confirms tandem configuration."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Two distinct rider positions visible in profile.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Profile view clearly shows two seating positions."
             },
             {
                 "object": "rabbit",
@@ -159,7 +184,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The rabbits depicted have relatively short, upright ears typical of domestic rabbits, not the exceptionally long ears with black tips characteristic of hares. The ear length is proportional to a rabbit, not a hare."
+                "reasoning": "The rabbits have relatively short, upright ears typical of domestic rabbits, not the exceptionally long ears with black tips characteristic of hares."
             },
             {
                 "object": "rabbit",
@@ -167,7 +192,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The animals have compact, rounded bodies typical of rabbits, not the elongated, athletic build of hares. They appear small and cuddly rather than large and powerful."
+                "reasoning": "The animals have compact, rounded bodies typical of rabbits, not the elongated, athletic build of hares."
             },
             {
                 "object": "rabbit",
@@ -175,7 +200,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The rabbits display dense fur with brown/orange and white coloration, matching the description."
+                "reasoning": "Fur appears dense with brown and white coloration."
             },
             {
                 "object": "rabbit",
@@ -183,7 +208,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Short, fluffy tails are visible on the rabbits, consistent with leporid anatomy."
+                "reasoning": "Short tails are visible on the rabbits."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Larger than rabbit with longer ears and legs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "These are clearly rabbits, not hares; they lack the size and limb proportions of hares."
             },
             {
                 "object": "rabbit",
@@ -191,7 +224,15 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The hind legs are proportionate to domestic rabbits, not the massively elongated, muscular limbs of hares adapted for high-speed leaping."
+                "reasoning": "Hind legs are proportionate to domestic rabbits, not the massively elongated legs of hares."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Shorter forelegs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Forelegs are visibly shorter than hind legs, consistent with lagomorph anatomy."
             },
             {
                 "object": "violin",
@@ -199,7 +240,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Both instruments show the classic curved wooden body shape of violins."
+                "reasoning": "Both instruments match the general silhouette of violins."
             },
             {
                 "object": "violin",
@@ -207,7 +248,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The distinctive waist (C-bouts) creating the hourglass silhouette is clearly visible on both violins."
+                "reasoning": "Hourglass shape with C-bouts is clearly visible on both violins."
             },
             {
                 "object": "violin",
@@ -215,7 +256,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Both violins show necks extending upward with scrolled pegboxes at the top."
+                "reasoning": "Necks and scrolls are visible on both instruments."
             },
             {
                 "object": "violin",
@@ -223,7 +264,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Strings, bridges, and tuning pegs are visible on both instruments, though fine detail is somewhat stylized."
+                "reasoning": "Strings, bridges, and tuning pegs are discernible on both violins."
             },
             {
                 "object": "violin",
@@ -231,7 +272,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The characteristic f-holes are clearly rendered on both violin bodies."
+                "reasoning": "F-holes are clearly visible on both instrument bodies."
             },
             {
                 "object": "violin",
@@ -243,11 +284,27 @@
             },
             {
                 "object": "violin",
+                "checkpoint": "Top plate is spruce; back plate is maple with a distinctive flame pattern.",
+                "category": "Material_and_Context",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Material composition (spruce/maple) cannot be visually verified from the image alone."
+            },
+            {
+                "object": "violin",
                 "checkpoint": "Varnish finish is amber, reddish-brown, or golden.",
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Both violins exhibit warm amber/reddish-brown varnish tones typical of traditional instruments."
+                "reasoning": "Both violins display appropriate amber/reddish-brown varnish finishes."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Bow is a wooden stick with horsehair.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A bow is visible resting on/near the tilted violin."
             }
         ],
         "artifact_observations": [
@@ -255,31 +312,31 @@
                 "artifact_type": "structural_collapse",
                 "location": "Top-right tandem bicycle rear wheel area",
                 "severity": 3,
-                "reasoning": "The rear wheel appears partially melted into the checkered fabric covering, with spokes disappearing unnaturally into the pattern. The wheel rim also shows slight distortion where it meets the fabric."
-            },
-            {
-                "artifact_type": "texture_anomaly",
-                "location": "Bottom-left black bicycle frame",
-                "severity": 2,
-                "reasoning": "The black frame has an inconsistent glittery/sparkle texture that doesn't match realistic paint or metal finishes. The texture appears randomly distributed rather than following the frame's contours logically."
-            },
-            {
-                "artifact_type": "perspective_distortion",
-                "location": "Floating violin (upper right of bottom section)",
-                "severity": 2,
-                "reasoning": "The angled violin lacks proper spatial grounding - it floats without shadow or support, and its perspective doesn't align coherently with the upright violin below it or the rabbits nearby."
+                "reasoning": "The rear wheel appears partially melted into the checkered fabric covering, with spokes disappearing unnaturally into the pattern. The wheel rim also shows slight distortion."
             },
             {
                 "artifact_type": "fusion",
-                "location": "Middle rabbit and upright violin",
+                "location": "Bottom-right upright violin and rabbit",
                 "severity": 2,
-                "reasoning": "The middle rabbit's left paw appears to merge slightly with the base of the upright violin, with unclear boundary definition between fur and wood."
+                "reasoning": "The base of the upright violin appears to fuse slightly with the wooden shelf surface, lacking clear separation shadow. The middle rabbit's paw also seems to blend into the shelf edge."
             },
             {
-                "artifact_type": "other",
-                "location": "Checkered fabric on tandem bicycle",
+                "artifact_type": "texture_anomaly",
+                "location": "Black bicycle (bottom-left) frame",
                 "severity": 2,
-                "reasoning": "The checkered pattern warps and stretches unnaturally around the frame tubes, particularly near the rear triangle, suggesting AI difficulty maintaining consistent pattern geometry on complex 3D surfaces."
+                "reasoning": "The black frame has an unusual glittery/sparkly texture that doesn't match realistic bicycle paint, suggesting AI texture generation artifact."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Tilted violin (top-right of bottom section)",
+                "severity": 2,
+                "reasoning": "The tilted violin floats without clear spatial grounding; its perspective doesn't align coherently with the shelf or other objects, creating a disconnected appearance."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Red bicycle (top-left) chain mechanism",
+                "severity": 1,
+                "reasoning": "The chain and gear mechanism appears simplified and partially missing, with the chain guard showing checkered pattern but no visible functional drivetrain components."
             }
         ],
         "expert_verification_plan": [
@@ -287,9 +344,9 @@
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bicycle",
                 "verification_goals": [
-                    "Atom 0",
-                    "Atom 1",
-                    "Atom 2"
+                    "atom_0",
+                    "atom_1",
+                    "atom_2"
                 ],
                 "reason": "Verify exact count of bicycles and detect checkered patterns via bounding box analysis",
                 "weight": 0.2
@@ -298,75 +355,88 @@
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "violin",
                 "verification_goals": [
-                    "Atom 3",
-                    "Atom 4",
-                    "Atom 5"
+                    "atom_3",
+                    "atom_4",
+                    "atom_5"
                 ],
-                "reason": "Confirm violin count and spatial relationship to rabbits through detection boxes",
+                "reason": "Confirm violin count and spatial relationship to rabbits",
                 "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "rabbit",
                 "verification_goals": [
-                    "Atom 6",
-                    "Atom 7"
+                    "atom_6",
+                    "atom_7"
                 ],
-                "reason": "Verify rabbit count and presence with precise localization",
+                "reason": "Verify rabbit count for atom accuracy",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "bicycle",
                 "verification_goals": [
-                    "bicycle Geometry_and_Silhouette checkpoints",
-                    "bicycle Functional_Components checkpoints"
+                    "bicycle_Geometry_and_Silhouette_0",
+                    "bicycle_Geometry_and_Silhouette_1",
+                    "bicycle_Geometry_and_Silhouette_2"
                 ],
-                "reason": "Classify bicycle types to confirm tandem configuration and validate structural checkpoints",
-                "weight": 0.15
+                "reason": "Classify bicycle types to confirm tandem vs standard identification",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
                 "verification_goals": [
-                    "rabbit Head_and_Face checkpoints",
-                    "rabbit Body_and_Plumage checkpoints",
-                    "rabbit Limbs_and_Anatomy checkpoints"
+                    "rabbit_Head_and_Face_0",
+                    "rabbit_Body_and_Plumage_1",
+                    "rabbit_Limbs_and_Anatomy_4"
                 ],
-                "reason": "Distinguish rabbit vs hare taxonomy to verify ear length, body proportions, and limb structure checkpoints",
-                "weight": 0.15
+                "reason": "Distinguish rabbit vs hare taxonomy based on ear length and body proportions",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "rabbit_Limbs_and_Anatomy_4",
+                    "rabbit_Limbs_and_Anatomy_5"
+                ],
+                "reason": "Audit limb proportions to confirm rabbit anatomy vs hare characteristics",
+                "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "bicycle",
                 "verification_goals": [
-                    "structural_collapse artifact",
-                    "texture_anomaly artifact",
-                    "fusion artifact"
+                    "artifact_structural_collapse_tandem_rear_wheel",
+                    "artifact_texture_anomaly_black_frame"
                 ],
-                "reason": "Audit subtle structural and textural artifacts in bicycles that may indicate generation flaws",
+                "reason": "Verify structural integrity and texture anomalies in bicycles",
                 "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "violin",
                 "verification_goals": [
-                    "perspective_distortion artifact",
-                    "Atom 5 spatial relationship"
+                    "artifact_fusion_violin_shelf",
+                    "artifact_perspective_distortion_tilted_violin"
                 ],
-                "reason": "Verify 3D spatial relationships between violins and rabbits, and assess floating object grounding",
+                "reason": "Assess spatial grounding and depth consistency of violins relative to shelf and rabbits",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "bicycle Functional_Components: Two handlebars with front rider steering and rear rider having fixed or adjustable handlebars (rear handlebars occluded by fabric)"
+            "violin_Material_and_Context_2"
         ],
         "focus_areas": [
-            "Count accuracy verification for bicycles and violins",
-            "Spatial relationship validation between violins and rabbits",
-            "Taxonomic classification of rabbits vs hares based on ear/body proportions",
-            "Structural integrity of tandem bicycle components",
-            "Artifact assessment in checkered pattern rendering and floating objects"
+            "Bicycle count discrepancy (prompt says 4, image shows 3)",
+            "Checkered pattern coverage inconsistency across bicycles",
+            "Violin count mismatch (prompt says 1, image shows 2)",
+            "Spatial relationship between violins and rabbits (not 'under')",
+            "Rabbit vs hare taxonomy classification",
+            "Structural artifacts in tandem bicycle rear wheel",
+            "Texture anomalies in black bicycle frame",
+            "Spatial grounding issues with tilted violin"
         ],
         "selected_experts": [
             {
@@ -378,37 +448,43 @@
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "violin",
-                "reason": "Confirm violin count and spatial relationship to rabbits through detection boxes",
+                "reason": "Confirm violin count and spatial relationship to rabbits",
                 "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "rabbit",
-                "reason": "Verify rabbit count and presence with precise localization",
+                "reason": "Verify rabbit count for atom accuracy",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "bicycle",
-                "reason": "Classify bicycle types to confirm tandem configuration and validate structural checkpoints",
-                "weight": 0.15
+                "reason": "Classify bicycle types to confirm tandem vs standard identification",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
-                "reason": "Distinguish rabbit vs hare taxonomy to verify ear length, body proportions, and limb structure checkpoints",
-                "weight": 0.15
+                "reason": "Distinguish rabbit vs hare taxonomy based on ear length and body proportions",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "reason": "Audit limb proportions to confirm rabbit anatomy vs hare characteristics",
+                "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "bicycle",
-                "reason": "Audit subtle structural and textural artifacts in bicycles that may indicate generation flaws",
+                "reason": "Verify structural integrity and texture anomalies in bicycles",
                 "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "violin",
-                "reason": "Verify 3D spatial relationships between violins and rabbits, and assess floating object grounding",
+                "reason": "Assess spatial grounding and depth consistency of violins relative to shelf and rabbits",
                 "weight": 0.1
             }
         ],
@@ -416,7 +492,7 @@
             "original_image": "geneval2_sd3_m_800/470.png",
             "prompt_id": "470",
             "prompt_text": "four checkered bicycles, and a violin under three rabbits",
-            "router_cost_seconds": 62.19,
+            "router_cost_seconds": 70.63,
             "plan_valid": true
         }
     }

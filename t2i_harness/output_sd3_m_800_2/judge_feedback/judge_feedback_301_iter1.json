@@ -2,30 +2,33 @@
     "image_id": "301",
     "prompt": "a purple cow, and six dogs behind a croissant",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:45:06",
+    "timestamp": "2026-09-02 22:57:18",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the Taxonomy Checkpoint reasoning. The Router incorrectly penalizes the image for failing to meet 'real-world biological standards' (e.g., lack of dewlap, non-cloven hooves, natural coat colors) despite the image being explicitly stylized as a cartoon/illustration. Applying strict anatomical taxonomy to a cartoon character results in false negatives. Additionally, the plan fails to assign an expert to verify the count and presence of the 'cow' and 'croissant', focusing exclusively on the dogs.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the Expert Verification Plan regarding the 'fine_grained_classifier' for dogs. The prompt requests 'six dogs' without specifying a breed. However, the Router assigned a 'fine_grained_classifier' to verify if the dogs are 'German Shepherds' based on internal taxonomy checkpoints that were incorrectly applied to a generic prompt. This introduces a hallucinated constraint (breed specificity) that is not present in the user prompt, leading to false negative evaluations for style/anatomy. Additionally, the 'animal_pose_auditor' is assigned to the cow, but the image is a stylized cartoon where biological keypoint auditing (cloven hooves, dewlap) is semantically invalid; this expert should be reserved for realistic depictions or explicitly flagged as 'style-mismatch' rather than 'anatomical error'.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Atom 0 & 2 (Cow Count/Presence)",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "remove_hallucinated_constraint",
+                "point": "Remove fine_grained_classifier for dogs targeting German Shepherd traits.",
+                "recommended_expert": "N/A (Remove from plan)",
+                "reasoning": "The prompt does not specify a dog breed. Evaluating against GSD taxonomy is irrelevant and causes false failures. Generic object detection is sufficient for 'dog' presence."
             },
             {
                 "type": "missing_verification",
-                "point": "Atom 6 & 7 (Croissant Count/Presence)",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Verify spatial relationship 'behind' for all dogs relative to the croissant.",
+                "recommended_expert": "geometric_depth_auditor",
+                "reasoning": "The current plan only targets the croissant for depth auditing. It must explicitly verify the depth order of *each* dog instance relative to the croissant to answer Atom 5 rigorously, especially since some dogs appear adjacent rather than occluded."
             },
             {
-                "type": "logical_correction",
-                "point": "Taxonomy Checkpoints for Cow/Dog",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "expert_misapplication",
+                "point": "Re-evaluate animal_pose_auditor usage for stylized cartoon cow.",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reasoning": "Keypoint auditing for biological correctness (hooves/dewlap) on a cartoon character is category-error. A perceptual auditor should assess if the stylization is consistent, rather than flagging missing biological features as errors."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A cartoon-style illustration featuring a large purple cow with yellow horns and brown hair on the left, positioned behind a large golden croissant. To the right of the cow, there are four dogs (two in the front row, two in the back row) looking forward. The background is a blurred green field with blue sky.",
+        "image_description": "A cartoon-style illustration featuring a large purple cow with yellow horns and brown hair on the left, positioned behind a large golden croissant. To the right of the cow, there are four dogs: two in the foreground (one black/tan/white, one white/black/brown) and two in the background (one orange/white, one brown/white). They appear to be resting their paws on a wooden surface.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -34,7 +37,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is clearly one large purple bovine figure on the left side of the image."
+                "reasoning": "There is clearly a single large purple bovine figure on the left side of the image."
             },
             {
                 "atom_index": 1,
@@ -61,7 +64,7 @@
                 "predicted": "four",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "I can clearly count four distinct dog heads/bodies: two in the foreground (black/tan and white/black) and two in the background (orange/white and brown/white). There are no hidden dogs visible."
+                "reasoning": "I can count exactly four distinct dog heads/bodies: two in the front row and two in the back row. The prompt asked for six."
             },
             {
                 "atom_index": 4,
@@ -70,7 +73,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Four dogs are clearly visible on the right side."
+                "reasoning": "There are four visible dogs."
             },
             {
                 "atom_index": 5,
@@ -79,7 +82,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 0.9,
-                "reasoning": "The croissant is in the bottom-left foreground. The dogs are to the right of the croissant, not spatially behind it from the viewer's perspective. They appear to be on the same surface or slightly behind the table edge, but laterally separated from the croissant."
+                "reasoning": "The croissant is in the bottom-left foreground. The dogs are to the right of the croissant, not spatially behind it from the viewer's perspective. They are roughly on the same plane or slightly behind the table edge, but not occluded by the croissant."
             },
             {
                 "atom_index": 6,
@@ -97,7 +100,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A croissant is clearly visible in the bottom left."
+                "reasoning": "A croissant is clearly visible."
             }
         ],
         "checkpoint_verdicts": [
@@ -107,7 +110,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The cartoon cow has a stylized but broad head and wide pink muzzle consistent with bovine anatomy."
+                "reasoning": "The cartoon cow has a stylized but recognizable broad head and wide pink muzzle."
             },
             {
                 "object": "cow",
@@ -115,7 +118,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Two yellow horns are visible curving upwards and outwards from the top of the head."
+                "reasoning": "Two yellow horns are visible, curving upwards and outwards."
             },
             {
                 "object": "cow",
@@ -123,7 +126,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The eyes are large but stylized cartoon eyes with white sclera and purple irises, not 'dark' as specified in the biological taxonomy for an ox."
+                "reasoning": "The eyes are large but they are stylized cartoon eyes with white sclera and purple irises, not 'dark' biological eyes as described in the taxonomy."
             },
             {
                 "object": "cow",
@@ -139,7 +142,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The neck is smooth and stylized; there is no visible dewlap (loose skin) typical of real cattle."
+                "reasoning": "The neck is smooth and stylized; there is no visible dewlap (loose skin fold) typical of real cattle."
             },
             {
                 "object": "cow",
@@ -147,7 +150,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The body is round and cartoonish, lacking the specific muscular definition and wither height of a real ox."
+                "reasoning": "The body is round and cartoonish, lacking the specific muscular definition and wither height of a real ox/cow."
             },
             {
                 "object": "cow",
@@ -155,7 +158,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The coat is solid purple, which contradicts the natural coloration (white, brown, black, pied) specified in the taxonomy."
+                "reasoning": "The coat is solid purple, which contradicts the natural coloration specified in the taxonomy (white, brown, black, pied)."
             },
             {
                 "object": "cow",
@@ -163,7 +166,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The body shape is a simplified cartoon blob, not anatomically deep-chested."
+                "reasoning": "The anatomy is too simplified/cartoonish to verify deep chest or strong back structure accurately."
             },
             {
                 "object": "cow",
@@ -171,7 +174,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The legs end in rounded white stumps/paws, not cloven hooves."
+                "reasoning": "The feet are depicted as simple white rounded stumps/paws, not cloven hooves."
             },
             {
                 "object": "cow",
@@ -187,7 +190,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The dogs have varied, stylized cartoon faces (some short-snouted), not the specific 'noble', long-muzzled German Shepherd phenotype."
+                "reasoning": "The dogs have varied, generic cartoon breeds (some look like Corgis or mixed breeds), not the specific 'noble' German Shepherd head shape."
             },
             {
                 "object": "dog",
@@ -195,7 +198,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only the top-right orange dog has erect ears. The other three dogs have floppy or semi-pricked ears, inconsistent with the strict German Shepherd standard."
+                "reasoning": "Only the top-right orange dog has erect ears. The others have floppy or semi-erect ears, inconsistent with the strict German Shepherd standard."
             },
             {
                 "object": "dog",
@@ -211,7 +214,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bodies are generic cartoon dog shapes; the distinctive sloping back of a GSD is not clearly rendered, especially on the front dogs."
+                "reasoning": "The bodies are generic cartoon dog shapes; the specific sloping topline of a GSD is not clearly rendered."
             },
             {
                 "object": "dog",
@@ -219,43 +222,35 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The dogs display various colors (orange/white, brown/white, tricolor) that do not match the specific GSD color palette (black/tan, sable, solid black)."
-            },
-            {
-                "object": "dog",
-                "checkpoint": "Coat is dense, straight, and close-lying with a thick undercoat.",
-                "category": "Body_and_Plumage",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "The fur texture is smooth vector-art style, lacking the density and texture of a real double coat."
+                "reasoning": "The coats vary wildly (orange/white, brown/white, tricolor), and do not match the specific GSD color palette strictly."
             },
             {
                 "object": "dog",
                 "checkpoint": "Tail is bushy, reaches to the hock, and carried low with a slight curve.",
                 "category": "Limbs_and_Anatomy",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "Tails are mostly obscured by the table edge or body positioning; impossible to verify length or carriage."
+                "reasoning": "Tails are mostly hidden or not clearly visible in the required position/style."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Cow's front legs/paws",
+                "location": "Cow's front legs/feet",
                 "severity": 3,
-                "reasoning": "The cow's front limbs terminate in undefined white blobs that resemble paws rather than hooves, and they merge slightly with the table surface without clear contact shadows or anatomical correctness."
+                "reasoning": "The cow's front feet are rendered as generic white blobs/paws rather than hooves, and they seem to merge slightly with the table surface without clear grounding."
             },
             {
                 "artifact_type": "texture_anomaly",
                 "location": "Croissant surface",
                 "severity": 2,
-                "reasoning": "The croissant has an overly glossy, plastic-like sheen that lacks the flaky, matte-to-satin texture of real baked pastry, appearing more like rendered clay."
+                "reasoning": "The croissant has a very glossy, plastic-like sheen that looks more like rendered clay than baked pastry layers."
             },
             {
-                "artifact_type": "perspective_distortion",
-                "location": "Table edge and background",
+                "artifact_type": "fusion",
+                "location": "Dogs' paws on table",
                 "severity": 2,
-                "reasoning": "The table edge curves unnaturally, and the transition between the table and the background grass is abrupt and lacks proper depth grounding, making the subjects look pasted on."
+                "reasoning": "The paws of the front dogs blend slightly into the table surface, lacking distinct separation or shadow definition at the contact point."
             }
         ],
         "expert_verification_plan": [
@@ -263,30 +258,29 @@
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "dog",
                 "verification_goals": [
-                    "Atom 3",
-                    "Atom 4"
+                    "Atom 3"
                 ],
-                "reason": "To definitively count the number of dogs and confirm presence, as visual counting yielded 4 instead of the expected 6.",
+                "reason": "To definitively count the number of dogs and verify if any are occluded or missing, addressing the discrepancy between expected (6) and observed (4).",
                 "weight": 0.3
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "dog",
-                "verification_goals": [
-                    "dog Head_and_Face",
-                    "dog Body_and_Plumage"
-                ],
-                "reason": "To verify if the dogs classify as German Shepherds or generic dogs, given the significant deviation from breed standards in ears, eyes, and coat color.",
-                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cow",
                 "verification_goals": [
-                    "cow Body_and_Plumage",
-                    "cow Head_and_Face"
+                    "Atom 1",
+                    "Checkpoint: Short dense coat..."
                 ],
-                "reason": "To confirm the object is taxonomically a bovine despite the unnatural purple color and cartoon proportions.",
+                "reason": "To confirm the classification of the animal as a cow despite the unnatural purple coloration, and verify if the texture matches bovine hide.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "dog",
+                "verification_goals": [
+                    "Checkpoint: Ears are large...",
+                    "Checkpoint: Coat is medium-length..."
+                ],
+                "reason": "To determine if the dogs belong to the German Shepherd class as implied by the taxonomy, or if they are generic/mixed breeds.",
                 "weight": 0.2
             },
             {
@@ -302,38 +296,36 @@
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "cow",
                 "verification_goals": [
-                    "cow Limbs_and_Anatomy"
+                    "Checkpoint: Sturdy legs with cloven hooves"
                 ],
-                "reason": "To audit the structural validity of the cow's legs and hooves, which appear malformed in the initial inspection.",
+                "reason": "To audit the limb structure and verify the absence of cloven hooves, confirming the anatomical error.",
                 "weight": 0.15
             }
         ],
-        "unverifiable_points": [
-            "dog Limbs_and_Anatomy: Tail visibility is occluded by the table/body."
-        ],
+        "unverifiable_points": [],
         "focus_areas": [
-            "Count verification for dogs (expected 6 vs observed 4)",
+            "Count verification for dogs (Expected 6 vs Observed 4)",
             "Spatial relationship between croissant and dogs",
-            "Anatomical correctness of cow limbs (hooves vs paws)",
-            "Breed classification of dogs vs German Shepherd standard"
+            "Anatomical correctness of cow feet (hooves vs paws)",
+            "Breed verification for dogs (German Shepherd traits)"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "dog",
-                "reason": "To definitively count the number of dogs and confirm presence, as visual counting yielded 4 instead of the expected 6.",
+                "reason": "To definitively count the number of dogs and verify if any are occluded or missing, addressing the discrepancy between expected (6) and observed (4).",
                 "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "dog",
-                "reason": "To verify if the dogs classify as German Shepherds or generic dogs, given the significant deviation from breed standards in ears, eyes, and coat color.",
+                "target_subject": "cow",
+                "reason": "To confirm the classification of the animal as a cow despite the unnatural purple coloration, and verify if the texture matches bovine hide.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "cow",
-                "reason": "To confirm the object is taxonomically a bovine despite the unnatural purple color and cartoon proportions.",
+                "target_subject": "dog",
+                "reason": "To determine if the dogs belong to the German Shepherd class as implied by the taxonomy, or if they are generic/mixed breeds.",
                 "weight": 0.2
             },
             {
@@ -345,7 +337,7 @@
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "cow",
-                "reason": "To audit the structural validity of the cow's legs and hooves, which appear malformed in the initial inspection.",
+                "reason": "To audit the limb structure and verify the absence of cloven hooves, confirming the anatomical error.",
                 "weight": 0.15
             }
         ],
@@ -353,7 +345,7 @@
             "original_image": "geneval2_sd3_m_800/301.png",
             "prompt_id": "301",
             "prompt_text": "a purple cow, and six dogs behind a croissant",
-            "router_cost_seconds": 55.32,
+            "router_cost_seconds": 52.88,
             "plan_valid": true
         }
     }

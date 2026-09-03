@@ -6,17 +6,15 @@
     "class_id": null,
     "class_label": "four birds on top of a kangaroo, and seven penguins",
     "plan_reference": "approved_plan_369",
-    "execution_timestamp": "2026-09-02 02:08:18",
+    "execution_timestamp": "2026-09-02 23:19:50",
     "focus_areas": [
         "Count verification for penguins (expected 7 vs observed 4)",
-        "Spatial grounding of the floating green bird",
-        "Taxonomic mismatch between prompt implied classes (Cock/Wallaby/King Penguin) and visual reality (Passerines/Kangaroo/Gentoo-like)",
-        "Kangaroo limb integrity and contact points with the rock (melting/fusion)",
-        "Penguin body segmentation and flipper separation (topological errors)",
-        "Scene depth consistency (kangaroo vs. rock vs. sky)"
+        "Physics validation of the floating bird vs perched birds (Atom 2 nuance)",
+        "Geometric grounding of kangaroo on rock surface",
+        "Taxonomic mismatch between prompt/taxonomy (Cock/Wallaby/King Penguin) and visual reality"
     ],
     "custom_prompts_for_reflector": "",
-    "image_description": "A kangaroo stands on a reddish rocky outcrop against a pale blue sky. Three birds are perched directly on the kangaroo's back (one green, two with red/orange heads). A fourth small green bird is hovering or floating in mid-air to the left of the kangaroo's neck. Four penguins are visible standing on the rock in the foreground (three fully visible, one partially cropped on the far left edge).",
+    "image_description": "A photorealistic AI-generated image featuring a kangaroo standing on a reddish rocky outcrop against a clear blue sky. Three birds are perched directly on the kangaroo's back (one green, two with red/orange heads). A fourth bird is hovering or floating in mid-air to the left of the kangaroo's neck without physical contact. In the foreground on the rock, there are four penguins visible (three fully, one partially cropped on the far left edge).",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
@@ -24,9 +22,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "bird",
             "weight": 0.15,
-            "reason": "Verify exact count of birds and detect bounding boxes to confirm spatial relationship (on top vs. floating).",
+            "reason": "Verify exact count of birds and confirm presence despite taxonomic mismatch.",
             "status": "success",
-            "execution_time_ms": 14815.68,
+            "execution_time_ms": 13709.35,
             "evidence": {
                 "detected_objects": [
                     {
@@ -113,9 +111,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "penguin",
             "weight": 0.15,
-            "reason": "Confirm precise count of penguins to validate the missing three subjects.",
+            "reason": "Confirm the count of penguins is indeed less than seven and detect all instances including partial crops.",
             "status": "success",
-            "execution_time_ms": 13762.64,
+            "execution_time_ms": 13778.04,
             "evidence": {
                 "detected_objects": [
                     {
@@ -207,14 +205,39 @@
             "traceback": null
         },
         {
+            "expert_id": "geometric_depth_auditor",
+            "internal_expert_id": "monocular_depth_estimator",
+            "model_name": "Depth_Anything_V1_FP16_MACA",
+            "target_subject": "kangaroo",
+            "weight": 0.2,
+            "reason": "Audit the geometric grounding of the kangaroo on the rock to ensure it is not floating or melting into the terrain, validating the spatial relationship for the scene.",
+            "status": "success",
+            "execution_time_ms": 66.89,
+            "evidence": {
+                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output/depth_maps/369_depth.png",
+                "depth_statistics": {
+                    "min_value": 0.0,
+                    "max_value": 17.5693,
+                    "mean_value": 3.4096,
+                    "std_deviation": 5.0307
+                }
+            },
+            "raw_metrics": {
+                "input_resolution": "518x518",
+                "output_resolution": "1024x1024"
+            },
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "bird",
             "weight": 0.1,
-            "reason": "Determine if birds are taxonomically 'cocks' or passerines to validate negative checkpoint verdicts regarding combs/wattles.",
+            "reason": "Confirm the birds are not 'cocks' (roosters) as implied by the taxonomy, validating the negative checkpoint verdicts.",
             "status": "success",
-            "execution_time_ms": 96.37,
+            "execution_time_ms": 117.74,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -245,71 +268,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "penguin",
-            "weight": 0.1,
-            "reason": "Identify penguin species to confirm absence of King Penguin orange auricular patches.",
-            "status": "success",
-            "execution_time_ms": 172.54,
-            "evidence": {
-                "top3_candidates": [
-                    {
-                        "rank": 1,
-                        "class_index": 145,
-                        "label_name": "king penguin, Aptenodytes patagonica",
-                        "logit_score": 8.17
-                    },
-                    {
-                        "rank": 2,
-                        "class_index": 98,
-                        "label_name": "red-breasted merganser, Mergus serrator",
-                        "logit_score": 1.54
-                    },
-                    {
-                        "rank": 3,
-                        "class_index": 146,
-                        "label_name": "albatross, mollymawk",
-                        "logit_score": 1.54
-                    }
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "geometric_depth_auditor",
-            "internal_expert_id": "monocular_depth_estimator",
-            "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "kangaroo",
             "weight": 0.1,
-            "reason": "Verify spatial grounding of the floating bird relative to the kangaroo and check depth consistency between kangaroo limbs and rock surface.",
+            "reason": "Distinguish between Kangaroo and Wallaby species to validate the rejection of wallaby-specific checkpoints.",
             "status": "success",
-            "execution_time_ms": 64.2,
-            "evidence": {
-                "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output/depth_maps/369_depth.png",
-                "depth_statistics": {
-                    "min_value": 0.0,
-                    "max_value": 17.5693,
-                    "mean_value": 3.4096,
-                    "std_deviation": 5.0307
-                }
-            },
-            "raw_metrics": {
-                "input_resolution": "518x518",
-                "output_resolution": "1024x1024"
-            },
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "fine_grained_classifier",
-            "internal_expert_id": "fine_grained_classifier",
-            "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "kangaroo",
-            "weight": 0.1,
-            "reason": "Classify as Wallaby vs. Kangaroo to verify ear shape and tail length discrepancies.",
-            "status": "success",
-            "execution_time_ms": 276.71,
+            "execution_time_ms": 201.77,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -337,14 +300,49 @@
             "traceback": null
         },
         {
+            "expert_id": "fine_grained_classifier",
+            "internal_expert_id": "fine_grained_classifier",
+            "model_name": "EVA-02_Large_ONNX_MetaX",
+            "target_subject": "penguin",
+            "weight": 0.1,
+            "reason": "Identify specific penguin species (likely Gentoo/Chinstrap) to confirm they are not King Penguins.",
+            "status": "success",
+            "execution_time_ms": 220.48,
+            "evidence": {
+                "top3_candidates": [
+                    {
+                        "rank": 1,
+                        "class_index": 145,
+                        "label_name": "king penguin, Aptenodytes patagonica",
+                        "logit_score": 8.17
+                    },
+                    {
+                        "rank": 2,
+                        "class_index": 98,
+                        "label_name": "red-breasted merganser, Mergus serrator",
+                        "logit_score": 1.54
+                    },
+                    {
+                        "rank": 3,
+                        "class_index": 146,
+                        "label_name": "albatross, mollymawk",
+                        "logit_score": 1.54
+                    }
+                ]
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
             "expert_id": "animal_pose_auditor",
             "internal_expert_id": "animal_pose_estimator",
             "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
-            "target_subject": "kangaroo",
-            "weight": 0.15,
-            "reason": "Audit limb integrity and keypoint validity to confirm structural collapse/fusion in the front left arm and hind feet contact points.",
+            "target_subject": "bird",
+            "weight": 0.2,
+            "reason": "Verify physical contact points between the three perched birds and the kangaroo's back to distinguish semantic compliance from structural artifacts, and audit limb anatomy.",
             "status": "success",
-            "execution_time_ms": 1171.43,
+            "execution_time_ms": 1651.58,
             "evidence": {
                 "detected_pose_instances": [
                     {
@@ -1732,34 +1730,13 @@
             },
             "error": null,
             "traceback": null
-        },
-        {
-            "expert_id": "topology_boundary_auditor",
-            "internal_expert_id": "sam_segmentor",
-            "model_name": "MobileSAM_V16_ONNX",
-            "target_subject": "penguin",
-            "weight": 0.15,
-            "reason": "Segment individual penguins to verify flipper separation and body boundaries, detecting topological merging errors.",
-            "status": "success",
-            "execution_time_ms": 944.8,
-            "evidence": {
-                "saved_mask_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output/sam_masks/369_mask.png",
-                "mask_confidence_score": 0.9666,
-                "prompt_point_used": [
-                    354,
-                    780
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 8,
-        "successful_experts": 8,
+        "total_experts_planned": 7,
+        "successful_experts": 7,
         "failed_experts": 0,
-        "total_execution_time_ms": 64535.32,
+        "total_execution_time_ms": 53043.14,
         "failed_expert_ids": []
     }
 }

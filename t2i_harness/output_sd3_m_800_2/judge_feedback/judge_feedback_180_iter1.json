@@ -2,30 +2,30 @@
     "image_id": "180",
     "prompt": "a elephant under six lions",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:36:06",
+    "timestamp": "2026-09-02 22:48:05",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the Expert Verification Plan regarding taxonomy. The Router assigned the `fine_grained_classifier` to verify the 'single finger-like projection' of an Asian elephant trunk. However, visual inspection confirms the subject is an African Elephant (large ears covering shoulders), which possesses two finger-like projections. Using a classifier trained on ImageNet categories to verify specific anatomical micro-features (like trunk tips) is scientifically invalid and likely to yield hallucinated or irrelevant results. Additionally, the plan fails to address the severe anatomical artifact on the elephant's front left leg, where the limb appears to merge with the body/dust without a clear joint structure.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Expert Verification Plan' regarding taxonomy. The Router identified the elephant as an Asian Elephant (citing twin-domed skull and small ears) but failed to recognize that the image clearly depicts an African Elephant (single-domed head, large ears covering shoulders). Consequently, the `fine_grained_classifier` is tasked with verifying incorrect biological features ('confirm... Indian/Asian elephant'), which will lead to a false positive validation of a hallucinated species trait. Additionally, the plan misses a verification step for the Lion count discrepancy using the `open_vocabulary_detector` on the *entire* scene to ensure no lions are occluded or misclassified in the background dust, rather than just bounding box detection.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Elephant Front Left Leg Structural Integrity",
-                "recommended_expert": "animal_pose_auditor"
-            },
-            {
-                "type": "incorrect_expert_assignment",
-                "point": "Remove fine_grained_classifier for 'Trunk tip finger projection'. This is a geometric/anatomical detail, not a high-level class feature. Replace with manual audit or remove as unverifiable at this resolution.",
-                "recommended_expert": null
+                "type": "incorrect_taxonomy_hypothesis",
+                "point": "Elephant Species Identification",
+                "recommended_action": "Update the `fine_grained_classifier` goal for the elephant to 'Verify species as African vs Asian based on ear size and head dome structure'. The current plan assumes Asian traits which are visually absent."
             },
             {
                 "type": "missing_verification",
-                "point": "Verify if the 'dust' obscuring the feet is masking missing limbs or grounding errors.",
+                "point": "Lion Count Occlusion Check",
                 "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Elephant Leg Structural Integrity",
+                "recommended_expert": "topology_boundary_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image depicts a savanna scene with a large elephant standing in the background, partially obscured by dust or mist. In the foreground, five lions are lying down in the grass. The composition places the elephant visually above the lions due to perspective, but they are not physically interacting as 'under' might imply in a literal stacking sense.",
+        "image_description": "The image depicts a savanna scene with a large elephant standing in the background, partially obscured by dust or mist. In the foreground, five lions are lying down in the grass. The composition places the elephants visually 'above' the lions due to perspective, but they are not physically stacked.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -34,7 +34,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is clearly one large elephant visible in the upper portion of the image."
+                "reasoning": "There is clearly one single elephant visible in the upper portion of the image."
             },
             {
                 "atom_index": 1,
@@ -43,7 +43,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "An elephant is prominently featured in the background."
+                "reasoning": "An elephant is the dominant subject in the upper half of the frame."
             },
             {
                 "atom_index": 2,
@@ -52,7 +52,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The elephant is standing behind and visually above the lions in the frame. The lions are in the foreground lying down. The spatial relationship is 'behind' or 'above', not 'under'. The prompt likely intended a surreal stacking or specific prepositional relationship that was not achieved."
+                "reasoning": "The prompt asks for the elephant to be 'under' the lions. Visually, the elephant is standing behind and above the lions in the background. It is not physically underneath them."
             },
             {
                 "atom_index": 3,
@@ -60,8 +60,8 @@
                 "expected": "six",
                 "predicted": "five",
                 "is_correct": false,
-                "confidence": 1.0,
-                "reasoning": "Counting the lions in the foreground from left to right: 1 (far left, mouth open), 2 (mane), 3 (mane), 4 (smaller/no mane?), 5 (large mane on right). There are exactly five lions visible."
+                "confidence": 0.95,
+                "reasoning": "Counting the lions in the foreground from left to right: 1 (far left), 2 (second from left), 3 (center), 4 (right of center), 5 (far right). There are only 5 lions visible, not 6."
             },
             {
                 "atom_index": 4,
@@ -70,7 +70,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Five lions are clearly visible in the foreground."
+                "reasoning": "Multiple lions are clearly visible in the foreground."
             }
         ],
         "checkpoint_verdicts": [
@@ -80,7 +80,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The head shape is visible in profile; the twin-domed structure characteristic of Asian elephants is discernible."
+                "reasoning": "The head shape is consistent with an Asian elephant, showing the characteristic twin domes."
             },
             {
                 "object": "elephant",
@@ -88,7 +88,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The ears do not cover the shoulder and appear smaller than typical African elephant ears, consistent with Asian species."
+                "reasoning": "The ears are relatively small and do not cover the shoulder, consistent with Asian elephant taxonomy."
             },
             {
                 "object": "elephant",
@@ -96,7 +96,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "While the trunk is elongated and muscular, the tip is curled and the resolution/angle makes it impossible to verify the 'single finger-like projection' (Asian trait) vs two fingers (African trait). It appears smooth/blended at the tip."
+                "reasoning": "While the trunk is present, the tip appears fused or malformed; the specific 'single finger-like projection' detail is not clearly resolved and looks like a smooth curve rather than a distinct digit."
             },
             {
                 "object": "elephant",
@@ -104,7 +104,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Tusks are visible and appear relatively short/thick, consistent with Asian elephant morphology."
+                "reasoning": "One tusk is clearly visible on the right side of the face; it appears proportional for an Asian elephant."
             },
             {
                 "object": "elephant",
@@ -112,7 +112,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The body is massive and the shoulder height is significant relative to the lions."
+                "reasoning": "The body mass and shoulder height appear realistic and massive."
             },
             {
                 "object": "elephant",
@@ -120,7 +120,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Skin texture is highly detailed, showing wrinkles and gray-brown coloration."
+                "reasoning": "Skin texture is highly detailed, showing wrinkles and appropriate coloration."
             },
             {
                 "object": "elephant",
@@ -128,7 +128,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The torso is barrel-shaped and the back has a convex arch, typical of Asian elephants."
+                "reasoning": "The silhouette matches the barrel-shaped description of an Asian elephant."
             },
             {
                 "object": "elephant",
@@ -136,7 +136,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Legs are pillar-like, but the feet are obscured by dust/grass. Toenail count cannot be verified."
+                "reasoning": "The feet are obscured by dust/mist and resolution limits; toenail count cannot be verified, and the lower leg structure blends into the ground."
             },
             {
                 "object": "elephant",
@@ -144,7 +144,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Tail is visible extending from the rear with a tuft at the end."
+                "reasoning": "The tail is visible extending from the rear with a tuft at the end."
             },
             {
                 "object": "lion",
@@ -152,7 +152,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Visible lions show broad heads and short muzzles typical of the species."
+                "reasoning": "All visible lions exhibit broad heads and short muzzles typical of the species."
             },
             {
                 "object": "lion",
@@ -160,7 +160,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Ears are visible on multiple lions, appearing small, rounded, and upright."
+                "reasoning": "Ears are visible on multiple lions and match the description."
             },
             {
                 "object": "lion",
@@ -168,7 +168,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Eyes are visible on several lions, matching the description."
+                "reasoning": "Eye color and shape appear correct for lions."
             },
             {
                 "object": "lion",
@@ -176,7 +176,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Bodies appear muscular and proportional. Tails with tufts are visible on the left-most and right-most lions."
+                "reasoning": "Lions appear muscular and well-proportioned; tails with tufts are visible on several individuals."
             },
             {
                 "object": "lion",
@@ -184,7 +184,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Coat texture and color match the tawny description."
+                "reasoning": "Coat texture and color are consistent with lion taxonomy."
             },
             {
                 "object": "lion",
@@ -192,7 +192,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Most lions shown have prominent manes. One lion (second from right) lacks a mane, suggesting it might be a female or juvenile, but the checkpoint regarding male features is present in the group."
+                "reasoning": "Most lions shown are males with distinct manes; one appears to be a female or young male with less mane, which is biologically plausible."
             },
             {
                 "object": "lion",
@@ -200,7 +200,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Dark tufts are visible on the tails of the outer lions."
+                "reasoning": "Dark tail tufts are visible on the lions where the tail is exposed."
             }
         ],
         "artifact_observations": [
@@ -208,19 +208,19 @@
                 "artifact_type": "structural_collapse",
                 "location": "Elephant's front legs/feet area",
                 "severity": 2,
-                "reasoning": "The transition from the elephant's legs to the ground is obscured by excessive, unnatural dust/fog that seems to dissolve the feet rather than just obscure them. This looks like a generation artifact to hide foot grounding issues."
+                "reasoning": "The transition from the elephant's legs to the ground is obscured by excessive, unnatural mist/dust that seems to dissolve the anatomy rather than just obscure it. The feet lack clear definition."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Elephant's ear edge",
+                "location": "Elephant's trunk tip",
                 "severity": 1,
-                "reasoning": "The upper edge of the elephant's ear has some slight fraying/melting into the background sky, lacking a crisp biological boundary."
+                "reasoning": "The tip of the trunk lacks the fine detail of the finger-like projection described in taxonomy; it looks slightly smoothed or melted."
             },
             {
-                "artifact_type": "other",
-                "location": "Lion group arrangement",
-                "severity": 2,
-                "reasoning": "The lions are arranged in a very linear, repetitive row that feels artificial. The spacing and pose similarity suggest pattern repetition common in AI generation."
+                "artifact_type": "perspective_distortion",
+                "location": "Lion arrangement",
+                "severity": 1,
+                "reasoning": "The lions are arranged in a very linear, almost artificial row in the foreground, which feels slightly staged, though not necessarily a generation error."
             }
         ],
         "expert_verification_plan": [
@@ -230,88 +230,85 @@
                 "verification_goals": [
                     "Atom 3"
                 ],
-                "reason": "To definitively verify the count of lions, as visual counting yielded 5 against an expected 6. Bounding boxes will confirm if any are occluded or merged.",
+                "reason": "To definitively verify the count of lions (expected 6 vs observed 5) using bounding boxes.",
                 "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "elephant",
                 "verification_goals": [
-                    "Checkpoint: Trunk (proboscis) elongated and muscular with single finger-like projection at tip.",
-                    "Checkpoint: Relatively small ears compared to African elephant."
+                    "Checkpoint: Head_and_Face",
+                    "Checkpoint: Body_and_Plumage"
                 ],
-                "reason": "To verify species-specific traits (Asian vs African) which are subtle and hard to distinguish visually at this resolution.",
+                "reason": "To confirm the species classification as Indian/Asian elephant based on ear size and head shape.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "lion",
                 "verification_goals": [
-                    "Checkpoint: Males have a prominent shaggy mane...",
-                    "Checkpoint: Coat is short, dense, and uniform tawny..."
+                    "Checkpoint: Body_and_Plumage",
+                    "Checkpoint: Head_and_Face"
                 ],
-                "reason": "To confirm the species classification and sex characteristics (mane presence) of the foreground subjects.",
+                "reason": "To verify lion species characteristics and mane presence.",
                 "weight": 0.2
             },
             {
-                "expert_name": "geometric_depth_auditor",
+                "expert_name": "animal_pose_auditor",
                 "target_subject": "elephant",
                 "verification_goals": [
-                    "Atom 2",
-                    "Artifact: structural_collapse"
+                    "Checkpoint: Limbs_and_Anatomy"
                 ],
-                "reason": "To analyze the depth relationship between elephant and lions (verifying 'under' vs 'behind') and to check if the dust around the feet is masking a grounding failure.",
+                "reason": "To audit the structural integrity of the legs and feet, specifically checking for missing parts or melting in the dusty area.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "elephant",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
                 "verification_goals": [
-                    "Artifact: texture_anomaly",
-                    "Checkpoint: Thick wrinkled gray-brown skin..."
+                    "Atom 2"
                 ],
-                "reason": "To assess the realism of the skin texture and the edge quality of the ear against the sky.",
+                "reason": "To analyze the spatial relationship between the elephant and lions to confirm if the 'under' relationship is physically valid or just a perspective trick.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "Checkpoint: Pillar-like legs with five toenails on forefeet (Obscured by dust/grass)",
-            "Checkpoint: Trunk tip finger projection (Resolution/Angle limitation)"
+            "Checkpoint: Pillar-like legs with five toenails on forefeet (Obscured by dust/resolution)"
         ],
         "focus_areas": [
-            "Lion Count Verification (Expected 6 vs Observed 5)",
-            "Spatial Relationship 'Under' (Visual interpretation vs Literal)",
-            "Elephant Foot Grounding (Dust artifact analysis)"
+            "Lion count verification (Atom 3)",
+            "Spatial relationship 'under' validation (Atom 2)",
+            "Elephant foot/leg structural integrity in dust"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "lion",
-                "reason": "To definitively verify the count of lions, as visual counting yielded 5 against an expected 6. Bounding boxes will confirm if any are occluded or merged.",
+                "reason": "To definitively verify the count of lions (expected 6 vs observed 5) using bounding boxes.",
                 "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "elephant",
-                "reason": "To verify species-specific traits (Asian vs African) which are subtle and hard to distinguish visually at this resolution.",
+                "reason": "To confirm the species classification as Indian/Asian elephant based on ear size and head shape.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "lion",
-                "reason": "To confirm the species classification and sex characteristics (mane presence) of the foreground subjects.",
+                "reason": "To verify lion species characteristics and mane presence.",
                 "weight": 0.2
             },
             {
-                "expert_name": "geometric_depth_auditor",
+                "expert_name": "animal_pose_auditor",
                 "target_subject": "elephant",
-                "reason": "To analyze the depth relationship between elephant and lions (verifying 'under' vs 'behind') and to check if the dust around the feet is masking a grounding failure.",
+                "reason": "To audit the structural integrity of the legs and feet, specifically checking for missing parts or melting in the dusty area.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "elephant",
-                "reason": "To assess the realism of the skin texture and the edge quality of the ear against the sky.",
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "To analyze the spatial relationship between the elephant and lions to confirm if the 'under' relationship is physically valid or just a perspective trick.",
                 "weight": 0.15
             }
         ],
@@ -319,7 +316,7 @@
             "original_image": "geneval2_sd3_m_800/180.png",
             "prompt_id": "180",
             "prompt_text": "a elephant under six lions",
-            "router_cost_seconds": 50.37,
+            "router_cost_seconds": 50.38,
             "plan_valid": true
         }
     }

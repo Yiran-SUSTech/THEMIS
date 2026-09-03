@@ -7,8 +7,8 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Open vocabulary detector found 2 bounding boxes for 'kangaroo', but visual inspection confirms only one distinct macropod subject on the left; the second box likely overlaps the rabbit or background.",
-            "reasoning": "There is exactly one kangaroo visible in the image. The count matches the expected value."
+            "expert_evidence": "Open vocabulary detector found 2 bounding boxes for 'kangaroo', but visual inspection confirms only one distinct macropod subject on the left; the second box likely captures background or noise.",
+            "reasoning": "There is exactly one kangaroo visible in the image. The expert detection of a second box is a false positive or artifact of the model's uncertainty, as visually there is only one animal fitting the description."
         },
         {
             "atom_index": 1,
@@ -17,8 +17,8 @@
             "qa_score": 0.0,
             "tax_score": 1.0,
             "atom_score": 0.0,
-            "expert_evidence": "Router correctly identified the absence of stripes. Visual inspection confirms solid brown/grey fur with white belly markings, but no vertical or horizontal striping pattern.",
-            "reasoning": "The kangaroo has standard macropod coloration (brown/grey/white) without any stripe patterns. This is a direct failure to follow the prompt's attribute constraint."
+            "expert_evidence": "Router notes lack of distinct stripes; fur shows natural gradients.",
+            "reasoning": "The kangaroo has solid brown/grey fur with lighter underparts but absolutely no stripes. This is a direct failure to render the requested attribute."
         },
         {
             "atom_index": 2,
@@ -27,8 +27,8 @@
             "qa_score": 1.0,
             "tax_score": 0.85,
             "atom_score": 0.85,
-            "expert_evidence": "Fine-grained classifier identifies 'wallaby' (class 104) as top candidate. However, Router and visual inspection note ears are long/pointed (hare-like) rather than short/rounded (wallaby taxonomy).",
-            "reasoning": "A kangaroo/wallaby is present. However, taxonomic conformance is imperfect because the ears resemble a hare more than the 'short and rounded' wallaby checkpoint, suggesting a hybrid or generic generation."
+            "expert_evidence": "Classifier identifies 'wallaby, brush kangaroo' (class 104) with high confidence. Router confirms presence.",
+            "reasoning": "A kangaroo is present. However, taxonomy conformance is imperfect: the ears are exceptionally long and pointed (resembling a hare/rabbit) rather than the 'relatively short and rounded' ears specified for wallabies/kangaroos in the taxonomy. Despite this anatomical deviation, the object is clearly identifiable as a kangaroo."
         },
         {
             "atom_index": 3,
@@ -37,34 +37,35 @@
             "qa_score": 1.0,
             "tax_score": 1.0,
             "atom_score": 1.0,
-            "expert_evidence": "Visual inspection confirms one lagomorph on the right. Expert detectors show overlapping boxes but visual reality is clear.",
-            "reasoning": "There is exactly one rabbit visible. Count is correct."
+            "expert_evidence": "Open vocabulary detector found 2 bounding boxes for 'rabbit', but visual inspection confirms only one leporid subject on the right.",
+            "reasoning": "There is exactly one rabbit visible. Similar to the kangaroo, the second detection box is spurious."
         },
         {
             "atom_index": 4,
             "question": "Are there any rabbits in the image?",
             "expected": "Yes",
             "qa_score": 1.0,
-            "tax_score": 1.0,
-            "atom_score": 1.0,
-            "expert_evidence": "Classifier predicts 'hare' (class 331) as second candidate, consistent with visual appearance of long ears and body shape.",
-            "reasoning": "A rabbit/hare is clearly present on the right side of the image."
+            "tax_score": 0.9,
+            "atom_score": 0.9,
+            "expert_evidence": "Classifier ranks 'hare' (class 331) second after wallaby. Visuals show standard rabbit morphology.",
+            "reasoning": "A rabbit is clearly present. Taxonomy conformance is high, though the classifier's top prediction was 'wallaby' for the whole scene, suggesting some semantic blending. Visually, the rabbit conforms well to expected anatomy (long ears, compact body), unlike the kangaroo which borrowed rabbit-like ears."
         }
     ],
-    "authenticity_review": "The image exhibits high photorealism in lighting and fur texture. However, there are minor structural artifacts: the kangaroo's forepaws appear slightly fused/mitten-like lacking distinct digit separation, and the rabbit's rear feet blend somewhat into the grass. Additionally, the kangaroo displays anatomical inconsistency (hare-like ears on a kangaroo body), which reduces biological authenticity despite visual appeal.",
-    "alignment_score": 3.85,
+    "authenticity_review": "The image exhibits high photorealism in texture and lighting. However, there are minor structural artifacts: the kangaroo's forepaws appear slightly fused/mitten-like lacking distinct digit separation, and the rabbit's hind feet blend somewhat into the grass. The most significant issue is anatomical incongruence—the kangaroo possesses hare-like ears, suggesting a semantic leak between the two subjects. These defects prevent a perfect authenticity score but do not constitute catastrophic failure.",
+    "alignment_score": 3.75,
     "authenticity_score": 4.2,
     "per_atom_scores": [
         1.0,
         0.0,
         0.85,
         1.0,
-        1.0
+        0.9
     ],
     "key_defects": [
         "Missing 'striped' attribute on kangaroo",
-        "Kangaroo ears are long/pointed (hare-like) instead of short/rounded (wallaby taxonomy)",
-        "Minor fusion artifacts in kangaroo forepaws and rabbit rear feet"
+        "Kangaroo has abnormally long, pointed ears resembling a hare",
+        "Slight fusion of digits on kangaroo forepaws",
+        "Rabbit hind feet lack clear definition against grass"
     ],
     "veto_activated": false,
     "fine_grained_details": {
@@ -106,24 +107,25 @@
         }
     },
     "self_reflection_notes": {
-        "changes_made": "No numerical changes were made to scores. The assessment was verified against all expert evidence and visual features.",
-        "checklist_triggers": [
-            "Score-Reasoning Consistency: Verified that atom_score=0.0 for Atom 1 aligns with the complete absence of stripes. Verified atom_score=0.85 for Atom 2 reflects presence of object but taxonomic ear mismatch.",
-            "Expert Evidence Utilization: Confirmed that the duplicate pose auditor data for 'rabbit' was actually kangaroo data (identical coordinates/confidences). Relied on visual inspection and fine-grained classifier for rabbit verification instead of the erroneous expert output.",
-            "Leniency Bias: Did not rubber-stamp the Router's 'is_present=false' for wallaby ears without independent visual confirmation of the long/pointed ear shape.",
-            "Harshness Bias: Maintained authenticity_score at 4.2 despite the missing stripe attribute, as this is an alignment issue, not a realism defect. Minor paw/fusion artifacts were weighted appropriately as severity 2 issues."
+        "changes_made": "No changes were made to scores or verdicts during self-reflection.",
+        "checklist_items_triggered": [
+            "Score-Reasoning Consistency: Verified that atom_score=0.0 for Atom 1 aligns with reasoning about missing stripes. Confirmed tax_score=0.85 for Atom 2 reflects ear anomaly without negating object presence.",
+            "Expert Evidence Utilization: Re-examined open_vocabulary_detector outputs showing duplicate bounding boxes for both animals. Confirmed these are false positives by cross-referencing with visual evidence and pose auditor data showing only 2 valid instances total.",
+            "Leniency Bias Check: Did not rubber-stamp Router's 'is_present=true' for kangaroo despite ear anomaly; independently verified object identity via classifier (wallaby class 104) and visual morphology (hind limbs, tail, posture).",
+            "Harshness Bias Check: Maintained authenticity_score=4.2 despite multiple minor issues (fused digits, foot blending, ear shape). Single anatomical deviation did not dominate scoring per checklist guidance.",
+            "Atom Score Review: All qa_scores match expected vs predicted values. tax_scores reflect independent verification against taxonomy checkpoints (e.g., kangaroo ears fail 'short and rounded' checkpoint but pass other diagnostic criteria)."
         ],
-        "score_direction": "Same as initial. Initial assessment was already calibrated correctly after independent verification of the conflicting expert data."
+        "score_comparison": "Final scores are identical to initial assessment. No upward or downward adjustments were warranted after systematic review. The initial evaluation correctly balanced attribute failure (stripes), partial taxonomy conformance (ears), and minor artifacts while maintaining appropriate severity weighting."
     },
     "preliminary_scores": {
-        "alignment_score": 3.8,
+        "alignment_score": 3.75,
         "authenticity_score": 4.2,
         "per_atom_scores": [
             1.0,
             0.0,
             0.85,
             1.0,
-            1.0
+            0.9
         ]
     },
     "metadata": {
@@ -132,11 +134,8 @@
         "prompt_text": "a striped kangaroo and a rabbit",
         "auxiliary_images_included": [],
         "checklist_enabled": true,
-        "reflector_cost_seconds": 20.13,
+        "reflector_cost_seconds": 21.27,
         "self_reflection_enabled": true,
         "self_reflection_succeeded": true
-    },
-    "code_adjustments": [
-        "Alignment recalculated from per_atom_scores: 3.80 -> 3.85"
-    ]
+    }
 }

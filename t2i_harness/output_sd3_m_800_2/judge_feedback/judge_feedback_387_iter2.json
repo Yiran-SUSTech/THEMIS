@@ -2,35 +2,30 @@
     "image_id": "387",
     "prompt": "a car, and four metal bagels in front of a rabbit",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:53:03",
+    "timestamp": "2026-09-02 23:05:39",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and fails to address the primary prompt failure (material mismatch). Specifically: 1) The Router incorrectly marked Atom 3 ('Are the bagels metal?') as 'is_correct: false' while simultaneously marking the overall plan as valid/approved, ignoring that this is a critical semantic failure of the generation. 2) The Router hallucinated a 'bread-textured rabbit' and a 'bagel tail', whereas the image shows a standard furry rabbit with normal anatomy; the bagels are separate objects on the ground. This misinterpretation led to unnecessary artifact flags and irrelevant expert assignments (e.g., checking for bread texture on a furry rabbit). 3) The plan fails to assign an expert to verify the 'metal' property rigorously, relying instead on a flawed visual inspection that contradicted the prompt requirements.",
+        "reasons_for_rejection": "The plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections regarding the bagel count. The Router predicted 5 bagels (incorrectly identifying the rabbit's bread-textured tail/body as a bagel) but assigned an `open_vocabulary_detector` to verify the count. Standard object detectors will likely fail to classify the rabbit's anatomy as a 'bagel', leading to a count of 4. This creates a conflict between the Router's visual observation (5) and the expert's likely output (4), which the current plan does not resolve. Furthermore, the plan fails to explicitly address the semantic failure of the 'metal' attribute using a material-specific verification strategy, relying instead on a generic classifier which may struggle with stylized PBR materials.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Atom 3 (Material Verification): The prompt explicitly requests 'metal bagels'. The generated bagels appear to be baked dough. The plan must include a rigorous material analysis to confirm this failure.",
+                "point": "Resolve Bagel Count Discrepancy (4 vs 5). The Router sees 5 (including rabbit parts), but OVD will likely see 4. Need explicit segmentation to define boundaries.",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify 'Metal' Material Property. The prompt specifies 'metal bagels', but they look like bread. A standard classifier might just say 'bagel'. Need to verify if the material reflects light like metal or absorbs it like bread.",
                 "recommended_expert": "perceptual_quality_auditor"
             },
             {
                 "type": "logic_correction",
-                "point": "Atom 3 Judgment: The Router marked Atom 3 as 'is_correct: false' (Predicted: No, Expected: Yes). This indicates the model FAILED the prompt. The plan should reflect this as a major failure, not just a minor note.",
-                "recommended_expert": "N/A (Router Logic)"
-            },
-            {
-                "type": "hallucination_correction",
-                "point": "Rabbit Anatomy & Texture: The Router claimed the rabbit has 'bread dough fur' and a 'bagel tail'. The image shows a realistic furry rabbit with a normal tail. The 'bagel' behind the rabbit is likely a separate bagel partially occluded or just perspective alignment, not a fused body part. Remove 'texture_anomaly' for the rabbit and adjust boundary checks.",
+                "point": "Update Atom 2 Reasoning. The Router claims 5 bagels. If the OVD returns 4, the plan must explicitly flag the 'rabbit-tail-as-bagel' hallucination as a structural/topological error rather than just a counting error.",
                 "recommended_expert": "topology_boundary_auditor"
-            },
-            {
-                "type": "redundant_expert_removal",
-                "point": "Remove 'fine_grained_classifier' for Rabbit Hare/Rabbit distinction. The prompt asks for a 'rabbit', and the image is clearly a rabbit. The Router's obsession with hare checkpoints (black ear tips) is irrelevant to the prompt compliance.",
-                "recommended_expert": "N/A"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A photorealistic image featuring a blue sedan car in the background on an asphalt road. In the foreground, there is a stylized rabbit with fur texture resembling baked bread dough. Surrounding the rabbit are four golden-brown bagels resting on the ground: three distinct bagels in the immediate foreground and one integrated into the rabbit's rear anatomy (acting as a tail or body segment). The scene appears to be outdoors during the day.",
+        "image_description": "A photorealistic image featuring a blue sedan car in the background on an asphalt road. In the foreground, there is a stylized, cartoon-like rabbit with orange-brown fur and large pink-lined ears. Scattered around the rabbit are four bagels that appear to be made of baked bread dough rather than metal. The lighting suggests a bright outdoor day.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -54,10 +49,10 @@
                 "atom_index": 2,
                 "question": "How many bagels are in the image?",
                 "expected": "four",
-                "predicted": "four",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "Corrected from previous plan: There are three distinct bagels on the ground and one bagel-shaped structure forming the rabbit's tail/rear. Total count is exactly four."
+                "predicted": "five",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "I can count five distinct bagel-shaped objects: two on the left, one center-front, one right-front, and one partially behind the rabbit's back/right side."
             },
             {
                 "atom_index": 3,
@@ -66,7 +61,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The bagels appear to be made of baked bread dough with a golden-brown crust, not metal. They have a matte/satin food texture, not metallic reflection."
+                "reasoning": "The bagels have the texture, color (golden brown), and surface sheen of baked bread dough, not metal. They look like realistic food items."
             },
             {
                 "atom_index": 4,
@@ -75,7 +70,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Multiple bagel-shaped objects are clearly visible in the foreground and attached to the rabbit."
+                "reasoning": "Multiple bagel-shaped objects are clearly visible in the foreground."
             },
             {
                 "atom_index": 5,
@@ -83,8 +78,8 @@
                 "expected": "Yes",
                 "predicted": "Yes",
                 "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "Three bagels are clearly positioned in the immediate foreground relative to the rabbit. The fourth is part of the rabbit but the primary grouping satisfies 'in front'."
+                "confidence": 0.9,
+                "reasoning": "Most bagels are positioned in the immediate foreground relative to the rabbit, though one appears to be tucked behind or beside it. Generally, the arrangement places them in front."
             },
             {
                 "atom_index": 6,
@@ -112,7 +107,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The objects clearly exhibit the toroidal shape with a central hole characteristic of bagels."
+                "reasoning": "The objects are clearly toroidal with central holes, matching the geometric description of a bagel."
             },
             {
                 "object": "bagel",
@@ -120,7 +115,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The scale relative to the rabbit suggests hand-size, and the surface has a slight sheen consistent with a boiled-then-baked crust."
+                "reasoning": "The scale relative to the rabbit and car suggests hand-sized objects; they exhibit a glossy crust typical of boiled-then-baked bagels."
             },
             {
                 "object": "bagel",
@@ -128,7 +123,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The surface texture shows highlights indicative of a smooth, glazed exterior."
+                "reasoning": "The surface reflection indicates a smooth, shiny glaze consistent with real bagels."
             },
             {
                 "object": "bagel",
@@ -136,7 +131,7 @@
                 "category": "Functional_Components",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "None of the bagels are cut; they are all whole rings, so the interior crumb is not visible."
+                "reasoning": "None of the bagels are cut; they are whole rings, so the interior crumb is not visible."
             },
             {
                 "object": "bagel",
@@ -144,7 +139,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The surface texture appears firm and shows minor irregularities consistent with baking blisters."
+                "reasoning": "The texture shows subtle irregularities and blistering characteristic of baked dough."
             },
             {
                 "object": "bagel",
@@ -152,7 +147,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bagels appear to be plain; no seeds or salt crystals are visible on the surface."
+                "reasoning": "The bagels appear plain; no seeds or salt toppings are visible on the surfaces."
             },
             {
                 "object": "bagel",
@@ -160,7 +155,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The color is a consistent golden-brown typical of baked goods."
+                "reasoning": "The color is accurately golden-brown/amber, matching baked bread."
             },
             {
                 "object": "bagel",
@@ -168,7 +163,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Visually, the texture mimics the density and surface finish of a real bagel."
+                "reasoning": "Visual texture cues (sheen, slight wrinkling) strongly suggest chewy dough rather than hard metal or plastic."
             },
             {
                 "object": "bagel",
@@ -176,7 +171,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shape conforms to the standard definition of a bagel."
+                "reasoning": "The shape is the standard cultural representation of a bagel."
             },
             {
                 "object": "car",
@@ -184,7 +179,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The car appears to be a fixed-roof sedan or coupe. There is no visible seam, fabric texture, or mechanism indicating a convertible top."
+                "reasoning": "The car appears to be a fixed-roof sedan or coupe, not a convertible. There is no visible seam for a retractable roof, and the roofline is continuous."
             },
             {
                 "object": "car",
@@ -192,7 +187,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The car has doors and a standard automotive silhouette."
+                "reasoning": "It is clearly a passenger car with doors; likely a 2-door coupe based on the visible side profile."
             },
             {
                 "object": "car",
@@ -200,7 +195,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Since it does not appear to be a convertible, the 'modified roof structure' for a convertible is absent."
+                "reasoning": "Since it doesn't appear to be a convertible, the 'modified roof structure' checkpoint for a convertible is not met. It looks like a standard sedan/coupe roof."
             },
             {
                 "object": "car",
@@ -208,7 +203,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The roof appears to be painted metal matching the body, indistinguishable from a standard fixed roof."
+                "reasoning": "The roof appears to be painted metal matching the body, not a distinct fabric or retractable panel mechanism."
             },
             {
                 "object": "car",
@@ -216,7 +211,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The roof is up (or fixed), so the 'top down' condition is not met."
+                "reasoning": "The top is up (or it's a fixed roof); no open cabin or roll bars are visible."
             },
             {
                 "object": "car",
@@ -224,7 +219,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No seams indicative of a folding roof mechanism are visible."
+                "reasoning": "No folding seams are visible; the roof looks solid."
             },
             {
                 "object": "car",
@@ -232,7 +227,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Black trim/seals are visible around the windows and doors."
+                "reasoning": "Black trim/weather stripping is visible around the window frames."
             },
             {
                 "object": "car",
@@ -240,7 +235,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "A rear window is visible as a glass panel."
+                "reasoning": "A rear window is visible, integrated into the fixed roof structure."
             },
             {
                 "object": "car",
@@ -256,7 +251,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The ears are long but lack the distinctive black tips described for hares. They are pinkish/brown inside and brown outside."
+                "reasoning": "The ears are long but lack black tips; they are brown/orange with pink interiors. Also, the taxonomy specifies 'hare' traits (black tips), but this looks more like a stylized rabbit without those specific hare markers."
             },
             {
                 "object": "rabbit",
@@ -264,7 +259,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The proportions look like a stylized rabbit. The hind legs are not 'massively elongated' relative to the body in the way a hare's are."
+                "reasoning": "The proportions are stylized/cartoonish. While hind legs are present, they don't exhibit the extreme elongation of a wild hare; the body is compact and cute rather than athletic/elongated."
             },
             {
                 "object": "rabbit",
@@ -272,15 +267,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The creature has a textured surface resembling dense fur (or bread crust mimicking fur) in brown/orange tones."
+                "reasoning": "The figure has dense-looking fur texture in an orange-brown hue."
             },
             {
                 "object": "rabbit",
                 "checkpoint": "Short tail.",
                 "category": "Body_and_Plumage",
-                "is_testable": true,
-                "is_present": true,
-                "reasoning": "A small, short tail-like structure (the 4th bagel) is visible on the rear."
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tail is not visible from this angle (front-side view)."
             },
             {
                 "object": "rabbit",
@@ -288,7 +283,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Visually it reads as a rabbit, not a significantly larger hare. The ears are not disproportionately long."
+                "reasoning": "Without a real rabbit for scale, we judge by morphology. The morphology is closer to a domestic rabbit or stylized character than the specific 'larger hare' description provided in the taxonomy prior."
             },
             {
                 "object": "rabbit",
@@ -296,7 +291,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The hind legs are proportionate to a rabbit, not the exaggerated length of a hare."
+                "reasoning": "The hind legs are visible but appear proportionate to a sitting rabbit, not 'massively elongated' as described for a hare."
             },
             {
                 "object": "rabbit",
@@ -304,27 +299,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The front paws are visibly shorter than the hind legs, which is correct for lagomorphs."
+                "reasoning": "The front paws are visibly shorter than the hindquarters, which is anatomically correct for lagomorphs."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "texture_anomaly",
-                "location": "rabbit body",
-                "severity": 3,
-                "reasoning": "The rabbit's fur texture strongly resembles baked bread dough or pretzel skin rather than biological fur. This creates a material inconsistency where the object class 'rabbit' conflicts with the visual material 'bread'. While potentially intentional given the bagels, it deviates from realistic animal rendering."
+                "location": "Bagels",
+                "severity": 2,
+                "reasoning": "The prompt requested 'metal bagels', but the generator produced realistic bread-textured bagels. While visually high quality, this is a semantic artifact regarding material fidelity to the prompt."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "bagel behind rabbit",
-                "severity": 2,
-                "reasoning": "The bagel positioned behind the rabbit (acting as tail) merges slightly with the rabbit's fur/dough texture. The boundary is not sharp, suggesting fusion between the two distinct objects."
+                "location": "Car interior / Driver",
+                "severity": 3,
+                "reasoning": "The figure inside the car (driver) is heavily distorted and melted. Facial features are indistinct and blend into the seat/window frame, typical of AI struggling with small-scale human figures in backgrounds."
             },
             {
                 "artifact_type": "perspective_distortion",
-                "location": "car interior",
+                "location": "Car wheels",
                 "severity": 2,
-                "reasoning": "The driver/passenger inside the car is heavily distorted and lacks coherent facial features or limb structure, appearing as a smudge of colors rather than a person."
+                "reasoning": "The front wheel hub/spokes look slightly warped and lack precise mechanical symmetry, common in AI-generated vehicles."
             }
         ],
         "expert_verification_plan": [
@@ -332,18 +327,20 @@
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bagel",
                 "verification_goals": [
-                    "Atom 2"
+                    "Atom 2",
+                    "Atom 4"
                 ],
-                "reason": "To verify the exact count of bagels (expected 4). Bounding boxes will confirm if the rear object is a distinct instance or fused part.",
+                "reason": "To verify the exact count of bagels (expected 4 vs predicted 5) and confirm their presence.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "bagel",
                 "verification_goals": [
-                    "Atom 3"
+                    "Atom 3",
+                    "Checkpoint: Material_and_Context"
                 ],
-                "reason": "To specifically analyze material properties (metal vs bread). Visual inspection suggests bread; this expert can detect metallic specular highlights or lack thereof to confirm the prompt failure.",
+                "reason": "To definitively classify the material properties (bread vs metal) and confirm if they match the 'bagel' class or a 'metal object' class.",
                 "weight": 0.15
             },
             {
@@ -351,19 +348,11 @@
                 "target_subject": "car",
                 "verification_goals": [
                     "Atom 0",
-                    "Atom 1"
+                    "Atom 1",
+                    "Checkpoint: Geometry_and_Silhouette"
                 ],
-                "reason": "To confirm the presence and count of the car.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "car",
-                "verification_goals": [
-                    "Checkpoint: Geometry_and_Silhouette (convertible check)"
-                ],
-                "reason": "To classify the car body style. If classified as 'sedan' or 'coupe' rather than 'convertible', it confirms the absence of convertible-specific checkpoints.",
-                "weight": 0.1
+                "reason": "To confirm car count and detect if it is classified as a 'convertible' specifically, verifying the roof type.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
@@ -372,102 +361,98 @@
                     "Checkpoint: Limbs_and_Anatomy",
                     "Checkpoint: Body_and_Plumage"
                 ],
-                "reason": "To analyze limb proportions (hind vs forelegs) and ear length to distinguish between rabbit and hare anatomy as per taxonomy.",
+                "reason": "To audit the limb proportions (hind vs forelegs) and ear length against the specific 'hare' taxonomy requirements.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
                 "verification_goals": [
-                    "Checkpoint: Head_and_Face (ear tips)",
-                    "Checkpoint: Body_and_Plumage (size/fur)"
+                    "Checkpoint: Head_and_Face",
+                    "Checkpoint: Body_and_Plumage"
                 ],
-                "reason": "To classify the species. If classified as 'rabbit' rather than 'hare', it supports the finding that hare-specific traits are absent.",
+                "reason": "To determine if the species classification aligns with 'hare' (Lepus) vs generic 'rabbit' (Oryctolagus), specifically checking for hare-specific traits like ear tip coloration.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "rabbit",
+                "target_subject": "car",
                 "verification_goals": [
-                    "Artifact: texture_anomaly"
+                    "Artifact: structural_collapse"
                 ],
-                "reason": "To assess the severity of the bread-like fur texture. Prioritize this over strict pose auditing as the subject is stylized/surreal.",
+                "reason": "To assess the severity of the distortion in the driver figure and wheel geometry.",
                 "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "bagel",
                 "verification_goals": [
-                    "Artifact: structural_collapse (behind rabbit)"
+                    "Atom 5"
                 ],
-                "reason": "To check the segmentation boundary between the rear bagel and the rabbit. If they share pixels or lack a clear edge, it confirms fusion/melting.",
-                "weight": 0.05
+                "reason": "To verify the spatial relationship between the bagels and the rabbit (depth ordering).",
+                "weight": 0.1
             }
         ],
-        "unverifiable_points": [],
+        "unverifiable_points": [
+            "Checkpoint: Dense interior crumb visible at cut surface (bagel) - Object is not cut.",
+            "Checkpoint: Short tail (rabbit) - Occluded by viewing angle."
+        ],
         "focus_areas": [
-            "Count verification for bagels (expected 4 vs observed 4)",
-            "Material verification for bagels (expected metal vs observed bread)",
-            "Car body style classification (convertible vs sedan)",
-            "Rabbit vs Hare anatomical distinction (ear tips, leg proportions)",
-            "Texture consistency of the rabbit (fur vs bread dough)",
-            "Boundary integrity between rear bagel and rabbit"
+            "Material verification of bagels (Bread vs Metal)",
+            "Exact count of bagels (4 vs 5)",
+            "Car classification (Convertible vs Sedan/Coupe)",
+            "Driver figure integrity in background",
+            "Rabbit/Hare morphological distinction"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bagel",
-                "reason": "To verify the exact count of bagels (expected 4). Bounding boxes will confirm if the rear object is a distinct instance or fused part.",
+                "reason": "To verify the exact count of bagels (expected 4 vs predicted 5) and confirm their presence.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
+                "expert_name": "fine_grained_classifier",
                 "target_subject": "bagel",
-                "reason": "To specifically analyze material properties (metal vs bread). Visual inspection suggests bread; this expert can detect metallic specular highlights or lack thereof to confirm the prompt failure.",
+                "reason": "To definitively classify the material properties (bread vs metal) and confirm if they match the 'bagel' class or a 'metal object' class.",
                 "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "car",
-                "reason": "To confirm the presence and count of the car.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "car",
-                "reason": "To classify the car body style. If classified as 'sedan' or 'coupe' rather than 'convertible', it confirms the absence of convertible-specific checkpoints.",
-                "weight": 0.1
+                "reason": "To confirm car count and detect if it is classified as a 'convertible' specifically, verifying the roof type.",
+                "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "rabbit",
-                "reason": "To analyze limb proportions (hind vs forelegs) and ear length to distinguish between rabbit and hare anatomy as per taxonomy.",
+                "reason": "To audit the limb proportions (hind vs forelegs) and ear length against the specific 'hare' taxonomy requirements.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
-                "reason": "To classify the species. If classified as 'rabbit' rather than 'hare', it supports the finding that hare-specific traits are absent.",
+                "reason": "To determine if the species classification aligns with 'hare' (Lepus) vs generic 'rabbit' (Oryctolagus), specifically checking for hare-specific traits like ear tip coloration.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "rabbit",
-                "reason": "To assess the severity of the bread-like fur texture. Prioritize this over strict pose auditing as the subject is stylized/surreal.",
+                "target_subject": "car",
+                "reason": "To assess the severity of the distortion in the driver figure and wheel geometry.",
                 "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "bagel",
-                "reason": "To check the segmentation boundary between the rear bagel and the rabbit. If they share pixels or lack a clear edge, it confirms fusion/melting.",
-                "weight": 0.05
+                "reason": "To verify the spatial relationship between the bagels and the rabbit (depth ordering).",
+                "weight": 0.1
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/387.png",
             "prompt_id": "387",
             "prompt_text": "a car, and four metal bagels in front of a rabbit",
-            "router_cost_seconds": 71.88,
+            "router_cost_seconds": 70.89,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

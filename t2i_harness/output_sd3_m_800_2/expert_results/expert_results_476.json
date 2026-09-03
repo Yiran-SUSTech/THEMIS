@@ -6,25 +6,25 @@
     "class_id": null,
     "class_label": "a white cat under five candles to the left of a bagel",
     "plan_reference": "approved_plan_476",
-    "execution_timestamp": "2026-09-02 02:23:30",
+    "execution_timestamp": "2026-09-02 23:35:55",
     "focus_areas": [
-        "Spatial relationship between cat and candles (Atom 3 failure)",
-        "Count accuracy of candles and bagels (Atom 4, 7 failures)",
-        "Taxonomic mismatch: White cat vs Tabby Cat checkpoints",
-        "Object identity: Bagel vs Bread Roll"
+        "Count verification for candles and bagels (Prompt says 5 candles/1 bagel, Image shows ~4 candles/3 bagels).",
+        "Taxonomy mismatch: Prompt asks for 'white cat', Taxonomy describes 'tabby cat'. Image follows prompt, failing taxonomy checkpoints.",
+        "Spatial relation 'under': Verify if candles are physically beneath or just adjacent.",
+        "Leftmost candle integrity: Check for fusion/melting artifacts."
     ],
     "custom_prompts_for_reflector": "",
-    "image_description": "A white cat lying on a wooden table in the center. To the left of the cat, there is a cluster of lit candles (appearing to be four or five). To the right and behind the cat, there is a stack of three round bread rolls (bagels/buns).",
+    "image_description": "A white cat lying on a wooden table in the center. To the left of the cat, there is a cluster of lit candles (appearing to be four visible). To the right and behind the cat, there is a stack of three bagels.",
     "expert_testimonies": [
         {
             "expert_id": "open_vocabulary_detector",
             "internal_expert_id": "open_vocabulary_detector",
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "cat",
-            "weight": 0.25,
-            "reason": "Verify presence, count, and color classification of the cat.",
+            "weight": 0.2,
+            "reason": "Verify exact count and presence of the main subject.",
             "status": "success",
-            "execution_time_ms": 13980.12,
+            "execution_time_ms": 13704.97,
             "evidence": {
                 "detected_objects": [
                     {
@@ -51,9 +51,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "candle",
             "weight": 0.15,
-            "reason": "Accurately count the candles, especially resolving the fused/occluded ones on the left.",
+            "reason": "Accurately count candles to resolve ambiguity about the 'five' expected vs 'four' observed.",
             "status": "success",
-            "execution_time_ms": 15223.26,
+            "execution_time_ms": 14524.54,
             "evidence": {
                 "detected_objects": [
                     {
@@ -160,9 +160,9 @@
             "model_name": "GroundingDINO_ONNX",
             "target_subject": "bagel",
             "weight": 0.15,
-            "reason": "Count the bagels and confirm they are detected as bagels vs buns.",
+            "reason": "Count bagels to verify if there is truly only one (as per prompt) or a stack (as seen).",
             "status": "success",
-            "execution_time_ms": 14357.75,
+            "execution_time_ms": 13725.35,
             "evidence": {
                 "detected_objects": [
                     {
@@ -229,9 +229,9 @@
             "model_name": "Depth_Anything_V1_FP16_MACA",
             "target_subject": "scene",
             "weight": 0.15,
-            "reason": "Verify spatial relationship (under vs beside) and check depth consistency of the fused candle region.",
+            "reason": "Verify spatial relationships: confirm candles are not 'under' the cat and are strictly to the left of bagels in 3D space.",
             "status": "success",
-            "execution_time_ms": 87.57,
+            "execution_time_ms": 60.99,
             "evidence": {
                 "saved_depth_map_path": "/mnt/afs/zhengmingkai/zyr/THEMIS/c2i_harness/output/depth_maps/476_depth.png",
                 "depth_statistics": {
@@ -252,46 +252,11 @@
             "expert_id": "fine_grained_classifier",
             "internal_expert_id": "fine_grained_classifier",
             "model_name": "EVA-02_Large_ONNX_MetaX",
-            "target_subject": "bagel",
-            "weight": 0.15,
-            "reason": "Determine if the object is taxonomically a bagel or a bread roll/bun based on visual features.",
-            "status": "success",
-            "execution_time_ms": 122.18,
-            "evidence": {
-                "top3_candidates": [
-                    {
-                        "rank": 1,
-                        "class_index": 931,
-                        "label_name": "bagel, beigel",
-                        "logit_score": 7.56
-                    },
-                    {
-                        "rank": 2,
-                        "class_index": 933,
-                        "label_name": "cheeseburger",
-                        "logit_score": 5.41
-                    },
-                    {
-                        "rank": 3,
-                        "class_index": 930,
-                        "label_name": "French loaf",
-                        "logit_score": 4.45
-                    }
-                ]
-            },
-            "raw_metrics": {},
-            "error": null,
-            "traceback": null
-        },
-        {
-            "expert_id": "fine_grained_classifier",
-            "internal_expert_id": "fine_grained_classifier",
-            "model_name": "EVA-02_Large_ONNX_MetaX",
             "target_subject": "cat",
             "weight": 0.15,
-            "reason": "Confirm if the model classifies this as a 'tabby cat' despite the white coat, or correctly identifies it as a different breed/color variant.",
+            "reason": "Confirm breed/color classification to validate if it is a white cat vs tabby cat taxonomy mismatch.",
             "status": "success",
-            "execution_time_ms": 206.57,
+            "execution_time_ms": 119.73,
             "evidence": {
                 "top3_candidates": [
                     {
@@ -317,13 +282,203 @@
             "raw_metrics": {},
             "error": null,
             "traceback": null
+        },
+        {
+            "expert_id": "perceptual_quality_auditor",
+            "internal_expert_id": "qinsight_distortion_analyzer",
+            "model_name": "Q-Insight_Score_Degradation_BF16",
+            "target_subject": "candles",
+            "weight": 0.1,
+            "reason": "Investigate the merging/bleeding artifact on the leftmost candle.",
+            "status": "success",
+            "execution_time_ms": 8863.2,
+            "evidence": {
+                "thinking_trajectory": "The image appears to be clear and well-lit, with no visible noise, compression, blur, or darkening. The focus is on the cat, and the background elements are in good detail. The colors are vibrant, and there's a pleasant balance between the subject and the surrounding objects.",
+                "distortion_class": "null",
+                "severity_level": "null",
+                "severity_score": 0.0
+            },
+            "raw_metrics": {},
+            "error": null,
+            "traceback": null
+        },
+        {
+            "expert_id": "animal_pose_auditor",
+            "internal_expert_id": "animal_pose_estimator",
+            "model_name": "rtmlib_YOLOX_ViTPose_APT36K",
+            "target_subject": "cat",
+            "weight": 0.1,
+            "reason": "Audit limb structure and completeness, especially given the texture anomaly noted in paws.",
+            "status": "success",
+            "execution_time_ms": 343.31,
+            "evidence": {
+                "detected_pose_instances": [
+                    {
+                        "instance_id": 1,
+                        "total_keypoints_polled": 17,
+                        "average_instance_confidence": 0.6507,
+                        "keypoints": [
+                            {
+                                "keypoint_id": 0,
+                                "x": 646.3,
+                                "y": 435.38,
+                                "confidence": 0.9654
+                            },
+                            {
+                                "keypoint_id": 1,
+                                "x": 494.36,
+                                "y": 439.03,
+                                "confidence": 0.9652
+                            },
+                            {
+                                "keypoint_id": 2,
+                                "x": 583.53,
+                                "y": 516.29,
+                                "confidence": 0.9995
+                            },
+                            {
+                                "keypoint_id": 3,
+                                "x": 538.79,
+                                "y": 606.19,
+                                "confidence": 0.6149
+                            },
+                            {
+                                "keypoint_id": 4,
+                                "x": 226.56,
+                                "y": 278.39,
+                                "confidence": 0.7088
+                            },
+                            {
+                                "keypoint_id": 5,
+                                "x": 687.53,
+                                "y": 649.2,
+                                "confidence": 0.6204
+                            },
+                            {
+                                "keypoint_id": 6,
+                                "x": 681.31,
+                                "y": 702.43,
+                                "confidence": 0.8708
+                            },
+                            {
+                                "keypoint_id": 7,
+                                "x": 623.65,
+                                "y": 750.13,
+                                "confidence": 0.915
+                            },
+                            {
+                                "keypoint_id": 8,
+                                "x": 323.82,
+                                "y": 655.84,
+                                "confidence": 0.7801
+                            },
+                            {
+                                "keypoint_id": 9,
+                                "x": 385.29,
+                                "y": 711.73,
+                                "confidence": 0.7439
+                            },
+                            {
+                                "keypoint_id": 10,
+                                "x": 469.66,
+                                "y": 766.99,
+                                "confidence": 0.9405
+                            },
+                            {
+                                "keypoint_id": 11,
+                                "x": 298.47,
+                                "y": 537.02,
+                                "confidence": 0.0745
+                            },
+                            {
+                                "keypoint_id": 12,
+                                "x": 185.34,
+                                "y": 512.49,
+                                "confidence": 0.0788
+                            },
+                            {
+                                "keypoint_id": 13,
+                                "x": 158.74,
+                                "y": 560.92,
+                                "confidence": 0.3263
+                            },
+                            {
+                                "keypoint_id": 14,
+                                "x": 177.01,
+                                "y": 442.13,
+                                "confidence": 0.5581
+                            },
+                            {
+                                "keypoint_id": 15,
+                                "x": 158.04,
+                                "y": 513.03,
+                                "confidence": 0.456
+                            },
+                            {
+                                "keypoint_id": 16,
+                                "x": 146.22,
+                                "y": 566.16,
+                                "confidence": 0.4438
+                            }
+                        ]
+                    }
+                ],
+                "low_confidence_analysis": {
+                    "low_confidence_threshold": 0.5,
+                    "total_keypoints": 17,
+                    "low_confidence_count": 5,
+                    "low_confidence_ratio": 0.2941,
+                    "low_confidence_keypoints": [
+                        {
+                            "keypoint_id": 11,
+                            "name": "Left_Hip",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.0745
+                        },
+                        {
+                            "keypoint_id": 12,
+                            "name": "Right_Hip",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.0788
+                        },
+                        {
+                            "keypoint_id": 13,
+                            "name": "Left_Knee",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.3263
+                        },
+                        {
+                            "keypoint_id": 15,
+                            "name": "Left_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.456
+                        },
+                        {
+                            "keypoint_id": 16,
+                            "name": "Right_Ankle",
+                            "region": "Hind_Limbs",
+                            "confidence": 0.4438
+                        }
+                    ],
+                    "affected_body_regions": [
+                        "Hind_Limbs(5 low-conf keypoints)"
+                    ],
+                    "artifact_risk_level": "MEDIUM",
+                    "risk_reasoning": "29% of keypoints below 0.5 confidence — notable uncertainty in Hind_Limbs(5 low-conf keypoints). May reflect structural issues, occlusion, or domain mismatch; verify visually."
+                }
+            },
+            "raw_metrics": {
+                "detected_instances_count": 1
+            },
+            "error": null,
+            "traceback": null
         }
     ],
     "execution_summary": {
-        "total_experts_planned": 6,
-        "successful_experts": 6,
+        "total_experts_planned": 7,
+        "successful_experts": 7,
         "failed_experts": 0,
-        "total_execution_time_ms": 76931.29,
+        "total_execution_time_ms": 78775.92,
         "failed_expert_ids": []
     }
 }

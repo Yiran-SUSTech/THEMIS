@@ -2,30 +2,39 @@
     "image_id": "582",
     "prompt": "three metal lions playing with three flamingos, and three bears",
     "iteration": 1,
-    "timestamp": "2026-09-02 02:10:31",
+    "timestamp": "2026-09-02 23:23:08",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections. The Router failed to identify that the generated subjects labeled as 'lions' are anatomically bears (specifically Grizzly/Brown bears) wearing lion manes. \n\n1. **Taxonomic Hallucination**: The `fine_grained_classifier` was tasked to verify 'lion' attributes. However, visual inspection reveals the underlying head structure (snout shape, ear placement) is ursine, not feline. A correct evaluation must flag this as a species generation error (Bear vs. Lion), not just a material check.\n2. **Missing Expert**: The `animal_pose_auditor` is assigned to 'lion', but since the base anatomy is a bear, the keypoint detection will likely fail or produce erroneous confidence scores because the skeletal structure does not match a lion's topology. The plan lacks a step to verify the *actual* species present before auditing its pose.\n3. **Incomplete Count Verification**: While the router correctly notes only 2 'lions' (bears) and 2 flamingos are visible, it fails to explicitly task an expert with verifying if the third missing instances are occluded or simply absent, relying solely on the detector which may struggle with the hybrid 'bear-lion' morphology.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in taxonomy verification and misses critical structural audits for the generated subjects.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Species Identity Verification (Lion vs. Bear)",
-                "recommended_expert": "fine_grained_classifier"
+                "point": "Lion Tail Structural Audit",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "The plan marks 'Tail has a dark tuft' as is_present=false due to visibility issues. However, the image clearly shows the left lion has a truncated/nub tail (a common AI artifact). The animal_pose_auditor must explicitly verify limb/tail completeness rather than dismissing it as untestable."
             },
             {
-                "type": "expert_correction",
-                "point": "Re-target animal_pose_auditor from 'lion' to 'bear' for the bronze statues, as their underlying anatomy is ursine.",
-                "recommended_expert": "animal_pose_auditor"
+                "type": "incorrect_checkpoint_judgment",
+                "point": "Lion Coat Texture Checkpoint",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "The plan marks 'Coat is short, dense...' as is_present=false because the subject is metal. This is a category error; the checkpoint should evaluate if the *texture rendering* simulates the biological feature correctly or if it fails to render the expected surface detail. A classifier or perceptual auditor should verify if the 'metal' texture successfully conveys the 'lion' identity despite the material change."
             },
             {
-                "type": "atom_coverage",
-                "point": "Add verification for 'Are the lions actually lions?' to address the morphological mismatch (Bear body + Lion mane).",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "missing_verification",
+                "point": "Flamingo Leg/Toe Anatomy",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "Flamingos have complex foot structures (palmate/webbed). The current plan relies on visual inspection for 'webbed feet' but does not assign an expert to audit the geometric validity of the feet/toes, which are prone to melting/fusion in AI generation."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Bear Absence Confirmation",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "While the plan assigns OVD to bears, it should explicitly ensure the detector scans the background foliage where 'hidden' bears might be hallucinated, given the prompt requested three bears and none are in the foreground."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a scene with two bronze-colored metal statues of lions and two pink plastic flamingo statues standing on a stone ledge next to a pool. There are no bears visible in the image.",
+        "image_description": "The image displays a garden scene featuring four animal statues arranged on a stone ledge next to a pool of water. There are two large, bronze-colored metal statues resembling lions (or possibly bear-lion hybrids) flanking two smaller pink flamingo statues. The background consists of blurred green foliage and rocks. No bears are visible in the frame.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -34,7 +43,7 @@
                 "predicted": "two",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Only two lion statues are clearly visible in the frame (one left, one right)."
+                "reasoning": "Only two lion-like statues are visible in the image (one left, one right). The prompt requested three."
             },
             {
                 "atom_index": 1,
@@ -42,8 +51,8 @@
                 "expected": "Yes",
                 "predicted": "Yes",
                 "is_correct": true,
-                "confidence": 0.95,
-                "reasoning": "The lions have a distinct metallic sheen, texture, and color consistent with bronze or copper statues."
+                "confidence": 1.0,
+                "reasoning": "The statues have a distinct metallic sheen, texture, and color consistent with cast bronze or copper."
             },
             {
                 "atom_index": 2,
@@ -52,7 +61,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Two lion figures are prominent in the foreground."
+                "reasoning": "Two large feline statues with manes are clearly present."
             },
             {
                 "atom_index": 3,
@@ -61,7 +70,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 0.9,
-                "reasoning": "The subjects are static statues arranged in a line; there is no dynamic interaction or 'playing' behavior depicted."
+                "reasoning": "The statues are static objects placed near each other; they are not interacting or 'playing' in any active sense, though they are grouped together."
             },
             {
                 "atom_index": 4,
@@ -70,7 +79,7 @@
                 "predicted": "two",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Only two flamingo statues are visible between the lions."
+                "reasoning": "Only two pink flamingo statues are visible between the larger metal statues."
             },
             {
                 "atom_index": 5,
@@ -79,7 +88,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Two pink flamingo statues are clearly present."
+                "reasoning": "Two pink bird statues with characteristic long necks and legs are present."
             },
             {
                 "atom_index": 6,
@@ -88,7 +97,7 @@
                 "predicted": "zero",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are no bear figures in the image; only lions and flamingos."
+                "reasoning": "There are no bear statues visible. The large statues resemble lions due to their manes, despite some ambiguous facial features."
             },
             {
                 "atom_index": 7,
@@ -97,7 +106,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "No bears are visible."
+                "reasoning": "No objects matching the taxonomy of a bear are present."
             }
         ],
         "checkpoint_verdicts": [
@@ -107,7 +116,7 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image to test this feature."
             },
             {
                 "object": "bear",
@@ -115,7 +124,7 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "bear",
@@ -123,7 +132,7 @@
                 "category": "Head_and_Face",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "bear",
@@ -131,7 +140,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "bear",
@@ -139,7 +148,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "bear",
@@ -147,7 +156,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "bear",
@@ -155,7 +164,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Object is completely absent from the image."
+                "reasoning": "No bears are present in the image."
             },
             {
                 "object": "flamingo",
@@ -163,7 +172,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The bills show the correct downward curve and black tips, though the transition to pink is stylized due to being a statue."
+                "reasoning": "Both flamingo statues clearly display the characteristic curved bill with a black tip and pink base."
             },
             {
                 "object": "flamingo",
@@ -171,7 +180,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Proportions match the biological description despite being statues."
+                "reasoning": "The proportion of the small head to the long S-curved neck is accurate to the species."
             },
             {
                 "object": "flamingo",
@@ -179,7 +188,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Small dark eyes are visible on the heads."
+                "reasoning": "Small dark eye details are visible on the statue heads."
             },
             {
                 "object": "flamingo",
@@ -187,7 +196,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Statues are uniformly pink; lacks the specific gradient/darker wing detail of real birds, but matches the general 'pink' attribute."
+                "reasoning": "The statues are uniformly pink; while they lack the specific gradient/darker wing tips of real birds, they match the general 'pink' descriptor for a stylized statue."
             },
             {
                 "object": "flamingo",
@@ -195,7 +204,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Silhouette correctly captures the compact body vs long neck/legs ratio."
+                "reasoning": "The silhouette correctly shows a compact body with long neck and legs."
             },
             {
                 "object": "flamingo",
@@ -203,7 +212,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The statues are solid pink with no black feather details on the wings."
+                "reasoning": "The statues are entirely pink and do not feature the black primary feathers mentioned in the taxonomy, likely due to being stylized toys/statues."
             },
             {
                 "object": "flamingo",
@@ -211,7 +220,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Legs are long and pink. Webbing is implied by the sculpted foot shape."
+                "reasoning": "Legs are long and pink. While 'webbed feet' are hard to see in detail on the statues, the general leg structure is correct."
             },
             {
                 "object": "flamingo",
@@ -219,7 +228,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The S-curve and length are accurately represented in the sculpture."
+                "reasoning": "The S-curve and length of the neck are prominent and accurate features of the statues."
             },
             {
                 "object": "flamingo",
@@ -227,7 +236,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Subjects are standing, not in flight posture."
+                "reasoning": "The statues are in a standing/wading posture, not flight posture. This checkpoint is not applicable/testable for this specific pose."
             },
             {
                 "object": "lion",
@@ -235,7 +244,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Sculpted heads feature broad faces and short muzzles typical of lions."
+                "reasoning": "The metal statues have broad heads and relatively short muzzles consistent with feline anatomy."
             },
             {
                 "object": "lion",
@@ -243,7 +252,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Ears are visible, small, and rounded atop the mane."
+                "reasoning": "Small rounded ears are visible atop the heads, peeking over the mane area."
             },
             {
                 "object": "lion",
@@ -251,15 +260,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Eyes are painted/sculpted to look intense and round."
+                "reasoning": "The statues have painted eyes that appear round and dark/amber, fitting the description."
             },
             {
                 "object": "lion",
                 "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Bodies are muscular. Tails are visible with textured ends representing tufts."
+                "is_present": false,
+                "reasoning": "While the body is muscular, the tails are either missing, truncated, or obscured. The left statue has a nub, but no clear 'long tail with dark tuft' is visible."
             },
             {
                 "object": "lion",
@@ -267,7 +276,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The material is metal (bronze/copper), not a tawny fur coat. The texture represents fur but the material/color is wrong for the biological checkpoint."
+                "reasoning": "The 'coat' is actually textured metal (bronze/copper), not biological fur. It is not tawny nor does it have a biological lighter underside."
             },
             {
                 "object": "lion",
@@ -275,29 +284,35 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Prominent manes are sculpted around the heads, matching the structural description."
+                "reasoning": "The statues feature a very prominent, stylized mane surrounding the head and neck, rendered in the metal texture."
             },
             {
                 "object": "lion",
                 "checkpoint": "Tail has a dark tuft at the end.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The tail ends are sculpted with a distinct tuft shape."
+                "is_present": false,
+                "reasoning": "The tails are not clearly visible or are incomplete on the statues; the specific 'dark tuft' detail cannot be verified as present."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Left lion's rear left leg/paw",
+                "location": "Left lion statue rear legs/paws",
                 "severity": 2,
-                "reasoning": "The rear paw appears slightly fused with the stone ledge and lacks clear toe definition compared to the front paws."
+                "reasoning": "The rear paws of the left lion statue appear somewhat fused into the stone ledge and lack distinct toe definition compared to the front paws."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Flamingo bodies",
+                "location": "Lion statues surface",
                 "severity": 1,
-                "reasoning": "The surface is perfectly smooth plastic-like texture rather than having any feather detailing, which is expected for a high-quality statue but deviates from biological reality if interpreted literally."
+                "reasoning": "The metal texture has a slightly repetitive, embossed pattern that looks more like plastic molding than cast metal, particularly on the legs."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Lion statues tails",
+                "severity": 3,
+                "reasoning": "Lions typically have long tails. The statues seem to lack visible tails or they are awkwardly truncated against the body/ledge, which is a common AI generation failure for quadrupeds."
             }
         ],
         "expert_verification_plan": [
@@ -308,7 +323,7 @@
                     "Atom 0",
                     "Atom 2"
                 ],
-                "reason": "Verify exact count of lions and confirm presence.",
+                "reason": "To definitively count the number of lion-like entities and confirm their presence, distinguishing them from bears.",
                 "weight": 0.2
             },
             {
@@ -318,8 +333,8 @@
                     "Atom 4",
                     "Atom 5"
                 ],
-                "reason": "Verify exact count of flamingos and confirm presence.",
-                "weight": 0.2
+                "reason": "To verify the exact count of flamingos and ensure no small/occluded ones were missed.",
+                "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
@@ -328,92 +343,108 @@
                     "Atom 6",
                     "Atom 7"
                 ],
-                "reason": "Confirm absence of bears in the scene.",
+                "reason": "To confirm the absence of bears, as the large statues might be ambiguous hybrids.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "lion",
                 "verification_goals": [
-                    "Atom 1",
-                    "Checkpoint: Coat is short..."
+                    "Checkpoint: Males have a prominent shaggy mane...",
+                    "Checkpoint: Head is broad with a short muzzle."
                 ],
-                "reason": "Classify material/texture to confirm 'metal' attribute and distinguish from biological fur.",
+                "reason": "To classify the large statues specifically as lions vs bears vs hybrids based on head/mane features.",
                 "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flamingo",
+                "verification_goals": [
+                    "Checkpoint: Bill is distinctive with downward-curving shape...",
+                    "Checkpoint: Neck is extremely elongated..."
+                ],
+                "reason": "To confirm the species classification of the pink birds despite them being statues.",
+                "weight": 0.1
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "lion",
                 "verification_goals": [
-                    "Checkpoint: Body is large...",
-                    "Checkpoint: Tail has a dark tuft..."
+                    "Checkpoint: Tail has a dark tuft at the end.",
+                    "Checkpoint: Body is large, muscular..."
                 ],
-                "reason": "Verify anatomical correctness of the statue's limbs and tail structure.",
+                "reason": "To audit the skeletal structure of the lion statues, specifically checking for valid limb counts and tail presence/structure.",
                 "weight": 0.15
             },
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "flamingo",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
                 "verification_goals": [
-                    "Checkpoint: Neck is extremely elongated...",
-                    "Checkpoint: Legs are exceptionally long..."
+                    "Artifact: structural_collapse (Left lion rear legs)",
+                    "Artifact: missing_parts (Tails)"
                 ],
-                "reason": "Verify proportional correctness of neck and leg length in the statues.",
-                "weight": 0.15
+                "reason": "To perform a detailed analysis of the metal texture and structural integrity of the statues' limbs and tails.",
+                "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Atom 3 (Playing interaction is subjective and hard to verify via object detection alone)",
-            "Checkpoint: Flight posture features full neck extension (Subject is stationary)"
+            "Atom 3 (Playing interaction): Subjective interpretation of static statues.",
+            "Flamingo Checkpoint: Flight posture features full neck extension: Statues are standing, not flying."
         ],
         "focus_areas": [
-            "Count verification for all three species (Lion, Flamingo, Bear)",
-            "Material classification of lions (Metal vs Biological)",
-            "Anatomical proportion check for statues"
+            "Count verification for all three species (Lion, Flamingo, Bear).",
+            "Classification of the large metal statues (Lion vs Bear ambiguity).",
+            "Structural integrity of the lion statues (tails and paws)."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "lion",
-                "reason": "Verify exact count of lions and confirm presence.",
+                "reason": "To definitively count the number of lion-like entities and confirm their presence, distinguishing them from bears.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "flamingo",
-                "reason": "Verify exact count of flamingos and confirm presence.",
-                "weight": 0.2
+                "reason": "To verify the exact count of flamingos and ensure no small/occluded ones were missed.",
+                "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bear",
-                "reason": "Confirm absence of bears in the scene.",
+                "reason": "To confirm the absence of bears, as the large statues might be ambiguous hybrids.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "lion",
-                "reason": "Classify material/texture to confirm 'metal' attribute and distinguish from biological fur.",
+                "reason": "To classify the large statues specifically as lions vs bears vs hybrids based on head/mane features.",
                 "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flamingo",
+                "reason": "To confirm the species classification of the pink birds despite them being statues.",
+                "weight": 0.1
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "lion",
-                "reason": "Verify anatomical correctness of the statue's limbs and tail structure.",
+                "reason": "To audit the skeletal structure of the lion statues, specifically checking for valid limb counts and tail presence/structure.",
                 "weight": 0.15
             },
             {
-                "expert_name": "animal_pose_auditor",
-                "target_subject": "flamingo",
-                "reason": "Verify proportional correctness of neck and leg length in the statues.",
-                "weight": 0.15
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "lion",
+                "reason": "To perform a detailed analysis of the metal texture and structural integrity of the statues' limbs and tails.",
+                "weight": 0.1
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/582.png",
             "prompt_id": "582",
             "prompt_text": "three metal lions playing with three flamingos, and three bears",
-            "router_cost_seconds": 59.01,
+            "router_cost_seconds": 66.39,
             "plan_valid": true
         }
     }

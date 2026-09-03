@@ -2,34 +2,47 @@
     "image_id": "586",
     "prompt": "six flowers, and three pink kangaroos to the left of seven raccoons",
     "iteration": 1,
-    "timestamp": "2026-09-02 02:10:39",
+    "timestamp": "2026-09-02 23:23:10",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and misses critical verification steps for spatial relationships and object counts.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Atom 3 (Are the kangaroos pink?) requires explicit verification of color attributes which is not fully covered by the current experts. While fine_grained_classifier checks species, it may not explicitly validate the 'pink' attribute against the prompt requirement.",
-                "recommended_expert": "perceptual_quality_auditor or open_vocabulary_detector (with attribute filtering)"
+                "type": "incorrect_atom_judgment",
+                "point": "Atom 0 (Flower Count): The Router marked 'approximately six to eight' as Correct for an expected count of 'six'. In strict T2I evaluation, a count mismatch (8 vs 6) is a failure. The judgment should be False.",
+                "recommended_action": "Update Atom 0 is_correct to False."
             },
             {
                 "type": "missing_verification",
-                "point": "Atom 5 (Spatial relationship: kangaroos left of raccoons) relies on open_vocabulary_detector for bounding boxes, but lacks a dedicated spatial reasoning step to rigorously confirm the 'left of' constraint given the intermingling noted in artifacts.",
-                "recommended_expert": "geometric_depth_auditor (to clarify depth/occlusion affecting spatial perception) or explicit spatial logic module"
+                "point": "Atom 5 (Spatial Relationship): The prompt requires kangaroos to be 'to the left of' raccoons. The current plan relies on geometric_depth_auditor, but lacks explicit bounding box logic to verify relative horizontal positioning (Left/Right).",
+                "recommended_expert": "open_vocabulary_detector",
+                "recommendation": "Use open_vocabulary_detector to generate BBoxes for both classes and compute centroid X-coordinates to rigorously verify the 'left of' constraint."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Flower Count Verification: The plan verifies Kangaroo and Raccoon counts via open_vocabulary_detector but omits Flower count verification, despite Atom 0 being a primary counting task.",
+                "recommended_expert": "open_vocabulary_detector",
+                "recommendation": "Add open_vocabulary_detector target for 'flower' to verify Atom 0."
+            },
+            {
+                "type": "logical_inconsistency",
+                "point": "Checkpoint Coverage: The plan marks several flower checkpoints as 'is_present=false' due to color mismatch (White vs Pink), but fails to assign an expert to verify if the *structure* matches the prompt's implied flower type or if it's just a generic pink flower. The fine_grained_classifier is only assigned to Kangaroos.",
+                "recommended_expert": "fine_grained_classifier",
+                "recommendation": "Assign fine_grained_classifier or perceptual_quality_auditor to verify flower species/type consistency if specific types were implied, or simply confirm the visual attributes match the 'pink' description in the prompt."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a grassy scene containing four wallaby-like marsupials (three upright, one lying down) and two raccoons. There are several pink and red flowers in the background. The animals appear to be interacting or grouped together on the lawn.",
+        "image_description": "The image displays a grassy scene containing four wallaby-like marsupials (kangaroos) and two raccoons. One raccoon is sitting upright on the left, while another lies horizontally across the foreground with an elongated, distorted body. In the background right, there is a cluster of pink and red flowers. The kangaroos are positioned centrally and to the right, not strictly to the left of the raccoons.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
                 "question": "How many flowers are in the image?",
                 "expected": "six",
-                "predicted": "five",
-                "is_correct": false,
-                "confidence": 0.9,
-                "reasoning": "I can clearly count five distinct flower heads in the upper right background (two pink, one red, two lighter pink). There is no sixth flower visible."
+                "predicted": "approximately six to eight",
+                "is_correct": true,
+                "confidence": 0.8,
+                "reasoning": "There is a cluster of flowers in the top right. Counting distinct heads yields roughly 6-8 visible blooms, which aligns reasonably well with 'six' given potential occlusion."
             },
             {
                 "atom_index": 1,
@@ -38,7 +51,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Flowers are clearly visible in the upper right quadrant."
+                "reasoning": "Pink and red flowers are clearly visible in the upper right background."
             },
             {
                 "atom_index": 2,
@@ -46,8 +59,8 @@
                 "expected": "three",
                 "predicted": "four",
                 "is_correct": false,
-                "confidence": 0.95,
-                "reasoning": "There are four distinct macropod subjects: three sitting upright in a row and one lying horizontally in the foreground."
+                "confidence": 1.0,
+                "reasoning": "There are clearly four distinct kangaroo/wallaby figures: three standing/sitting in a row and one on the far right."
             },
             {
                 "atom_index": 3,
@@ -55,8 +68,8 @@
                 "expected": "Yes",
                 "predicted": "No",
                 "is_correct": false,
-                "confidence": 0.95,
-                "reasoning": "The animals have natural brownish-grey fur with some warm lighting tones, but they are not pink. Only the flowers are pink."
+                "confidence": 1.0,
+                "reasoning": "The kangaroos have natural brownish-grey fur tones. They are not pink; only the flowers are pink."
             },
             {
                 "atom_index": 4,
@@ -65,7 +78,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Macropods (wallabies/kangaroos) are the primary subjects of the image."
+                "reasoning": "Four kangaroo-like animals are present."
             },
             {
                 "atom_index": 5,
@@ -74,7 +87,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 0.9,
-                "reasoning": "One raccoon is positioned between the first and second kangaroo (left-center), and another raccoon body lies in the immediate foreground spanning across the bottom. The spatial relationship 'kangaroos to the left of raccoons' is not strictly true as they are intermingled and the raccoon is also in front/below."
+                "reasoning": "One raccoon is on the far left (left of most kangaroos), and the other is in the foreground center. The kangaroos are generally to the right or behind the raccoons, not to the left."
             },
             {
                 "atom_index": 6,
@@ -82,8 +95,8 @@
                 "expected": "seven",
                 "predicted": "two",
                 "is_correct": false,
-                "confidence": 0.95,
-                "reasoning": "There is one raccoon head visible between the first two kangaroos, and one raccoon body/tail lying in the foreground. Total count is two, not seven."
+                "confidence": 1.0,
+                "reasoning": "Only two raccoons are visible: one sitting on the left and one lying down in the front."
             },
             {
                 "atom_index": 7,
@@ -92,7 +105,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Raccoon features (mask, ringed tail) are clearly visible."
+                "reasoning": "Two raccoons are clearly identifiable by their masks and ringed tails."
             }
         ],
         "checkpoint_verdicts": [
@@ -102,7 +115,7 @@
                 "category": "Flower_or_Top",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The flowers in the image are pink and red with yellow centers, not white. They do not match the 'daisy' description of white ray petals."
+                "reasoning": "The visible flowers are pink or red with yellow centers, not white. They do not match the 'daisy' description of white ray petals."
             },
             {
                 "object": "flower",
@@ -110,7 +123,7 @@
                 "category": "Flower_or_Top",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Petals are pink/red, not white. Shape is somewhat rounded/oval rather than the specific narrow elongated daisy shape."
+                "reasoning": "Petals are pink/red, not white."
             },
             {
                 "object": "flower",
@@ -118,15 +131,15 @@
                 "category": "Flower_or_Top",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The flowers do possess bright yellow centers that appear textured/granular, matching this specific attribute despite the wrong petal color."
+                "reasoning": "The flowers do have bright yellow centers that appear textured/granular."
             },
             {
                 "object": "flower",
                 "checkpoint": "Petals narrow, slightly pointed, arranged in flat, circular pattern.",
                 "category": "Stem_and_Leaves",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "While arranged circularly, the petals are broader and more rounded at the tips than the 'narrow, slightly pointed' daisy description. Color is also wrong."
+                "is_present": true,
+                "reasoning": "The petal shape and arrangement are consistent with composite flowers, despite the color mismatch."
             },
             {
                 "object": "flower",
@@ -134,7 +147,7 @@
                 "category": "Stem_and_Leaves",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Green stems are visible supporting the flower heads in the background foliage."
+                "reasoning": "Green stems are visible supporting the flower heads in the background cluster."
             },
             {
                 "object": "flower",
@@ -142,7 +155,7 @@
                 "category": "Stem_and_Leaves",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Leaves are obscured by dense background foliage; specific 'alternate leaf' arrangement on the flower stem cannot be verified."
+                "reasoning": "Leaves are not clearly distinguishable as 'small alternate leaves' on the stems; the area is blurry and mixed with grass."
             },
             {
                 "object": "flower",
@@ -150,7 +163,7 @@
                 "category": "Root_and_Base",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Stems clearly emerge from the grassy ground plane."
+                "reasoning": "Stems appear to emerge from the grassy ground."
             },
             {
                 "object": "flower",
@@ -158,7 +171,7 @@
                 "category": "Root_and_Base",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Each visible flower head appears to be supported by its own individual stem."
+                "reasoning": "Each flower head appears supported by its own stem."
             },
             {
                 "object": "flower",
@@ -166,7 +179,7 @@
                 "category": "Root_and_Base",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Consistent with the top-level check, the yellow centers are distinct and textured."
+                "reasoning": "Yellow centers are visible and textured."
             },
             {
                 "object": "kangaroo",
@@ -174,7 +187,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The ears depicted are actually quite large, tall, and pointed—more characteristic of kangaroos or hares than the 'short and rounded' wallaby description provided."
+                "reasoning": "The ears are actually quite large, pointed, and rabbit-like, not short and rounded as described for wallabies."
             },
             {
                 "object": "kangaroo",
@@ -182,7 +195,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The faces show dark eye patches/rings, but lack the specific 'pale cheek stripes' mentioned in the wallaby taxonomy. They look more like generic AI-generated marsupial faces."
+                "reasoning": "Faces are mostly uniform brown/grey without distinct pale cheek stripes or dark eye bands typical of some wallaby species."
             },
             {
                 "object": "kangaroo",
@@ -190,7 +203,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The heads are proportionally small compared to the bulky torsos, fitting the macropod profile."
+                "reasoning": "Heads appear proportionally small relative to the bulky bodies."
             },
             {
                 "object": "kangaroo",
@@ -198,7 +211,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The fur is a mix of browns, greys, and tans, which fits the allowed color palette."
+                "reasoning": "Fur is brownish-grey, matching the natural tone description (contradicting the prompt's 'pink' request)."
             },
             {
                 "object": "kangaroo",
@@ -206,7 +219,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The seated animals display the classic large hind leg / small forelimb ratio of macropods."
+                "reasoning": "Hind limbs are visibly larger and more muscular than forelimbs."
             },
             {
                 "object": "kangaroo",
@@ -214,7 +227,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The tails visible (especially on the lying animal and the rightmost sitter) appear very long and thick, likely equal to or longer than the torso, contradicting the 'notably shorter' wallaby constraint."
+                "reasoning": "Tails appear long and thick, likely equal to or longer than torso length, contradicting 'notably shorter'."
             },
             {
                 "object": "kangaroo",
@@ -222,7 +235,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Hind legs are visibly robust and large."
+                "reasoning": "Hind legs are prominent and muscular."
             },
             {
                 "object": "kangaroo",
@@ -230,7 +243,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Forelimbs are small and held against the chest; digit structure is plausible though slightly blurry."
+                "reasoning": "Forelimbs are small and held against the chest; digit count is hard to see but structure looks correct."
             },
             {
                 "object": "kangaroo",
@@ -238,33 +251,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Tails are thick and muscular, consistent with macropod anatomy."
+                "reasoning": "Tails are thick and rest on the ground for balance."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "fusion",
-                "location": "Center-left, between first and second kangaroo",
+                "artifact_type": "structural_collapse",
+                "location": "Foreground raccoon body",
                 "severity": 4,
-                "reasoning": "A raccoon head appears to be emerging directly from the side/leg of the first kangaroo without a distinct body connection, indicating severe object fusion."
+                "reasoning": "The raccoon lying in the foreground has an impossibly elongated torso and a tail that seems to merge/fuse with the body in a non-anatomical way. The spine curvature and limb placement suggest structural failure."
             },
             {
-                "artifact_type": "structural_collapse",
-                "location": "Foreground, lying raccoon/kangaroo hybrid",
-                "severity": 5,
-                "reasoning": "The animal lying in the front has a raccoon head and ringed tail but a body that blends seamlessly into the leg of the rightmost kangaroo. It lacks defined limbs and anatomical coherence."
+                "artifact_type": "fusion",
+                "location": "Left raccoon and adjacent kangaroo",
+                "severity": 2,
+                "reasoning": "The tail of the left raccoon appears to blend slightly into the leg of the adjacent kangaroo, creating a ambiguous boundary."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Grass texture throughout",
+                "location": "Kangaroo eyes",
                 "severity": 2,
-                "reasoning": "The grass has a repetitive, painted quality with inconsistent focus depth, typical of AI generation."
-            },
-            {
-                "artifact_type": "extra_limbs",
-                "location": "Rightmost kangaroo",
-                "severity": 3,
-                "reasoning": "The rightmost kangaroo's forelimbs appear duplicated or merged with the tail of the foreground creature, creating ambiguous limb structures."
+                "reasoning": "The eyes of the kangaroos are uniformly black and glossy, lacking realistic iris/pupil detail, giving them a doll-like or AI-generated appearance."
             }
         ],
         "expert_verification_plan": [
@@ -275,7 +282,7 @@
                     "Atom 2",
                     "Atom 4"
                 ],
-                "reason": "Verify exact count of macropods and confirm presence despite potential fusion artifacts.",
+                "reason": "Verify exact count of kangaroos (expected 3 vs observed 4) and confirm presence.",
                 "weight": 0.2
             },
             {
@@ -283,122 +290,103 @@
                 "target_subject": "raccoon",
                 "verification_goals": [
                     "Atom 6",
-                    "Atom 7",
-                    "Atom 5"
+                    "Atom 7"
                 ],
-                "reason": "Verify count of raccoons and their spatial location relative to kangaroos to confirm the failed spatial prompt.",
+                "reason": "Verify exact count of raccoons (expected 7 vs observed 2) and confirm presence.",
                 "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "flower",
-                "verification_goals": [
-                    "Atom 0",
-                    "Atom 1"
-                ],
-                "reason": "Accurately count flower instances to verify Atom 0 failure.",
-                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "kangaroo",
                 "verification_goals": [
-                    "kangaroo: Head_and_Face",
-                    "kangaroo: Body_and_Plumage"
+                    "Atom 3",
+                    "Checkpoint: Fur coloration..."
                 ],
-                "reason": "Determine if the species is actually a wallaby (as per taxonomy) or a generic kangaroo/hare hybrid, specifically checking ear shape and size constraints.",
+                "reason": "Confirm species classification and verify if fur color matches 'pink' (prompt) or natural tones (image).",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "flower",
-                "verification_goals": [
-                    "flower: Flower_or_Top",
-                    "flower: Stem_and_Leaves"
-                ],
-                "reason": "Classify flower species to confirm they are NOT daisies (white petals) as required by the taxonomy checkpoints.",
-                "weight": 0.1
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "kangaroo",
                 "verification_goals": [
-                    "kangaroo: Limbs_and_Anatomy",
-                    "Artifact: fusion",
-                    "Artifact: structural_collapse"
+                    "Checkpoint: Large muscular hind limbs...",
+                    "Checkpoint: Small forelimbs..."
                 ],
-                "reason": "Audit limb connectivity to confirm the severe fusion between the raccoon head and kangaroo body, and verify valid biological structure.",
+                "reason": "Audit anatomical correctness of limbs and posture for the four detected kangaroos.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Artifact: structural_collapse (Foreground raccoon)"
+                ],
+                "reason": "Specifically analyze the distorted foreground raccoon for severity of structural collapse and fusion artifacts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "scene",
                 "verification_goals": [
-                    "Artifact: texture_anomaly",
-                    "Artifact: extra_limbs"
+                    "Atom 5"
                 ],
-                "reason": "Holistic assessment of the blending artifacts and texture consistency in the grass and fur regions.",
-                "weight": 0.1
+                "reason": "Verify spatial relationship: determine if kangaroos are truly to the left of raccoons using depth cues.",
+                "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "flower: Small alternate leaves along stem (occluded by background foliage)"
+            "Checkpoint: Small alternate leaves along stem (flower)",
+            "Checkpoint: Distinctive facial markings include pale cheek stripes (kangaroo)"
         ],
         "focus_areas": [
-            "Severe object fusion between raccoon and kangaroo bodies",
-            "Incorrect flower color (pink vs expected white daisy)",
-            "Incorrect animal count (4 kangaroos vs 3, 2 raccoons vs 7)",
-            "Wallaby taxonomy mismatch (ears too large/pointed, tails too long)"
+            "Count verification for kangaroos and raccoons",
+            "Color attribute verification for kangaroos",
+            "Structural integrity of the foreground raccoon",
+            "Spatial relationship between kangaroos and raccoons"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "kangaroo",
-                "reason": "Verify exact count of macropods and confirm presence despite potential fusion artifacts.",
+                "reason": "Verify exact count of kangaroos (expected 3 vs observed 4) and confirm presence.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "raccoon",
-                "reason": "Verify count of raccoons and their spatial location relative to kangaroos to confirm the failed spatial prompt.",
+                "reason": "Verify exact count of raccoons (expected 7 vs observed 2) and confirm presence.",
                 "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "flower",
-                "reason": "Accurately count flower instances to verify Atom 0 failure.",
-                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "kangaroo",
-                "reason": "Determine if the species is actually a wallaby (as per taxonomy) or a generic kangaroo/hare hybrid, specifically checking ear shape and size constraints.",
+                "reason": "Confirm species classification and verify if fur color matches 'pink' (prompt) or natural tones (image).",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "flower",
-                "reason": "Classify flower species to confirm they are NOT daisies (white petals) as required by the taxonomy checkpoints.",
-                "weight": 0.1
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "kangaroo",
-                "reason": "Audit limb connectivity to confirm the severe fusion between the raccoon head and kangaroo body, and verify valid biological structure.",
+                "reason": "Audit anatomical correctness of limbs and posture for the four detected kangaroos.",
                 "weight": 0.15
             },
             {
                 "expert_name": "perceptual_quality_auditor",
+                "target_subject": "raccoon",
+                "reason": "Specifically analyze the distorted foreground raccoon for severity of structural collapse and fusion artifacts.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "scene",
-                "reason": "Holistic assessment of the blending artifacts and texture consistency in the grass and fur regions.",
-                "weight": 0.1
+                "reason": "Verify spatial relationship: determine if kangaroos are truly to the left of raccoons using depth cues.",
+                "weight": 0.15
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/586.png",
             "prompt_id": "586",
             "prompt_text": "six flowers, and three pink kangaroos to the left of seven raccoons",
-            "router_cost_seconds": 62.34,
+            "router_cost_seconds": 57.51,
             "plan_valid": true
         }
     }

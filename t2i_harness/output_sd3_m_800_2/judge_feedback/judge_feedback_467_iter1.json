@@ -2,30 +2,35 @@
     "image_id": "467",
     "prompt": "a purple cat, and two metal bicycles on top of a sheep",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:58:48",
+    "timestamp": "2026-09-02 23:11:41",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in the Taxonomy Checkpoint verification and misses a critical structural audit for the primary subject (sheep). Specifically: 1) The Router incorrectly flags the 'purple cat' as failing taxonomy checkpoints for 'grey/tawny coat' and 'tabby patterns'. Since the prompt explicitly requested a 'purple cat', these naturalistic taxonomy failures are expected and should not be treated as negative artifacts or require 'contrary evidence' from a classifier. 2) The plan fails to assign an `animal_pose_auditor` to the sheep. While the sheep's body is woolly, its legs are distinct, rigid structures that must be audited for biological correctness (joint orientation, hoof count), which is currently only done for the cat. 3) The `geometric_depth_auditor` is missing, despite the complex stacking of three objects (Sheep -> Scarf/Cat -> Bicycle) which requires rigorous depth separation analysis.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Expert Verification Plan' regarding the bicycle taxonomy. The Router incorrectly assumes the prompt requested a 'tandem' or 'elongated' bicycle and sets up checkpoints to verify this non-existent requirement. The prompt explicitly asks for 'two metal bicycles' (count=2), not one tandem bike. Consequently, the plan fails to assign an expert to verify the count of 'two' against the generated 'one', instead focusing on irrelevant geometric features of a single bike. Additionally, the plan misses verifying the spatial relationship 'on top of' for the sheep using a depth auditor.",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "Sheep limb structural integrity (joints/hooves)",
-                "recommended_expert": "animal_pose_auditor"
+                "point": "Atom 3 (Count of bicycles: Expected 2, Predicted 1). The current plan focuses on 'tandem' geometry rather than counting distinct bicycle instances.",
+                "recommended_expert": "open_vocabulary_detector"
             },
             {
-                "type": "logic_correction",
-                "point": "Remove fine_grained_classifier verification for Cat coat color/pattern. The prompt specifies 'purple', making natural tabby/grey taxonomy irrelevant. The current plan treats prompt adherence as a taxonomy failure.",
-                "recommended_expert": "N/A (Router Logic)"
+                "type": "incorrect_checkpoint_logic",
+                "point": "Checkpoints for 'bicycle' (e.g., 'Elongated bicycle...', 'Two handlebars...') are based on a hallucinated constraint that the bike must be tandem. These should be replaced with checkpoints verifying if there are two distinct bicycle frames.",
+                "recommended_expert": "N/A (Plan Revision)"
             },
             {
                 "type": "missing_verification",
-                "point": "Depth separation between stacked objects (Cat/Bike vs Sheep)",
+                "point": "Atom 6 (Are the bicycles on top of the sheep?). While the cat is on the sheep, the bicycles are on the cat. A depth audit is needed to confirm the full stack hierarchy (Bike -> Cat -> Sheep) and ensure no floating artifacts.",
                 "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 4 (Are the bicycles metal?). The visual evidence shows significant rust and metallic reflection. A fine-grained classifier or material auditor should confirm the 'metal' attribute specifically, as 'rust' can sometimes be confused with wood/texture by generic classifiers.",
+                "recommended_expert": "fine_grained_classifier"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A surreal composite image featuring a purple cat sitting upright on the back of a sheep. The cat is holding or positioned with a single vintage-style metal bicycle that rests across its lap/shoulders. A purple knitted scarf or fabric lies between the cat and the sheep's woolly back. The sheep stands on grass against a plain background.",
+        "image_description": "A surreal composite image featuring a purple cat sitting upright on the back of a sheep. The cat is holding or positioned with a single vintage-style metal bicycle that rests across its lap/shoulders. A purple knitted scarf or fabric is draped over the sheep's back beneath the bicycle. The sheep stands on grass against a plain white background.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -61,7 +66,7 @@
                 "predicted": "one",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Only one bicycle frame with two wheels is visible. The prompt asked for two, but the generation produced only one."
+                "reasoning": "Only one bicycle frame and wheel set is visible. The prompt asked for two, but the generation produced only one."
             },
             {
                 "atom_index": 4,
@@ -70,7 +75,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 0.95,
-                "reasoning": "The bicycle frame exhibits metallic textures, rust, and specular highlights consistent with metal."
+                "reasoning": "The bicycle exhibits metallic textures, rust, and reflective highlights consistent with metal construction."
             },
             {
                 "atom_index": 5,
@@ -88,7 +93,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 0.9,
-                "reasoning": "The bicycle is positioned on the cat, which is on the sheep; spatially, the bike is supported by the sheep stack, though physically resting on the cat."
+                "reasoning": "The bicycle is physically supported by the cat, which is on the sheep; thus, the bicycle is spatially located on top of the sheep assembly."
             },
             {
                 "atom_index": 7,
@@ -97,7 +102,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is exactly one sheep acting as the base of the stack."
+                "reasoning": "A single sheep body is visible supporting the other elements."
             },
             {
                 "atom_index": 8,
@@ -106,7 +111,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A sheep is clearly visible at the bottom of the composition."
+                "reasoning": "A sheep is clearly present as the base of the stack."
             }
         ],
         "checkpoint_verdicts": [
@@ -116,7 +121,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bicycle shown is a standard single-rider frame, not an elongated tandem bicycle with two seats/pedals as defined by the taxonomy 'bicycle-built-for-two'."
+                "reasoning": "The bicycle shown is a standard single-rider frame, not an elongated tandem 'bicycle-built-for-two'. It lacks the second seat and extended top tube required by the taxonomy."
             },
             {
                 "object": "bicycle",
@@ -124,7 +129,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The profile is that of a regular bicycle; there is no second rider position or stretched frame."
+                "reasoning": "The profile is that of a regular bicycle with only one saddle and one set of handlebars visible."
             },
             {
                 "object": "bicycle",
@@ -132,7 +137,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The top tube is standard length, not extended for a tandem configuration."
+                "reasoning": "The top tube is standard length, connecting the head tube to the seat tube directly without extension for a second rider."
             },
             {
                 "object": "bicycle",
@@ -140,7 +145,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only one set of handlebars is visible."
+                "reasoning": "Only one set of handlebars is present at the front of the bike."
             },
             {
                 "object": "bicycle",
@@ -148,7 +153,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only one saddle is present."
+                "reasoning": "There is only one saddle visible."
             },
             {
                 "object": "bicycle",
@@ -156,7 +161,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The wheels appear to be standard bicycle proportions relative to the frame."
+                "reasoning": "The wheels appear to be standard proportions relative to the frame."
             },
             {
                 "object": "bicycle",
@@ -164,7 +169,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The frame length is standard, contradicting the tandem taxonomy requirement."
+                "reasoning": "The frame length is standard, not elongated as required for a tandem bike."
             },
             {
                 "object": "bicycle",
@@ -172,15 +177,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bike is a single-rider configuration."
-            },
-            {
-                "object": "bicycle",
-                "checkpoint": "Two distinct rider positions visible in profile.",
-                "category": "Material_and_Context",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "Only one seating area is visible."
+                "reasoning": "The geometry does not support a tandem configuration."
             },
             {
                 "object": "cat",
@@ -188,7 +185,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The cat has a standard feline head shape with a short muzzle."
+                "reasoning": "The cat has a typical domestic cat head shape with a short muzzle."
             },
             {
                 "object": "cat",
@@ -204,7 +201,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Eyes are yellow/gold, large, and round."
+                "reasoning": "Eyes are large and yellowish-gold, fitting the description."
             },
             {
                 "object": "cat",
@@ -220,7 +217,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The coat is solid purple. While there is faint texture suggesting stripes, the primary color violates the 'grey or tawny' ground truth for a natural tabby, though it matches the prompt's 'purple' instruction. Strictly against taxonomy, this fails."
+                "reasoning": "The coat is solid purple. While there is faint texture suggesting stripes, the primary color requirement (grey/tawny) is completely failed due to the purple coloring."
             },
             {
                 "object": "cat",
@@ -228,15 +225,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No distinct M-marking or dark stripes are visible due to the solid purple coloring."
-            },
-            {
-                "object": "cat",
-                "checkpoint": "Pattern types include classic (swirled), mackerel (striped), spotted, or ticked.",
-                "category": "Body_and_Plumage",
-                "is_testable": true,
-                "is_present": false,
-                "reasoning": "The coat appears largely solid purple without clear tabby patterning."
+                "reasoning": "No distinct M-marking or dark stripes are visible on the purple fur; the tail appears solid purple."
             },
             {
                 "object": "cat",
@@ -244,7 +233,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Legs are solid purple, lacking the characteristic tabby striping."
+                "reasoning": "Legs are solid purple without visible striping."
             },
             {
                 "object": "sheep",
@@ -268,7 +257,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The eye visible is dark, but resolution is insufficient to confirm horizontal rectangular pupils; likely just a dark spot."
+                "reasoning": "The eye visible is dark, but resolution is insufficient to confirm horizontal rectangular pupils; likely just a dark dot."
             },
             {
                 "object": "sheep",
@@ -284,7 +273,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The sheep has a thick, textured cream/white woolly coat."
+                "reasoning": "The sheep has a thick, textured cream/white fleece."
             },
             {
                 "object": "sheep",
@@ -300,7 +289,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Neck appears thick and supports the head adequately."
+                "reasoning": "Neck appears thick and supports the head firmly."
             },
             {
                 "object": "sheep",
@@ -308,7 +297,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The rear of the sheep is obscured by the angle and the purple fabric; tail cannot be verified."
+                "reasoning": "The rear of the sheep is obscured by the angle and the purple fabric; tail cannot be seen."
             },
             {
                 "object": "sheep",
@@ -324,19 +313,19 @@
                 "artifact_type": "structural_collapse",
                 "location": "Bicycle-Cat interface",
                 "severity": 3,
-                "reasoning": "The bicycle appears to float or merge slightly with the cat's chest/shoulders. There is no clear physical grip or support mechanism showing how the heavy metal bike is suspended on the cat."
+                "reasoning": "The bicycle appears to float or merge slightly with the cat's chest/paws. There is no clear gripping mechanism; the front wheel hangs in a way that defies gravity relative to the cat's hold, and the rear wheel intersects oddly with the cat's hip."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Purple scarf/fabric",
+                "location": "Purple scarf/fabric on sheep",
                 "severity": 2,
-                "reasoning": "The purple fabric draped over the sheep has a uniform, plastic-like knit texture that lacks realistic fiber variation and shadows, looking somewhat synthetic compared to the sheep's wool."
+                "reasoning": "The purple fabric draped on the sheep has a knitted texture that looks somewhat synthetic and plastic-like compared to the organic wool of the sheep, and its edges blend slightly into the sheep's wool without clear occlusion boundaries."
             },
             {
                 "artifact_type": "perspective_distortion",
                 "location": "Bicycle wheels",
                 "severity": 2,
-                "reasoning": "The rear wheel spokes and rim exhibit slight warping and inconsistency in thickness, common in AI-generated mechanical objects."
+                "reasoning": "The spokes on the rear wheel appear slightly warped and inconsistent in thickness, and the rim alignment suggests a minor perspective error where the wheel isn't perfectly planar."
             }
         ],
         "expert_verification_plan": [
@@ -348,7 +337,7 @@
                     "Checkpoint: Elongated bicycle...",
                     "Checkpoint: Two handlebars..."
                 ],
-                "reason": "Verify the count of bicycles (expected 2 vs observed 1) and detect if a second tandem-specific structure exists anywhere in the image.",
+                "reason": "To definitively count the number of bicycles and verify if the detected object matches the 'tandem' class label or 'standard bicycle' class label.",
                 "weight": 0.25
             },
             {
@@ -356,19 +345,20 @@
                 "target_subject": "bicycle",
                 "verification_goals": [
                     "Checkpoint: Tandem configuration...",
-                    "Checkpoint: Frame significantly longer..."
+                    "Checkpoint: Extended top tube..."
                 ],
-                "reason": "Classify the specific type of bicycle to confirm if it matches 'bicycle-built-for-two' taxonomy or is a standard bike.",
+                "reason": "To classify the specific type of bicycle generated. If it returns 'standard bicycle' instead of 'tandem', it confirms the prompt failure.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cat",
                 "verification_goals": [
+                    "Atom 1",
                     "Checkpoint: Coat is grey or tawny...",
                     "Checkpoint: Characteristic M-shaped marking..."
                 ],
-                "reason": "Determine if the underlying texture/classification aligns with 'tabby cat' despite the purple color override, or if it's a generic cat model.",
+                "reason": "To verify if the model recognizes the animal as a 'tabby cat' despite the purple coloration, or if it classifies it as a generic 'cat' or 'toy', confirming the texture/color deviation.",
                 "weight": 0.15
             },
             {
@@ -376,76 +366,76 @@
                 "target_subject": "cat",
                 "verification_goals": [
                     "Checkpoint: Body is medium-sized...",
-                    "Checkpoint: Striped legs..."
+                    "Artifact: Bicycle-Cat interface"
                 ],
-                "reason": "Verify limb integrity and anatomical correctness of the cat, especially where it interacts with the bicycle.",
+                "reason": "To check if the cat's limb keypoints are valid and if the pose supports holding a bicycle, or if the limbs are melting into the bike frame.",
                 "weight": 0.15
             },
             {
-                "expert_name": "fine_grained_classifier",
+                "expert_name": "topology_boundary_auditor",
                 "target_subject": "sheep",
                 "verification_goals": [
                     "Checkpoint: Body covered with dense woolly fleece...",
-                    "Checkpoint: Sturdy legs with cloven hooves"
+                    "Artifact: Purple scarf/fabric on sheep"
                 ],
-                "reason": "Confirm species classification as 'ram' or 'sheep' and verify leg/hoove details.",
+                "reason": "To segment the sheep from the purple fabric and check for boundary bleeding or fusion between the wool and the artificial cloth.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "bicycle",
                 "verification_goals": [
-                    "Artifact: perspective_distortion",
-                    "Artifact: structural_collapse"
+                    "Artifact: Bicycle wheels",
+                    "Atom 6"
                 ],
-                "reason": "Analyze the geometric consistency of the bicycle wheels and the physical plausibility of the cat-bike interaction.",
+                "reason": "To verify the 3D consistency of the bicycle wheels and ensure the bicycle is physically grounded on the cat/sheep stack rather than floating.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Sheep tail visibility (occluded)",
-            "Sheep pupil shape (resolution limit)"
+            "Sheep eye pupil shape (resolution too low for horizontal rectangle verification)",
+            "Sheep tail presence (occluded)"
         ],
         "focus_areas": [
-            "Bicycle count and type verification (Prompt said 2, Image shows 1 standard)",
-            "Cat coat pattern analysis (Purple vs Tabby taxonomy)",
+            "Bicycle type verification (Standard vs Tandem)",
+            "Cat coat pattern and color analysis",
             "Physical interaction stability between Cat and Bicycle"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bicycle",
-                "reason": "Verify the count of bicycles (expected 2 vs observed 1) and detect if a second tandem-specific structure exists anywhere in the image.",
+                "reason": "To definitively count the number of bicycles and verify if the detected object matches the 'tandem' class label or 'standard bicycle' class label.",
                 "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "bicycle",
-                "reason": "Classify the specific type of bicycle to confirm if it matches 'bicycle-built-for-two' taxonomy or is a standard bike.",
+                "reason": "To classify the specific type of bicycle generated. If it returns 'standard bicycle' instead of 'tandem', it confirms the prompt failure.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "cat",
-                "reason": "Determine if the underlying texture/classification aligns with 'tabby cat' despite the purple color override, or if it's a generic cat model.",
+                "reason": "To verify if the model recognizes the animal as a 'tabby cat' despite the purple coloration, or if it classifies it as a generic 'cat' or 'toy', confirming the texture/color deviation.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "cat",
-                "reason": "Verify limb integrity and anatomical correctness of the cat, especially where it interacts with the bicycle.",
+                "reason": "To check if the cat's limb keypoints are valid and if the pose supports holding a bicycle, or if the limbs are melting into the bike frame.",
                 "weight": 0.15
             },
             {
-                "expert_name": "fine_grained_classifier",
+                "expert_name": "topology_boundary_auditor",
                 "target_subject": "sheep",
-                "reason": "Confirm species classification as 'ram' or 'sheep' and verify leg/hoove details.",
+                "reason": "To segment the sheep from the purple fabric and check for boundary bleeding or fusion between the wool and the artificial cloth.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
+                "expert_name": "geometric_depth_auditor",
                 "target_subject": "bicycle",
-                "reason": "Analyze the geometric consistency of the bicycle wheels and the physical plausibility of the cat-bike interaction.",
+                "reason": "To verify the 3D consistency of the bicycle wheels and ensure the bicycle is physically grounded on the cat/sheep stack rather than floating.",
                 "weight": 0.1
             }
         ],
@@ -453,7 +443,7 @@
             "original_image": "geneval2_sd3_m_800/467.png",
             "prompt_id": "467",
             "prompt_text": "a purple cat, and two metal bicycles on top of a sheep",
-            "router_cost_seconds": 67.86,
+            "router_cost_seconds": 66.7,
             "plan_valid": true
         }
     }

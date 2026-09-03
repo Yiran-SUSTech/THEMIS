@@ -2,25 +2,35 @@
     "image_id": "280",
     "prompt": "five chairs to the right of a metal candle",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:43:19",
+    "timestamp": "2026-09-02 22:55:09",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical and methodological errors. 1) The 'Taxonomy Checkpoints' for the 'chair' object are completely hallucinated (describing flagpoles), indicating a failure in the checkpoint generation step that requires correction before auditing. 2) The spatial verification strategy is flawed: using a 'geometric_depth_auditor' on the 'table' to verify if chairs are 'to the right of the candle' is indirect and likely insufficient; the auditor should target the chairs and candle directly to establish their relative coordinates. 3) The material verification for the candle relies on a 'fine_grained_classifier', which is suboptimal for distinguishing materials (wax vs. metal); a 'perceptual_quality_auditor' or specific texture analysis would be more rigorous. 4) The plan fails to explicitly assign an expert to verify the 'metal' attribute of the candle holder/base, which is crucial given the prompt's ambiguity ('metal candle').",
         "suggestions": [
             {
                 "type": "missing_verification",
-                "point": "The 'metal' attribute of the candle (Atom 4) is currently assigned to fine_grained_classifier. While valid for material ID, a geometric_depth_auditor or topology_boundary_auditor could better verify if the object has the specular highlights and rigid surface continuity typical of metal vs the diffuse/translucent properties of wax.",
+                "point": "Regenerate valid taxonomy checkpoints for 'chair'. The current checkpoints describe flagpoles (finials, halyards) and are irrelevant to the image content.",
+                "recommended_expert": "N/A (Router/Checkpoint Generator Fix)"
+            },
+            {
+                "type": "strategy_correction",
+                "point": "Change the target subject for 'geometric_depth_auditor' from 'table' to 'chairs,candle'. The goal is to verify the spatial relationship between these two specific entities, not the table's geometry.",
                 "recommended_expert": "geometric_depth_auditor"
             },
             {
-                "type": "optimization",
-                "point": "The plan includes two separate calls for fine_grained_classifier (one for candle, one for chair). These can likely be batched or handled by a single pass if the model supports multi-label classification, reducing latency.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "expert_swap",
+                "point": "Replace 'fine_grained_classifier' with 'perceptual_quality_auditor' for verifying the candle's material (Atom 4). Classifiers identify categories, while VLMs/Perceptual auditors better reason about material properties (reflectivity, texture) required to distinguish wax from metal.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Add explicit verification for the 'metal' attribute of the candle holder/base. The prompt says 'metal candle', which might imply the holder. The current plan only checks the wax body.",
+                "recommended_expert": "perceptual_quality_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A high-angle shot of a small round table with a green top and gold base, centered in the frame. On the table sits a large, lit white pillar candle. Surrounding the table are four woven rattan/wicker chairs with dark wooden legs. In the background, there are additional metal-framed chairs with light upholstery, partially visible.",
+        "image_description": "A high-angle shot of a small round table with a large lit pillar candle in the center. Surrounding the table are four woven rattan/wicker chairs with dark wooden legs. In the background, there are additional metal-framed chairs and other furniture pieces on a light carpeted floor.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -29,7 +39,7 @@
                 "predicted": "four",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are clearly only four woven chairs arranged around the central table in the foreground. While there are other chairs in the background, they do not match the primary subject style, and even counting them would exceed five or be ambiguous. The prompt likely intended the four main chairs."
+                "reasoning": "There are clearly only four woven chairs arranged around the central table in the foreground. While there are other chairs in the background, they do not match the primary subject style, and even counting all visible chairs exceeds five or is ambiguous. The prompt likely intended the four main chairs."
             },
             {
                 "atom_index": 1,
@@ -38,7 +48,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Four distinct chairs are clearly visible surrounding the table."
+                "reasoning": "Four distinct chairs are prominently displayed around the table."
             },
             {
                 "atom_index": 2,
@@ -56,7 +66,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is exactly one large white pillar candle on the table."
+                "reasoning": "There is exactly one large pillar candle visible on the table."
             },
             {
                 "atom_index": 4,
@@ -65,7 +75,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The candle body is clearly wax (creamy white, smooth texture), not metal. The holder/base beneath it is metal (gold/brass), but the candle itself is wax."
+                "reasoning": "The candle body is clearly wax (creamy white/yellow, matte texture), not metal. It sits in a metal holder, but the candle itself is wax."
             },
             {
                 "atom_index": 5,
@@ -74,7 +84,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A lit candle is the central focal point of the image."
+                "reasoning": "A lit pillar candle is the central focal point of the image."
             }
         ],
         "checkpoint_verdicts": [
@@ -116,7 +126,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The candle sits flat on the metallic holder/table surface."
+                "reasoning": "The candle stands upright on a flat base within the holder."
             },
             {
                 "object": "candle",
@@ -124,7 +134,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The wick is currently burning, implying it is charred at the tip within the flame."
+                "reasoning": "The wick is currently burning, implying it is charred at the tip."
             },
             {
                 "object": "candle",
@@ -132,7 +142,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The candle body is smooth, uniform, and off-white/ivory in color."
+                "reasoning": "The candle body appears smooth and uniform in an ivory/cream color."
             },
             {
                 "object": "candle",
@@ -148,7 +158,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The surface appears perfectly smooth without the specific texture associated with some scented candles, though this is hard to definitively rule out visually."
+                "reasoning": "The surface appears smooth and uniform, lacking the specific texture associated with some scented candles, though this is hard to definitively rule out visually."
             },
             {
                 "object": "chair",
@@ -204,7 +214,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chairs are made of woven natural fiber (rattan/wicker) and dark wood, not aluminum or fiberglass."
+                "reasoning": "The chairs are made of woven rattan/wicker and dark wood/metal, not aluminum or fiberglass poles."
             },
             {
                 "object": "chair",
@@ -212,7 +222,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chair surfaces are highly textured woven material, not smooth metallic or painted finishes."
+                "reasoning": "The chair surfaces are textured woven material, not smooth metallic/painted poles."
             },
             {
                 "object": "chair",
@@ -220,27 +230,27 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chairs stand freely on legs on a carpeted floor, not embedded in concrete."
+                "reasoning": "The chairs stand freely on legs on a carpet, not embedded in concrete."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Background chairs (top left and top right)",
+                "location": "Background chairs (top left)",
                 "severity": 3,
-                "reasoning": "The metal frames of the background chairs exhibit impossible geometry. Legs merge into each other or disappear into the floor without clear grounding points. The backrests have warped, non-Euclidean curves that defy rigid metal construction."
+                "reasoning": "The metal frames of the chairs in the background appear distorted and physically implausible, with legs merging or bending at impossible angles."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Foreground chair weave patterns",
+                "location": "Woven chair seats",
                 "severity": 2,
-                "reasoning": "While generally convincing, the weave pattern on the front-left chair shows slight inconsistencies where strands merge or terminate abruptly without following a logical over-under weaving logic, particularly near the armrest joints."
+                "reasoning": "The weave pattern on the chairs is inconsistent; some areas show detailed weaving while others blur into a solid texture or have broken patterns that don't follow the structural form."
             },
             {
                 "artifact_type": "perspective_distortion",
-                "location": "Table edge and candle base interface",
+                "location": "Table edge and candle base",
                 "severity": 2,
-                "reasoning": "The gold base of the candle seems to float slightly above the green table surface rather than sitting flush. The shadow cast by the candle base does not perfectly align with the contact point, suggesting a minor depth/grounding error."
+                "reasoning": "The intersection of the candle holder and the table surface looks slightly fused, and the table's circular rim has minor warping inconsistencies."
             }
         ],
         "expert_verification_plan": [
@@ -249,115 +259,97 @@
                 "target_subject": "chair",
                 "verification_goals": [
                     "Atom 0",
-                    "Atom 1",
-                    "Atom 2"
+                    "Atom 1"
                 ],
-                "reason": "To accurately count the number of chairs and verify their spatial distribution relative to the candle (surrounding vs. right-only).",
+                "reason": "To accurately count the number of chairs and verify their presence, distinguishing between foreground and background instances.",
                 "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "chair",
+                "verification_goals": [
+                    "Checkpoint: chair - Geometry_and_Silhouette",
+                    "Checkpoint: chair - Material_and_Context"
+                ],
+                "reason": "To verify if the detected objects are indeed chairs and classify their material/style, confirming they are not flagpoles as suggested by the erroneous taxonomy checkpoints.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 5"
+                ],
+                "reason": "To detect and count candles, ensuring only one is present and verifying its location relative to chairs.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "candle",
                 "verification_goals": [
                     "Atom 4",
-                    "Checkpoint: Wax body smooth..."
+                    "Checkpoint: candle - Material_and_Context"
                 ],
-                "reason": "To confirm the material classification of the central object is indeed wax/candle and not metal, addressing the prompt mismatch.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "background_chairs",
-                "verification_goals": [
-                    "Artifact: structural_collapse"
-                ],
-                "reason": "To rigorously assess the severity of the geometric distortions in the background furniture which appear structurally impossible.",
+                "reason": "To classify the material of the central object, confirming it is wax and not metal.",
                 "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "candle_and_table",
+                "target_subject": "table",
                 "verification_goals": [
-                    "Artifact: perspective_distortion",
-                    "Checkpoint: Flat base for standing"
+                    "Atom 2"
                 ],
-                "reason": "To verify if the candle is physically grounded on the table surface or floating, and to check the planarity of the table.",
+                "reason": "To analyze the spatial relationship between the candle/table and the chairs, verifying if they are strictly 'to the right' or surrounding.",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "foreground_chair",
-                "verification_goals": [
-                    "Artifact: texture_anomaly"
-                ],
-                "reason": "To segment the woven texture and verify if the weave pattern maintains topological continuity or exhibits AI-generated merging/breaking artifacts.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "chair",
-                "verification_goals": [
-                    "Checkpoint: Aluminum...fiberglass...",
-                    "Checkpoint: Surface is smooth..."
-                ],
-                "reason": "To classify the chair material and surface finish, confirming they are woven/wood rather than the metallic/smooth materials described in the erroneous taxonomy checkpoints.",
-                "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Checkpoint: Scented candles may have slightly textured surface from fragrance oils (Subjective/Olfactory property not reliably visible)",
-            "Checkpoint: Charred wick tip if previously burned (Obscured by active flame)"
+            "Checkpoint: candle - Scented candles may have slightly textured surface from fragrance oils"
         ],
         "focus_areas": [
-            "Count verification of chairs (prompt says 5, image shows 4 main + background clutter)",
-            "Spatial relationship validation (prompt says 'right', image shows 'surrounding')",
-            "Material verification of candle (prompt says 'metal', image shows 'wax')",
-            "Structural integrity of background metal chairs",
-            "Grounding of candle on table surface"
+            "Verify the exact count of chairs (foreground vs background).",
+            "Confirm the material composition of the candle (wax vs metal).",
+            "Assess the spatial arrangement of chairs relative to the candle (surrounding vs right-side only).",
+            "Inspect background chair geometry for structural plausibility."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "chair",
-                "reason": "To accurately count the number of chairs and verify their spatial distribution relative to the candle (surrounding vs. right-only).",
+                "reason": "To accurately count the number of chairs and verify their presence, distinguishing between foreground and background instances.",
                 "weight": 0.3
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "candle",
-                "reason": "To confirm the material classification of the central object is indeed wax/candle and not metal, addressing the prompt mismatch.",
+                "target_subject": "chair",
+                "reason": "To verify if the detected objects are indeed chairs and classify their material/style, confirming they are not flagpoles as suggested by the erroneous taxonomy checkpoints.",
                 "weight": 0.2
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "background_chairs",
-                "reason": "To rigorously assess the severity of the geometric distortions in the background furniture which appear structurally impossible.",
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "reason": "To detect and count candles, ensuring only one is present and verifying its location relative to chairs.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "candle",
+                "reason": "To classify the material of the central object, confirming it is wax and not metal.",
                 "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "candle_and_table",
-                "reason": "To verify if the candle is physically grounded on the table surface or floating, and to check the planarity of the table.",
+                "target_subject": "table",
+                "reason": "To analyze the spatial relationship between the candle/table and the chairs, verifying if they are strictly 'to the right' or surrounding.",
                 "weight": 0.15
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "foreground_chair",
-                "reason": "To segment the woven texture and verify if the weave pattern maintains topological continuity or exhibits AI-generated merging/breaking artifacts.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "chair",
-                "reason": "To classify the chair material and surface finish, confirming they are woven/wood rather than the metallic/smooth materials described in the erroneous taxonomy checkpoints.",
-                "weight": 0.1
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/280.png",
             "prompt_id": "280",
             "prompt_text": "five chairs to the right of a metal candle",
-            "router_cost_seconds": 55.47,
+            "router_cost_seconds": 52.28,
             "plan_valid": true
         }
     }

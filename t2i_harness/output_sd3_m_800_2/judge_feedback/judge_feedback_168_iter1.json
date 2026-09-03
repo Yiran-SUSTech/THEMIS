@@ -2,30 +2,38 @@
     "image_id": "168",
     "prompt": "a elephant behind a glass clock",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:35:24",
+    "timestamp": "2026-09-02 22:47:21",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in the Checkpoint Verdicts and fails to address critical visual artifacts present in the image. Specifically: 1) The Router incorrectly marked 'Overall depth is slim' as False (present=false), failing to recognize that the object is a deep mantel clock, not a wall clock, making the checkpoint description itself mismatched or the judgment inverted. 2) The Router missed a severe anatomical error: the elephant has African-sized ears but Asian-style twin-domed head and small tusks, a biological impossibility that the Fine-Grained Classifier should catch but was reasoned around incorrectly. 3) The 'structural_collapse' artifact regarding the feet is misidentified; the elephant is clearly standing *inside* the clock on the base, not behind the glass with feet on the external base. The Geometric Depth Auditor needs to verify the refraction/reflection of the glass over the elephant's body, which is missing from the specific goals.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in taxonomy application and expert selection. Specifically: 1) The Router incorrectly flagged the clock as failing 'wall-mounted' and 'slim' checkpoints, despite the prompt not specifying a wall clock and the image clearly showing a table clock (which is a valid interpretation of 'a clock'). This indicates a failure to adapt taxonomy to the visual evidence or prompt ambiguity. 2) The `fine_grained_classifier` was assigned to verify 'Indian vs African' traits, but the image displays large, fan-shaped ears characteristic of an African elephant, while the checkpoint reasoning incorrectly claims they are small/Indian. This suggests the classifier may be misapplied or the reasoning is hallucinated. 3) The `animal_pose_auditor` is selected for the elephant, but the elephant's rear legs and tail are heavily occluded by the clock frame/body, making a full 17-keypoint audit impossible and likely to yield false negatives for 'missing limbs'.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Biological Consistency (Elephant Species Mismatch)",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "taxonomy_correction",
+                "point": "Clock Type Checkpoints",
+                "recommended_action": "Remove or mark as 'N/A' the checkpoints for 'wall-mounted' and 'slim depth' for the clock object. The prompt 'a glass clock' does not specify type, and the generated table clock is a valid semantic match. Penalizing it for not being a wall clock is a false negative."
+            },
+            {
+                "type": "expert_mismatch",
+                "point": "Elephant Species Classification",
+                "recommended_expert": "fine_grained_classifier",
+                "recommended_action": "Re-evaluate the elephant species. The image shows large ears (African trait), but the plan reasons it has 'small ears' (Indian trait). Ensure the classifier is actually checking for African Elephant features or adjust the expected traits in the checkpoint to match the visual evidence (African)."
             },
             {
                 "type": "missing_verification",
-                "point": "Glass Refraction/Reflection consistency over elephant body",
-                "recommended_expert": "geometric_depth_auditor"
+                "point": "Occlusion Handling for Elephant Pose",
+                "recommended_expert": "topology_boundary_auditor",
+                "recommended_action": "Replace or supplement `animal_pose_auditor` with `topology_boundary_auditor`. Since the rear of the elephant is occluded by the clock body/glass, a strict keypoint audit will fail. A topology auditor can better verify that the visible parts connect logically without floating artifacts, rather than demanding invisible keypoints."
             },
             {
-                "type": "logic_correction",
-                "point": "Re-evaluate Checkpoint 'Overall depth is slim'. The object is a mantel clock. The checkpoint implies a wall clock. The verdict should reflect that the object does not match the 'slim wall clock' profile, but the reasoning must acknowledge it is a valid 'deep mantel clock' rather than a failure of geometry.",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "coverage_gap",
+                "point": "Glass Material Verification",
+                "recommended_expert": "geometric_depth_auditor",
+                "recommended_action": "Ensure the `geometric_depth_auditor` explicitly checks for refraction/reflection artifacts on the glass face. The current plan mentions 'spatial relationship' but should specifically target the optical properties of the 'glass clock' mentioned in the prompt to verify it looks like glass and not just a transparent hole."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A surreal image featuring a large elephant standing inside or behind a giant, ornate gold-rimmed glass clock face. The clock is mounted on a golden stand on a wooden table. The elephant's head and front legs are clearly visible through the glass, with its trunk hanging down between its tusks. The background shows a blurred interior room with a window and plants.",
+        "image_description": "A surreal image featuring a large elephant standing inside or behind a giant, ornate gold table clock. The clock has a glass face with numerals and hands. The elephant's head, trunk, tusks, and front legs are clearly visible through the glass, appearing to be contained within the clock's circular frame. The background shows a blurred interior room with a window and plants.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -34,7 +42,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is clearly a single elephant subject centered within the clock frame."
+                "reasoning": "There is clearly a single elephant subject centered in the composition."
             },
             {
                 "atom_index": 1,
@@ -52,7 +60,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 0.95,
-                "reasoning": "The elephant is visually positioned behind the glass face of the clock, although its feet appear to rest on the base, suggesting a surreal containment rather than simple depth layering. However, 'behind the glass' is visually accurate."
+                "reasoning": "The elephant is visually positioned behind the glass face of the clock, although its feet appear to rest on the clock's base, suggesting it might be 'inside' rather than strictly 'behind', but 'behind the glass' holds true."
             },
             {
                 "atom_index": 3,
@@ -70,7 +78,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The clock face is transparent, allowing the elephant to be seen through it, and exhibits specular highlights consistent with glass."
+                "reasoning": "The clock face is transparent, allowing the elephant to be seen through it, and exhibits reflections consistent with glass."
             },
             {
                 "atom_index": 5,
@@ -89,7 +97,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The object is a tabletop mantel clock on a stand, not a wall-mounted device. While it has a circular face, the mounting type contradicts the 'wall mounting' description."
+                "reasoning": "The object is clearly a table/mantel clock sitting on a surface with a base and feet, not a wall-mounted device as specified in the taxonomy ground truth."
             },
             {
                 "object": "clock",
@@ -97,7 +105,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Numerals 1-12 are clearly visible arranged in a circle around the perimeter."
+                "reasoning": "Numerals 1-12 are clearly visible arranged in a circle on the glass face."
             },
             {
                 "object": "clock",
@@ -105,7 +113,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The clock is depicted as a deep, volumetric enclosure capable of holding an elephant, contradicting the 'slim and unobtrusive' profile of a standard wall clock."
+                "reasoning": "The clock is depicted as a deep, volumetric container capable of holding an elephant, contradicting the 'slim and unobtrusive' description of a standard wall clock."
             },
             {
                 "object": "clock",
@@ -121,7 +129,7 @@
                 "category": "Functional_Components",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The back of the clock is completely occluded by the elephant and the front-facing perspective."
+                "reasoning": "The back of the clock is not visible; furthermore, as a table clock, it likely lacks a wall-mounting bracket."
             },
             {
                 "object": "clock",
@@ -129,7 +137,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No pendulum is visible; the space below the face is occupied by the clock stand and the elephant's legs."
+                "reasoning": "No pendulum is visible in the lower section of the clock."
             },
             {
                 "object": "clock",
@@ -145,7 +153,7 @@
                 "category": "Material_and_Context",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Internal mechanical components and power sources are not visible."
+                "reasoning": "Internal mechanism and power source are not visible."
             },
             {
                 "object": "clock",
@@ -153,7 +161,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The transparency and reflections confirm a glass or clear plastic cover."
+                "reasoning": "The transparent front covering the numerals is clearly glass-like."
             },
             {
                 "object": "elephant",
@@ -169,7 +177,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The ears are smaller and more rounded than the large triangular ears of an African elephant, consistent with Indian elephant taxonomy."
+                "reasoning": "The ears are smaller and more rounded than the large fan-shaped ears of an African elephant, consistent with Indian elephant taxonomy."
             },
             {
                 "object": "elephant",
@@ -177,7 +185,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The trunk is visible and textured correctly; while the very tip is slightly obscured by angle/shadow, the overall morphology matches."
+                "reasoning": "The trunk is long, wrinkled, and ends in a single digit projection, matching the Indian elephant description."
             },
             {
                 "object": "elephant",
@@ -185,7 +193,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Two short, curved tusks are visible, consistent with the description."
+                "reasoning": "Short, downward-curving tusks are visible, consistent with male Indian elephants."
             },
             {
                 "object": "elephant",
@@ -193,7 +201,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The visible portion of the body suggests massive scale relative to the clock."
+                "reasoning": "The visible portion of the body suggests massive scale and height."
             },
             {
                 "object": "elephant",
@@ -201,7 +209,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Skin texture is highly detailed, showing wrinkles and correct coloration."
+                "reasoning": "Skin texture is highly detailed, showing wrinkles and gray-brown coloration."
             },
             {
                 "object": "elephant",
@@ -209,7 +217,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shoulders and upper back visible through the glass show the correct arched barrel shape."
+                "reasoning": "The shoulders and upper back visible behind the head show the characteristic arch and barrel shape."
             },
             {
                 "object": "elephant",
@@ -217,7 +225,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Front legs are visible and pillar-like. Toenails are discernible on the feet resting on the base."
+                "reasoning": "Front legs are visible and pillar-like; toenails are discernible on the feet resting on the clock base."
             },
             {
                 "object": "elephant",
@@ -225,27 +233,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The rear of the elephant is occluded by the front body and the clock frame; the tail is not visible."
+                "reasoning": "The rear of the elephant and tail are occluded by the clock frame and the angle of the shot."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Elephant feet and clock base interface",
+                "location": "Clock base and elephant feet interface",
                 "severity": 3,
-                "reasoning": "The elephant's feet appear to be resting on the solid golden base of the clock, yet the elephant is supposedly 'behind' the glass face. This creates a physical paradox where the animal is simultaneously inside the glass volume and standing on the external base structure. The intersection of the toes and the metal surface lacks proper contact shadows and weight deformation."
+                "reasoning": "The physics of the scene are nonsensical. An elephant weighing tons is standing on a delicate gold clock base which shows no deformation, stress, or crushing. The feet also appear to merge slightly with the reflective surface of the base without proper contact shadows or weight displacement."
             },
             {
                 "artifact_type": "perspective_distortion",
                 "location": "Clock numerals and hands",
                 "severity": 2,
-                "reasoning": "The numerals '11' and '12' appear slightly warped and inconsistent in thickness compared to the others. The clock hands seem to float slightly above the numeral plane without casting distinct shadows on the glass or the elephant behind them, reducing depth coherence."
+                "reasoning": "The numerals '11' and '12' appear slightly warped and inconsistent in perspective relative to the curvature of the glass dome. The hands seem to float slightly above the dial plane without clear attachment depth."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Elephant trunk ridges",
+                "location": "Elephant skin near trunk root",
                 "severity": 1,
-                "reasoning": "The horizontal ridges on the trunk become slightly irregular and merge unnaturally near the middle section, a common subtle AI artifact in repetitive organic textures."
+                "reasoning": "There is a slight smoothing/blurring of the skin texture where the trunk meets the face, lacking the sharp wrinkle definition seen elsewhere, suggesting minor generation artifacting."
             }
         ],
         "expert_verification_plan": [
@@ -254,95 +262,107 @@
                 "target_subject": "elephant",
                 "verification_goals": [
                     "Atom 0",
-                    "Atom 1",
-                    "Checkpoint: Broad head with twin-domed skull",
-                    "Checkpoint: Pillar-like legs with five toenails on forefeet"
+                    "Atom 1"
                 ],
-                "reason": "To confirm the count of elephants and provide bounding boxes for the head and legs to verify anatomical checkpoints.",
-                "weight": 0.25
+                "reason": "To confirm the count and presence of the elephant with bounding box evidence.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "elephant",
                 "verification_goals": [
-                    "Checkpoint: Relatively small ears compared to African elephant",
-                    "Checkpoint: Tusks present primarily in males"
+                    "Head_and_Face: Broad head with twin-domed skull",
+                    "Head_and_Face: Relatively small ears compared to African elephant"
                 ],
-                "reason": "To verify if the specific morphological features (ear size, tusk shape) align with the 'Indian elephant' class label versus other proboscideans.",
+                "reason": "To verify the specific species classification (Indian vs African) based on ear size and head shape.",
                 "weight": 0.2
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "elephant",
                 "verification_goals": [
-                    "Checkpoint: Trunk (proboscis) elongated and muscular",
-                    "Checkpoint: Pillar-like legs with five toenails on forefeet",
-                    "Artifact: Elephant feet and clock base interface"
+                    "Limbs_and_Anatomy: Pillar-like legs with five toenails on forefeet",
+                    "Head_and_Face: Trunk (proboscis) elongated..."
                 ],
-                "reason": "To audit the skeletal correctness of the visible limbs and trunk, and check for structural anomalies in the leg-foot connection.",
+                "reason": "To audit the anatomical correctness of the limbs and trunk structure, ensuring no extra digits or malformed joints.",
                 "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "clock",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 5"
+                ],
+                "reason": "To detect and localize the clock object for further analysis.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "clock",
                 "verification_goals": [
-                    "Atom 2",
-                    "Artifact: structural_collapse",
-                    "Checkpoint: Glass or plastic crystal covers the face"
+                    "Material_and_Context: Glass or plastic crystal covers the face",
+                    "Artifact: structural_collapse"
                 ],
-                "reason": "To verify the spatial relationship between the elephant and the glass plane, and detect the physical impossibility of the feet resting on the base while being behind the glass.",
-                "weight": 0.2
+                "reason": "To verify the 3D spatial relationship between the elephant and the glass face, and to analyze the physical impossibility of the weight distribution on the base.",
+                "weight": 0.15
             },
             {
-                "expert_name": "topology_boundary_auditor",
+                "expert_name": "perceptual_quality_auditor",
                 "target_subject": "clock",
                 "verification_goals": [
-                    "Checkpoint: Face features hour numerals arranged in a 12-hour circle",
+                    "Geometry_and_Silhouette: Face features hour numerals...",
                     "Artifact: perspective_distortion"
                 ],
-                "reason": "To segment the clock face and verify the continuity of the rim and the geometric regularity of the numerals.",
+                "reason": "To check for text rendering quality of numerals and subtle distortions in the clock mechanics.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [
-            "Checkpoint: Mounting bracket or keyhole slot on the back (Occluded)",
-            "Checkpoint: Quartz movement powered by a single AA battery (Internal/Occluded)",
-            "Checkpoint: Long tail with terminal tuft (Occluded)"
+            "clock: Mounting bracket or keyhole slot on the back (Occluded)",
+            "clock: Quartz movement powered by a single AA battery (Internal/Invisible)",
+            "elephant: Long tail with terminal tuft (Occluded)"
         ],
         "focus_areas": [
-            "Physical plausibility of elephant feet resting on the clock base while positioned behind the glass face.",
-            "Accuracy of Indian elephant morphological traits (ear size, head dome) vs African elephant.",
-            "Geometric consistency of clock numerals and hand alignment."
+            "Verify if the clock is correctly identified as a table clock despite the taxonomy specifying 'wall clock'.",
+            "Assess the physical plausibility of the elephant standing on the clock base.",
+            "Confirm Indian elephant species traits (ears, head shape)."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "elephant",
-                "reason": "To confirm the count of elephants and provide bounding boxes for the head and legs to verify anatomical checkpoints.",
-                "weight": 0.25
+                "reason": "To confirm the count and presence of the elephant with bounding box evidence.",
+                "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "elephant",
-                "reason": "To verify if the specific morphological features (ear size, tusk shape) align with the 'Indian elephant' class label versus other proboscideans.",
+                "reason": "To verify the specific species classification (Indian vs African) based on ear size and head shape.",
                 "weight": 0.2
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "elephant",
-                "reason": "To audit the skeletal correctness of the visible limbs and trunk, and check for structural anomalies in the leg-foot connection.",
+                "reason": "To audit the anatomical correctness of the limbs and trunk structure, ensuring no extra digits or malformed joints.",
                 "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "clock",
+                "reason": "To detect and localize the clock object for further analysis.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "clock",
-                "reason": "To verify the spatial relationship between the elephant and the glass plane, and detect the physical impossibility of the feet resting on the base while being behind the glass.",
-                "weight": 0.2
+                "reason": "To verify the 3D spatial relationship between the elephant and the glass face, and to analyze the physical impossibility of the weight distribution on the base.",
+                "weight": 0.15
             },
             {
-                "expert_name": "topology_boundary_auditor",
+                "expert_name": "perceptual_quality_auditor",
                 "target_subject": "clock",
-                "reason": "To segment the clock face and verify the continuity of the rim and the geometric regularity of the numerals.",
+                "reason": "To check for text rendering quality of numerals and subtle distortions in the clock mechanics.",
                 "weight": 0.15
             }
         ],
@@ -350,7 +370,7 @@
             "original_image": "geneval2_sd3_m_800/168.png",
             "prompt_id": "168",
             "prompt_text": "a elephant behind a glass clock",
-            "router_cost_seconds": 55.22,
+            "router_cost_seconds": 55.46,
             "plan_valid": true
         }
     }

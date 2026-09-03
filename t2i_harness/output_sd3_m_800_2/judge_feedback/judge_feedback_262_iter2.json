@@ -2,34 +2,39 @@
     "image_id": "262",
     "prompt": "six purple rabbits and four cars",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:43:09",
+    "timestamp": "2026-09-02 22:54:30",
     "judge_verdict": {
-        "is_approved": true,
-        "reasons_for_rejection": "",
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'image_description' and subsequent 'atom_verdicts'. The Router hallucinated 'rabbit-car hybrids' (fused entities) which do not exist in the image. The image clearly shows 3 distinct purple rabbits and 4 distinct purple cars. Consequently, the Atom verdicts for counts (Atom 0 and Atom 3) are incorrectly marked as 'false' based on this hallucination. Furthermore, the Checkpoint analysis incorrectly assumes the presence of convertibles/hybrids to justify failures, whereas the cars are standard sedans/hatchbacks. The expert plan is built on these flawed premises.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "The 'fine_grained_classifier' for rabbits is tasked with verifying color (Atom 1), but standard ImageNet-trained classifiers may struggle with non-natural colors (purple) or stylized illustrations. A 'perceptual_quality_auditor' or specific color-histogram analysis might be more robust for color verification than a taxonomy classifier.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "correction",
+                "point": "Image Description & Atom Verdicts",
+                "recommendation": "Rewrite the image description to accurately reflect 3 separate rabbits and 4 separate cars. Update Atom 0 (Rabbit Count) and Atom 3 (Car Count) verdicts to 'is_correct: true' with predicted values of 6 (if counting rabbit-heads) or clarify the prompt ambiguity, but definitely not based on non-existent hybrids."
             },
             {
-                "type": "optimization",
-                "point": "The plan correctly identifies that hare-specific checkpoints are irrelevant. However, the 'fine_grained_classifier' for rabbits is still assigned to verify these negative checkpoints. This is computationally wasteful. The expert should focus solely on confirming the 'rabbit' class and purple color.",
-                "recommended_expert": "fine_grained_classifier"
+                "type": "missing_verification",
+                "point": "Object Separation/Topology",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "redundant_checkpoint",
+                "point": "Car Convertible Checks",
+                "recommendation": "Remove checkpoints regarding 'retractable soft-top', 'folding mechanism seams', and 'interior upholstery' as the vehicles are clearly closed-roof sedans/hatchbacks. These checkpoints introduce noise."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A stylized illustration on a yellow background featuring six purple rabbit-like entities and four purple cars. Three of the rabbits are standard, standing upright with all limbs intact. The other three are surreal hybrids where a purple car body is fused into the rabbit's torso/midsection; crucially, these hybrids retain their biological hind legs, tails, and forelegs, with the car chassis embedded between the front and rear anatomy rather than replacing it. There are also two distinct, standalone purple cars (a coupe and a hatchback) positioned centrally. Total count: 6 rabbit entities (3 pure, 3 hybrid), 4 car entities (2 standalone, 2 integrated into hybrids).",
+        "image_description": "A stylized cartoon illustration on a yellow background featuring six purple entities and four purple vehicles. Three entities are distinct, complete rabbits standing separately. The other three entities are surreal hybrids where the front half is a rabbit head and forelegs, seamlessly fused with the rear chassis of a car (rabbit-car fusion). There are also two standalone purple cars. Total count: 3 pure rabbits, 3 rabbit-car hybrids, 2 pure cars.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
                 "question": "How many rabbits are in the image?",
                 "expected": "six",
-                "predicted": "six",
-                "is_correct": true,
+                "predicted": "three",
+                "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are six distinct rabbit-headed entities. Three are pure rabbits, and three are hybrids that retain full rabbit anatomy (head, ears, forelegs, hind legs, tail) despite having a car body fused to their torso. All six qualify as 'rabbits' in this context."
+                "reasoning": "There are only three distinct, complete rabbits. The other three figures are hybrid fusions of rabbits and cars, not standard rabbits."
             },
             {
                 "atom_index": 1,
@@ -38,7 +43,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "All six rabbit entities (pure and hybrid) are uniformly colored purple."
+                "reasoning": "All rabbit-like figures (both pure and hybrid) are colored purple."
             },
             {
                 "atom_index": 2,
@@ -47,16 +52,16 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Six rabbit entities are clearly visible."
+                "reasoning": "Three clear rabbits are visible."
             },
             {
                 "atom_index": 3,
                 "question": "How many cars are in the image?",
                 "expected": "four",
-                "predicted": "four",
-                "is_correct": true,
-                "confidence": 1.0,
-                "reasoning": "There are two standalone purple cars in the center/right. Additionally, two of the hybrid rabbits have complete car bodies fused into their torsos (visible wheels, windows, bumpers). Counting these two integrated car bodies plus the two standalone cars equals exactly four cars, matching the prompt."
+                "predicted": "five",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "There are two standalone cars and three rabbit-car hybrids. Depending on interpretation, this is either 2 or 5, but definitely not the expected 4 distinct cars."
             },
             {
                 "atom_index": 4,
@@ -65,7 +70,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Four car structures are visible (two standalone, two integrated)."
+                "reasoning": "Multiple car bodies are clearly visible."
             }
         ],
         "checkpoint_verdicts": [
@@ -75,7 +80,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The standalone cars are fixed-roof coupes/hatchbacks. The hybrid cars have open tops where the rabbit torso emerges, but lack any convertible mechanism, seams, or folded roof material. No evidence of a retractable roof system exists."
+                "reasoning": "The standalone cars appear to be fixed-roof sedans/coupes, not convertibles. The hybrid objects lack any convertible roof mechanism entirely."
             },
             {
                 "object": "car",
@@ -83,15 +88,15 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The standalone vehicles clearly show 2-door coupe and hatchback silhouettes with defined rooflines and door gaps. The hybrid car bodies also retain recognizable 2-door proportions."
+                "reasoning": "The standalone cars show standard sedan/coupe door lines. The hybrids have distorted body lines due to fusion."
             },
             {
                 "object": "car",
                 "checkpoint": "Proportions match sedan base with modified roof structure.",
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The standalone cars have realistic sedan/coupe proportions. The hybrid car bodies maintain correct automotive proportions despite being fused with rabbit anatomy."
+                "is_present": false,
+                "reasoning": "While standalone cars have sedan proportions, the hybrids have completely non-sedan proportions (rabbit head/legs replacing front chassis)."
             },
             {
                 "object": "car",
@@ -99,7 +104,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No fabric texture or panel lines indicative of a convertible top are visible. Roofs are solid painted metal (standalone) or absent/open (hybrids)."
+                "reasoning": "No convertible roof materials are visible; roofs appear to be solid painted metal or glass."
             },
             {
                 "object": "car",
@@ -107,7 +112,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The hybrid cars have open rear sections where the rabbit torso emerges, but there is no visible interior upholstery, seats, or roll bars—just the rabbit body filling the space."
+                "reasoning": "Cars have closed roofs; no interior upholstery or roll bars are visible."
             },
             {
                 "object": "car",
@@ -115,7 +120,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No mechanical seams for a folding roof are visible on any vehicle."
+                "reasoning": "No folding mechanisms exist as these are not convertibles."
             },
             {
                 "object": "car",
@@ -123,7 +128,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The illustration style is simplified/cartoonish. While door lines exist, specific weather stripping details (rubber seals) are not rendered."
+                "reasoning": "Cartoon style lacks fine details like weather stripping."
             },
             {
                 "object": "car",
@@ -131,7 +136,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The standalone cars clearly show rear side windows and a rear windshield integrated into the fixed roof structure. The hybrid cars also show rear window elements."
+                "reasoning": "Standalone cars have visible rear windows/glass panels."
             },
             {
                 "object": "car",
@@ -139,7 +144,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The roofs of the standalone cars match the purple body color exactly."
+                "reasoning": "Roofs match the purple body color."
             },
             {
                 "object": "rabbit",
@@ -147,7 +152,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The prompt specified 'purple rabbits', not hares. The ears are long and purple/pink, consistent with generic cartoon rabbits, but lack the specific 'black tips' described in the hare taxonomy. This checkpoint is irrelevant to the user's intent but marked false per strict taxonomy comparison."
+                "reasoning": "Ears are purple/pink with no black tips. They are long but lack the specific 'black tip' diagnostic feature of hares."
             },
             {
                 "object": "rabbit",
@@ -155,7 +160,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The prompt specified 'purple rabbits', not hares. The pure rabbits have compact, rounded cartoon bodies, not the elongated, athletic build of a hare. This checkpoint is irrelevant to the user's intent but marked false per strict taxonomy comparison."
+                "reasoning": "Bodies are stylized/cartoonish and compact, not elongated like hares. Hind limbs are not disproportionately large."
             },
             {
                 "object": "rabbit",
@@ -163,7 +168,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The prompt specified 'purple rabbits'. The rabbits are purple, not brown, gray, or white. This contradicts the naturalistic taxonomy provided but matches the user prompt."
+                "reasoning": "Fur is solid purple, not natural hare colors (brown/gray/white)."
             },
             {
                 "object": "rabbit",
@@ -171,7 +176,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The pure rabbits display small, short tails consistent with lagomorphs. The hybrid rabbits also retain visible short tails."
+                "reasoning": "Visible tails are short and stubby, consistent with lagomorphs."
             },
             {
                 "object": "rabbit",
@@ -179,7 +184,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "As these are stylized cartoons matching the 'rabbit' prompt (not hare), they do not exhibit the specific proportional differences that distinguish hares from rabbits in reality."
+                "reasoning": "Proportions are generic cartoon rabbit, not specifically hare-like enlargement."
             },
             {
                 "object": "rabbit",
@@ -187,7 +192,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The rabbits have short, stubby cartoon legs typical of stylized rabbit illustrations, not the massive, muscular hindquarters characteristic of hares."
+                "reasoning": "Hind legs are short and stubby, lacking the massive elongation characteristic of hares."
             },
             {
                 "object": "rabbit",
@@ -195,27 +200,27 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Even in this stylized form, the front legs are depicted as shorter than the hind legs, maintaining basic rabbit proportion logic."
+                "reasoning": "Forelegs are visibly shorter than hind legs, though both are stylized."
             }
         ],
         "artifact_observations": [
             {
                 "artifact_type": "fusion",
                 "location": "Three hybrid entities (top-left, mid-right, bottom-left)",
-                "severity": 4.0,
-                "reasoning": "Severe semantic fusion. Car bodies are embedded into rabbit torsos without plausible mechanical or biological interfaces. The car chassis passes through the rabbit's midsection where internal organs would be, creating a physically impossible anatomical merger. However, unlike the previous plan's error, the rabbits retain their hind legs and tails—the car does not replace posterior anatomy but rather intrudes into the torso."
+                "severity": 5,
+                "reasoning": "Catastrophic semantic fusion where rabbit anatomy merges seamlessly into car chassis. This is a structural collapse of object boundaries, creating nonsensical biological-mechanical hybrids."
             },
             {
                 "artifact_type": "structural_collapse",
-                "location": "Hybrid entity bottom-left",
-                "severity": 3.0,
-                "reasoning": "The car body appears to merge unnaturally with the rabbit's torso. The wheel alignment is physically inconsistent with the rabbit's stance, and the transition between organic fur and metallic car surface lacks any believable boundary or integration logic."
+                "location": "Bottom-left hybrid entity",
+                "severity": 4,
+                "reasoning": "The car body wraps around the rabbit's torso in a physically impossible manner; wheels and chassis deform to accommodate organic shape without logical mechanical integration."
             },
             {
                 "artifact_type": "texture_anomaly",
                 "location": "All entities",
-                "severity": 2.0,
-                "reasoning": "Uniform flat shading across both organic (rabbit) and mechanical (car) surfaces. Cars lack metallic reflection or glass refraction; rabbits lack fur texture. Everything shares the same plastic-like material property, indicating a failure to differentiate materials appropriately for the objects depicted."
+                "severity": 2,
+                "reasoning": "Uniform flat shading lacks material differentiation between fur, metal, and glass; all surfaces share identical cartoon texture regardless of material type."
             }
         ],
         "expert_verification_plan": [
@@ -226,7 +231,7 @@
                     "Atom 0",
                     "Atom 2"
                 ],
-                "reason": "To rigorously count distinct rabbit instances including hybrids. The detector can provide bounding boxes to confirm if all six rabbit-headed entities are detected as 'rabbit', validating the corrected count of six.",
+                "reason": "Verify exact count of distinct rabbit instances vs. hybrid entities.",
                 "weight": 0.25
             },
             {
@@ -236,95 +241,95 @@
                     "Atom 3",
                     "Atom 4"
                 ],
-                "reason": "To detect and count car instances including those integrated into hybrids. Crucial for verifying the corrected count of four cars (two standalone + two integrated).",
+                "reason": "Detect and count standalone cars vs. car-parts-in-hybrids to validate atom verdicts.",
                 "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
                 "verification_goals": [
-                    "Atom 1",
-                    "Checkpoint: Dense fur...",
-                    "Checkpoint: Exceptionally long ears..."
+                    "Checkpoint: Head_and_Face",
+                    "Checkpoint: Body_and_Plumage"
                 ],
-                "reason": "To verify species classification and color attribute. Confirms the entities are classified as 'rabbit' (not hare) and validates the purple coloration against the prompt requirement.",
+                "reason": "Confirm species classification (rabbit vs. hare) and validate absence of hare-specific traits (black ear tips, elongated body).",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "car",
                 "verification_goals": [
-                    "Checkpoint: Body style is 2-door...",
-                    "Checkpoint: Proportions match sedan..."
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Checkpoint: Functional_Components"
                 ],
-                "reason": "To classify the specific car body style (convertible vs coupe/sedan/hatchback). Provides hard evidence for the missing convertible checkpoints and confirms car type identification.",
+                "reason": "Classify car body style to confirm non-convertible status and validate roof mechanism checkpoints.",
                 "weight": 0.15
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "rabbit-car hybrid",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "hybrid entities",
                 "verification_goals": [
                     "Artifact: fusion",
                     "Artifact: structural_collapse"
                 ],
-                "reason": "To segment the hybrid entities and analyze the boundary continuity between organic and mechanical parts. Quantifies the severity of the fusion artifact and verifies that hind legs/tails are retained (correcting previous plan's error).",
+                "reason": "Quantify severity of rabbit-car fusion artifacts and assess structural plausibility of merged geometries.",
                 "weight": 0.1
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "rabbit",
                 "verification_goals": [
-                    "Artifact: texture_anomaly"
+                    "Checkpoint: Limbs_and_Anatomy"
                 ],
-                "reason": "To holistically assess the material rendering consistency. Confirms if the lack of material differentiation (metal vs fur) is a global style choice or a generation artifact.",
+                "reason": "Segment rabbit limbs to verify proportional correctness and detect any missing/distorted limb structures in hybrids.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Checkpoint: Weather stripping visible along door frames and windshield (Resolution too low/style too simple to verify micro-details like rubber seals)",
-            "Checkpoint: Folding mechanism seams visible at roof joints (Absent feature cannot be verified beyond 'not present')",
-            "Hare-specific taxonomy checkpoints (black ear tips, elongated limbs, etc.) are irrelevant to the 'purple rabbits' prompt but included for strict taxonomy compliance"
+            "Checkpoint: Weather stripping visible along door frames and windshield (cartoon style inherently lacks this detail)",
+            "Checkpoint: Folding mechanism seams visible at roof joints (not applicable to non-convertible vehicles)"
         ],
         "focus_areas": [
-            "Count verification: Confirming six rabbit entities (including hybrids with retained hind legs/tails) and four car entities (including two integrated into hybrids).",
-            "Semantic Fusion Analysis: Evaluating the structural integrity of the three hybrid entities where car bodies are fused into rabbit torsos without replacing posterior anatomy.",
-            "Taxonomy Mismatch: Documenting that hare-specific checkpoints are negative due to prompt specifying 'rabbits' not 'hares', while verifying purple color and cartoon proportions match user intent."
+            "Semantic fusion artifacts in hybrid entities",
+            "Count accuracy for rabbits vs. rabbit-car hybrids",
+            "Car body style classification (convertible vs. fixed-roof)",
+            "Hare-specific anatomical features (ear tips, limb proportions)",
+            "Material texture consistency across fur/metal/glass surfaces"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "rabbit",
-                "reason": "To rigorously count distinct rabbit instances including hybrids. The detector can provide bounding boxes to confirm if all six rabbit-headed entities are detected as 'rabbit', validating the corrected count of six.",
+                "reason": "Verify exact count of distinct rabbit instances vs. hybrid entities.",
                 "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "car",
-                "reason": "To detect and count car instances including those integrated into hybrids. Crucial for verifying the corrected count of four cars (two standalone + two integrated).",
+                "reason": "Detect and count standalone cars vs. car-parts-in-hybrids to validate atom verdicts.",
                 "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "rabbit",
-                "reason": "To verify species classification and color attribute. Confirms the entities are classified as 'rabbit' (not hare) and validates the purple coloration against the prompt requirement.",
+                "reason": "Confirm species classification (rabbit vs. hare) and validate absence of hare-specific traits (black ear tips, elongated body).",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "car",
-                "reason": "To classify the specific car body style (convertible vs coupe/sedan/hatchback). Provides hard evidence for the missing convertible checkpoints and confirms car type identification.",
+                "reason": "Classify car body style to confirm non-convertible status and validate roof mechanism checkpoints.",
                 "weight": 0.15
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "rabbit-car hybrid",
-                "reason": "To segment the hybrid entities and analyze the boundary continuity between organic and mechanical parts. Quantifies the severity of the fusion artifact and verifies that hind legs/tails are retained (correcting previous plan's error).",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "hybrid entities",
+                "reason": "Quantify severity of rabbit-car fusion artifacts and assess structural plausibility of merged geometries.",
                 "weight": 0.1
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "entire image",
-                "reason": "To holistically assess the material rendering consistency. Confirms if the lack of material differentiation (metal vs fur) is a global style choice or a generation artifact.",
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "rabbit",
+                "reason": "Segment rabbit limbs to verify proportional correctness and detect any missing/distorted limb structures in hybrids.",
                 "weight": 0.1
             }
         ],
@@ -332,7 +337,7 @@
             "original_image": "geneval2_sd3_m_800/262.png",
             "prompt_id": "262",
             "prompt_text": "six purple rabbits and four cars",
-            "router_cost_seconds": 59.0,
+            "router_cost_seconds": 49.51,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

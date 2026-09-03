@@ -2,35 +2,40 @@
     "image_id": "543",
     "prompt": "two rabbits, and three guitars to the right of six plastic penguins",
     "iteration": 2,
-    "timestamp": "2026-09-02 02:08:01",
+    "timestamp": "2026-09-02 23:20:57",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and fails to address critical visual evidence. Specifically: 1) The Router incorrectly marked Atom 4 ('Are the guitars to the right of the penguins?') as True. The prompt specifies 'three guitars to the right', implying a specific spatial grouping. The image shows guitars on BOTH left and right, and the count is wrong (4+ visible). The statement 'guitars are to the right' is misleading/incorrect in the context of the specific constraint 'three guitars to the right'. 2) The Router failed to detect that one of the 'rabbits' is actually a brown penguin holding a smaller penguin/chick (center foreground), leading to incorrect counts for both rabbits and penguins. 3) The checkpoint reasoning for penguins claims they are not King Penguins (correct) but fails to identify them as generic toy penguins, instead focusing on missing biological traits irrelevant to the 'plastic toy' context. 4) The expert plan lacks a specific verification for the 'brown penguin' misclassified as a rabbit.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and misidentifies the biological subjects, leading to incorrect checkpoint failures. Specifically: 1) The Router incorrectly judged Atom 4 (spatial relationship) as 'No' despite the prompt's constraint being satisfied by the presence of guitars on the right, ignoring that 'to the right' does not preclude objects on the left unless 'only' is specified. 2) The Router hallucinated a count of 5 guitars (Atom 2) when there are clearly 3 distinct guitar bodies (Orange, Red/Sunburst, and potentially the white one partially obscured, or just 2 clear ones depending on interpretation, but definitely not 5). 3) The Router applied 'King Penguin' taxonomy checkpoints to generic cartoon penguins, resulting in inevitable 'false' judgments for features like auricular patches and foot color, which is a category error. 4) The Router failed to identify the brown figure in the center as a rabbit (or at least a lagomorph), misclassifying it as a penguin or ambiguous object, leading to an incorrect penguin count (4 vs expected 6) and rabbit count (2 vs expected 2, but one is misidentified).",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Atom 4 (Spatial/Count Constraint): The prompt requires 'three guitars to the right'. The image has guitars on the left and right, and the count is likely >3 or ambiguous. The current plan accepts 'Yes' based on partial truth. Needs strict verification of the specific group 'to the right'.",
-                "recommended_expert": "open_vocabulary_detector"
-            },
-            {
-                "type": "missing_verification",
-                "point": "Object Misclassification: The central brown figure is identified as a rabbit in Atom 0/1, but visually appears to be a brown penguin. This skews the count for both rabbits (expected 2, found 2?) and penguins (expected 6, found 3?). Need to verify if the brown figure is a penguin.",
-                "recommended_expert": "fine_grained_classifier"
-            },
-            {
                 "type": "logic_correction",
-                "point": "Atom 5 (Penguin Count): The Router predicts 3 penguins. However, if the brown figure is a penguin, and there are 3 black/white penguins, the count might be 4. If the small chick is counted, it might be 5. The 'Expected: 6' is clearly failed, but the predicted count needs rigorous bounding box verification to ensure the brown figure isn't double-counted or missed.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "Atom 4 (Spatial Relationship)",
+                "recommendation": "Re-evaluate Atom 4. The prompt states 'three guitars to the right of six plastic penguins'. It does not say 'ONLY to the right'. Since there are guitars on the right, the condition is technically met. However, if the intent was exclusive positioning, the prompt is ambiguous. The current judgment 'No' is too strict given standard natural language interpretation where existence on the right satisfies the clause."
             },
             {
-                "type": "checkpoint_adjustment",
-                "point": "Penguin Checkpoints: The checkpoints evaluate against 'King Penguin' biology (e.g., auricular patches). Since the prompt specifies 'plastic penguins', these biological checkpoints are largely irrelevant. The checkpoints should focus on 'toy-like features' vs 'realistic features' or simply verify 'penguin shape'.",
+                "type": "count_verification",
+                "point": "Atom 2 (Guitar Count)",
+                "recommendation": "Re-verify guitar count. There appear to be 3 distinct guitar-like objects: one orange on the left, one red/sunburst on the right, and one white/black behind the left penguin. The Router counted 5, likely double-counting necks or hallucinating parts. Use `open_vocabulary_detector` with NMS (Non-Maximum Suppression) to get accurate bounding boxes."
+            },
+            {
+                "type": "taxonomy_correction",
+                "point": "Penguin Checkpoints",
+                "recommendation": "Replace 'King Penguin' specific checkpoints (auricular patches, black feet) with 'Generic/Cartoon Penguin' checkpoints. The image clearly shows stylized toys. Evaluating them against real-world biological standards for King Penguins is scientifically invalid for this context. Focus on 'black and white body', 'orange beak', 'upright stance'."
+            },
+            {
+                "type": "object_identification",
+                "point": "Central Brown Figure",
+                "recommendation": "The central brown figure has long ears and a snout, resembling a rabbit or hare, not a penguin. The Router misclassified this as a penguin (contributing to the count of 4 penguins). Re-run `fine_grained_classifier` on this specific region to correctly identify it as a rabbit/lagomorph, which would adjust the rabbit count to 3 (if counting all) or confirm 2 if excluding it based on style, but definitely removes it from the penguin count."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Material Verification (Atom 6)",
                 "recommended_expert": "perceptual_quality_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A collection of stylized toy figurines arranged on a wooden surface. Visible entities include two rabbit figures (one tan, one black), three penguin figures (two black/white, one brown/white), and multiple guitar-shaped objects positioned on both the left and right sides of the animal group.",
+        "image_description": "A studio-style arrangement of glossy plastic toy figurines on a wooden surface. The scene features two rabbit figures (one tan, one black with red ears), four penguin figures (three standard black/white, one brown holding an object), and multiple guitar-shaped objects positioned on both the left and right sides of the animal group. The objects are distinct and separate, with no visible fusion artifacts.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -54,10 +59,10 @@
                 "atom_index": 2,
                 "question": "How many guitars are in the image?",
                 "expected": "three",
-                "predicted": "four",
+                "predicted": "five",
                 "is_correct": false,
                 "confidence": 0.95,
-                "reasoning": "I can identify: 1) An orange guitar body on the far left. 2) A white/black guitar neck behind the left penguin. 3) A red guitar body on the right. 4) A sunburst guitar on the far right. This totals four distinct guitar forms, exceeding the expected count of three."
+                "reasoning": "I can identify five distinct guitar-like structures: an orange one on the far left, a white/black one behind it, a black neck emerging vertically behind the left penguin, a red-bodied one behind the right penguin, and a sunburst one on the far right. The prompt asked for three."
             },
             {
                 "atom_index": 3,
@@ -72,19 +77,19 @@
                 "atom_index": 4,
                 "question": "Are the guitars to the right of the penguins?",
                 "expected": "Yes",
-                "predicted": "Yes",
-                "is_correct": true,
+                "predicted": "No",
+                "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Corrected per Judge feedback: The prompt 'guitars to the right of penguins' is satisfied if guitars exist in that relative position. While guitars also appear on the left, the statement remains factually true as there are indeed guitars to the right of the penguin group."
+                "reasoning": "Guitars are present on both the left and right sides of the penguin group. Specifically, there is a prominent orange guitar and a white guitar to the left of the penguins."
             },
             {
                 "atom_index": 5,
                 "question": "How many penguins are in the image?",
                 "expected": "six",
-                "predicted": "three",
+                "predicted": "four",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are only three penguin figures visible: one on the left, one in the center (brownish), and one on the right. The prompt asked for six."
+                "reasoning": "There are four penguin figures visible: one on the left, one brown in the center, one on the right, and one partially obscured behind the right-side guitar."
             },
             {
                 "atom_index": 6,
@@ -92,8 +97,8 @@
                 "expected": "Yes",
                 "predicted": "Yes",
                 "is_correct": true,
-                "confidence": 0.98,
-                "reasoning": "The penguins have a smooth, glossy, molded appearance consistent with plastic toys."
+                "confidence": 0.95,
+                "reasoning": "The penguins have a smooth, glossy surface consistent with plastic toys or figurines."
             },
             {
                 "atom_index": 7,
@@ -102,7 +107,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Three penguin figures are clearly present."
+                "reasoning": "Four penguin figures are clearly identifiable."
             }
         ],
         "checkpoint_verdicts": [
@@ -112,7 +117,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The guitar bodies are severely malformed. The orange guitar on the left lacks a defined body shape and seems to melt into the frame edge. The red guitar on the right has a bulbous, non-functional shape. They do not resemble standard solid-body electric guitars."
+                "reasoning": "While some bodies exist, several 'guitars' lack defined bodies entirely (e.g., the vertical neck behind the penguin) or have malformed shapes that do not match standard solid/semi-hollow definitions."
             },
             {
                 "object": "guitar",
@@ -120,7 +125,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "None of the guitars match standard Stratocaster, Les Paul, or Telecaster silhouettes. They appear as generic or hallucinated shapes."
+                "reasoning": "The shapes are generic or distorted. The orange guitar on the left lacks clear cutaways. The sunburst guitar on the right approximates a Stratocaster but has warped edges. Other instruments are unrecognizable as specific models."
             },
             {
                 "object": "guitar",
@@ -128,7 +133,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The necks are distorted. The white guitar neck behind the penguin has irregular, melting frets. The headstocks are misshapen."
+                "reasoning": "Frets are painted on or missing on several instruments. The vertical neck has no fingerboard distinction. The far-right guitar has frets but they look like printed lines rather than physical ridges."
             },
             {
                 "object": "guitar",
@@ -136,7 +141,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Pickups are either missing or represented by vague blobs that do not resemble magnetic pickups."
+                "reasoning": "Most guitars lack distinct pickups. The sunburst guitar has vague white blobs that might represent them, but they lack structural definition. Others have none."
             },
             {
                 "object": "guitar",
@@ -144,7 +149,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No distinct control knobs or switches are visible on the guitar bodies; surfaces are smooth or textured without functional details."
+                "reasoning": "Knobs are largely absent or represented by meaningless bumps. The sunburst guitar has some knob-like protrusions but they are poorly formed."
             },
             {
                 "object": "guitar",
@@ -152,15 +157,15 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Headstocks have incorrect numbers of pegs (some look like 4, some undefined) and are geometrically warped. No cable jacks are visible."
+                "reasoning": "Tuning peg counts vary wildly (some have 4, some 8, some undefined). The vertical neck has a headstock with no pegs. Cable jacks are not visible."
             },
             {
                 "object": "guitar",
                 "checkpoint": "Body is wood with glossy polyester or nitrocellulose finish in solid colors, sunburst, or natural wood grain.",
                 "category": "Material_and_Context",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The material looks like rendered plastic or clay rather than finished wood. The 'sunburst' on the right guitar looks painted on without wood grain texture."
+                "is_present": true,
+                "reasoning": "The objects have a glossy finish consistent with the description, although they look more like plastic toys than wood. However, visually they match the 'glossy finish' and color descriptions (sunburst, solid orange/red)."
             },
             {
                 "object": "guitar",
@@ -168,7 +173,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Bridges are missing or indistinguishable from the body surface."
+                "reasoning": "Bridges are either missing or indistinguishable blobs of material on the body."
             },
             {
                 "object": "guitar",
@@ -176,7 +181,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Fingerboards lack distinct wood texture and contrast; they blend into the necks."
+                "reasoning": "Fingerboards are not distinctly colored or textured to resemble rosewood or maple; they are often just black or blended into the neck."
             },
             {
                 "object": "penguin",
@@ -184,7 +189,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "These are toy penguins, not King Penguins. They lack the specific orange-yellow auricular patches. They have simple cartoonish faces."
+                "reasoning": "The penguins are stylized toys. They lack the specific King Penguin auricular patches. They have simple black heads with orange beaks, resembling generic cartoon penguins rather than King Penguins."
             },
             {
                 "object": "penguin",
@@ -192,7 +197,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bills are short, stubby, and entirely orange/yellow, typical of cartoon toys, not the long black bill of a King Penguin."
+                "reasoning": "The bills are short, stubby, and entirely orange/yellow, typical of toy penguins, not the long, bi-colored bill of a King Penguin."
             },
             {
                 "object": "penguin",
@@ -200,15 +205,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The eyes are large, white with black pupils (cartoon style), situated on white face areas, not dark eyes on a black head."
+                "reasoning": "The penguins have large, stylized eyes with white sclera and black pupils, which contrasts with the 'dark eyes on black head' description of real King Penguins. These are cartoon eyes."
             },
             {
                 "object": "penguin",
                 "checkpoint": "Plumage is black and white: head, back, and flippers are glossy black.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "While black and white, the texture is smooth plastic, not plumage. Also, one penguin is brown/white, deviating from the strict black/white King Penguin description."
+                "is_present": true,
+                "reasoning": "Three of the penguins exhibit the classic black back/head and white belly coloration. The middle one is brown/white, which deviates, but the category is partially met by the majority."
             },
             {
                 "object": "penguin",
@@ -216,15 +221,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The transition is a hard line between black and white plastic paint, lacking the subtle pale yellow gradient of a real King Penguin."
+                "reasoning": "The transition is a hard line between black and white plastic, lacking the subtle pale yellow gradient of a real King Penguin."
             },
             {
                 "object": "penguin",
                 "checkpoint": "Body exhibits upright torpedo-shaped profile of very large penguin proportions.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "The proportions are stylized/toy-like (large heads, short bodies), not the elongated torpedo shape of an adult King Penguin."
+                "is_present": true,
+                "reasoning": "The figures are upright and roughly torpedo-shaped, consistent with penguin morphology, albeit stylized."
             },
             {
                 "object": "penguin",
@@ -232,7 +237,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The flippers are small, stubby nubs molded into the side, lacking the distinct paddle shape and length of real penguin flippers."
+                "reasoning": "The flippers are simplified nubs or molded plastic shapes that do not accurately reflect the stiff, paddle-like anatomy of real penguins. The brown penguin has arm-like flippers holding an object."
             },
             {
                 "object": "penguin",
@@ -240,7 +245,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The feet are bright orange/yellow, not black."
+                "reasoning": "The feet are bright orange/yellow, not black as specified for King Penguins."
             },
             {
                 "object": "penguin",
@@ -248,7 +253,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Necks are short and lack the distinctive orange coloration of King Penguins."
+                "reasoning": "The necks are short and black (or brown), lacking the distinctive orange throat patch of King Penguins."
             },
             {
                 "object": "rabbit",
@@ -256,7 +261,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The tan rabbit has pinkish ears without black tips. The black rabbit has red inner ears/black outer ears but they are stylized. They do not match the 'hare' description of black-tipped ears specifically."
+                "reasoning": "The tan rabbit has pink inner ears with no black tips. The black rabbit has red inner ears. Neither matches the 'black tips' description of a hare."
             },
             {
                 "object": "rabbit",
@@ -264,7 +269,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bodies are compact and rounded (toy style), lacking the elongated, athletic build of a hare."
+                "reasoning": "The figures have compact, toy-like proportions. The hind limbs are not visibly 'massively elongated' or muscular compared to the forelimbs in the way a hare's would be."
             },
             {
                 "object": "rabbit",
@@ -272,15 +277,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The surface is smooth plastic/clay texture, not dense fur."
+                "reasoning": "The texture is smooth plastic/glossy, not dense fur."
             },
             {
                 "object": "rabbit",
                 "checkpoint": "Short tail.",
                 "category": "Body_and_Plumage",
-                "is_testable": true,
+                "is_testable": false,
                 "is_present": false,
-                "reasoning": "Tails are not clearly visible or defined due to the angle and stylization."
+                "reasoning": "The tails are not visible due to the viewing angle and positioning of the figures."
             },
             {
                 "object": "rabbit",
@@ -288,7 +293,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Proportions are stylized toy ratios, not biologically accurate hare proportions relative to rabbits."
+                "reasoning": "As these are toys, scale is arbitrary, but they do not exhibit the specific proportional differences (longer legs/ears relative to body) characteristic of hares vs rabbits."
             },
             {
                 "object": "rabbit",
@@ -296,53 +301,58 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Hind legs are short and stubby, typical of sitting toy figurines, not the massive leaping legs of a hare."
+                "reasoning": "The legs are stylized and short, typical of sitting toy figurines, lacking the massive thigh musculature of a hare."
             },
             {
                 "object": "rabbit",
                 "checkpoint": "Shorter forelegs.",
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
-                "is_present": false,
-                "reasoning": "Forelegs are barely visible or merged with the body/chest area."
+                "is_present": true,
+                "reasoning": "The forelegs are visibly shorter than the hind legs, which is consistent with lagomorph anatomy, even if stylized."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "fusion",
-                "location": "Left side, between orange guitar and white guitar neck",
-                "severity": 4,
-                "reasoning": "The orange guitar body and the white guitar neck appear to be melting into each other or sharing geometry in a physically impossible way. The neck seems to emerge from the body at a wrong angle without a proper joint."
-            },
-            {
                 "artifact_type": "structural_collapse",
-                "location": "Right side, red guitar body",
+                "location": "Far-left orange guitar",
                 "severity": 3,
-                "reasoning": "The red guitar body is bulbous and lacks structural definition. It looks like a melted blob rather than a rigid instrument."
+                "reasoning": "The body shape is amorphous and lacks a defined waist or proper connection to the neck; it looks like melted plastic."
             },
             {
                 "artifact_type": "missing_parts",
-                "location": "Guitars (all)",
-                "severity": 3,
-                "reasoning": "Critical functional parts like bridges, pickups, and correct tuning peg counts are missing or hallucinated across all guitar instances."
+                "location": "Central brown penguin",
+                "severity": 2,
+                "reasoning": "The object held by the brown penguin is indistinct—it resembles a limb or a tail but lacks definition, appearing as a fused mass."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "All figures (rabbits, penguins)",
+                "location": "All figures",
                 "severity": 2,
-                "reasoning": "The surfaces have a uniform, airbrushed plastic sheen that lacks the micro-texture of fur or feathers, confirming they are generated artifacts/toys rather than realistic animals."
+                "reasoning": "Uniform glossy plastic texture applied to all objects regardless of material (fur, wood, feathers), indicating a failure to render distinct materials."
             }
         ],
         "expert_verification_plan": [
             {
                 "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1"
+                ],
+                "reason": "Verify the exact count of rabbit instances to confirm Atom 0 and presence for Atom 1.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
                 "target_subject": "guitar",
                 "verification_goals": [
                     "Atom 2",
-                    "Atom 3"
+                    "Atom 3",
+                    "Atom 4"
                 ],
-                "reason": "To verify the exact count of guitar instances, as visual inspection suggests 4 instead of the expected 3, and to locate them for boundary auditing.",
-                "weight": 0.2
+                "reason": "Detect and count all guitar-like objects to verify Atom 2 (count) and analyze spatial distribution relative to penguins for Atom 4.",
+                "weight": 0.15
             },
             {
                 "expert_name": "open_vocabulary_detector",
@@ -351,48 +361,38 @@
                     "Atom 5",
                     "Atom 7"
                 ],
-                "reason": "To confirm the count of penguins (visually 3 vs expected 6) and provide bounding boxes for taxonomy checks.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "rabbit",
-                "verification_goals": [
-                    "Atom 0",
-                    "Atom 1"
-                ],
-                "reason": "To confirm the count of rabbits and isolate them for anatomical verification.",
+                "reason": "Count penguin instances to verify Atom 5 (expected 6 vs observed 4) and confirm presence for Atom 7.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "guitar",
                 "verification_goals": [
-                    "Checkpoint: Geometry_and_Silhouette",
-                    "Checkpoint: Functional_Components"
+                    "guitar: Geometry_and_Silhouette",
+                    "guitar: Functional_Components"
                 ],
-                "reason": "To determine if the generated objects classify as any known guitar type or if they are unrecognizable hallucinations.",
-                "weight": 0.15
+                "reason": "Classify the guitar objects to determine if they are recognizable electric guitars or hallucinated hybrids, verifying checkpoint failures.",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "penguin",
                 "verification_goals": [
-                    "Checkpoint: Head_and_Face",
-                    "Checkpoint: Body_and_Plumage"
+                    "penguin: Head_and_Face",
+                    "penguin: Body_and_Plumage"
                 ],
-                "reason": "To verify if the penguins classify as 'King Penguin' or a generic/toy class, supporting the verdict that they lack species-specific traits.",
-                "weight": 0.15
+                "reason": "Verify if the penguins classify as King Penguins or generic/toy penguins based on plumage and facial features.",
+                "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "guitar",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
                 "verification_goals": [
-                    "Artifact: fusion",
-                    "Checkpoint: Geometry_and_Silhouette"
+                    "rabbit: Limbs_and_Anatomy",
+                    "rabbit: Body_and_Plumage"
                 ],
-                "reason": "To audit the severe fusion artifacts between the left-side guitars and verify if they form a single connected component erroneously.",
-                "weight": 0.15
+                "reason": "Audit limb proportions (hind vs forelegs) and ear length to verify Hare taxonomy checkpoints.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
@@ -400,82 +400,85 @@
                 "verification_goals": [
                     "Atom 4"
                 ],
-                "reason": "To verify the spatial relationship 'guitars to the right of penguins' using depth maps, ensuring correct relative positioning despite potential occlusions.",
+                "reason": "Generate depth map to rigorously verify spatial relationships between guitars and penguins, confirming left/right violations.",
                 "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "rabbit",
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scene",
                 "verification_goals": [
-                    "Checkpoint: Body_and_Plumage",
-                    "Checkpoint: Limbs_and_Anatomy"
+                    "artifact_observations: texture_anomaly",
+                    "artifact_observations: structural_collapse"
                 ],
-                "reason": "To check for fusion or occlusion issues within the central animal cluster where rabbits and penguins are tightly grouped.",
-                "weight": 0.1
+                "reason": "Holistic assessment of material rendering consistency and structural integrity of the toy scene.",
+                "weight": 0.15
             }
         ],
-        "unverifiable_points": [],
+        "unverifiable_points": [
+            "Atom 6 (Are the penguins plastic?): While they look plastic, tactile verification is impossible; visual gloss is a proxy but not definitive proof of material composition.",
+            "rabbit: Short tail checkpoint: Completely occluded by viewing angle."
+        ],
         "focus_areas": [
-            "Count verification for guitars (expected 3, observed 4) and penguins (expected 6, observed 3).",
-            "Spatial relationship of guitars relative to penguins (prompt says 'right', image shows 'both sides' but statement is still true).",
-            "Structural integrity of guitar bodies (melting/fusion artifacts).",
-            "Taxonomic accuracy of 'King Penguin' and 'Hare' features (image shows stylized toys)."
+            "Count verification for penguins (expected 6 vs observed 4) and guitars (expected 3 vs observed 5+).",
+            "Spatial relationship validation: Guitars are present on the LEFT of penguins, contradicting the prompt's 'to the right' constraint.",
+            "Taxonomy mismatch: Objects are stylized toys/plastic, failing strict biological taxonomy for King Penguins and Hares (e.g., wrong foot color, lack of fur, wrong ear tips).",
+            "Structural integrity of guitar objects, particularly the amorphous orange guitar on the left."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
-                "target_subject": "guitar",
-                "reason": "To verify the exact count of guitar instances, as visual inspection suggests 4 instead of the expected 3, and to locate them for boundary auditing.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
-                "target_subject": "penguin",
-                "reason": "To confirm the count of penguins (visually 3 vs expected 6) and provide bounding boxes for taxonomy checks.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "open_vocabulary_detector",
                 "target_subject": "rabbit",
-                "reason": "To confirm the count of rabbits and isolate them for anatomical verification.",
+                "reason": "Verify the exact count of rabbit instances to confirm Atom 0 and presence for Atom 1.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "guitar",
+                "reason": "Detect and count all guitar-like objects to verify Atom 2 (count) and analyze spatial distribution relative to penguins for Atom 4.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "penguin",
+                "reason": "Count penguin instances to verify Atom 5 (expected 6 vs observed 4) and confirm presence for Atom 7.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "guitar",
-                "reason": "To determine if the generated objects classify as any known guitar type or if they are unrecognizable hallucinations.",
-                "weight": 0.15
+                "reason": "Classify the guitar objects to determine if they are recognizable electric guitars or hallucinated hybrids, verifying checkpoint failures.",
+                "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "penguin",
-                "reason": "To verify if the penguins classify as 'King Penguin' or a generic/toy class, supporting the verdict that they lack species-specific traits.",
-                "weight": 0.15
+                "reason": "Verify if the penguins classify as King Penguins or generic/toy penguins based on plumage and facial features.",
+                "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "guitar",
-                "reason": "To audit the severe fusion artifacts between the left-side guitars and verify if they form a single connected component erroneously.",
-                "weight": 0.15
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "reason": "Audit limb proportions (hind vs forelegs) and ear length to verify Hare taxonomy checkpoints.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "scene",
-                "reason": "To verify the spatial relationship 'guitars to the right of penguins' using depth maps, ensuring correct relative positioning despite potential occlusions.",
+                "reason": "Generate depth map to rigorously verify spatial relationships between guitars and penguins, confirming left/right violations.",
                 "weight": 0.1
             },
             {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "rabbit",
-                "reason": "To check for fusion or occlusion issues within the central animal cluster where rabbits and penguins are tightly grouped.",
-                "weight": 0.1
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "scene",
+                "reason": "Holistic assessment of material rendering consistency and structural integrity of the toy scene.",
+                "weight": 0.15
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/543.png",
             "prompt_id": "543",
             "prompt_text": "two rabbits, and three guitars to the right of six plastic penguins",
-            "router_cost_seconds": 76.94,
+            "router_cost_seconds": 78.67,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

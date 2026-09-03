@@ -2,35 +2,35 @@
     "image_id": "409",
     "prompt": "three turtles, and five raccoons on top of four cars",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:53:29",
+    "timestamp": "2026-09-02 23:05:51",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant hallucinations in the 'image_description' and 'atom_verdicts' that contradict the visual evidence. Specifically: 1) The description claims there is only 'one large turtle', whereas the image clearly shows two turtles (one stacked on top of another). 2) The description claims there are 'four raccoons', but there are clearly five. 3) The artifact observation regarding 'structural_collapse' and 'melting' is a false positive; the image shows distinct, sharp boundaries between the animals and cars with proper occlusion and shadows. These errors indicate the Router failed to accurately perceive the scene before generating the audit plan.",
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in Atom QA judgments and misses critical verification steps for spatial relationships and anatomical integrity.",
         "suggestions": [
             {
-                "type": "missing_verification",
-                "point": "Correct the count of turtles. The current plan assumes 1 turtle based on a flawed description. The open_vocabulary_detector must be tasked to detect all instances of 'turtle' to verify if the count is 2 or 3 (prompt expects 3, image shows 2 distinct shells/bodies).",
-                "recommended_expert": "open_vocabulary_detector"
+                "type": "incorrect_atom_judgment",
+                "point": "Atom 4 (Are the raccoons on top of the cars?) was marked 'Correct' with reasoning that they are on the hoods. However, visual evidence shows at least two raccoons are standing on the turtle's shell, not directly on the cars. This violates the prompt constraint 'on top of four cars'.",
+                "recommended_action": "Re-evaluate Atom 4 as False or Partially Correct. Add a specific verification goal to check if animals are resting on other animals vs. the vehicle surface."
             },
             {
                 "type": "missing_verification",
-                "point": "Correct the count of raccoons. The plan assumes 4, but there are 5 visible. The detector needs to re-verify this count.",
-                "recommended_expert": "open_vocabulary_detector"
+                "point": "The plan fails to verify the anatomical correctness of the turtle's limbs. The image shows a turtle with multiple front legs (polydactyly/fusion artifact) merging with the car/turtle below. The current plan only checks for 'limbs present' but not 'correct limb count/structure'.",
+                "recommended_expert": "animal_pose_auditor"
             },
             {
-                "type": "false_positive_artifact",
-                "point": "Remove the 'structural_collapse' and 'fusion' artifact observations. The image demonstrates high structural integrity with clear separation between subjects and objects. The 'extra_limbs' observation likely misidentifies the lower turtle's limbs or the upper turtle's plastron edge as artifacts.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "missing_verification",
+                "point": "The 'structural_collapse' artifact notes the turtle merging with the car, but no expert is assigned to rigorously audit the boundary between the turtle plastron and the car hood/turtle below. The geometric_depth_auditor is assigned to 'cars' generally, but should specifically target the contact interfaces.",
+                "recommended_expert": "topology_boundary_auditor"
             },
             {
-                "type": "logical_error",
-                "point": "Update the 'image_description' to reflect the presence of two stacked turtles and five raccoons. The current description is factually incorrect and biases the subsequent audit steps.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "incomplete_coverage",
+                "point": "The fine_grained_classifier for 'turtle' is tasked with classifying the species, but the primary failure mode here is structural hallucination (extra limbs/shells). A classifier may confirm it looks like a turtle, but won't catch the extra leg. The animal_pose_auditor is missing from the selected experts despite being ideal for detecting the extra limb artifact.",
+                "recommended_expert": "animal_pose_auditor"
             }
         ]
     },
     "audited_plan": {
-        "image_description": "The image displays a surreal scene featuring four raccoons and one large turtle positioned on the hoods of three visible cars (one red, two blue). The animals are arranged in a row across the front grilles and hoods. The background consists of blurred green foliage.",
+        "image_description": "The image displays a surreal scene featuring four raccoons and one large turtle positioned on the hoods of three visible cars (red, blue, and another blue). The turtle is centrally located on the hood of the middle blue car, while the raccoons are clustered around it. The background consists of blurred green foliage.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -39,7 +39,7 @@
                 "predicted": "one",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There is clearly only one large turtle visible in the center foreground."
+                "reasoning": "There is clearly only one large turtle visible in the center of the composition."
             },
             {
                 "atom_index": 1,
@@ -48,7 +48,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A large turtle is prominently displayed in the center."
+                "reasoning": "A large turtle is the central subject of the image."
             },
             {
                 "atom_index": 2,
@@ -57,7 +57,7 @@
                 "predicted": "four",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "Counting from left to right, there are exactly four distinct raccoon heads/bodies visible."
+                "reasoning": "Counting the distinct heads/bodies reveals exactly four raccoons: one far left, two behind the turtle, and one far right."
             },
             {
                 "atom_index": 3,
@@ -75,7 +75,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The raccoons are standing directly on the hoods and grilles of the vehicles."
+                "reasoning": "The raccoons are standing directly on the hoods/bonnet area of the vehicles."
             },
             {
                 "atom_index": 5,
@@ -84,7 +84,7 @@
                 "predicted": "three",
                 "is_correct": false,
                 "confidence": 0.9,
-                "reasoning": "Only three distinct car fronts are visible: a red one on the far left, a blue one behind the turtle, and a blue one on the right. A fourth car is not discernible."
+                "reasoning": "Only three distinct vehicle fronts are visible: a red car on the left, a blue car in the middle (under the turtle), and a blue car on the right. No fourth car is discernible."
             },
             {
                 "atom_index": 6,
@@ -93,7 +93,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Cars are the primary platform for the subjects."
+                "reasoning": "Cars are the primary platform for the animals."
             }
         ],
         "checkpoint_verdicts": [
@@ -103,7 +103,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The roofs of the cars are completely occluded by the animals and the camera angle; only the front fascia/hood is visible."
+                "reasoning": "The image crops tightly at the windshield/hood level; the roof structure is completely outside the frame or occluded by the animals/background blur, making it impossible to verify convertible status."
             },
             {
                 "object": "car",
@@ -111,7 +111,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Side profile and door lines are not visible due to the frontal cropping and occlusion."
+                "reasoning": "Doors and roof cut lines are not visible due to the low camera angle and framing focused on the hood."
             },
             {
                 "object": "car",
@@ -119,7 +119,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Cannot verify roof structure or overall sedan proportions from this low-angle front view."
+                "reasoning": "Cannot verify roof modification without seeing the roof."
             },
             {
                 "object": "car",
@@ -135,7 +135,7 @@
                 "category": "Functional_Components",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Interior and windshield area are obscured by the animals."
+                "reasoning": "Interior and roll bars are not visible through the windshield or from this angle."
             },
             {
                 "object": "car",
@@ -149,9 +149,9 @@
                 "object": "car",
                 "checkpoint": "Weather stripping visible along door frames and windshield.",
                 "category": "Material_and_Context",
-                "is_testable": false,
+                "is_testable": true,
                 "is_present": false,
-                "reasoning": "Door frames and windshield edges are blocked by the subjects."
+                "reasoning": "While the windshield base is visible, specific weather stripping details are obscured by the reflection, wipers, or the animals' paws; no clear stripping is identifiable."
             },
             {
                 "object": "car",
@@ -174,16 +174,16 @@
                 "checkpoint": "Head is moderately sized with a pointed snout and small eyes.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The turtle's head is visible on the left side of the shell, showing a pointed snout and small eye consistent with the description."
+                "is_present": false,
+                "reasoning": "The turtle's head is fully retracted into the shell or completely obscured by the raccoon sitting directly on top of it; no facial features are visible."
             },
             {
                 "object": "turtle",
                 "checkpoint": "Skin coloration is grey to olive with distinctive striped or spotted patterning on the head and neck.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The neck skin shows a textured, scaled appearance with yellowish/olive tones and darker markings."
+                "is_present": false,
+                "reasoning": "Neck and head skin are not visible due to retraction/occlusion."
             },
             {
                 "object": "turtle",
@@ -191,7 +191,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The shell is clearly oval, domed, and has defined scutes with a relatively smooth texture."
+                "reasoning": "The shell is clearly visible, oval-shaped, domed, and has a relatively smooth texture consistent with the description."
             },
             {
                 "object": "turtle",
@@ -199,7 +199,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The scutes exhibit detailed texturing resembling growth rings and are colored in browns and olives."
+                "reasoning": "The scutes show distinct concentric ring patterns and brownish-olive coloration."
             },
             {
                 "object": "turtle",
@@ -207,7 +207,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "There are distinct yellow/orange highlights along the rim of the shell and between scutes."
+                "reasoning": "There are distinct yellow/orange markings along the marginal scutes and edges of the shell."
             },
             {
                 "object": "turtle",
@@ -215,7 +215,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The plastron (bottom shell) is hidden as the turtle is resting on its belly on the car hood."
+                "reasoning": "The plastron (bottom shell) is facing down against the car hood and is not visible."
             },
             {
                 "object": "turtle",
@@ -223,7 +223,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Front limbs are visible gripping the car hood, showing distinct claws and scaled skin."
+                "reasoning": "Front limbs are extended over the edge of the hood, showing scales, claws, and webbing structure."
             },
             {
                 "object": "turtle",
@@ -231,7 +231,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The rear of the turtle is obscured by the shell angle and the car hood."
+                "reasoning": "The rear of the turtle is obscured by the car hood angle and shadow; tail is not visible."
             },
             {
                 "object": "turtle",
@@ -239,27 +239,33 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Visible limb skin shows clear reptilian scaling texture."
+                "reasoning": "Visible limb skin shows detailed scaling texture."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "structural_collapse",
-                "location": "Center foreground, turtle-car interface",
-                "severity": 4,
-                "reasoning": "The turtle appears to be melting into or fused with the blue car hood beneath it. The boundary between the turtle's plastron/shell edge and the car metal is indistinct and physically impossible, suggesting a generative failure in object separation."
-            },
-            {
-                "artifact_type": "extra_limbs",
-                "location": "Underneath the central blue car/turtle assembly",
-                "severity": 3,
-                "reasoning": "There is a strange, furry, leg-like protrusion hanging down from under the turtle/car area that does not belong to the turtle (wrong texture) nor the car. It looks like a hallucinated limb or tail fragment."
-            },
-            {
                 "artifact_type": "fusion",
-                "location": "Raccoon paws on car grille",
+                "location": "Center turtle and raccoon paws",
+                "severity": 3,
+                "reasoning": "The paws of the central raccoon appear to melt slightly into the turtle's shell surface, lacking distinct contact shadows or clear boundary separation."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Turtle underside / Car hood interface",
+                "severity": 4,
+                "reasoning": "The turtle appears to be floating or merging with the blue car's hood. There is no realistic weight depression on the metal, and the bottom edge of the turtle blends unnaturally into the car's grille/bumper area."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Rightmost raccoon's front right paw",
                 "severity": 2,
-                "reasoning": "The paws of the raccoons, particularly the one on the far right, seem to blend slightly into the chrome grille and headlights, lacking crisp contact shadows and distinct toe separation."
+                "reasoning": "The toes/claws on this paw look somewhat fused and lack individual definition compared to the other paws, appearing like a single mass."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Background cars",
+                "severity": 2,
+                "reasoning": "The alignment of the red car and the middle blue car suggests an impossible spatial relationship where they occupy the same physical space or merge at the B-pillar."
             }
         ],
         "expert_verification_plan": [
@@ -270,8 +276,8 @@
                     "Atom 2",
                     "Atom 3"
                 ],
-                "reason": "To definitively count the number of raccoons and confirm their presence, resolving the discrepancy between the prompt (5) and visual observation (4).",
-                "weight": 0.2
+                "reason": "To rigorously verify the count of raccoons (expected 5 vs predicted 4) and confirm presence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
@@ -280,7 +286,7 @@
                     "Atom 0",
                     "Atom 1"
                 ],
-                "reason": "To confirm the count of turtles (expected 3 vs observed 1) and verify species classification.",
+                "reason": "To verify the count of turtles (expected 3 vs predicted 1) and confirm presence.",
                 "weight": 0.2
             },
             {
@@ -290,7 +296,7 @@
                     "Atom 5",
                     "Atom 6"
                 ],
-                "reason": "To detect and count distinct car instances to verify if a fourth car exists outside the immediate focal plane or is occluded.",
+                "reason": "To detect and count distinct vehicle instances to verify if a 4th car exists outside the immediate focal plane.",
                 "weight": 0.15
             },
             {
@@ -299,7 +305,7 @@
                 "verification_goals": [
                     "Atom 3"
                 ],
-                "reason": "To verify that the detected animals are indeed raccoons and not other procyonids or AI-hallucinated hybrids.",
+                "reason": "To confirm the animals are taxonomically raccoons and not similar procyonids or AI-hallucinated hybrids.",
                 "weight": 0.1
             },
             {
@@ -308,84 +314,89 @@
                 "verification_goals": [
                     "Atom 1"
                 ],
-                "reason": "To classify the specific type of turtle (terrapin vs others) based on shell pattern and head shape.",
+                "reason": "To classify the specific type of turtle (terrapin vs other) based on shell pattern.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "turtle",
+                "target_subject": "scene",
                 "verification_goals": [
-                    "Artifact: structural_collapse",
-                    "Artifact: extra_limbs"
+                    "Artifact: fusion",
+                    "Artifact: structural_collapse"
                 ],
-                "reason": "To analyze the severity of the melting/fusion artifact at the turtle-car interface and the anomalous limb underneath.",
-                "weight": 0.15
+                "reason": "To validate the severity of the melting/fusion artifacts between the animals and the car surfaces.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "car",
+                "target_subject": "cars",
                 "verification_goals": [
-                    "Checkpoint: Geometry_and_Silhouette"
+                    "Checkpoint: Proportions match sedan base",
+                    "Artifact: perspective_distortion"
                 ],
-                "reason": "To determine if the visible car parts form a coherent 3D structure or if the 'cars' are merely flat textures generated without depth consistency.",
+                "reason": "To analyze the spatial relationship between the three visible cars and determine if the geometry supports a valid 3D scene or if they are morphing together.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [
-            "Checkpoint: Roof material is fabric...",
-            "Checkpoint: Folding mechanism seams...",
-            "Checkpoint: Weather stripping visible...",
-            "Checkpoint: Rear window is integrated...",
-            "Checkpoint: Plastron is large and hinged...",
-            "Checkpoint: Tail is short."
+            "Checkpoint: Passenger car with retractable soft-top or hardtop roof mechanism (Occluded)",
+            "Checkpoint: Body style is 2-door or 4-door with characteristic roof cut line (Occluded)",
+            "Checkpoint: Roof material is fabric... (Occluded)",
+            "Checkpoint: When top is down, interior upholstery is visible... (Occluded)",
+            "Checkpoint: Folding mechanism seams visible at roof joints (Occluded)",
+            "Checkpoint: Rear window is integrated into soft top... (Outside Frame)",
+            "Checkpoint: Roof color is black, tan... (Occluded)",
+            "Checkpoint: Head is moderately sized with a pointed snout... (Occluded by raccoon)",
+            "Checkpoint: Skin coloration is grey to olive... on head and neck (Occluded)",
+            "Checkpoint: Plastron is large and hinged... (Occluded by car hood)",
+            "Checkpoint: Tail is short (Occluded)"
         ],
         "focus_areas": [
-            "Count verification for raccoons and turtles against prompt expectations.",
-            "Structural integrity of the turtle's connection to the car hood (melting/fusion artifacts).",
-            "Identification of the anomalous limb/protrusion beneath the central vehicle.",
-            "Verification of car taxonomy features despite heavy occlusion."
+            "Verify exact count of raccoons and turtles against prompt expectations.",
+            "Assess the physical plausibility of the turtle resting on the car hood (weight/shadow interaction).",
+            "Check for limb integrity in the raccoons, specifically the paws interacting with the turtle shell."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "raccoon",
-                "reason": "To definitively count the number of raccoons and confirm their presence, resolving the discrepancy between the prompt (5) and visual observation (4).",
-                "weight": 0.2
+                "reason": "To rigorously verify the count of raccoons (expected 5 vs predicted 4) and confirm presence.",
+                "weight": 0.25
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "turtle",
-                "reason": "To confirm the count of turtles (expected 3 vs observed 1) and verify species classification.",
+                "reason": "To verify the count of turtles (expected 3 vs predicted 1) and confirm presence.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "car",
-                "reason": "To detect and count distinct car instances to verify if a fourth car exists outside the immediate focal plane or is occluded.",
+                "reason": "To detect and count distinct vehicle instances to verify if a 4th car exists outside the immediate focal plane.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "raccoon",
-                "reason": "To verify that the detected animals are indeed raccoons and not other procyonids or AI-hallucinated hybrids.",
+                "reason": "To confirm the animals are taxonomically raccoons and not similar procyonids or AI-hallucinated hybrids.",
                 "weight": 0.1
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "turtle",
-                "reason": "To classify the specific type of turtle (terrapin vs others) based on shell pattern and head shape.",
+                "reason": "To classify the specific type of turtle (terrapin vs other) based on shell pattern.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "turtle",
-                "reason": "To analyze the severity of the melting/fusion artifact at the turtle-car interface and the anomalous limb underneath.",
-                "weight": 0.15
+                "target_subject": "scene",
+                "reason": "To validate the severity of the melting/fusion artifacts between the animals and the car surfaces.",
+                "weight": 0.1
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "car",
-                "reason": "To determine if the visible car parts form a coherent 3D structure or if the 'cars' are merely flat textures generated without depth consistency.",
+                "target_subject": "cars",
+                "reason": "To analyze the spatial relationship between the three visible cars and determine if the geometry supports a valid 3D scene or if they are morphing together.",
                 "weight": 0.1
             }
         ],
@@ -393,7 +404,7 @@
             "original_image": "geneval2_sd3_m_800/409.png",
             "prompt_id": "409",
             "prompt_text": "three turtles, and five raccoons on top of four cars",
-            "router_cost_seconds": 56.94,
+            "router_cost_seconds": 60.54,
             "plan_valid": true
         }
     }

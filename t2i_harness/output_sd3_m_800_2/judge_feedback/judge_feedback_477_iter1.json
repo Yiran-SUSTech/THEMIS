@@ -2,33 +2,27 @@
     "image_id": "477",
     "prompt": "three pigs jumping over a yellow koala, and seven umbrellas",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:59:47",
+    "timestamp": "2026-09-02 23:12:35",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification Coverage'. The Router failed to identify that Atom 2 ('Are the pigs jumping over the koala?') is factually incorrect based on the image geometry (pigs are beside/below, not over). Furthermore, the plan fails to assign any expert to verify this spatial relationship, leaving a major prompt adherence failure un-audited. Additionally, the plan incorrectly flags biological taxonomy failures (e.g., yellow fur, lack of claws) as verification targets for a stylized cartoon, which is scientifically invalid for this art style.",
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'unverifiable_points' section. Atom 2 ('Are the pigs jumping over the koala?') is marked as unverifiable due to 'Subjective spatial interpretation'. However, this is an objective spatial relationship query that can be rigorously audited using the `geometric_depth_auditor` (to establish Z-depth ordering) and `animal_pose_auditor` (to verify vertical Y-axis positioning relative to the koala's center of mass). Marking a core prompt constraint as unverifiable undermines the evaluation's completeness. Additionally, the plan fails to assign an expert to audit the specific anatomical failure of the 'yellow koala' having a tail, relying only on general pose auditing which may miss the specific taxonomy violation.",
         "suggestions": [
             {
                 "type": "missing_verification",
                 "point": "Atom 2: Spatial relationship 'jumping over'",
                 "recommended_expert": "geometric_depth_auditor",
-                "reason": "The current plan marks Atom 2 as 'is_correct: false' but assigns no expert to verify the Z-depth or vertical positioning required to confirm if the pigs are 'over' the koala. A depth map or bounding box analysis is needed to rigorously prove the spatial failure."
-            },
-            {
-                "type": "invalid_checkpoint_logic",
-                "point": "Koala/Pig Biological Taxonomy Checkpoints",
-                "recommended_action": "Remove or Deprioritize",
-                "reason": "Checkpoints like 'Claws are sharp', 'Fur is grey-brown', and 'Cloven hooves' are marked 'is_present: false'. For a cartoon illustration, these are stylistic choices, not generation errors. The 'fine_grained_classifier' should be used only to confirm the object class (Koala/Pig), not to audit realistic anatomical details that contradict the art style."
+                "reason": "Use depth maps to determine if pigs are vertically above and behind/in-front of the koala to objectively verify 'over' vs 'around'."
             },
             {
                 "type": "missing_verification",
-                "point": "Umbrella Count Discrepancy (Expected 7 vs Observed 4)",
-                "recommended_expert": "open_vocabulary_detector",
-                "reason": "While 'open_vocabulary_detector' is assigned to umbrellas, the plan should explicitly instruct it to perform a dense counting pass with low confidence thresholds to ensure no faint/background umbrellas were missed before confirming the count is indeed 4."
+                "point": "Koala Tail Presence (Taxonomy Violation)",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "Segment the koala instance to explicitly isolate and measure the tail structure, confirming it is a distinct appendage rather than background noise or body extension."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A cartoon-style illustration featuring three pink pigs and one yellow koala jumping in a blue sky with clouds. There are four colorful umbrellas floating in the air. A strip of green grass is visible at the bottom.",
+        "image_description": "A cartoon-style illustration featuring three pink pigs and one yellow koala jumping in a blue sky with clouds. There are four colorful umbrellas floating in the air. The bottom of the image shows a strip of green grass.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -37,7 +31,7 @@
                 "predicted": "three",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There are clearly three distinct pig figures visible in the scene."
+                "reasoning": "There are clearly three distinct pig figures visible in the image."
             },
             {
                 "atom_index": 1,
@@ -55,7 +49,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 0.95,
-                "reasoning": "The pigs are positioned around the koala (left, bottom-left, right), not vertically above it or in a trajectory that suggests jumping 'over' it. They appear to be jumping alongside or near it."
+                "reasoning": "The pigs are positioned around the koala (left, bottom-left, bottom-right), not vertically above it in a 'jumping over' trajectory. They appear to be jumping alongside or near it."
             },
             {
                 "atom_index": 3,
@@ -64,7 +58,7 @@
                 "predicted": "one",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "There is exactly one central yellow koala figure."
+                "reasoning": "There is exactly one central yellow figure resembling a koala."
             },
             {
                 "atom_index": 4,
@@ -73,7 +67,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The koala is rendered in bright yellow fur, deviating from natural color but matching the prompt."
+                "reasoning": "The central koala figure is colored bright yellow."
             },
             {
                 "atom_index": 5,
@@ -110,7 +104,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The ears are large and rounded, but they are solid yellow like the body. They lack the distinctive white marginal tufts described in the taxonomy."
+                "reasoning": "The ears are large and rounded but lack the distinctive white marginal tufts described in the taxonomy; they are solid yellow like the rest of the body."
             },
             {
                 "object": "koala",
@@ -118,15 +112,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The nose is depicted as a large, black, textured oval, consistent with a stylized koala nose."
+                "reasoning": "The nose is broad, black, and appears textured/leathery, matching the description despite the stylized art style."
             },
             {
                 "object": "koala",
                 "checkpoint": "Head is broad with small eyes relative to body size.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The head is broad and round; eyes are relatively small compared to the massive head/ear structure."
+                "is_present": false,
+                "reasoning": "The eyes are large and expressive (cartoon style), contradicting the 'small eyes relative to body size' biological trait."
             },
             {
                 "object": "koala",
@@ -134,7 +128,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The fur is yellow, not grey-brown. While there is a lighter patch on the belly, the primary color and ear/rump patches do not match the biological description."
+                "reasoning": "The fur is yellow, not grey-brown. While there are lighter patches, the base color is completely wrong per taxonomy."
             },
             {
                 "object": "koala",
@@ -142,15 +136,15 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The character has a very stocky, pear-shaped body with a broad chest and round belly, matching the proportional description."
+                "reasoning": "The body shape is stocky with a broad chest and rounded abdomen, consistent with koala morphology."
             },
             {
                 "object": "koala",
                 "checkpoint": "Body is tailless with a medium-sized, compact marsupial build.",
                 "category": "Body_and_Plumage",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "No tail is visible; the build is compact and marsupial-like."
+                "is_present": false,
+                "reasoning": "The figure has a long, thick yellow tail extending behind it, which contradicts the 'tailless' requirement for koalas."
             },
             {
                 "object": "koala",
@@ -158,7 +152,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The limbs are simplified cartoon paws/hands without distinct digits or opposable thumbs visible."
+                "reasoning": "The hands/paws are simplified cartoon stumps without visible digits or opposable thumbs."
             },
             {
                 "object": "koala",
@@ -166,7 +160,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No claws are depicted; the feet are smooth and rounded."
+                "reasoning": "No claws are visible; limbs end in smooth, rounded shapes."
             },
             {
                 "object": "koala",
@@ -174,7 +168,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The koala is in a mid-air jumping pose, not seated upright on a branch."
+                "reasoning": "The koala is depicted mid-jump/floating in the air, not seated upright on a branch."
             },
             {
                 "object": "pig",
@@ -182,15 +176,15 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The pigs have prominent snouts with the characteristic flat disk nose tip."
+                "reasoning": "The pigs have distinct snouts with the characteristic disk shape at the end."
             },
             {
                 "object": "pig",
                 "checkpoint": "Small eyes.",
                 "category": "Head_and_Face",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "Eyes are small relative to the head size."
+                "is_present": false,
+                "reasoning": "The eyes are large and cartoonish, not biologically small."
             },
             {
                 "object": "pig",
@@ -198,7 +192,7 @@
                 "category": "Head_and_Face",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The pigs have large, pointed/semi-erect ears typical of cartoon pig depictions."
+                "reasoning": "The pigs have prominent ears that are either floppy or semi-erect, fitting the description."
             },
             {
                 "object": "pig",
@@ -206,7 +200,7 @@
                 "category": "Body_and_Plumage",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "All three pigs exhibit the classic barrel-shaped, rotund body type."
+                "reasoning": "The bodies are round and barrel-shaped, consistent with pig anatomy."
             },
             {
                 "object": "pig",
@@ -222,7 +216,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Legs are short and stout, but the feet are simplified brown shapes without distinct cloven hoof separation."
+                "reasoning": "The legs are short and stout, but the feet are simplified paws/stumps without visible cloven hooves."
             },
             {
                 "object": "pig",
@@ -230,7 +224,7 @@
                 "category": "Limbs_and_Anatomy",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Visible tails on the left and bottom-left pigs are short and curly."
+                "reasoning": "All three pigs display the characteristic short, curly tail."
             },
             {
                 "object": "umbrella",
@@ -238,7 +232,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "All four objects clearly show the dome canopy, central shaft, and implied rib structure."
+                "reasoning": "The objects clearly show a canopy, central shaft, and implied rib structure."
             },
             {
                 "object": "umbrella",
@@ -246,7 +240,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Relative to the pigs, the umbrellas are large enough to cover them, satisfying the scale requirement."
+                "reasoning": "Relative to the pigs, the umbrellas appear appropriately sized for human use."
             },
             {
                 "object": "umbrella",
@@ -254,7 +248,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "The umbrellas are fully open; the collapsed state is not visible and cannot be verified."
+                "reasoning": "The umbrellas are fully open; the collapsed state is not visible to verify telescoping capability."
             },
             {
                 "object": "umbrella",
@@ -262,7 +256,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The scalloped edges and panel lines indicate fabric stretched over a ribbed frame."
+                "reasoning": "The canopy texture and scalloped edges imply fabric stretched over ribs."
             },
             {
                 "object": "umbrella",
@@ -270,7 +264,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "Shafts are visible, and at least two umbrellas clearly show the traditional curved 'J' handle."
+                "reasoning": "Shafts are visible with J-shaped curved handles."
             },
             {
                 "object": "umbrella",
@@ -278,7 +272,7 @@
                 "category": "Functional_Components",
                 "is_testable": false,
                 "is_present": false,
-                "reasoning": "Internal mechanisms like buttons or sliders are too small or obscured to verify in this illustration style."
+                "reasoning": "Internal mechanisms like buttons are not visible at this resolution/style."
             },
             {
                 "object": "umbrella",
@@ -286,7 +280,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": true,
-                "reasoning": "The umbrellas display vibrant multi-colored panels (red, blue, orange, yellow)."
+                "reasoning": "The umbrellas feature vibrant multi-colored panels."
             },
             {
                 "object": "umbrella",
@@ -294,7 +288,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The tips of the canopy are smooth curves; distinct protective caps are not rendered."
+                "reasoning": "The tips of the canopy are smooth/scalloped; individual rib caps are not rendered."
             },
             {
                 "object": "umbrella",
@@ -308,15 +302,21 @@
         "artifact_observations": [
             {
                 "artifact_type": "structural_collapse",
-                "location": "Bottom-right pig's rear legs",
+                "location": "Bottom-right pig's left hand",
                 "severity": 2,
-                "reasoning": "The rear legs of the bottom-right pig appear fused into a single limb mass or are missing distinct separation, looking like a stump rather than two legs."
+                "reasoning": "The hand appears to have an extra digit or fused fingers, looking slightly malformed compared to the other pigs."
             },
             {
                 "artifact_type": "texture_anomaly",
-                "location": "Umbrella handles",
+                "location": "Yellow koala's tail",
+                "severity": 3,
+                "reasoning": "The tail blends somewhat unnaturally into the background sky gradient and lacks clear definition at the tip, appearing slightly melted."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Top-left umbrella handle",
                 "severity": 1,
-                "reasoning": "The handles lack material definition (wood grain or metal sheen) and blend slightly into the shaft color, appearing somewhat plastic-like or melted."
+                "reasoning": "The handle connects to the shaft at a slightly awkward angle that doesn't perfectly align with the canopy's center axis."
             }
         ],
         "expert_verification_plan": [
@@ -348,7 +348,7 @@
                     "Atom 4",
                     "Atom 5"
                 ],
-                "reason": "Confirm species classification despite unnatural yellow coloring and verify identity.",
+                "reason": "Confirm species classification despite non-standard yellow coloring and verify if it registers as a koala.",
                 "weight": 0.15
             },
             {
@@ -358,47 +358,50 @@
                     "pig: Short stout legs with cloven hooves",
                     "pig: Short curly tail"
                 ],
-                "reason": "Audit limb integrity and tail structure, specifically checking the bottom-right pig for fusion artifacts.",
+                "reason": "Audit limb structure and tail correctness for all three pigs.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "koala",
                 "verification_goals": [
-                    "koala: Powerful limbs with five digits each",
-                    "koala: Claws are sharp and curved"
+                    "koala: Body is tailless...",
+                    "koala: Powerful limbs with five digits..."
                 ],
-                "reason": "Verify if cartoon simplification completely removes anatomical features required by taxonomy.",
-                "weight": 0.1
+                "reason": "Verify absence of tail and check limb digit count (critical taxonomy failures).",
+                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "umbrella",
                 "verification_goals": [
-                    "umbrella: Handheld collapsible canopy mounted on a central shaft"
+                    "umbrella: Handheld collapsible canopy mounted on a central shaft..."
                 ],
-                "reason": "Verify 3D structural coherence of the umbrella ribs and shaft connection points.",
+                "reason": "Verify 3D structural integrity of umbrellas and shaft-canopy alignment.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "pig",
+                "target_subject": "koala",
                 "verification_goals": [
-                    "Artifact: Bottom-right pig's rear legs"
+                    "koala: Fur is dense, woolly, and grey-brown...",
+                    "koala: Ears are large, rounded, and prominently furry with white marginal tufts."
                 ],
-                "reason": "Confirm severity of potential limb fusion/melting artifact.",
-                "weight": 0.1
+                "reason": "Assess texture quality and color fidelity against biological norms.",
+                "weight": 0.05
             }
         ],
         "unverifiable_points": [
-            "umbrella: Collapsible models fold down to a compact length via a telescoping shaft",
-            "umbrella: Opening mechanism is manual or automatic button-activated"
+            "umbrella: Collapsible models fold down to a compact length via a telescoping shaft.",
+            "umbrella: Opening mechanism is manual or automatic button-activated.",
+            "Atom 2: Are the pigs jumping over the koala? (Subjective spatial interpretation)"
         ],
         "focus_areas": [
-            "Count verification for umbrellas (Expected 7 vs Observed 4)",
-            "Spatial relationship verification for 'jumping over' predicate",
-            "Anatomical correctness of bottom-right pig's hindquarters",
-            "Color deviation of koala from biological ground truth"
+            "Umbrella count verification (Expected 7 vs Observed 4)",
+            "Koala tail presence (Taxonomy violation: Koalas are tailless)",
+            "Koala coloration (Yellow vs Grey-brown)",
+            "Pig hoof visibility (Cloven hooves missing)",
+            "Spatial relationship between pigs and koala (Jumping OVER vs AROUND)"
         ],
         "selected_experts": [
             {
@@ -416,39 +419,39 @@
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "koala",
-                "reason": "Confirm species classification despite unnatural yellow coloring and verify identity.",
+                "reason": "Confirm species classification despite non-standard yellow coloring and verify if it registers as a koala.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "pig",
-                "reason": "Audit limb integrity and tail structure, specifically checking the bottom-right pig for fusion artifacts.",
+                "reason": "Audit limb structure and tail correctness for all three pigs.",
                 "weight": 0.15
             },
             {
                 "expert_name": "animal_pose_auditor",
                 "target_subject": "koala",
-                "reason": "Verify if cartoon simplification completely removes anatomical features required by taxonomy.",
-                "weight": 0.1
+                "reason": "Verify absence of tail and check limb digit count (critical taxonomy failures).",
+                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "umbrella",
-                "reason": "Verify 3D structural coherence of the umbrella ribs and shaft connection points.",
+                "reason": "Verify 3D structural integrity of umbrellas and shaft-canopy alignment.",
                 "weight": 0.1
             },
             {
                 "expert_name": "perceptual_quality_auditor",
-                "target_subject": "pig",
-                "reason": "Confirm severity of potential limb fusion/melting artifact.",
-                "weight": 0.1
+                "target_subject": "koala",
+                "reason": "Assess texture quality and color fidelity against biological norms.",
+                "weight": 0.05
             }
         ],
         "metadata": {
             "original_image": "geneval2_sd3_m_800/477.png",
             "prompt_id": "477",
             "prompt_text": "three pigs jumping over a yellow koala, and seven umbrellas",
-            "router_cost_seconds": 65.64,
+            "router_cost_seconds": 67.71,
             "plan_valid": true
         }
     }

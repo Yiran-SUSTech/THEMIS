@@ -2,29 +2,24 @@
     "image_id": "102",
     "prompt": "a glass chair and a glass bicycle",
     "iteration": 2,
-    "timestamp": "2026-09-02 01:32:57",
+    "timestamp": "2026-09-02 22:44:23",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains significant logical errors in the 'checkpoint_verdicts' and 'expert_verification_plan'. Specifically, the Router hallucinated negative checkpoints for a 'tandem bicycle' and a 'flagpole', which are not present in the prompt or image. While the Router correctly identified these as 'is_present: false', including them creates noise and implies a failure to recognize the actual objects (standard bike, standard chair). Furthermore, the expert plan assigns a 'fine_grained_classifier' to verify if a chair is a 'flagpole', which is scientifically invalid and wastes resources. The plan also fails to address the visible material inconsistency on the bicycle (mixed glass/metal components) which contradicts the 'glass bicycle' prompt expectation.",
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection: the `animal_pose_auditor` is assigned to audit the 'chair'. This expert is explicitly designed for biological subjects (limbed animals/humans) and cannot validly audit rigid furniture structures. Additionally, the plan fails to assign a `topology_boundary_auditor` to verify the physical continuity of the glass objects, which is crucial for detecting 'melting' artifacts where transparent objects blend into the background or floor.",
         "suggestions": [
             {
-                "type": "remove_hallucinated_checkpoints",
-                "point": "Remove all checkpoints related to 'tandem bicycle' features (e.g., two seats, extended frame) and 'flagpole' features (e.g., halyard, finial). These objects are not in the prompt, and their absence is trivial. The checkpoints should focus on verifying the *actual* objects: 'Is the bicycle a standard single-rider model?' and 'Is the chair a standard 4-legged seat?'.",
-                "recommended_expert": "N/A (Router Logic Correction)"
-            },
-            {
-                "type": "fix_expert_assignment",
-                "point": "Reassign the 'fine_grained_classifier' for the chair. It should not be used to distinguish between a 'chair' and a 'flagpole'. Instead, use it to verify the specific style of the chair (e.g., 'modern molded chair') or remove this checkpoint entirely if generic object detection suffices.",
-                "recommended_expert": "fine_grained_classifier"
-            },
-            {
-                "type": "add_material_consistency_audit",
-                "point": "The prompt specifies a 'glass bicycle', but the image shows metal handlebars, grips, and tire rubber. The current plan marks 'Is the bicycle glass?' as correct based on the frame, but ignores the non-glass components. Add a verification step to audit if the *entirety* of the object matches the material constraint, or if partial material adherence is acceptable.",
-                "recommended_expert": "perceptual_quality_auditor"
+                "type": "incorrect_expert_assignment",
+                "point": "Remove `animal_pose_auditor` from the 'chair' verification plan as it is biologically incompatible with rigid objects.",
+                "recommended_expert": "N/A"
             },
             {
                 "type": "missing_verification",
-                "point": "Verify the structural integrity of the bicycle's rear wheel and chain mechanism. The image shows potential geometric melting in the rear hub/pedal area which is not explicitly covered by the current artifact observations.",
+                "point": "Add `topology_boundary_auditor` for both 'chair' and 'bicycle' to objectively verify edge sharpness and ensure the glass material does not suffer from boundary bleeding or structural discontinuity (melting).",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The current plan lacks a specific geometric audit for the chair's leg grounding beyond the invalid pose auditor. A depth or topology audit is needed to confirm the legs are physically resting on the floor rather than floating or merging.",
                 "recommended_expert": "geometric_depth_auditor"
             }
         ]
@@ -48,7 +43,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The chair is transparent, refractive, and has the visual properties of molded glass or clear acrylic."
+                "reasoning": "The chair is transparent with refractive properties consistent with glass or clear acrylic."
             },
             {
                 "atom_index": 2,
@@ -75,7 +70,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The frame, basket, and fenders of the bicycle are transparent and refractive, consistent with glass."
+                "reasoning": "The bicycle frame and body are transparent and refractive, matching the glass material description."
             },
             {
                 "atom_index": 5,
@@ -94,7 +89,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The bicycle in the image is a standard single-rider bike with one seat and one set of pedals, not a tandem bicycle."
+                "reasoning": "The bicycle in the image is a standard single-rider bike, not an elongated tandem bicycle with two seats."
             },
             {
                 "object": "bicycle",
@@ -102,7 +97,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The profile is that of a normal bicycle, lacking the elongated frame and second rider position required for a tandem."
+                "reasoning": "The profile is that of a normal bicycle with only one seat and one set of pedals."
             },
             {
                 "object": "bicycle",
@@ -110,7 +105,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The top tube is standard length, connecting only the head tube to the seat tube for a single rider."
+                "reasoning": "The top tube is standard length, not extended for a second rider."
             },
             {
                 "object": "bicycle",
@@ -118,7 +113,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only one set of handlebars is visible at the front of the bike."
+                "reasoning": "Only one set of handlebars is visible."
             },
             {
                 "object": "bicycle",
@@ -126,15 +121,15 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "There is only a single saddle visible."
+                "reasoning": "There is only one saddle."
             },
             {
                 "object": "bicycle",
                 "checkpoint": "Standard bicycle size wheels.",
                 "category": "Functional_Components",
                 "is_testable": true,
-                "is_present": true,
-                "reasoning": "The wheels appear to be standard size relative to the frame."
+                "is_present": false,
+                "reasoning": "The bicycle exhibits non-standard proportions; the front wheel appears significantly larger than the rear wheel, deviating from the 'standard size' uniformity implied by the checkpoint."
             },
             {
                 "object": "bicycle",
@@ -142,7 +137,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The frame proportions are standard, not elongated."
+                "reasoning": "The frame length is standard, not significantly longer."
             },
             {
                 "object": "bicycle",
@@ -166,7 +161,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The object is a chair, not a flagpole. It does not tower over surroundings."
+                "reasoning": "The object is a chair, not a tall vertical pole. The taxonomy checkpoint describes a flagpole, which is a mismatch."
             },
             {
                 "object": "chair",
@@ -174,7 +169,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chair legs are uniform cylinders, but the object itself is not a tapered pole."
+                "reasoning": "The chair has legs and a seat, not a tapered pole design."
             },
             {
                 "object": "chair",
@@ -190,7 +185,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No halyard or pulley system exists on this chair."
+                "reasoning": "Chairs do not have halyards or pulleys."
             },
             {
                 "object": "chair",
@@ -214,7 +209,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The material is clearly transparent glass/plastic, not aluminum, fiberglass, or wood."
+                "reasoning": "The material is glass/translucent plastic, not aluminum, fiberglass, or wood as described in the mismatched checkpoint."
             },
             {
                 "object": "chair",
@@ -222,7 +217,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The surface is transparent and refractive, not metallic or painted opaque."
+                "reasoning": "The surface is transparent/glassy, not metallic or painted."
             },
             {
                 "object": "chair",
@@ -230,27 +225,21 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chair stands freely on a wooden floor."
+                "reasoning": "The chair stands freely on the floor."
             }
         ],
         "artifact_observations": [
             {
-                "artifact_type": "structural_collapse",
-                "location": "Chair rear legs and cross-brace",
-                "severity": 3,
-                "reasoning": "The rear legs of the chair merge into a single horizontal bar that floats slightly above the floor or connects unnaturally to the front legs. The geometry of the chair base is physically ambiguous and lacks a stable grounding structure typical of real furniture."
-            },
-            {
                 "artifact_type": "texture_anomaly",
-                "location": "Bicycle frame and basket",
-                "severity": 2,
-                "reasoning": "The glass texture on the bicycle frame shows inconsistent refraction; some parts look like solid glass while others look like wireframe meshes. The basket weave pattern is melted and indistinct rather than formed by distinct glass strands."
+                "location": "Bicycle handlebars and basket",
+                "severity": 3,
+                "reasoning": "The transition between the glass frame and the solid black/brown handlebar grips is abrupt and lacks realistic mounting hardware; the basket mesh texture is inconsistent and partially fused with the frame."
             },
             {
-                "artifact_type": "perspective_distortion",
-                "location": "Bicycle wheels",
+                "artifact_type": "melting",
+                "location": "Chair legs and floor contact points",
                 "severity": 2,
-                "reasoning": "The spokes of the bicycle wheels do not converge perfectly at the hub, and the rim thickness varies inconsistently, suggesting slight geometric warping common in AI generation."
+                "reasoning": "The bottoms of the chair legs appear to melt slightly into the floor or lack distinct feet, showing minor geometric instability."
             }
         ],
         "expert_verification_plan": [
@@ -261,7 +250,7 @@
                     "Atom 3",
                     "Atom 5"
                 ],
-                "reason": "To confirm the count and presence of the bicycle objectively.",
+                "reason": "Verify the count and presence of the bicycle to confirm it is a single instance.",
                 "weight": 0.2
             },
             {
@@ -269,10 +258,9 @@
                 "target_subject": "bicycle",
                 "verification_goals": [
                     "bicycle: Geometry_and_Silhouette",
-                    "bicycle: Functional_Components",
-                    "bicycle: Material_and_Context"
+                    "bicycle: Functional_Components"
                 ],
-                "reason": "To verify if the bicycle classifies as a 'tandem' or 'standard' bike and check specific structural components like handlebars and seats.",
+                "reason": "Classify the specific type of bicycle to definitively prove it is not a 'bicycle-built-for-two' (tandem) as per the taxonomy mismatch.",
                 "weight": 0.2
             },
             {
@@ -282,81 +270,80 @@
                     "Atom 0",
                     "Atom 2"
                 ],
-                "reason": "To confirm the count and presence of the chair.",
+                "reason": "Verify the count and presence of the chair.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "chair",
                 "verification_goals": [
-                    "chair: Geometry_and_Silhouette",
-                    "chair: Functional_Components",
                     "chair: Material_and_Context"
                 ],
-                "reason": "To verify if the object classifies as a 'folding chair' or 'flagpole' (based on the erroneous taxonomy provided) and assess material properties.",
+                "reason": "Confirm the object is a chair and distinguish its material properties against the erroneous flagpole taxonomy checkpoints.",
                 "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "chair",
+                "target_subject": "bicycle",
                 "verification_goals": [
-                    "structural_collapse artifact"
+                    "Atom 4",
+                    "bicycle: Material_and_Context"
                 ],
-                "reason": "To analyze the depth and physical grounding of the chair legs to confirm if the rear support structure is physically valid or hallucinated.",
+                "reason": "Verify the refractive consistency and depth separation of the transparent glass bicycle from the background, ensuring physical grounding.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "bicycle",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "chair",
                 "verification_goals": [
-                    "texture_anomaly artifact",
-                    "perspective_distortion artifact"
+                    "chair: Geometry_and_Silhouette",
+                    "artifact_observations"
                 ],
-                "reason": "To perform a detailed audit of the glass texture consistency and wheel geometry distortions.",
+                "reason": "Audit the structural keypoint validity of the chair legs to ensure they are grounded and not floating/melting, replacing subjective melting observations with objective data.",
                 "weight": 0.15
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Verify the specific type of bicycle (tandem vs standard) against the prompt's implied expectation vs actual image content.",
-            "Audit the structural integrity of the glass chair's legs for physical plausibility.",
-            "Check the refraction and transparency consistency of the glass materials on both objects."
+            "Taxonomy Mismatch: The provided taxonomy for 'bicycle' describes a tandem bike, but the image shows a single-rider bike. The taxonomy for 'chair' describes a flagpole, which is completely irrelevant.",
+            "Geometric Depth & Refraction: Verify if the 'glass' material maintains consistent refraction indices and proper depth separation from the background.",
+            "Structural Integrity: Audit the chair leg grounding and bicycle wheel proportions objectively."
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "bicycle",
-                "reason": "To confirm the count and presence of the bicycle objectively.",
+                "reason": "Verify the count and presence of the bicycle to confirm it is a single instance.",
                 "weight": 0.2
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "bicycle",
-                "reason": "To verify if the bicycle classifies as a 'tandem' or 'standard' bike and check specific structural components like handlebars and seats.",
+                "reason": "Classify the specific type of bicycle to definitively prove it is not a 'bicycle-built-for-two' (tandem) as per the taxonomy mismatch.",
                 "weight": 0.2
             },
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "chair",
-                "reason": "To confirm the count and presence of the chair.",
+                "reason": "Verify the count and presence of the chair.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "chair",
-                "reason": "To verify if the object classifies as a 'folding chair' or 'flagpole' (based on the erroneous taxonomy provided) and assess material properties.",
+                "reason": "Confirm the object is a chair and distinguish its material properties against the erroneous flagpole taxonomy checkpoints.",
                 "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
-                "target_subject": "chair",
-                "reason": "To analyze the depth and physical grounding of the chair legs to confirm if the rear support structure is physically valid or hallucinated.",
+                "target_subject": "bicycle",
+                "reason": "Verify the refractive consistency and depth separation of the transparent glass bicycle from the background, ensuring physical grounding.",
                 "weight": 0.15
             },
             {
-                "expert_name": "perceptual_quality_auditor",
-                "target_subject": "bicycle",
-                "reason": "To perform a detailed audit of the glass texture consistency and wheel geometry distortions.",
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "chair",
+                "reason": "Audit the structural keypoint validity of the chair legs to ensure they are grounded and not floating/melting, replacing subjective melting observations with objective data.",
                 "weight": 0.15
             }
         ],
@@ -364,7 +351,7 @@
             "original_image": "geneval2_sd3_m_800/102.png",
             "prompt_id": "102",
             "prompt_text": "a glass chair and a glass bicycle",
-            "router_cost_seconds": 52.74,
+            "router_cost_seconds": 51.39,
             "plan_valid": true,
             "is_revision": true,
             "revision_feedback_count": 1

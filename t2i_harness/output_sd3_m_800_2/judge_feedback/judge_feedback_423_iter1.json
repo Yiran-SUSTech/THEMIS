@@ -2,30 +2,32 @@
     "image_id": "423",
     "prompt": "a blue donut, and a bicycle to the left of six glass chairs",
     "iteration": 1,
-    "timestamp": "2026-09-02 01:54:46",
+    "timestamp": "2026-09-02 23:07:24",
     "judge_verdict": {
         "is_approved": false,
-        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'checkpoint_verdicts' section. The Router applied a taxonomy for 'flagpoles' (e.g., finials, halyards, tapered poles) to the object class 'chair'. This indicates a failure in the checkpoint retrieval or mapping logic, resulting in irrelevant and hallucinated verification criteria. While the Atom QA and Expert Plan are largely sound, this taxonomy corruption invalidates the structural audit portion of the plan.",
+        "reasons_for_rejection": "The plan contains a critical logical error in expert selection: it assigns the 'animal_pose_auditor' to verify the structure of a bicycle. The expert registry explicitly states this tool is 'ONLY for limbed subjects... NOT for limbless', and bicycles are rigid mechanical objects, not biological entities with keypoints. This will result in execution failure or garbage data. Additionally, the taxonomy checkpoints for the bicycle incorrectly assume the prompt implies a 'tandem' bike (checking for two seats/handlebars), whereas the prompt only specifies 'a bicycle'. The checkpoints should verify standard bicycle topology (2 wheels, frame, handlebars) rather than rejecting it for not being tandem.",
         "suggestions": [
             {
-                "type": "taxonomy_correction",
-                "point": "Remove all flagpole-related checkpoints (finial, halyard, cleat, etc.) from the 'chair' object audit. Replace with valid chair-specific geometric checkpoints (e.g., leg count, seat continuity, backrest structure).",
-                "recommended_expert": "topology_boundary_auditor"
+                "type": "expert_replacement",
+                "point": "Bicycle structural verification",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "Replace 'animal_pose_auditor' with 'topology_boundary_auditor' to verify the bicycle is a single continuous entity with valid connectivity (wheels attached to frame) and no floating parts. The animal auditor is biologically specific and invalid for mechanical objects."
+            },
+            {
+                "type": "checkpoint_correction",
+                "point": "Bicycle Taxonomy Checkpoints",
+                "recommendation": "Remove checkpoints specifically looking for 'tandem' features (two seats, two handlebars) as negative indicators. The prompt 'a bicycle' implies a standard single-rider bike. The checkpoints should instead verify the presence of standard components (2 wheels, 1 seat, 1 handlebar set) using 'topology_boundary_auditor' or 'open_vocabulary_detector' for component counting."
             },
             {
                 "type": "missing_verification",
-                "point": "Atom 1 (Donut Color) relies on a Fine-Grained Classifier. While effective, color is a low-level visual attribute. A simple color histogram or region-based color extraction would be more robust and computationally efficient than a ViT classifier for this specific atom.",
-                "recommended_expert": "perceptual_quality_auditor"
-            },
-            {
-                "type": "optimization",
-                "point": "The 'bicycle' checkpoints correctly identify it as a standard bike vs tandem. However, since the prompt does not specify 'tandem', these checkpoints are verifying against a hallucinated negative constraint. Ensure checkpoints align strictly with prompt constraints unless checking for common generation failures (like extra limbs).",
-                "recommended_expert": "animal_pose_auditor"
+                "point": "Donut Color Verification",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "While 'fine_grained_classifier' is assigned to the donut, ensure the class labels include color attributes or use 'perceptual_quality_auditor' to specifically reason about the hue mismatch (Pink vs Blue) if the classifier only outputs object categories."
             }
         ]
     },
     "audited_plan": {
-        "image_description": "A blue bicycle is parked on the left side of the frame against a white corrugated metal wall. To its right, there is a row of five translucent light-blue plastic chairs. On the far right edge, partially cropped, is a pink frosted donut with sprinkles.",
+        "image_description": "A blue bicycle is parked on the left side of the frame against a white corrugated metal wall. To its right, there is a row of five translucent light-blue plastic chairs. On the far right edge, partially cut off by the frame, is a pink frosted donut with sprinkles.",
         "atom_verdicts": [
             {
                 "atom_index": 0,
@@ -43,7 +45,7 @@
                 "predicted": "No",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "The donut has pink frosting and yellow dough; it is not blue."
+                "reasoning": "The donut has pink frosting and yellow dough; it is not blue. The prompt specified a blue donut, but the generation failed this attribute."
             },
             {
                 "atom_index": 2,
@@ -70,7 +72,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "A bicycle is clearly present on the left."
+                "reasoning": "A bicycle is present on the left."
             },
             {
                 "atom_index": 5,
@@ -79,7 +81,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "The bicycle is positioned to the left of the row of chairs."
+                "reasoning": "The bicycle is positioned on the far left, while the chairs are to its right."
             },
             {
                 "atom_index": 6,
@@ -88,7 +90,7 @@
                 "predicted": "five",
                 "is_correct": false,
                 "confidence": 1.0,
-                "reasoning": "There are exactly five distinct chairs visible in the row."
+                "reasoning": "There are exactly five distinct chairs visible in the row. The prompt requested six."
             },
             {
                 "atom_index": 7,
@@ -96,8 +98,8 @@
                 "expected": "Yes",
                 "predicted": "No",
                 "is_correct": false,
-                "confidence": 0.9,
-                "reasoning": "The chairs appear to be made of translucent molded plastic (ghost chair style), not glass, indicated by their uniform thickness and molding seams."
+                "confidence": 0.95,
+                "reasoning": "The chairs appear to be made of translucent molded plastic (polycarbonate style), not glass. While transparent, the texture and molding lines suggest plastic."
             },
             {
                 "atom_index": 8,
@@ -106,7 +108,7 @@
                 "predicted": "Yes",
                 "is_correct": true,
                 "confidence": 1.0,
-                "reasoning": "Multiple chairs are clearly visible."
+                "reasoning": "Five chairs are clearly visible."
             }
         ],
         "checkpoint_verdicts": [
@@ -124,7 +126,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The profile is that of a standard bicycle, lacking the elongated frame and second rider position."
+                "reasoning": "The profile is that of a normal bicycle, lacking the elongated frame and second rider position."
             },
             {
                 "object": "bicycle",
@@ -148,7 +150,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Only one saddle is present."
+                "reasoning": "There is only one saddle."
             },
             {
                 "object": "bicycle",
@@ -188,7 +190,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The object is a chair, not a flagpole. The taxonomy description provided for 'chair' describes a flagpole, which is completely absent."
+                "reasoning": "The object is a chair, not a flagpole. This checkpoint describes a flagpole, indicating a taxonomy mismatch."
             },
             {
                 "object": "chair",
@@ -196,7 +198,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "Chairs do not have this geometry; they have legs and seats."
+                "reasoning": "Chairs do not have this geometry; this describes a pole."
             },
             {
                 "object": "chair",
@@ -204,7 +206,7 @@
                 "category": "Geometry_and_Silhouette",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No finial is present on the chairs."
+                "reasoning": "No finial is present; chairs have backrests."
             },
             {
                 "object": "chair",
@@ -220,7 +222,7 @@
                 "category": "Functional_Components",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "No cleats are visible."
+                "reasoning": "No cleat is present."
             },
             {
                 "object": "chair",
@@ -244,7 +246,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The surface is translucent plastic, not metallic or painted."
+                "reasoning": "The surface is translucent plastic, not metallic or painted opaque."
             },
             {
                 "object": "chair",
@@ -252,7 +254,7 @@
                 "category": "Material_and_Context",
                 "is_testable": true,
                 "is_present": false,
-                "reasoning": "The chairs are freestanding on the ground."
+                "reasoning": "The chairs are standing freely on the ground, not embedded."
             }
         ],
         "artifact_observations": [
@@ -260,13 +262,13 @@
                 "artifact_type": "texture_anomaly",
                 "location": "chairs",
                 "severity": 2,
-                "reasoning": "The chairs exhibit horizontal banding/striping artifacts consistent with AI generation attempting to render transparency against a corrugated background, rather than natural refraction."
+                "reasoning": "The chairs exhibit horizontal banding/striping artifacts across their translucent bodies, likely due to rendering issues with transparency against the corrugated background."
             },
             {
                 "artifact_type": "structural_collapse",
                 "location": "bicycle rear wheel area",
                 "severity": 2,
-                "reasoning": "The rear wheel spokes and hub appear slightly fused and indistinct, lacking crisp mechanical definition typical of real photography."
+                "reasoning": "The rear wheel spokes and hub appear slightly distorted and fused with the kickstand/fender area, lacking crisp mechanical definition."
             }
         ],
         "expert_verification_plan": [
@@ -276,27 +278,8 @@
                 "verification_goals": [
                     "Atom 6"
                 ],
-                "reason": "Verify the exact count of chairs to confirm if there are 5 or 6.",
-                "weight": 0.2
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "bicycle",
-                "verification_goals": [
-                    "bicycle checkpoints"
-                ],
-                "reason": "Confirm the bicycle type is standard vs tandem/built-for-two as per taxonomy.",
-                "weight": 0.15
-            },
-            {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "chair",
-                "verification_goals": [
-                    "Atom 7",
-                    "chair checkpoints"
-                ],
-                "reason": "Classify material (plastic vs glass) and verify object identity against the erroneous flagpole taxonomy.",
-                "weight": 0.15
+                "reason": "To rigorously verify the count of chairs (expected 6 vs observed 5) using bounding box detection.",
+                "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
@@ -304,8 +287,26 @@
                 "verification_goals": [
                     "Atom 1"
                 ],
-                "reason": "Verify color classification of the donut (pink vs blue).",
-                "weight": 0.1
+                "reason": "To confirm the color classification of the donut (pink vs blue) and rule out any blue tinting that might be ambiguous.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "chair",
+                "verification_goals": [
+                    "Atom 7"
+                ],
+                "reason": "To classify the material of the chairs (plastic vs glass) based on visual texture and refraction properties.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "bicycle checkpoints"
+                ],
+                "reason": "Although designed for animals, this expert's keypoint detection can verify the structural topology of the bicycle to confirm it is a single-rider bike (1 seat, 1 handlebar set) rather than a tandem.",
+                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
@@ -313,8 +314,8 @@
                 "verification_goals": [
                     "texture_anomaly"
                 ],
-                "reason": "Analyze the horizontal banding on chairs to determine if it is a rendering artifact or background interaction.",
-                "weight": 0.1
+                "reason": "To analyze the horizontal banding artifacts on the chairs and determine if they represent a generation failure or a stylistic choice.",
+                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
@@ -322,68 +323,52 @@
                 "verification_goals": [
                     "structural_collapse"
                 ],
-                "reason": "Check depth consistency of the rear wheel and kickstand to verify structural integrity.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "donut",
-                "verification_goals": [
-                    "Atom 0"
-                ],
-                "reason": "Segment the donut to ensure it is a single contiguous object and not fused with the edge.",
+                "reason": "To verify the spatial integrity of the rear wheel and kickstand assembly, checking for fusion artifacts.",
                 "weight": 0.1
             }
         ],
         "unverifiable_points": [],
         "focus_areas": [
-            "Chair count verification (expected 6, observed 5)",
-            "Donut color verification (expected blue, observed pink)",
-            "Bicycle taxonomy mismatch (standard vs tandem)",
-            "Chair material classification (plastic vs glass)",
-            "Transparency rendering artifacts on chairs"
+            "Count verification of chairs (prompt says 6, image shows 5)",
+            "Color verification of donut (prompt says blue, image shows pink)",
+            "Material classification of chairs (prompt says glass, image looks like plastic)",
+            "Bicycle structure verification (prompt implies tandem via taxonomy, image shows standard bike)"
         ],
         "selected_experts": [
             {
                 "expert_name": "open_vocabulary_detector",
                 "target_subject": "chair",
-                "reason": "Verify the exact count of chairs to confirm if there are 5 or 6.",
-                "weight": 0.2
+                "reason": "To rigorously verify the count of chairs (expected 6 vs observed 5) using bounding box detection.",
+                "weight": 0.25
             },
             {
                 "expert_name": "fine_grained_classifier",
-                "target_subject": "bicycle",
-                "reason": "Confirm the bicycle type is standard vs tandem/built-for-two as per taxonomy.",
+                "target_subject": "donut",
+                "reason": "To confirm the color classification of the donut (pink vs blue) and rule out any blue tinting that might be ambiguous.",
                 "weight": 0.15
             },
             {
                 "expert_name": "fine_grained_classifier",
                 "target_subject": "chair",
-                "reason": "Classify material (plastic vs glass) and verify object identity against the erroneous flagpole taxonomy.",
+                "reason": "To classify the material of the chairs (plastic vs glass) based on visual texture and refraction properties.",
                 "weight": 0.15
             },
             {
-                "expert_name": "fine_grained_classifier",
-                "target_subject": "donut",
-                "reason": "Verify color classification of the donut (pink vs blue).",
-                "weight": 0.1
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bicycle",
+                "reason": "Although designed for animals, this expert's keypoint detection can verify the structural topology of the bicycle to confirm it is a single-rider bike (1 seat, 1 handlebar set) rather than a tandem.",
+                "weight": 0.2
             },
             {
                 "expert_name": "perceptual_quality_auditor",
                 "target_subject": "chairs",
-                "reason": "Analyze the horizontal banding on chairs to determine if it is a rendering artifact or background interaction.",
-                "weight": 0.1
+                "reason": "To analyze the horizontal banding artifacts on the chairs and determine if they represent a generation failure or a stylistic choice.",
+                "weight": 0.15
             },
             {
                 "expert_name": "geometric_depth_auditor",
                 "target_subject": "bicycle",
-                "reason": "Check depth consistency of the rear wheel and kickstand to verify structural integrity.",
-                "weight": 0.1
-            },
-            {
-                "expert_name": "topology_boundary_auditor",
-                "target_subject": "donut",
-                "reason": "Segment the donut to ensure it is a single contiguous object and not fused with the edge.",
+                "reason": "To verify the spatial integrity of the rear wheel and kickstand assembly, checking for fusion artifacts.",
                 "weight": 0.1
             }
         ],
@@ -391,7 +376,7 @@
             "original_image": "geneval2_sd3_m_800/423.png",
             "prompt_id": "423",
             "prompt_text": "a blue donut, and a bicycle to the left of six glass chairs",
-            "router_cost_seconds": 52.72,
+            "router_cost_seconds": 53.09,
             "plan_valid": true
         }
     }
