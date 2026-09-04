@@ -1,0 +1,193 @@
+{
+    "image_id": "287",
+    "prompt": "a metal raccoon to the right of two suitcases",
+    "iteration": 1,
+    "timestamp": "2026-09-04 02:17:19",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical error in the expert selection for verifying material properties. The `fine_grained_classifier` is assigned to verify if the raccoon is 'metal' (Atom 1). However, the expert description explicitly states it is trained on ImageNet (biological/natural objects) and is best for taxonomical classification. It will likely fail or provide low-confidence/incorrect results when analyzing a stylized metal sculpture, as 'metal raccoon' is not an ImageNet class. This task requires visual texture/material analysis, which falls under the `perceptual_quality_auditor` or a specialized material detector, not a biological classifier. Additionally, the spatial verdict for Atom 3 is marked 'false' based on a strict interpretation ('right of both'), but the image shows the raccoon is clearly to the right of the *grouping* center or at least one suitcase, making the 'No' verdict potentially too harsh without nuanced spatial reasoning from the depth auditor.",
+        "suggestions": [
+            {
+                "type": "expert_mismatch",
+                "point": "Atom 1 (Is the raccoon metal?)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The fine_grained_classifier is unsuitable for non-biological/artistic materials. The perceptual_quality_auditor (CoT-VLM) is better equipped to reason about material properties (metal vs fur) through visual description."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 3 (Spatial Relationship)",
+                "recommended_expert": "open_vocabulary_detector",
+                "reason": "While geometric_depth_auditor is selected, adding open_vocabulary_detector bounding boxes for 'raccoon' and 'suitcases' provides the necessary coordinate priors (x_min/x_max) to mathematically verify the 'to the right of' relationship before passing to the depth auditor for z-axis confirmation."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A steampunk-style metal sculpture of a raccoon constructed from various metallic parts (cylinders, rods) with a painted metal face. It is positioned between two vintage green suitcases on a wooden surface against a white wall.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many raccoons are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is clearly one central figure representing a raccoon."
+            },
+            {
+                "atom_index": 1,
+                "question": "Is the raccoon metal?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The subject is visibly constructed from metal components like cans, pipes, and sheet metal, consistent with a scrap-metal sculpture."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any raccoons in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The central object is unmistakably a stylized raccoon."
+            },
+            {
+                "atom_index": 3,
+                "question": "Is the raccoon to the right of the suitcases?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The raccoon is positioned centrally, with one suitcase to its left and one to its right. It is not strictly to the right of *both* suitcases; rather, it is between them or to the right of only the left suitcase. Given the phrasing 'to the right of the suitcases' usually implies the group, this is spatially inaccurate or at best ambiguous."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many suitcases are in the image?",
+                "expected": "two",
+                "predicted": "two",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is one small suitcase on the left and one larger suitcase on the right."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any suitcases in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two distinct vintage suitcases are visible."
+            }
+        ],
+        "checkpoint_verdicts": [],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "raccoon's lower body/base",
+                "severity": 2,
+                "reasoning": "The connection between the cylindrical body and the ground/wheels is somewhat ambiguous. The 'legs' appear to be thin rods that don't clearly support the weight, and the base structure looks slightly fused or physically unstable compared to real-world mechanics, though acceptable for surreal art."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "raccoon's whiskers",
+                "severity": 1,
+                "reasoning": "The whiskers on the left side of the face appear to float slightly without clear attachment points to the snout, exhibiting minor edge bleeding into the background."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To confirm the count and presence of the raccoon subject via bounding box detection.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 5"
+                ],
+                "reason": "To verify the count and presence of suitcases via bounding box detection.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 3"
+                ],
+                "reason": "To generate a depth map verifying the precise spatial relationship between the raccoon and the two suitcases (left vs right vs between).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 1"
+                ],
+                "reason": "To analyze material properties and texture classification to confirm the 'metal' attribute versus biological fur.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Artifact: texture_anomaly"
+                ],
+                "reason": "To perform a detailed audit of the mechanical plausibility of the metal sculpture and edge quality of fine details like whiskers.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Spatial relationship verification (Atom 3)",
+            "Material classification (Atom 1)",
+            "Structural integrity of the metal sculpture"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "reason": "To confirm the count and presence of the raccoon subject via bounding box detection.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "reason": "To verify the count and presence of suitcases via bounding box detection.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "To generate a depth map verifying the precise spatial relationship between the raccoon and the two suitcases (left vs right vs between).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoon",
+                "reason": "To analyze material properties and texture classification to confirm the 'metal' attribute versus biological fur.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "raccoon",
+                "reason": "To perform a detailed audit of the mechanical plausibility of the metal sculpture and edge quality of fine details like whiskers.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/287.png",
+            "prompt_id": "287",
+            "prompt_text": "a metal raccoon to the right of two suitcases",
+            "router_cost_seconds": 23.67,
+            "plan_valid": true
+        }
+    }
+}

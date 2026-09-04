@@ -1,0 +1,183 @@
+{
+    "image_id": "259",
+    "prompt": "seven stone giraffes and four suitcases",
+    "iteration": 1,
+    "timestamp": "2026-09-04 00:13:43",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the verification strategy for Atom 1 ('Are the giraffes stone?'). The Router assigned the `fine_grained_classifier` to verify this attribute. However, the expert definition states it is pre-trained on ImageNet (biological/natural classes) and acts as a 'High-Speed Sieve' for class labels. It is not designed to distinguish material properties (stone vs. biological tissue). Using a biological classifier to verify a 'stone' prompt will likely result in false negatives (classifying them as real giraffes due to shape/texture similarity) or irrelevant outputs. Additionally, the plan misses an opportunity to use the `animal_pose_auditor` to verify the 'statue-like' rigidity by checking for unnatural joint locking or lack of micro-movements typical of living animals, which supports the 'stone' hypothesis better than a texture classifier.",
+        "suggestions": [
+            {
+                "type": "incorrect_expert_assignment",
+                "point": "Atom 1 (Material Verification: Stone)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "Replace `fine_grained_classifier` with `perceptual_quality_auditor`. The VLM-based perceptual auditor is explicitly described as capable of analyzing 'fine-grained image degradations' and can use Chain-of-Thought reasoning to assess material consistency (e.g., lack of subsurface scattering, rigid poses) which is required to verify if the giraffes are stone statues."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Structural Rigidity / Pose Naturalness",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "While `topology_boundary_auditor` checks for limb fusion, `animal_pose_auditor` should be added to verify if the keypoints align with a biologically valid but static/rigid pose. If the keypoints show locked joints or impossible static balance without muscle tension cues, it supports the 'stone/statue' classification."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a row of seven giraffes standing against a textured, sandy-colored wall. In front of the giraffes, on a gravel-like ground, are four brown vintage-style suitcases. The giraffes appear to have a realistic but slightly stylized or statue-like texture, consistent with the 'stone' description in the prompt, though they retain biological coloring.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many giraffes are in the image?",
+                "expected": "seven",
+                "predicted": "seven",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Counting from left to right, there are clearly seven distinct giraffe figures visible in the lineup."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the giraffes stone?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "The giraffes have a rigid, matte texture and uniform lighting that suggests they are statues or sculptures made of stone or a similar material, rather than living animals. Their poses are static and identical in style."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any giraffes in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Seven giraffe figures are prominently displayed."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many suitcases are in the image?",
+                "expected": "four",
+                "predicted": "four",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are four distinct brown suitcases arranged in a row on the ground in the foreground."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any suitcases in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Four suitcases are clearly visible."
+            }
+        ],
+        "checkpoint_verdicts": [],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Giraffe bodies and legs",
+                "severity": 2,
+                "reasoning": "While intended to be 'stone', the texture mapping on the giraffes shows some inconsistencies. Specifically, the transition between the pattern spots and the base color looks slightly painted-on rather than carved stone in some areas, and the legs near the hooves show minor blending issues with the ground shadow."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Giraffe legs (middle group)",
+                "severity": 2,
+                "reasoning": "The legs of the giraffes in the center (3rd and 4th from left) appear to merge slightly or lack clear separation at the lower joints, creating a fused appearance typical of AI generation struggles with multiple thin limbs close together."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To rigorously verify the count of seven giraffes and confirm their presence as distinct objects.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4"
+                ],
+                "reason": "To verify the exact count of four suitcases and ensure no hidden or partial suitcases were missed.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Atom 1"
+                ],
+                "reason": "To analyze the texture and material properties of the giraffes to confirm if they classify as 'stone' or 'statue' versus biological tissue.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Artifact: structural_collapse"
+                ],
+                "reason": "To check the segmentation boundaries of the giraffe legs, specifically looking for fusion or merging artifacts in the central group.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Artifact: texture_anomaly"
+                ],
+                "reason": "To perform a detailed quality check on the surface textures to validate the 'stone' material consistency and identify any rendering glitches.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Verify the material composition of the giraffes (stone vs. biological).",
+            "Check for limb fusion artifacts in the cluster of giraffes.",
+            "Confirm exact counts of both giraffes and suitcases."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "giraffe",
+                "reason": "To rigorously verify the count of seven giraffes and confirm their presence as distinct objects.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "reason": "To verify the exact count of four suitcases and ensure no hidden or partial suitcases were missed.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "reason": "To analyze the texture and material properties of the giraffes to confirm if they classify as 'stone' or 'statue' versus biological tissue.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "giraffe",
+                "reason": "To check the segmentation boundaries of the giraffe legs, specifically looking for fusion or merging artifacts in the central group.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "giraffe",
+                "reason": "To perform a detailed quality check on the surface textures to validate the 'stone' material consistency and identify any rendering glitches.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/259.png",
+            "prompt_id": "259",
+            "prompt_text": "seven stone giraffes and four suitcases",
+            "router_cost_seconds": 23.06,
+            "plan_valid": true
+        }
+    }
+}

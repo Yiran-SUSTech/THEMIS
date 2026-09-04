@@ -1,0 +1,230 @@
+{
+    "image_id": "79",
+    "prompt": "a sheep and a striped bicycle",
+    "iteration": 2,
+    "timestamp": "2026-09-04 03:03:44",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'striped' attribute verification in Atom 3 relies on the open_vocabulary_detector. While this expert can locate the object, it may lack the semantic granularity to distinguish between 'frame stripes' and 'basket stripes' without explicit bounding box segmentation. It is recommended to ensure the open_vocabulary_detector outputs precise bounding boxes for the 'striped pattern' region specifically, or pair it with a visual question answering step to confirm the stripe location relative to the bike frame.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "refinement",
+                "point": "The 'animal_pose_auditor' is tasked with checking for 4 legs. Given the stylized nature of the image where legs are simple black pillars, standard keypoint detection might fail or return low confidence. The plan should explicitly instruct the auditor to accept 'stylized limb representations' (pillars/sticks) as valid if they maintain correct cardinality (4) and grounding, rather than failing based on lack of anatomical joints/hooves.",
+                "recommended_expert": "animal_pose_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A stylized, painterly illustration featuring a single sheep with a black head and white woolly body standing next to a bicycle. The bicycle has a red-and-white striped basket on the front containing flowers. The scene is set against a textured teal background with a grassy foreground containing small red and yellow flowers. A signature 'Kuang' is visible in the bottom left corner.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many sheeps are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is clearly one sheep depicted in the center of the image."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any sheeps in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A sheep is the primary subject of the illustration."
+            },
+            {
+                "atom_index": 2,
+                "question": "How many bicycles are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one bicycle frame visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "Is the bicycle striped?",
+                "expected": "Yes",
+                "predicted": "Partially (Basket only)",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The prompt asks if the *bicycle* is striped. Visually, only the *basket* attached to the bicycle has red and white stripes. The frame itself is solid grey/silver with red accents. Strictly speaking, the bicycle object is not striped; its accessory is. This is a partial attribute match but technically incorrect for the whole object."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any bicycles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A bicycle is clearly present."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bicycle",
+                "checkpoint": "Geometry_and_Silhouette: Elongated bicycle of notably extended length with two seats and two sets of pedals arranged in tandem.",
+                "category": "fail",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "CORRECTION: The provided taxonomy describes a tandem bike, but the prompt 'a striped bicycle' implies a standard bike. The image shows a standard single-rider bicycle. Therefore, this specific tandem checkpoint is NOT PRESENT, but this is consistent with the prompt's intent, not a generation failure. We mark it false because the feature is absent, but note that the prompt did not require it."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Functional_Components: Two handlebars with front rider steering and rear rider having fixed or adjustable handlebars.",
+                "category": "fail",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Only one set of handlebars is visible, consistent with a standard bicycle. The tandem-specific requirement is not met, which is correct for the prompt but fails the specific taxonomy checkpoint provided."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Head_and_Face: Broad head with laterally spiraling horns (in horned breeds).",
+                "category": "pass",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sheep is depicted without horns. While the taxonomy mentions horns for rams, many sheep breeds are polled or female (ewes). In the context of a stylized illustration, the absence of horns is acceptable and does not constitute a structural error."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body_and_Plumage: Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "pass",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sheep has a distinct, textured white woolly coat that matches the description of dense fleece, rendered in a stylized painterly manner."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Limbs_and_Anatomy: Sturdy legs with cloven hooves.",
+                "category": "fail",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The legs are rendered as simple black sticks/pillars without visible cloven hooves or anatomical detail. This is a stylistic choice but strictly fails the biological checkpoint for 'cloven hooves'."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_signature",
+                "location": "bottom_left_corner",
+                "severity": 0.1,
+                "reasoning": "A handwritten signature 'Kuang' is present. This appears to be an intentional artistic element rather than an AI artifact or watermark, but should be verified for legibility."
+            },
+            {
+                "artifact_type": "anatomical_fusion",
+                "location": "center_lower_body",
+                "severity": 0.8,
+                "reasoning": "The sheep's legs appear to merge with or stand directly over the bicycle's crankset and chain area in a physically ambiguous way. The rear wheel seems to pass through the sheep's body volume without proper occlusion or spatial separation, creating a visual fusion error common in AI art."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "Confirm the presence of exactly one bicycle.",
+                    "Locate the striped pattern specifically to verify if it covers the frame or just the basket (Atom 3 verification)."
+                ],
+                "reason": "Primary bridge expert to establish object counts and precisely locate the 'striped' attribute to resolve the ambiguity in Atom 3.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "Classify the bicycle type to confirm it is a standard single-rider bike and NOT a tandem/bicycle-built-for-two.",
+                    "Verify if the visual features match a standard city bike or vintage bike."
+                ],
+                "reason": "To definitively rule out the incorrect 'bicycle-built-for-two' taxonomy constraint and confirm the image matches the prompt's implied standard bicycle.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep",
+                "verification_goals": [
+                    "Audit the skeletal structure of the sheep, checking for four distinct legs despite the stylized rendering.",
+                    "Verify head orientation and ear placement relative to the body."
+                ],
+                "reason": "To ensure the stylized sheep retains valid biological structure (4 legs) despite the artistic simplification and potential fusion with the bike.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene_composition",
+                "verification_goals": [
+                    "Analyze the spatial relationship between the sheep and the bicycle wheels.",
+                    "Detect any 'melting' or impossible overlaps where the sheep's body intersects the bike frame."
+                ],
+                "reason": "The image shows potential spatial grounding errors where the sheep and bike occupy the same space unnaturally (fusion artifact).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "signature",
+                "verification_goals": [
+                    "Extract and verify the text 'Kuang' in the bottom left.",
+                    "Check for any other hidden text or watermarks."
+                ],
+                "reason": "To validate the signature artifact and ensure no unauthorized text is present.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "The specific breed of the sheep cannot be determined due to the highly stylized, painterly art style.",
+            "The material composition of the bicycle (metal vs wood vs painted canvas) is ambiguous due to the artistic medium."
+        ],
+        "focus_areas": [
+            "Verification of the 'striped' attribute: The prompt asks if the *bicycle* is striped, but visually only the *basket* is striped. This requires precise attribute binding verification via open_vocabulary_detector.",
+            "Taxonomy Mismatch Resolution: The provided taxonomy for 'bicycle' describes a tandem bike, but the image shows a single bike. The plan must explicitly confirm this is a CORRECT generation for the prompt, not a failure, by using fine_grained_classifier to identify it as a standard bike.",
+            "Spatial Occlusion: The interaction between the sheep's legs and the bicycle mechanics needs rigorous depth auditing to confirm the fusion artifact."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycle",
+                "reason": "Primary bridge expert to establish object counts and precisely locate the 'striped' attribute to resolve the ambiguity in Atom 3.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "reason": "To definitively rule out the incorrect 'bicycle-built-for-two' taxonomy constraint and confirm the image matches the prompt's implied standard bicycle.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep",
+                "reason": "To ensure the stylized sheep retains valid biological structure (4 legs) despite the artistic simplification and potential fusion with the bike.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene_composition",
+                "reason": "The image shows potential spatial grounding errors where the sheep and bike occupy the same space unnaturally (fusion artifact).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "signature",
+                "reason": "To validate the signature artifact and ensure no unauthorized text is present.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/79.png",
+            "prompt_id": "79",
+            "prompt_text": "a sheep and a striped bicycle",
+            "router_cost_seconds": 38.13,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}
