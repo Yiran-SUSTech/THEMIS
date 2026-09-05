@@ -1,0 +1,427 @@
+{
+    "image_id": "757",
+    "prompt": "a black croissant to the left of six stone cows to the left of six purple clocks",
+    "iteration": 2,
+    "timestamp": "2026-09-02 23:41:45",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections regarding object counting. The Router incorrectly identified only 4 cows and 4 clocks, whereas the image clearly displays 6 of each (3 full/partially visible cows on the right, 1 partial on the left edge = 4? No, looking closely: Left edge purple cow head, Pink cow, Purple cow, Beige cow. That is 4 cows. Wait, let's re-examine the image provided in the context. \n\nImage Analysis:\n- Croissant: 1 black croissant.\n- Cows: From left to right: 1 purple cow (head/shoulders visible on far left), 1 pink cow, 1 purple cow, 1 beige cow. Total visible cows = 4. The prompt asked for 6. The Router correctly identified 4.\n- Clocks: From left to right: 1 clock (cut off on left), 1 clock, 1 clock, 1 clock. Total visible clocks = 4. The prompt asked for 6. The Router correctly identified 4.\n\nCorrection: The Router's count is actually correct based on the visible pixels. However, the rejection stems from the **Expert Verification Plan's redundancy and lack of specific material auditing for the 'Stone' attribute**.\n\n1. **Redundancy**: The `open_vocabulary_detector` is assigned to count croissants, cows, and clocks. While valid, the `perceptual_quality_auditor` is assigned to verify if cows are 'stone'. A perceptual auditor analyzes quality/artifacts, not necessarily semantic material classification against a specific prompt constraint like 'stone' vs 'plastic' unless explicitly trained for material recognition. The `fine_grained_classifier` is missing. While 'stone cow' isn't a standard ImageNet class, a VLM or specialized classifier is better suited for material verification than a general perceptual quality auditor which focuses on distortions.\n\n2. **Missing Verification for 'Purple' Attribute**: Atom 9 asks if clocks are purple. The plan relies on the initial QA. There is no expert assigned to verify the color attribute of the clocks or the black color of the croissant. Color verification is crucial for this prompt.\n\n3. **Spatial Logic**: The `geometric_depth_auditor` is assigned to verify spatial relationships. This is good. However, the plan fails to assign an expert to verify the 'black' color of the croissant (Atom 1) and 'purple' color of clocks (Atom 9). \n\n4. **Critical Omission**: The `fine_grained_classifier` is available in the registry but not used. It is best for verifying class labels. While 'stone cow' is abstract, verifying the 'cow' class is robust. More importantly, the plan lacks a specific verification step for the **color constraints** (Black Croissant, Purple Clocks) using a tool that can sample pixel values or use a VLM for color confirmation. The current plan assumes the initial QA is sufficient for color, but color hallucination is common.\n\n5. **Re-evaluation of Counts**: Let's look really closely at the image again. \n   - Cows: Far left purple head, Pink body, Purple body, Beige body. That is 4. \n   - Clocks: Far left cut-off clock, Full clock, Full clock, Full clock. That is 4. \n   The Router is correct that the image failed the count constraint (4 vs 6). \n   \n   The primary reason for rejection is the **lack of explicit verification for color attributes** (Atoms 1 and 9) and the **misapplication of the `perceptual_quality_auditor` for material semantics**. The `perceptual_quality_auditor` is for artifacts/degradations. Determining if a cartoon cow is 'stone' or 'plastic' is a semantic/material judgment, better suited for a VLM-based check or a specific material classifier if available. Since we don't have a material classifier, a VLM (part of Perceptual Quality Auditor potentially, but its description says 'degradations and structural artifacts') might be weak here. However, the biggest gap is **Color Verification**. No expert is tasked with confirming the croissant is black or clocks are purple. This is a high-risk failure mode.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Atom 1 (Is the croissant black?) and Atom 9 (Are the clocks purple?) lack dedicated expert verification. Color hallucination is a common T2I failure.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "expert_misalignment",
+                "point": "The `perceptual_quality_auditor` is described as analyzing 'degradations and structural artifacts', not semantic material properties like 'stone' vs 'plastic'. Using it to verify Atom 5 (Are the cows stone?) is methodologically weak.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 5 (Are the cows stone?) requires semantic material analysis. The current plan uses a quality auditor. A `fine_grained_classifier` or a VLM-based query within the perceptual auditor should be explicitly directed to distinguish material texture (stone vs plastic/fur).",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A 3D rendered scene featuring a large black croissant in the foreground left, a row of four cartoonish cows (purple, pink, purple, beige) in the middle ground, and a row of four purple-faced alarm clocks floating in the sky background. The setting is a grassy field with hills.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many croissants are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one large black croissant visible in the bottom left foreground."
+            },
+            {
+                "atom_index": 1,
+                "question": "Is the croissant black?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The croissant object is uniformly black with specular highlights indicating a glossy material."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any croissants in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A distinct croissant shape is present."
+            },
+            {
+                "atom_index": 3,
+                "question": "Is the croissant to the left of the cows?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The croissant is positioned on the far left side of the canvas, while the cows are arranged to its right."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many cows are in the image?",
+                "expected": "six",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only four cows are visible: one partial purple cow on the far left edge, one pink cow, one purple cow, and one beige cow on the right. The prompt requested six."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are the cows stone?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The cows appear to be made of smooth plastic or clay with cartoonish features and bright colors (pink, purple), not stone texture."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any cows in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple bovine figures are clearly visible."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the cows to the left of the clocks?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "Re-evaluating based on centroid logic: The main mass of the cow group is horizontally centered around x=50%, while the clock group spans from x=0% to x=80%. The center of mass for the cows is indeed to the left of the center of mass for the clocks, satisfying the spatial relationship broadly despite vertical separation."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many clocks are in the image?",
+                "expected": "six",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are four distinct alarm clocks visible in the top row. One is partially cut off on the left, but only four main units are clear. The count is definitely not six."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are the clocks purple?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The faces of the alarm clocks are a vibrant purple color."
+            },
+            {
+                "atom_index": 10,
+                "question": "Are there any clocks in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple alarm clocks are visible in the upper portion of the image."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "clock",
+                "checkpoint": "Time-telling device designed for wall mounting with a circular face of moderate diameter, easily readable from across a room.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The objects are twin-bell alarm clocks designed for tabletop use, not wall mounting. They have feet/stands at the bottom, contradicting the 'wall mounting' description."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Face features hour numerals arranged in a 12-hour circle.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The clock faces clearly display Arabic numerals 1-12 arranged in a standard circular layout."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Overall depth is slim and unobtrusive.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "These are bulky, retro-style alarm clocks with significant depth due to the bells and casing, not slim wall clocks."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Two or three hands rotate from the center.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Each clock face has visible hour and minute hands originating from the center pivot."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Mounting bracket or keyhole slot on the back.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The backs of the clocks are not visible in the image."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Some models have a pendulum visible below the face.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "None of the visible clocks feature a pendulum; they are standard alarm clock designs."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Frame is wood, metal, or plastic in various finishes.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The frames appear to be orange/yellow plastic or painted metal, consistent with the category."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Quartz movement powered by a single AA battery.",
+                "category": "Material_and_Context",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Internal mechanism and power source are not visible."
+            },
+            {
+                "object": "clock",
+                "checkpoint": "Glass or plastic crystal covers the face.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Specular highlights on the clock faces indicate a transparent cover (glass or plastic) over the dial."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Broad head with wide muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cows exhibit stylized but recognizable broad heads and wide muzzles typical of bovine anatomy."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Curved horns laterally and upward (if not dehorned).",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Most visible cows have curved horns pointing upwards and outwards."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Large dark eyes with wide field of vision.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cows have large, prominent eyes positioned laterally on the head."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Large mobile ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Distinct ears are visible on the sides of the heads."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Thick muscular neck with prominent dewlap.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Due to the cartoonish/stylized nature, the necks are short and lack the realistic muscular definition and prominent dewlap of a real ox/cow."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Massive muscular body with tall, heavily built proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bodies are stylized, rounded, and toy-like rather than massive and muscular with realistic wither height."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Short dense coat in white, brown, black, or pied coloration.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The texture is smooth and matte/plastic-like, lacking the visual detail of a short dense hair coat. Colors include unnatural purple and pink."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Deep-chested body with strong back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Anatomy is simplified and cartoonish; lacks the specific deep-chested structural definition of a real bovine."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Sturdy legs with cloven hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Legs are visible and terminate in dark, blocky shapes representing hooves."
+            },
+            {
+                "object": "cow",
+                "checkpoint": "Long tail with terminal tuft.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Tails are either not visible or extremely stubby/stylized without a distinct terminal tuft."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Clocks (top row)",
+                "severity": 2,
+                "reasoning": "The clocks appear to be floating in mid-air without any visible support structure or wires, defying gravity relative to the scene context."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Cows (middle ground)",
+                "severity": 3,
+                "reasoning": "The cows have a uniform, smooth plastic/clay texture that completely lacks fur detail, inconsistent with the 'stone' or biological expectation, appearing as low-fidelity 3D assets."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Croissant (foreground)",
+                "severity": 2,
+                "reasoning": "The croissant is disproportionately large compared to the cows behind it, creating a forced perspective that feels unnatural even for a close-up object."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "croissant",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To definitively verify the presence and count of the croissant as requested by Judge feedback.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cow",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 6"
+                ],
+                "reason": "To definitively count the number of cows and verify their presence, addressing the discrepancy between expected (6) and observed (4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "clock",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 10"
+                ],
+                "reason": "To accurately count the clocks and confirm their existence, verifying the count mismatch (expected 6 vs observed 4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 7",
+                    "Artifact: structural_collapse (floating clocks)"
+                ],
+                "reason": "To verify spatial relationships (left-of logic for cows/clocks) and confirm if clocks are physically grounded or hallucinated in empty space.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cow",
+                "verification_goals": [
+                    "Atom 5",
+                    "Checkpoint: Short dense coat...",
+                    "Checkpoint: Massive muscular body..."
+                ],
+                "reason": "To analyze texture properties. A semantic classifier cannot distinguish 'stone' from 'plastic' for stylized art; perceptual auditor can assess surface roughness and material consistency.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cow",
+                "verification_goals": [
+                    "Checkpoint: Sturdy legs with cloven hooves",
+                    "Checkpoint: Long tail with terminal tuft",
+                    "Checkpoint: Thick muscular neck..."
+                ],
+                "reason": "To audit the anatomical correctness of the cows. The stylized nature may hide missing limbs or incorrect joint structures common in AI generation.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: Mounting bracket or keyhole slot on the back (clock)",
+            "Checkpoint: Quartz movement powered by a single AA battery (clock)"
+        ],
+        "focus_areas": [
+            "Count verification for cows and clocks (Prompt says 6 each, image shows 4 each).",
+            "Material verification for cows (Prompt says 'stone', image shows 'plastic/toy') using texture analysis.",
+            "Spatial logic verification (Centroid-based 'left of' check for cows vs clocks).",
+            "Gravity/Physics check for floating clocks."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "croissant",
+                "reason": "To definitively verify the presence and count of the croissant as requested by Judge feedback.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cow",
+                "reason": "To definitively count the number of cows and verify their presence, addressing the discrepancy between expected (6) and observed (4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "clock",
+                "reason": "To accurately count the clocks and confirm their existence, verifying the count mismatch (expected 6 vs observed 4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "To verify spatial relationships (left-of logic for cows/clocks) and confirm if clocks are physically grounded or hallucinated in empty space.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "cow",
+                "reason": "To analyze texture properties. A semantic classifier cannot distinguish 'stone' from 'plastic' for stylized art; perceptual auditor can assess surface roughness and material consistency.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "cow",
+                "reason": "To audit the anatomical correctness of the cows. The stylized nature may hide missing limbs or incorrect joint structures common in AI generation.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/757.png",
+            "prompt_id": "757",
+            "prompt_text": "a black croissant to the left of six stone cows to the left of six purple clocks",
+            "router_cost_seconds": 64.93,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

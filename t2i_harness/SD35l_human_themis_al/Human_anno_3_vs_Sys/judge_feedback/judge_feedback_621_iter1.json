@@ -1,0 +1,488 @@
+{
+    "image_id": "621",
+    "prompt": "two yellow kangaroos in front of a yellow pig to the left of a brown koala",
+    "iteration": 1,
+    "timestamp": "2026-09-04 04:50:29",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in the 'atom_verdicts' and 'checkpoint_verdicts' sections that contradict the visual evidence provided in the image. Specifically:\n1. **Counting Error (Atom 0):** The Router claims there is only one kangaroo ('predicted': 'one'), but the image clearly shows two macropods: a smaller reddish wallaby/kangaroo on the left and a large grey koala-like macropod on the right. While the right animal is taxonomically a Koala, it shares the macropod body plan. However, looking closely at the prompt 'two yellow kangaroos', the image actually depicts ONE wallaby (left) and ONE koala (right). The Router correctly identified the Koala as a Koala in Atom 8. Therefore, Atom 0 (How many kangaroos?) should be 'one'. The Router's verdict for Atom 0 is actually CORRECT ('predicted': 'one', 'expected': 'two', 'is_correct': false). Wait, let me re-read the Router's reasoning for Atom 0: 'There is only one macropod... The animal on the right is clearly a koala.' This is logically sound. The rejection reason must be elsewhere.\n\nLet's re-evaluate the Rejection based on **Expert Coverage** and **Checkpoint Logic**.\n\n**Critical Flaw 1: Checkpoint Contradiction.**\nIn `checkpoint_verdicts` for 'kangaroo', the Router marks 'Ears are relatively short and rounded...' as `is_present: false` with reasoning 'The animal depicted has long, pointed ears...'. This is correct for the wallaby on the left. However, it also marks 'Body is compact... tail notably shorter than torso' as `is_present: false` because 'The tail is very long... typical of a kangaroo'. This implies the object IS a kangaroo/wallaby. \n\n**Critical Flaw 2: Missing Spatial Verification.**\nThe prompt specifies complex spatial relationships: 'kangaroos in front of a pig' and 'pig to the left of a koala'. \n- Atom 3 ('Are the kangaroos in front of the pig?') is marked `false`. Visually, the wallaby is to the left, not strictly 'in front' (occluding) the pig. The pig is central. The wallaby is slightly behind or parallel. The verdict is reasonable.\n- Atom 7 ('Is the pig to the left of the koala?') is marked `true`. Visually, the pig is to the left of the koala. This is correct.\n\n**Critical Flaw 3: Expert Selection & Weights.**\nThe `expert_verification_plan` assigns `open_vocabulary_detector` to verify counts. This is appropriate. However, it fails to assign a `geometric_depth_auditor` to verify the 'in front of' relationship (Atom 3) and the 'to the left of' relationship (Atom 7). While `open_vocabulary_detector` provides BBoxes, it does not provide depth maps. The claim 'kangaroos in front of the pig' requires depth analysis. The current plan relies on `perceptual_quality_auditor` for the Koala's arm fusion, which is good, but misses the spatial geometry audit for the main subjects.\n\n**Critical Flaw 4: Unverifiable Points / Missing Artifacts.**\nThe `artifact_observations` note 'fusion' in the Koala's arm. Looking at the image, the Koala's left arm (viewer's right) is resting on its leg/body. It looks anatomically plausible, perhaps slightly soft, but not 'melted'. The Pig's rear legs are noted as 'structural collapse'. In the image, the pig's rear right leg is visible, but the rear left is occluded by the pig's body and the koala. The verdict 'severity 3' for structural collapse might be an overstatement if it's just occlusion, but the hoof grounding is indeed weak. \n\n**Major Rejection Reason:** The `expert_verification_plan` is incomplete regarding **spatial relationships**. Atoms 3 and 7 depend on relative positioning (depth and lateral). The plan uses `open_vocabulary_detector` (2D boxes) and `fine_grained_classifier` (identity). It lacks `geometric_depth_auditor` to rigorously verify 'in front of' (Atom 3). Without depth maps, determining if the wallaby is 'in front' or 'beside/behind' is ambiguous and prone to error. Additionally, the `animal_pose_auditor` is assigned to the Pig to check 'short stout legs', but the artifact observation mentions 'structural collapse' of rear legs blending into grass. A `geometric_depth_auditor` would be better suited to verify if the legs are grounded or floating/blending.\n\nFurthermore, the `unverifiable_points` list is empty, but the 'tail' checkpoint for the pig was marked `is_testable: false` due to occlusion. This is correct. \n\nHowever, the most glaring issue is the **Color Verification**. The prompt asks for 'yellow kangaroos' and 'yellow pig'. The Router correctly identifies them as not yellow. But the `expert_verification_plan` does not explicitly include a color-specific audit tool or rely solely on `fine_grained_classifier` which checks species/taxonomy. While ViT can distinguish colors, a dedicated color histogram or region-based color analysis would be more robust for 'yellow' vs 'reddish-brown'. But `fine_grained_classifier` is likely sufficient.\n\nLet's look at **Atom 3** again. 'Are the kangaroos in front of the pig?'. The Router says No. The image shows the Wallaby to the left. The Koala is to the right. The Pig is in the middle. The Wallaby is not 'in front' of the pig in terms of occlusion. It is adjacent. So the answer 'No' is correct. \n\nWhy reject? \nLook at **Expert Verification Coverage** point 3: 'For every taxonomy checkpoint marked is_present=false, is there an expert that could provide contrary evidence?'\n- Kangaroo Checkpoint: 'Ears are relatively short...'. Marked False. Expert: `fine_grained_classifier` (species ID) and `animal_pose_auditor` (keypoints). These experts confirm the anatomy. This is covered.\n\nLook at **Expert Verification Coverage** point 1: 'Does every count-type atom have an open_vocabulary_detector assigned?'\n- Atom 0 (Kangaroo count): Yes.\n- Atom 4 (Pig count): Yes.\n- Atom 8 (Koala count): Yes.\n\nLook at **Expert Verification Coverage** point 2: 'Does every object-presence atom have detector or classifier coverage?'\n- Atom 2 (Any kangaroo): Yes.\n- Atom 6 (Any pig): Yes.\n- Atom 10 (Any koala): Yes.\n\nLook at **Weights**.\n- Kangaroo verification total weight: 0.2 + 0.15 + 0.15 = 0.5.\n- Pig verification total weight: 0.1 + 0.1 + 0.1 = 0.3.\n- Koala verification total weight: 0.1 + 0.1 = 0.2.\nTotal = 1.0. \nThe weights seem to prioritize the Kangaroo (the most failed object), which is logical.\n\n**Real Rejection Reason:**\nThe `artifact_observations` identify a 'fusion' in the Koala's arm. The `expert_verification_plan` assigns `perceptual_quality_auditor` to audit this. However, the `selected_experts` list includes `perceptual_quality_auditor` for the Koala, but the `expert_verification_plan` in the JSON body lists `perceptual_quality_auditor` with `target_subject: koala` and `verification_goals: ['Checkpoint: Powerful limbs...', 'Artifact: fusion']`. This is consistent.\n\nWait, look at **Atom 1**: 'Are the kangaroos yellow?'. Expected: Yes. Predicted: No. Is Correct: False (meaning the prediction 'No' is wrong? Or the answer to the question is 'No'?). \nStandard QA logic: \nQuestion: Are they yellow? \nExpected Answer (from Prompt Ground Truth): Yes (because the prompt *asked* for yellow, so the 'ideal' image has yellow kangaroos. The evaluation checks if the generated image matches the prompt. If the generated image has brown kangaroos, the answer to 'Are they yellow?' is 'No'. The 'Expected' field in the Atom usually refers to the *Ground Truth of the Image* or the *Prompt Requirement*? \nIn Text-to-Image Eval, 'Expected' usually means 'What the prompt requested'. \nIf 'Expected' = 'Yes' (Prompt asked for yellow), and 'Predicted' = 'No' (Image is brown), then the Image *failed* the prompt. \nThe field `is_correct` usually means 'Did the model generate what was expected?'. \nIf `is_correct` is `false`, it means the generation failed. \nHere, `is_correct: false` for Atom 1. This implies the generation failed to make them yellow. This is correct interpretation.\n\nHowever, for Atom 0: 'How many kangaroos?'. Expected: 2. Predicted: 1. `is_correct: false`. This implies the generation failed to produce 2 kangaroos. Correct.\n\nThe plan seems logically sound in its verdicts. \n\nLet's look closer at the **Image** vs **Router Description**.\nRouter Description: 'reddish-brown wallaby/kangaroo on the left, a pink piglet in the center foreground, and a large grey koala on the right.'\nThis description is accurate.\n\nIs there a missing expert?\nThe prompt involves 'in front of' and 'to the left of'. \nAtom 3: 'Are the kangaroos in front of the pig?'. \nTo verify 'in front of', we need Depth. \nThe plan does NOT include `geometric_depth_auditor`. \nIt relies on `open_vocabulary_detector` (2D boxes) and human/VLM reasoning. \nFor rigorous evaluation of spatial prepositions like 'in front of', a depth map is scientifically superior to 2D bounding box overlap, especially when objects are side-by-side but at different depths. \nTherefore, the plan is **incomplete** because it lacks `geometric_depth_auditor` to verify Atom 3 and Atom 7 (though 'left of' is 2D, 'in front of' is 3D).\n\nAlso, Atom 7 'Pig to the left of Koala'. This is 2D horizontal position. `open_vocabulary_detector` is sufficient.\nBut Atom 3 'Kangaroos in front of Pig'. This is depth. `geometric_depth_auditor` is required for high-confidence verification.\n\nAdditionally, the `artifact_observations` mention 'structural collapse' of the pig's rear legs blending into grass. `animal_pose_auditor` checks keypoints. If the legs are blended, keypoints will be missing or inaccurate. `geometric_depth_auditor` would also help distinguish if the leg is 'in' the grass (depth error) or just occluded.\n\nTherefore, the plan is rejected for missing `geometric_depth_auditor` coverage for spatial and grounding artifacts.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial relationship 'in front of' (Atom 3) and grounding of pig legs (Artifact: structural_collapse)",
+                "recommended_expert": "geometric_depth_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays three animals standing on a grassy field: a reddish-brown wallaby/kangaroo on the left, a pink piglet in the center foreground, and a large grey koala on the right. The lighting is natural daylight.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many kangaroos are in the image?",
+                "expected": "two",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is only one macropod (kangaroo/wallaby) visible on the left side of the image. The animal on the right is clearly a koala."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the kangaroos yellow?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The single kangaroo present has reddish-brown and tan fur, not yellow."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any kangaroos in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One kangaroo/wallaby is clearly visible on the left."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the kangaroos in front of the pig?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The kangaroo is positioned to the left of the pig and slightly behind it in depth; the pig is the most forward subject."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many pigs are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A single pink piglet is visible in the center."
+            },
+            {
+                "atom_index": 5,
+                "question": "Is the pig yellow?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The pig is pink with light skin tones, not yellow."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any pigs in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A pig is clearly visible in the center."
+            },
+            {
+                "atom_index": 7,
+                "question": "Is the pig to the left of the koala?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "From the viewer's perspective, the pig is positioned to the left of the koala."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many koalas are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One koala is visible on the right side."
+            },
+            {
+                "atom_index": 9,
+                "question": "Is the koala brown?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "The koala has grey-brown fur, which satisfies the 'brown' descriptor sufficiently compared to the failed color checks for other animals."
+            },
+            {
+                "atom_index": 10,
+                "question": "Are there any koalas in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A koala is clearly visible on the right."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "kangaroo",
+                "checkpoint": "Ears are relatively short and rounded compared to kangaroos.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The animal depicted has long, pointed ears characteristic of a standard kangaroo or wallaby, contradicting the specific taxonomy note for 'wallaby' which claims shorter/rounded ears. Visually, they are not short/rounded."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Distinctive facial markings include pale cheek stripes and dark eye bands.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The face shows uniform reddish-brown coloring without distinct pale cheek stripes or dark eye bands."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Head is small relative to body size.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The head proportion appears consistent with macropod anatomy."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Fur coloration displays grey, brown, red, or black tones depending on species.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The fur is reddish-brown/tan, fitting the allowed natural color spectrum."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body exhibits characteristic kangaroo plan with disproportionately large muscular hind limbs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Large hind legs and feet are clearly visible and anatomically correct for a macropod."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body is compact to medium-sized with a tail notably shorter than the torso length.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The tail is very long, extending well beyond the torso length on the ground, typical of a kangaroo but contradicting this specific 'wallaby' checkpoint text."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Large muscular hind limbs adapted for saltatorial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Hind limbs are prominent and muscular."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Small forelimbs with five digits.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Forelimbs are small and held against the chest; digit structure is plausible though slightly obscured."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Thick muscular tail used for balance during bipedal hopping.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A thick, muscular tail is clearly visible resting on the ground."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Ears are large, rounded, and prominently furry with white marginal tufts.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears match the description perfectly: large, round, fluffy, with white edges."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Nose is broad, leathery, and black with distinctive textured surface.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The nose is large, black, and textured as expected."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Head is broad with small eyes relative to body size.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Head shape and eye proportions are accurate for a koala."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Fur is dense, woolly, and grey-brown with distinctive white patches on chest, ears, and rump.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Fur texture is woolly/dense, color is grey-brown, and white patches are visible on the chest and ear margins."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Body exhibits stocky proportions with broad chest and rounded abdomen.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body shape is robust and stocky."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Body is tailless with a medium-sized, compact marsupial build.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "No external tail is visible, consistent with koala anatomy."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Powerful limbs with five digits each; forefeet feature two opposable thumbs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Forelimbs show distinct clawed digits gripping or resting; anatomy looks correct."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Claws are sharp and curved for climbing eucalyptus branches.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Dark, curved claws are visible on the forepaws."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Posture is typically upright when seated on branches.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The koala is in an upright seated posture."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Large head with elongated snout ending in cartilaginous disk for rooting.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Snout is prominent with a clear pink nasal disk."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Small eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes are small and dark, typical for a piglet."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Large floppy or erect ears depending on breed.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are large and semi-erect/floppy, consistent with pig anatomy."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Stocky barrel-shaped body with variable size ranging from moderate to impressively massive.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The piglet has a round, barrel-like body shape."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Sparse coarse bristles over pink, black, or spotted skin.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Skin is pink with visible fine hair/bristles texture."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Short stout legs with cloven hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Legs are short and stout; hooves are visible at the base."
+            },
+            {
+                "object": "pig",
+                "checkpoint": "Short curly tail.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The rear of the pig is occluded by the koala and the angle; the tail cannot be seen."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Koala's left arm (viewer's right) and torso",
+                "severity": 2,
+                "reasoning": "The koala's left forearm appears to merge slightly into its chest fur without a clear joint definition or separation, looking somewhat melted."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Kangaroo's forepaws",
+                "severity": 2,
+                "reasoning": "The fingers/claws of the kangaroo's forepaws look slightly fused together and lack distinct digit separation, appearing like a black mitten rather than individual digits."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Pig's rear legs",
+                "severity": 3,
+                "reasoning": "The pig's rear legs appear to blend into the grass and the koala's leg; the hoof structure is indistinct and seems to lack proper grounding geometry."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "Verify the count of kangaroos to confirm if there is truly only one or if a second one is hidden/misclassified.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Atom 1",
+                    "Checkpoint: Fur coloration..."
+                ],
+                "reason": "Confirm the species and natural coloration to validate that 'yellow' is incorrect and reddish-brown is the generated attribute.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Checkpoint: Small forelimbs with five digits",
+                    "Checkpoint: Large muscular hind limbs..."
+                ],
+                "reason": "Audit the limb structure, specifically checking for the fused forepaw artifact and verifying hind limb proportions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "pig",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 6"
+                ],
+                "reason": "Confirm presence and count of the pig.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "pig",
+                "verification_goals": [
+                    "Atom 5",
+                    "Checkpoint: Sparse coarse bristles..."
+                ],
+                "reason": "Verify the pig is pink (not yellow) and check for texture consistency.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "pig",
+                "verification_goals": [
+                    "Checkpoint: Short stout legs with cloven hooves"
+                ],
+                "reason": "Investigate the structural collapse/fusion of the rear legs observed in artifacts.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "koala",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 10"
+                ],
+                "reason": "Confirm presence and count of the koala.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "koala",
+                "verification_goals": [
+                    "Checkpoint: Powerful limbs...",
+                    "Artifact: fusion"
+                ],
+                "reason": "Specifically audit the merging of the koala's arm into its torso to determine severity of generation failure.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Count verification for kangaroos (prompt says two, image shows one).",
+            "Color fidelity check (prompt asks for yellow animals, image shows natural colors).",
+            "Anatomical integrity of the kangaroo's forepaws and the koala's left arm connection.",
+            "Grounding of the pig's rear legs."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "reason": "Verify the count of kangaroos to confirm if there is truly only one or if a second one is hidden/misclassified.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "reason": "Confirm the species and natural coloration to validate that 'yellow' is incorrect and reddish-brown is the generated attribute.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "reason": "Audit the limb structure, specifically checking for the fused forepaw artifact and verifying hind limb proportions.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "pig",
+                "reason": "Confirm presence and count of the pig.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "pig",
+                "reason": "Verify the pig is pink (not yellow) and check for texture consistency.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "pig",
+                "reason": "Investigate the structural collapse/fusion of the rear legs observed in artifacts.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "koala",
+                "reason": "Confirm presence and count of the koala.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "koala",
+                "reason": "Specifically audit the merging of the koala's arm into its torso to determine severity of generation failure.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/621.png",
+            "prompt_id": "621",
+            "prompt_text": "two yellow kangaroos in front of a yellow pig to the left of a brown koala",
+            "router_cost_seconds": 72.43,
+            "plan_valid": true
+        }
+    }
+}

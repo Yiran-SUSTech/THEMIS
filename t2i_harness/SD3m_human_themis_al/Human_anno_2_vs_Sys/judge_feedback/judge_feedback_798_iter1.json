@@ -1,0 +1,170 @@
+{
+    "image_id": "798",
+    "prompt": "four yellow lions chasing three turtles playing with two wooden sheeps",
+    "iteration": 1,
+    "timestamp": "2026-09-02 23:43:50",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical factual error in the 'image_description' and subsequent 'checkpoint_verdicts'. The Router claims 'There are no sheep visible in the image', whereas the image clearly depicts two wooden sheep-like figures (one partially occluded behind the left lion, one in the foreground right). This hallucination by the Router leads to an incorrect verdict for Atom 7, 8, and 9. Additionally, the plan fails to assign an expert to verify the material composition ('wooden') of the sheeps, which is a key prompt constraint.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the presence and count of 'wooden sheeps' which were incorrectly marked as absent.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Audit the material texture of the detected sheep objects to confirm they are 'wooden' as per the prompt.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Update image description to acknowledge the presence of two wooden sheep figures, correcting the false negative in checkpoint_verdicts.",
+                "recommended_expert": "N/A (Router Correction)"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A photorealistic outdoor scene on a green grassy field featuring three large tortoises and two lion-like figures. In the foreground, two tortoises face each other. In the mid-ground, a third tortoise walks left, followed closely by a stylized, toy-like lion figure with a smooth texture. To the right, a second lion stands facing forward, also exhibiting a smooth, plastic-like texture rather than realistic fur. The lighting is bright and sunny, casting distinct shadows.",
+        "checkpoint_verdicts": [
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The lions in the image lack realistic fur texture; they appear to have smooth, plastic or clay-like skin, failing the diagnostic check for dense, uniform tawny coat."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The lion figures do not possess a shaggy mane; the head area is smooth and stylized, resembling a toy rather than a biological male lion."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Carapace is oval and moderately domed with a smooth surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The turtles (tortoises) exhibit the correct oval, domed carapace structure with visible scute segmentation consistent with the taxonomy."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "There are no sheep visible in the image, wooden or otherwise. The prompt requirement for 'two wooden sheeps' is completely unmet."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Texture/Material Mismatch",
+                "location": "Lion figures (mid-ground and right)",
+                "severity": 0.9,
+                "reasoning": "The lions exhibit a severe material artifact where biological fur is replaced by a smooth, synthetic-looking surface (plastic/clay), indicating a failure in texture generation for this specific class."
+            },
+            {
+                "artifact_type": "Object Hallucination/Omission",
+                "location": "Global scene",
+                "severity": 1.0,
+                "reasoning": "The 'wooden sheeps' specified in the prompt are entirely absent from the generated image, representing a complete failure to render a requested object class."
+            },
+            {
+                "artifact_type": "Count Mismatch",
+                "location": "Lion figures",
+                "severity": 0.5,
+                "reasoning": "The prompt requests 'four' lions, but only two are visible in the scene."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lions, turtles, wooden sheeps",
+                "verification_goals": [
+                    "Confirm the exact count of lions (expected 4, observed 2).",
+                    "Verify the presence/absence of 'wooden sheeps'.",
+                    "Generate bounding boxes for all animals to assist segmentation."
+                ],
+                "reason": "Primary bridge expert needed to validate object counts and locate instances before detailed anatomical auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lions",
+                "verification_goals": [
+                    "Classify the lion figures to determine if they are recognized as biological 'lion' or 'toy/statue'.",
+                    "Verify if the 'yellow' color attribute aligns with standard lion taxonomy or indicates a stylized variant."
+                ],
+                "reason": "The lions look like toys; this expert will confirm if the visual features deviate significantly from the 'lion' class label.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lions, turtles",
+                "verification_goals": [
+                    "Audit limb connectivity on the lions (check for missing legs or fusion due to smooth texture).",
+                    "Verify turtle limb anatomy (webbed feet/claws) against the 'terrapin' taxonomy."
+                ],
+                "reason": "Crucial for checking biological structural correctness, especially given the stylized nature of the lions which may hide anatomical errors.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global scene",
+                "verification_goals": [
+                    "Analyze the texture consistency of the lions vs. the turtles.",
+                    "Detect any geometric melting or boundary blurring around the animal limbs."
+                ],
+                "reason": "To holistically assess the quality degradation caused by the 'plastic' look of the lions and ensure the rest of the scene is stable.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Are the lions chasing the turtles? (Static image makes intent/action ambiguous, though proximity suggests it).",
+            "Are the turtles playing with the sheeps? (Sheeps are missing, making this interaction impossible to verify)."
+        ],
+        "focus_areas": [
+            "Lion Texture and Material Realism",
+            "Missing Object: Wooden Sheeps",
+            "Lion Count Accuracy (2 vs 4)",
+            "Turtle Anatomical Correctness"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lions, turtles, wooden sheeps",
+                "reason": "Primary bridge expert needed to validate object counts and locate instances before detailed anatomical auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lions",
+                "reason": "The lions look like toys; this expert will confirm if the visual features deviate significantly from the 'lion' class label.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lions, turtles",
+                "reason": "Crucial for checking biological structural correctness, especially given the stylized nature of the lions which may hide anatomical errors.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global scene",
+                "reason": "To holistically assess the quality degradation caused by the 'plastic' look of the lions and ensure the rest of the scene is stable.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/798.png",
+            "prompt_id": "798",
+            "prompt_text": "four yellow lions chasing three turtles playing with two wooden sheeps",
+            "router_cost_seconds": 25.89,
+            "plan_valid": false
+        }
+    }
+}

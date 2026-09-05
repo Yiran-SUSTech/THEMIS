@@ -1,0 +1,400 @@
+{
+    "image_id": "406",
+    "prompt": "four trumpets and two brown trucks and four toys",
+    "iteration": 2,
+    "timestamp": "2026-09-04 04:31:00",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical and factual errors regarding the image content and prompt interpretation. \n1. **Factual Hallucination in Reasoning**: The `atom_verdicts` for Atom 0 claim there are only three trumpets because the 'pink truck has no instrument'. Visual inspection confirms the pink truck (bottom right) DOES have a trumpet mounted on it (visible as the orange/copper instrument's bell and tubing extending over that area, or potentially a fourth distinct instrument if the perspective is tricky, but definitely not empty). Actually, looking closely at the image: Top Left (Brown Truck) has a Gold Trumpet. Top Right (Blue Truck) has a Gold Trumpet. Bottom Left (Grey/Blue Truck) has a Copper Trumpet. Bottom Right (Pink Truck) has NO trumpet visible on its roof; however, the copper trumpet seems to belong to the bottom-left truck. Wait, let's re-examine. \n- Top Left: Brown Truck + Gold Trumpet.\n- Top Right: Blue Truck + Gold Trumpet.\n- Bottom Left: Grey/Blue Truck + Copper Trumpet.\n- Bottom Right: Pink Truck. It appears to have NO trumpet. \nSo the count of 3 trumpets is likely correct visually. HOWEVER, the prompt asks for 'four trumpets'. The verdict says 'predicted: three', which is correct observationally, but the reasoning for Atom 5 ('How many toys') predicts 'seven' (4 trucks + 3 trumpets). This logic is sound.\n\n2. **Critical Logic Error in Prompt Interpretation**: The prompt is 'four trumpets and two brown trucks and four toys'. This is a conjunctive list. It implies:\n   - 4 Trumpets\n   - 2 Brown Trucks\n   - 4 Toys (distinct from the trucks/trumpets? Or inclusive? Usually 'and four toys' implies additional objects).\n   The Router interprets 'toys' ambiguously. \n   \n3. **Major Failure in Expert Selection**: The most critical error is the failure to verify the **'brown'** attribute of the trucks using the appropriate expert. The prompt specifies 'two brown trucks'. The image shows one brown, one blue, one grey, one pink. The `fine_grained_classifier` is assigned to 'truck' to verify color, which is good. BUT, the `open_vocabulary_detector` is NOT used to segment and count specifically *brown* trucks. It just counts 'trucks'. To verify 'two brown trucks', we need to detect 'brown truck' specifically or combine detection with classification. The current plan relies on `fine_grained_classifier` for color, which is acceptable, but...\n\n4. **Missing Verification for 'Toys'**: The prompt asks for 'four toys'. The Router marks this as 'unverifiable' due to ambiguity. However, in T2I evaluation, if the prompt lists 'X and Y and Z', Z usually refers to distinct objects. If the image contains ONLY trucks and trumpets, the 'four toys' part is FAILED. The Router should have assigned an `open_vocabulary_detector` for 'toy' (generic) or specific toy types (e.g., 'doll', 'ball') to verify if ANY other toys exist. Marking it unverifiable is lazy; the verifier should check for the presence of the requested class 'toy' excluding the already counted trucks/trumpets.\n\n5. **Incorrect Checkpoint Judgment**: The checkpoint for 'Compact conical tubing... shorter than a trumpet' (Cornet) is marked `is_present: false`. This is correct. But the `fine_grained_classifier` for trumpet is tasked to distinguish trumpet vs cornet. This is redundant if the checkpoint already failed it. \n\n6. **Artifact Observation Miss**: The `geometric_depth_auditor` is assigned to check fusion. Good. But the `topology_boundary_auditor` is MISSING. The prompt involves multiple objects. The `topology_boundary_auditor` is best for verifying if the 'four toys' are distinct entities or if the trucks are single continuous entities. The `perceptual_quality_auditor` is used for the pink truck's collapse, which is good.\n\n7. **Weight Distribution**: The weights are arbitrary. \n\n8. **Re-evaluation of Image Content**: \n   - Trumpets: 3 visible. Prompt asked for 4. Fail.\n   - Trucks: 4 visible. Prompt asked for 2 BROWN. Only 1 is brown. Fail.\n   - Toys: 0 additional toys visible. Prompt asked for 4. Fail.\n   \nThe Router's `atom_verdicts` correctly identify the failures in count (Atom 0, 2) and color (Atom 3). However, the `expert_verification_plan` is insufficient because it does not explicitly verify the *absence* of the 4th trumpet or the *absence* of the other brown trucks via negative constraint checking, nor does it adequately address the 'four toys' requirement by searching for generic toy objects.\n\nSpecifically, the `open_vocabulary_detector` should be run for 'brown truck' to confirm the count is 1, not 2. Running it for 'truck' gives 4, which doesn't directly answer 'are there TWO BROWN trucks'. You need to filter by color. The `fine_grained_classifier` can do color, but combining OVD for 'brown truck' is more robust for counting.\n\nAlso, the `unverifiable_points` section is incorrect. 'How many toys' is verifiable by running OVD for common toy classes or a generic 'toy' detector. If none are found, the count is 0. It is not unverifiable.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify count of 'brown trucks' specifically",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify presence/count of additional 'toys' (excluding trucks/trumpets)",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "incorrect_judgment",
+                "point": "Atom 5 (How many toys) is marked unverifiable. It should be verified by detecting generic toy objects to confirm if the count is 0 (failure) or >0.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_expert",
+                "point": "Topology boundary audit for the 'four toys' to ensure they are distinct instances if any were found, or to verify the trucks are single entities.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays four toy pickup trucks arranged on a textured green surface. Two gold-colored trumpets are mounted on the roofs of the top two trucks (one brown, one blue). A third orange/copper trumpet is mounted on the roof of the bottom-left grey/blue truck. The bottom-right pink truck has no trumpet. All objects appear to be miniature die-cast or plastic toys.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many trumpets are in the image?",
+                "expected": "four",
+                "predicted": "three",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are clearly only three trumpets visible: two gold ones on the top row and one copper/orange one on the bottom left truck. The fourth truck (pink) has no instrument."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any trumpets in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three distinct brass instruments resembling trumpets are clearly visible."
+            },
+            {
+                "atom_index": 2,
+                "question": "How many trucks are in the image?",
+                "expected": "two",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are four distinct toy trucks visible in the scene (brown, blue, grey/blue, pink)."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the trucks brown?",
+                "expected": "Yes",
+                "predicted": "Partially",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only one truck is brown. The others are blue, grey/blue, and pink. The prompt implies all trucks should be brown, which is not the case."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any trucks in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Four toy trucks are clearly present."
+            },
+            {
+                "atom_index": 5,
+                "question": "How many toys are in the image?",
+                "expected": "four",
+                "predicted": "seven",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "If counting individual toy objects, there are 4 trucks + 3 trumpets = 7 toys. If 'toys' refers only to the trucks as the primary subject, there are 4. Either way, the count does not match the expected 'four' if interpreted as total items, or matches if interpreted strictly as trucks but contradicts the separate truck count atom."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any toys in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The entire scene consists of toy vehicles and instruments."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "truck",
+                "checkpoint": "Light-duty truck with enclosed cab and open cargo bed at rear.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All four vehicles exhibit the classic pickup silhouette with a distinct cab and rear bed area, consistent with toy representations of light-duty trucks."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Overall length substantially exceeding a standard passenger car.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "As these are toys without a real-world scale reference like a human or standard car for comparison, absolute length cannot be verified. However, relative proportions suggest a truck shape."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Elevated ground clearance noticeably higher than passenger cars.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wheel wells and chassis height relative to the wheels indicate elevated clearance typical of pickup trucks, even in toy form."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Open rear cargo bed occupying roughly half the vehicle's total length.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The brown and blue trucks clearly show open beds. The grey and pink trucks have obscured or stylized beds but maintain the proportional division between cab and cargo area."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Low side walls approximately knee-height with flat floor and hinged tailgate.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible on the brown and blue trucks; the side walls are low relative to the cab height. Tailgates are implied by the rear structure."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Single-row, extended, or crew cab configuration.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All trucks appear to be single-row regular cabs with two doors visible (or implied by symmetry)."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Prominent front grille, headlights, and bumper.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All four trucks feature distinct grilles, headlight details, and bumpers appropriate for vintage truck styling."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Protruding wheel arches above bed sides.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wheel arches are clearly molded into the bodywork above the rear wheels on all visible trucks."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Painted steel or aluminum panel construction.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surfaces show painted finishes consistent with die-cast metal or hard plastic toys mimicking steel panels."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Utilitarian truck proportions.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The boxy, functional shapes align with utilitarian truck design language."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Cab-to-bed transition visible from side profile.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The separation between the passenger cabin and the cargo bed is clearly defined on the side profiles of the brown and blue trucks."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Compact conical tubing coiled into oval shape, noticeably shorter than a trumpet.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The instruments depicted are long and stretched out, resembling standard trumpets rather than the compact, oval-coiled cornet described in the taxonomy. They lack the tight coil characteristic of a cornet."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Bell flares broadly, facing forward.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All three instruments have flared bells oriented forward/outward."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Tubing diameter gradually increases from mouthpiece to bell.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tubing shows the correct tapering expansion toward the bell."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Three piston valves arranged vertically on top with finger buttons.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Each instrument clearly displays three vertical valve casings with buttons on top."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Cup-shaped detachable mouthpiece inserted into leadpipe.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Mouthpieces are visible at the end of the leadpipes opposite the bells."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Finger hooks and thumb ring present for grip.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small rings and hooks are visible near the valve section on the gold trumpets."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Lacquered brass (golden-yellow) or silver-plated (bright white-metal).",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Two trumpets are golden-yellow (brass-like), and one is copper/orange. While copper isn't explicitly listed, it falls under metallic wind instrument materials. The gold ones match perfectly."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Valve casings are cylindrical with visible seam lines.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The valve housings are cylindrical and show molding seams or structural lines consistent with manufacturing."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Bell rim is rolled edge.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bell edges appear thickened/rolled, consistent with real trumpet construction."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Bottom-right pink truck",
+                "severity": 3,
+                "reasoning": "The pink truck lacks visible rear wheels and has a distorted, melted rear end. The bed area is undefined and merges unnaturally with the ground/shadow, failing to resolve as a complete vehicle."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Trumpets on top of trucks",
+                "severity": 2,
+                "reasoning": "The trumpets appear to melt into or fuse with the roof of the trucks rather than sitting on them as separate objects. There is no clear mounting hardware or shadow separation indicating they are distinct physical items resting on the surface."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Grey/blue truck (bottom left)",
+                "severity": 2,
+                "reasoning": "The paint texture on the hood and cab appears smeared and inconsistent, lacking the crisp detail seen on the brown and blue trucks. It looks like a rendering artifact rather than intentional weathering."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "verification_goals": [
+                    "Atom 2",
+                    "Atom 4"
+                ],
+                "reason": "To definitively count the number of trucks and confirm their presence, resolving the discrepancy between expected (2) and observed (4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "trumpet",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1"
+                ],
+                "reason": "To accurately count the trumpets and verify their existence, addressing the mismatch between expected (4) and observed (3).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "truck",
+                "verification_goals": [
+                    "Atom 3",
+                    "Checkpoint: Painted steel or aluminum panel construction"
+                ],
+                "reason": "To classify the color and material properties of the trucks, verifying if they meet the 'brown' attribute and material expectations.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "trumpet",
+                "verification_goals": [
+                    "Checkpoint: Lacquered brass (golden-yellow) or silver-plated",
+                    "Checkpoint: Compact conical tubing coiled into oval shape"
+                ],
+                "reason": "To distinguish whether the instruments are trumpets or cornets based on shape and material classification, as the taxonomy specifies cornet features that may not match.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "pink truck",
+                "verification_goals": [
+                    "Artifact: structural_collapse"
+                ],
+                "reason": "To assess the severity of the missing rear wheels and melted geometry on the pink truck, confirming it as a generation failure.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "trumpet",
+                "verification_goals": [
+                    "Artifact: fusion"
+                ],
+                "reason": "To analyze the spatial relationship between trumpets and truck roofs, determining if they are physically separate objects or erroneously fused.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 5: How many toys are in the image? (Ambiguous definition of 'toy' - could mean just trucks or all objects)",
+            "Checkpoint: Overall length substantially exceeding a standard passenger car (No scale reference available)"
+        ],
+        "focus_areas": [
+            "Count verification for trucks and trumpets against prompt expectations",
+            "Color attribute validation for trucks (brown vs multi-color)",
+            "Structural integrity of the pink truck (missing parts/melting)",
+            "Physical separation vs fusion of trumpets on truck roofs",
+            "Taxonomic accuracy of instruments (trumpet vs cornet morphology)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "reason": "To definitively count the number of trucks and confirm their presence, resolving the discrepancy between expected (2) and observed (4).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "trumpet",
+                "reason": "To accurately count the trumpets and verify their existence, addressing the mismatch between expected (4) and observed (3).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "truck",
+                "reason": "To classify the color and material properties of the trucks, verifying if they meet the 'brown' attribute and material expectations.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "trumpet",
+                "reason": "To distinguish whether the instruments are trumpets or cornets based on shape and material classification, as the taxonomy specifies cornet features that may not match.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "pink truck",
+                "reason": "To assess the severity of the missing rear wheels and melted geometry on the pink truck, confirming it as a generation failure.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "trumpet",
+                "reason": "To analyze the spatial relationship between trumpets and truck roofs, determining if they are physically separate objects or erroneously fused.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/406.png",
+            "prompt_id": "406",
+            "prompt_text": "four trumpets and two brown trucks and four toys",
+            "router_cost_seconds": 62.25,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

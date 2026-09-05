@@ -1,0 +1,488 @@
+{
+    "image_id": "587",
+    "prompt": "five checkered trucks to the right of a cat on top of six lions",
+    "iteration": 2,
+    "timestamp": "2026-09-02 00:08:41",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant factual hallucinations regarding the image content and logical errors in expert assignment. \n1. **Hallucinated Object Count:** The plan claims there are 5 trucks (including one 'in the background behind the left lion'). Visual inspection reveals only 4 trucks (Red, White, two Blue). There is no fifth truck.\n2. **Hallucinated Spatial Relationship:** The plan states the cat is to the right of the trucks and the trucks are to the left. In reality, the cat is in the foreground right, but the trucks are distributed around it; specifically, the white truck is to the cat's left, but the blue trucks are behind/above. More critically, the prompt asks for trucks 'to the right of a cat'. The current layout fails this, but the plan's description of 'far left' vs 'right' is confused by the perspective.\n3. **Missing Expert for Texture/Pattern:** Atom 1 ('Are the trucks checkered?') and the specific failure of the white truck to be checkered are critical. While `perceptual_quality_auditor` is assigned, `open_vocabulary_detector` or a specialized texture auditor is better suited to verify the *presence* of the pattern on specific instances identified by the detector. The current plan relies on the perceptual auditor for a semantic attribute verification which is suboptimal.\n4. **Incorrect Checkpoint Judgment:** The plan marks 'Tail has a dark tuft' as `is_present: false` due to occlusion. However, the tail of the right-most lion is clearly visible and lacks a tuft (or is cut off), and the left lion's tail is obscured. The judgment should reflect that the feature is either missing or unverifiable, but the reasoning 'completely occluded' is factually wrong for at least one lion.\n5. **Weight Imbalance:** The `open_vocabulary_detector` is split into three separate entries with low weights (0.2, 0.15, 0.15). These should likely be consolidated or weighted higher as counting and spatial localization are the primary failure modes here.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the exact count of trucks. The plan assumes 5, but there are only 4. The open_vocabulary_detector must be explicitly tasked with counting all instances of 'truck' to correct the hallucination in Atom 0.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify the checkered pattern on ALL detected trucks. The current plan checks the white truck via perceptual audit, but should systematically verify the pattern presence on every truck instance detected by the OVD to fully address Atom 1.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "logical_error",
+                "point": "Correct the spatial reasoning in Atom 3. The prompt requires trucks 'to the right of a cat'. The image shows trucks mostly to the left and behind. The verification plan should explicitly map the bounding boxes of 'cat' and 'truck' to compute relative horizontal positions.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "checkpoint_correction",
+                "point": "Re-evaluate Lion Tail checkpoint. The tail of the lion on the right is visible. The checkpoint 'Tail has a dark tuft' should be marked as failed (if tuft is missing) or partially visible, not 'completely occluded'.",
+                "recommended_expert": "animal_pose_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a surreal scene on a sandy surface featuring toy pickup trucks and real animals. In the foreground right, a tabby cat sits facing forward. To its left is a large white toy pickup truck with oversized tires but no checkered pattern. Behind the white truck are two blue toy pickup trucks with checkered patterns on their roofs/beds, and to the far left is a red toy pickup truck with checkered decals. A fifth blue checkered truck is visible in the background behind the left lion. Two lions stand in the mid-ground between the trucks. The scale is inconsistent, with the cat appearing larger than the lions, and the trucks appearing as miniature toys relative to the animals.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many trucks are in the image?",
+                "expected": "five",
+                "predicted": "five",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are five distinct trucks visible: one red, one white, two blue in the mid-ground, and one blue in the far background behind the left lion."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the trucks checkered?",
+                "expected": "Yes",
+                "predicted": "Partially",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Four of the five trucks have checkered patterns (red, two blue mid-ground, one blue background). However, the prominent white truck in the foreground lacks any checkered pattern. Therefore, the statement 'the trucks are checkered' (implying all) is factually incorrect for this specific instance."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any trucks in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Five toy pickup trucks are clearly visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the trucks to the right of the cat?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The cat is positioned on the right side of the image. The trucks are located to the left of the cat or behind it, not to its right."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many cats are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A single tabby cat is visible in the foreground."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any cats in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One cat is clearly present."
+            },
+            {
+                "atom_index": 6,
+                "question": "Is the cat on top of the lions?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The cat is sitting on the ground in the foreground. The lions are standing on the ground in the background. The cat is not physically on top of the lions."
+            },
+            {
+                "atom_index": 7,
+                "question": "How many lions are in the image?",
+                "expected": "six",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only two lions are visible in the background. There are no other lions hidden or partially visible."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any lions in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two lions are clearly visible."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "cat",
+                "checkpoint": "Head is round with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cat's head shape and muzzle length match the description of a domestic tabby cat."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Ears are medium-sized, pointed, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are clearly visible, pointed, and upright."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Eyes are large, round, and green, gold, or copper.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes appear large and round; color looks yellowish-gold/copper."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Body is medium-sized, well-proportioned, and muscular.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Despite the surreal scaling relative to trucks, the cat's own anatomy appears proportional and muscular for a cat."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Coat is grey or tawny mottled with black in a tabby pattern.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The coat shows distinct brown/tawny and black tabby striping."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Characteristic M-shaped marking on the forehead, dark stripes along the body, and ringed tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "M-marking is visible on forehead; body stripes are clear. Tail is partially obscured but ringed pattern is consistent with visible fur."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Pattern types include classic (swirled), mackerel (striped), spotted, or ticked.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The pattern appears to be mackerel (striped) tabby."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Striped legs are a distinctive feature.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Dark horizontal stripes are visible on the front legs."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Head is broad with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both lions exhibit broad heads and short muzzles typical of the species."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Ears are small, rounded, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are visible, small relative to head, and rounded."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Eyes are medium-sized, round, and amber to brown with an intense expression.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eye color and shape match lion characteristics."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While bodies look muscular, the tails are not clearly visible enough to confirm the 'long tail with dark tuft' detail due to occlusion by trucks and angle."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Coat texture and coloration match lion descriptions."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both lions appear to be males with visible manes."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Tail has a dark tuft at the end.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Tails are completely occluded or outside the frame/visible area for both lions."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Light-duty truck with enclosed cab and open cargo bed at rear.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All five vehicles show the distinct cab-and-bed silhouette of pickup trucks."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Overall length substantially exceeding a standard passenger car.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Proportions indicate extended cab/long bed configurations typical of heavy-duty pickups."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Elevated ground clearance noticeably higher than passenger cars.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Trucks sit high on large off-road tires, indicating significant lift/clearance."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Open rear cargo bed occupying roughly half the vehicle's total length.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Bed length is proportional to cab size, consistent with pickup design."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Low side walls approximately knee-height with flat floor and hinged tailgate.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Bed walls and tailgates are visible on the red and blue trucks."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Single-row, extended, or crew cab configuration.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "White truck is clearly a crew cab (4 doors); others appear to be extended or crew cabs."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Prominent front grille, headlights, and bumper.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Front fascias are detailed with grilles, lights, and bumpers."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Protruding wheel arches above bed sides.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wheel wells flare out above the bed sides on all trucks."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Painted steel or aluminum panel construction.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Surfaces reflect light like painted metal/plastic toy replicas."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Utilitarian truck proportions.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Vehicles maintain correct automotive proportions despite being toys."
+            },
+            {
+                "object": "truck",
+                "checkpoint": "Cab-to-bed transition visible from side profile.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The separation between cabin and cargo area is distinct."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "White truck front bumper and wheel area",
+                "severity": 3,
+                "reasoning": "The front bumper of the white truck appears melted into the ground/wheel assembly. The geometry of the lower grille and bumper lacks defined edges and seems to fuse with the tire tread and sand."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Global scene scale",
+                "severity": 4,
+                "reasoning": "Severe scale inconsistency. The cat is roughly the same size as the lions, while the trucks (which should be much larger than cats/lions in reality) are depicted as small toys. While this may be intentional 'toy' generation, it represents a structural collapse of real-world physics if interpreted as a realistic scene."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Blue truck checkered patterns",
+                "severity": 2,
+                "reasoning": "The checkered patterns on the blue trucks warp unnaturally over the curved surfaces of the roof and bed, lacking proper perspective mapping."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Red truck rear wheel",
+                "severity": 2,
+                "reasoning": "The rear tire of the red truck slightly blends into the shadow/ground contact point, losing distinct tread definition at the bottom."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2",
+                    "Atom 3"
+                ],
+                "reason": "Verify exact count of trucks (expected 5 vs observed 5) including the background truck, and detect presence/location to confirm spatial relationship with cat.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 5",
+                    "Atom 6"
+                ],
+                "reason": "Confirm single cat instance and verify bounding box position relative to lions to disprove 'on top of' claim.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "Verify count of lions (expected 6 vs observed 2).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "cat checkpoints"
+                ],
+                "reason": "Confirm species classification as tabby cat and validate specific coat pattern features.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "lion checkpoints"
+                ],
+                "reason": "Confirm species classification and mane presence.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "white truck",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Atom 1"
+                ],
+                "reason": "Analyze the melting/fusion artifact at the front bumper/wheel interface of the white truck AND explicitly verify the absence of checkered pattern on this specific vehicle.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Artifact: perspective_distortion",
+                    "Atom 6"
+                ],
+                "reason": "Generate depth map to verify physical separation between cat and lions (grounding) and assess the scale distortion artifacts.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Count verification for trucks (confirming 5th background truck)",
+            "Checkered pattern verification specifically for the white truck (negative constraint)",
+            "Spatial relationship validation (cat vs trucks, cat vs lions)",
+            "Structural integrity of white truck front end",
+            "Scale consistency analysis"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "truck",
+                "reason": "Verify exact count of trucks (expected 5 vs observed 5) including the background truck, and detect presence/location to confirm spatial relationship with cat.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat",
+                "reason": "Confirm single cat instance and verify bounding box position relative to lions to disprove 'on top of' claim.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "reason": "Verify count of lions (expected 6 vs observed 2).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "reason": "Confirm species classification as tabby cat and validate specific coat pattern features.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "lion",
+                "reason": "Confirm species classification and mane presence.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "white truck",
+                "reason": "Analyze the melting/fusion artifact at the front bumper/wheel interface of the white truck AND explicitly verify the absence of checkered pattern on this specific vehicle.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "Generate depth map to verify physical separation between cat and lions (grounding) and assess the scale distortion artifacts.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/587.png",
+            "prompt_id": "587",
+            "prompt_text": "five checkered trucks to the right of a cat on top of six lions",
+            "router_cost_seconds": 73.88,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

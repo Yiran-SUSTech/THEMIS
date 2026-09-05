@@ -1,0 +1,170 @@
+{
+    "image_id": "253",
+    "prompt": "a white motorcycle and two striped flowers",
+    "iteration": 1,
+    "timestamp": "2026-09-04 00:13:20",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Taxonomy Checkpoint' section. The Router incorrectly flagged the motorcycle as a 'Taxonomy Deviation' (identifying it as a scooter rather than a motorcycle) and marked checkpoints as `is_present: false` based on this semantic distinction. However, the prompt explicitly requested a 'motorcycle', and in common visual taxonomy, a motor scooter is a valid instance of a motorcycle. By treating this as a failure/deviation, the plan biases the evaluation against a correct generation. Furthermore, the plan fails to assign an expert to verify the color of the motorcycle ('white'), which is a specific constraint in Atom 1, relying instead on a general quality audit.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Re-evaluate the 'motorcycle' taxonomy checkpoints. A scooter should be considered a valid positive match for the prompt 'motorcycle'. Mark these checkpoints as `is_present: true` and remove the 'Taxonomy Deviation' artifact observation regarding the vehicle type.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 1 requires verifying if the motorcycle is 'white'. The current plan relies on `perceptual_quality_auditor` for structural integrity but lacks a specific color verification step for the main subject.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "expert_assignment_optimization",
+                "point": "The `topology_boundary_auditor` is assigned to check for 'stripes' on flowers. Stripes are primarily a texture/color pattern, not a topological boundary issue. This goal is better suited for the `fine_grained_classifier` or a dedicated texture analysis, whereas topology should focus on stem connectivity and petal fusion.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "flower",
+                "checkpoint": "Composite flower with central yellow disc surrounded by single whorl of white ray petals.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The image contains two flowers: one is solid red (gerbera-like) and the other is pale purple/white. Neither matches the taxonomy description of a daisy with a 'central yellow disc' and 'white ray petals'. The red flower lacks a yellow center, and the purple flower has a dark/purple center."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Bright yellow center with bumpy, granular texture from individual disc florets.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Visual inspection confirms neither flower possesses the specific 'bright yellow center' required by the taxonomy. The red flower has a brownish/dark center, and the purple flower has a matching purple center."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Two-wheeled vehicle with step-through frame and small wheels, noticeably smaller than standard motorcycle wheels.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vehicle in the image is clearly a motor scooter (matching the taxonomy class 'motor scooter') with the characteristic step-through frame, flat floorboard area, and smaller wheel size relative to full-sized motorcycles."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Flat floorboard for rider's feet with padded seat above.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The scooter features the distinct open leg area (step-through) and a padded seat positioned above the rear body panel, consistent with the ground truth description."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Attribute Mismatch (Color)",
+                "location": "Left Flower",
+                "severity": 0.9,
+                "reasoning": "The prompt specifies 'striped flowers', but the left flower is a solid, vibrant red with no visible striping pattern. This is a direct contradiction of the prompt's attribute requirement."
+            },
+            {
+                "artifact_type": "Attribute Mismatch (Pattern)",
+                "location": "Right Flower",
+                "severity": 0.8,
+                "reasoning": "The right flower (purple/white) appears to have solid colored petals rather than distinct 'stripes'. While it has some texture, it does not clearly manifest the 'striped' attribute requested in the prompt."
+            },
+            {
+                "artifact_type": "Taxonomy Deviation",
+                "location": "Both Flowers",
+                "severity": 0.7,
+                "reasoning": "The provided taxonomy defines the object as a 'daisy' with specific white/yellow features. The generated flowers (Red Gerbera-style and Purple Aster-style) deviate significantly from this specific taxonomic definition, although they are botanically flowers."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flowers, motorcycle",
+                "verification_goals": [
+                    "Confirm the count of flowers is exactly two.",
+                    "Confirm the count of motorcycles/scooters is exactly one.",
+                    "Generate bounding boxes for the flowers to isolate them for pattern analysis."
+                ],
+                "reason": "Primary bridge expert to establish object presence and counts before detailed attribute auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flowers",
+                "verification_goals": [
+                    "Classify the specific species of the red and purple flowers.",
+                    "Verify if the flowers belong to the 'daisy' family as per taxonomy or are distinct species (e.g., Gerbera, Aster).",
+                    "Check for 'striped' pattern classification confidence."
+                ],
+                "reason": "To rigorously test the deviation from the provided 'daisy' taxonomy and verify the 'striped' attribute at a granular level.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "motorcycle (scooter)",
+                "verification_goals": [
+                    "Audit the structural integrity of the scooter (wheels, handlebars, mirrors).",
+                    "Check for geometric melting or artifacts in the white body panels.",
+                    "Verify the 'white' color attribute consistency across the vehicle."
+                ],
+                "reason": "To ensure the main subject (scooter) is high quality and free of generation artifacts, distinguishing it from the flawed flower attributes.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "flowers",
+                "verification_goals": [
+                    "Segment the petals of both flowers to analyze edge continuity.",
+                    "Verify if the 'stripes' (if present) are surface textures or topological errors.",
+                    "Check stem connectivity to the flower heads."
+                ],
+                "reason": "To determine if the lack of clear striping is a rendering failure or a semantic error, and to check stem topology.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "The specific intent of 'striped' (e.g., genetic variegation vs. painted stripes) is ambiguous without further context, making strict pass/fail on the pattern difficult without the fine-grained classifier."
+        ],
+        "focus_areas": [
+            "Flower Attribute Compliance (Striped vs. Solid)",
+            "Flower Taxonomy Adherence (Daisy vs. Generated Species)",
+            "Scooter Structural Integrity"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flowers, motorcycle",
+                "reason": "Primary bridge expert to establish object presence and counts before detailed attribute auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flowers",
+                "reason": "To rigorously test the deviation from the provided 'daisy' taxonomy and verify the 'striped' attribute at a granular level.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "motorcycle (scooter)",
+                "reason": "To ensure the main subject (scooter) is high quality and free of generation artifacts, distinguishing it from the flawed flower attributes.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "flowers",
+                "reason": "To determine if the lack of clear striping is a rendering failure or a semantic error, and to check stem topology.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/253.png",
+            "prompt_id": "253",
+            "prompt_text": "a white motorcycle and two striped flowers",
+            "router_cost_seconds": 25.13,
+            "plan_valid": false
+        }
+    }
+}

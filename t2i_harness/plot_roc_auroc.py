@@ -286,7 +286,7 @@ def main():
                   f"  [{stats['positive_rate'] * 100:.1f}% positive])")
 
             curves.append({
-                "label": f"Run {i + 1}: {run_name}",
+                "label": run_name,
                 "fpr": fpr, "tpr": tpr, "auroc": auc,
                 "color": RUN_COLORS[i % len(RUN_COLORS)], "lw": 1.8,
             })

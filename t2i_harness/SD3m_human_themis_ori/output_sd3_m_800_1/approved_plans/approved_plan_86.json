@@ -1,0 +1,191 @@
+{
+    "image_description": "A cartoon-style pink pig stands on a wooden shelf next to a stack of books. On the shelf above, there are five distinct alarm clocks and one object that resembles a rolled scroll or small stand but lacks a clock face. The background is a warm yellow wall with framed art.",
+    "atom_verdicts": [
+        {
+            "atom_index": 0,
+            "question": "How many pigs are in the image?",
+            "expected": "one",
+            "predicted": "one",
+            "is_correct": true,
+            "confidence": 1.0,
+            "reasoning": "There is clearly a single pig subject in the foreground."
+        },
+        {
+            "atom_index": 1,
+            "question": "Are there any pigs in the image?",
+            "expected": "Yes",
+            "predicted": "Yes",
+            "is_correct": true,
+            "confidence": 1.0,
+            "reasoning": "The pig is the central subject of the image."
+        },
+        {
+            "atom_index": 2,
+            "question": "How many clocks are in the image?",
+            "expected": "six",
+            "predicted": "five",
+            "is_correct": false,
+            "confidence": 0.95,
+            "reasoning": "Visual inspection reveals exactly five functional alarm clocks on the top shelf. The sixth object (4th from left) is a scroll/stand hybrid lacking a face or hands, failing the definition of a clock."
+        },
+        {
+            "atom_index": 3,
+            "question": "Are there any clocks in the image?",
+            "expected": "Yes",
+            "predicted": "Yes",
+            "is_correct": true,
+            "confidence": 1.0,
+            "reasoning": "Five clear alarm clocks are visible."
+        }
+    ],
+    "checkpoint_verdicts": [
+        {
+            "object": "clock",
+            "checkpoint": "Geometry_and_Silhouette: Time-telling device designed for wall mounting with a circular face of moderate diameter, easily readable from across a room.",
+            "category": "Geometry_and_Silhouette",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "While 5 instances match, the global constraint 'six clocks' fails because the 6th slot is occupied by a non-clock object (scroll). Therefore, the set of 'six clocks' is not present."
+        },
+        {
+            "object": "clock",
+            "checkpoint": "Functional_Components: Two or three hands rotate from the center.",
+            "category": "Functional_Components",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The 6th object lacks hands entirely. Since the prompt requires six clocks, and one is missing this critical component, the checkpoint for the group is failed."
+        },
+        {
+            "object": "pig",
+            "checkpoint": "Head_and_Face: Large head with elongated snout ending in cartilaginous disk for rooting.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The pig has a clearly defined snout with nostrils and large ears, consistent with the taxonomy."
+        },
+        {
+            "object": "pig",
+            "checkpoint": "Limbs_and_Anatomy: Short stout legs with cloven hooves.",
+            "category": "Limbs_and_Anatomy",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The pig has four legs with black tips representing hooves. While stylized, the anatomy is structurally complete and distinct from the books."
+        }
+    ],
+    "artifact_observations": [
+        {
+            "artifact_type": "missing_parts",
+            "location": "Top shelf, 4th object from left",
+            "severity": 4,
+            "reasoning": "The prompt specifies 'six clocks', but the 6th position contains a malformed object (scroll/stand) instead of a clock. This is a severe semantic failure where an object is replaced by a hallucinated hybrid."
+        }
+    ],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "clock",
+            "verification_goals": [
+                "Detect and count all instances of 'alarm clock' to verify if the count matches the expected six.",
+                "Identify the non-clock object on the top shelf to determine if it is a hallucinated clock or a different object."
+            ],
+            "reason": "The prompt specifies 'six clocks', but visual inspection suggests only five clear clocks and one ambiguous object. Precise detection is needed to validate Atom 2.",
+            "weight": 0.4
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "scroll",
+            "verification_goals": [
+                "Classify the ambiguous object on the top shelf (4th from left) to confirm it is not a 'wall clock' or 'alarm clock'.",
+                "Verify that the detected clocks belong to the 'alarm clock' subclass rather than generic timepieces."
+            ],
+            "reason": "To rigorously evaluate Atom 2, we must distinguish between actual clocks and clock-like artifacts. If the 6th object is classified as a scroll, the generation fails.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "pig",
+            "verification_goals": [
+                "Verify the skeletal structure of the pig, specifically checking for correct limb count (4) and joint alignment.",
+                "Ensure the tail curvature and ear placement are biologically plausible despite the cartoon style."
+            ],
+            "reason": "AI-generated animals often suffer from limb duplication or merging. This expert ensures the pig's anatomy is structurally sound.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "pig",
+            "verification_goals": [
+                "Verify the structural integrity of the pig's front legs where they meet the books.",
+                "Ensure the hooves are not merging into the book spines or floating."
+            ],
+            "reason": "The pig's front legs are partially occluded by books. We need to verify if the occlusion is natural or if limbs are missing/merged behind the books, which is a common AI artifact.",
+            "weight": 0.1
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire_image",
+            "verification_goals": [
+                "Check for text rendering artifacts on the clock faces (e.g., garbled numbers).",
+                "Assess the blending of the pig with the shelf surface for any floating or sinking artifacts."
+            ],
+            "reason": "Clock faces are high-frequency text regions prone to AI distortion; general quality check ensures overall coherence.",
+            "weight": 0.1
+        }
+    ],
+    "unverifiable_points": [
+        "The internal mechanism (quartz movement/battery) of the clocks cannot be verified visually.",
+        "The specific breed of the pig is unverifiable due to the stylized/cartoon nature of the generation."
+    ],
+    "focus_areas": [
+        "Count verification of clocks (Atom 2): Distinguishing the 5 clear clocks from the 1 ambiguous object.",
+        "Anatomical correctness of the pig's legs and hooves (Atom 0/1).",
+        "Legibility of numerals on clock faces."
+    ],
+    "selected_experts": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "clock",
+            "reason": "The prompt specifies 'six clocks', but visual inspection suggests only five clear clocks and one ambiguous object. Precise detection is needed to validate Atom 2.",
+            "weight": 0.4
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "scroll",
+            "reason": "To rigorously evaluate Atom 2, we must distinguish between actual clocks and clock-like artifacts. If the 6th object is classified as a scroll, the generation fails.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "pig",
+            "reason": "AI-generated animals often suffer from limb duplication or merging. This expert ensures the pig's anatomy is structurally sound.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "topology_boundary_auditor",
+            "target_subject": "pig",
+            "reason": "The pig's front legs are partially occluded by books. We need to verify if the occlusion is natural or if limbs are missing/merged behind the books, which is a common AI artifact.",
+            "weight": 0.1
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire_image",
+            "reason": "Clock faces are high-frequency text regions prone to AI distortion; general quality check ensures overall coherence.",
+            "weight": 0.1
+        }
+    ],
+    "metadata": {
+        "original_image": "geneval2_sd3_m_800/86.png",
+        "prompt_id": "86",
+        "prompt_text": "a pig and six clocks",
+        "router_cost_seconds": 30.82,
+        "plan_valid": true,
+        "is_revision": true,
+        "revision_feedback_count": 1,
+        "judge_approved": true,
+        "judge_iterations": 2,
+        "iteration_log": [
+            "Iteration 1: Rejected",
+            "Iteration 2: Approved!"
+        ]
+    }
+}

@@ -1,0 +1,439 @@
+{
+    "image_id": "426",
+    "prompt": "seven flowers under five bicycles, and two trumpets",
+    "iteration": 1,
+    "timestamp": "2026-09-01 23:51:37",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical errors in Atom QA judgments and fails to detect a major object hallucination (missing bicycle). Specifically: 1) The Router incorrectly marked Atom 2 ('Are flowers under bicycles?') as False. Visually, the flowers are positioned in the upper half of the canvas while bicycles occupy the lower/middle half; thus, the flowers ARE 'under' the bicycles relative to the top-down perspective or simply below them in vertical layout. The reasoning 'flowers are above' contradicts the visual evidence where flowers are at the top and bikes at the bottom (unless 'under' implies occlusion, which is not present, but standard spatial preposition logic usually accepts vertical stacking). More importantly, 2) The Router failed to identify that there are only FOUR distinct bicycle structures visible (1 blue, 1 black left, 1 black center, 1 trumpet-hybrid right). The prompt asks for FIVE. The Router correctly counted 4 but failed to flag this as a critical failure in the final verdict summary effectively, or rather, the Atom 3 judgment says 'predicted: four... is_correct: false', which is correct, but the plan misses the nuance that the 'trumpet-bicycle' might be counted as a bicycle by some detectors, leading to ambiguity. However, the biggest error is in the Checkpoint/Expert alignment: The plan assumes a 'tandem bicycle' taxonomy check is relevant, but the prompt never specified tandem bikes. This is a hallucinated constraint by the Router. 3) Crucially, the Router missed that one of the 'bicycles' is actually just a floating wheel/frame assembly without a clear seat or handlebars (bottom right), or potentially double-counting parts. 4) The Expert Plan assigns `fine_grained_classifier` to check for 'daisy' taxonomy (white petals), but the prompt did NOT specify daisies, only 'flowers'. This is an unnecessary and potentially misleading constraint. 5) The `geometric_depth_auditor` is assigned to verify 'flowers under bicycles', but since they are disjoint objects on a white background, depth auditing is less relevant than simple 2D bounding box spatial relationship checking.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Atom 2 Judgment Error",
+                "recommendation": "Re-evaluate Atom 2. The flowers are visually located in the upper region and bicycles in the lower region. In standard 2D composition, 'under' can mean 'below in vertical space'. If the prompt implies occlusion, it's false. If it implies vertical positioning, it's true. The Router's reasoning 'flowers are positioned above... not underneath' is semantically ambiguous. Given the white background collage style, 'below' is the likely intent. The Router should clarify if 'under' means occluded-by or vertically-below. If vertically-below, the prediction should be True."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Hallucinated Taxonomy Constraint",
+                "recommendation": "Remove `fine_grained_classifier` checks for 'daisy' (white petals) and 'tandem bicycle'. The prompt only specifies 'flowers' and 'bicycles'. Imposing specific sub-class constraints (daisies/tandems) without prompt instruction leads to false negatives. Replace with generic `open_vocabulary_detector` confidence scores for 'flower' and 'bicycle'."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Object Count Ambiguity (Trumpet-Bike)",
+                "recommendation": "Add `topology_boundary_auditor` specifically to determine if the 'trumpet-bicycle' hybrid should be counted as a 'bicycle' AND a 'trumpet' simultaneously. The current plan counts it as 1 bike and 1 trumpet, resulting in 4 bikes and 1 trumpet. The prompt asks for 5 bikes and 2 trumpets. The image is missing 1 bike and 1 trumpet entirely. The plan should explicitly flag 'Missing Object: 1 Bicycle' and 'Missing Object: 1 Trumpet' rather than just analyzing the hybrid."
+            },
+            {
+                "type": "expert_adjustment",
+                "point": "Spatial Relationship Audit",
+                "recommendation": "Replace `geometric_depth_auditor` for Atom 2 with `open_vocabulary_detector` bounding box comparison. Since objects do not overlap, depth maps are unnecessary. Compare Y-coordinates of BBox centroids: Flower_Y > Bicycle_Y (assuming origin top-left) means Flowers are Below Bicycles? No, usually Y increases downwards. If Flowers are at top (low Y) and Bikes at bottom (high Y), Flowers are 'Above'. Prompt says 'Under'. So Atom 2 should likely be False if 'Under' means 'Below'. The Router said 'No' (False) because flowers are above. This is actually CORRECT if 'Under' = 'Below'. The rejection reason above regarding Atom 2 was too hasty. The Router IS correct that Flowers are Above (Top of image) and Bikes are Below (Bottom of image). Therefore 'Flowers Under Bikes' is FALSE. The Router's reasoning was correct. I will retract the Atom 2 criticism. The main issue remains the Hallucinated Taxonomy."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Unverified Floating Parts",
+                "recommendation": "The `artifact_observations` note a 'floating gear' and 'detached wheel'. The `topology_boundary_auditor` is only assigned to the hybrid. Assign `topology_boundary_auditor` to the entire scene to verify if all bicycle parts (wheels, frames) are connected to a main chassis, as several appear detached or malformed."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A collage-style image featuring seven colorful flowers (yellow, red, purple, pink) floating in the upper half against a white background. Below them are four distinct bicycle-like objects: one standard blue bicycle on the left, three black bicycles clustered at the bottom, and a surreal hybrid object on the right that fuses a golden trumpet body with bicycle wheels and handlebars.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many flowers are in the image?",
+                "expected": "seven",
+                "predicted": "seven",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Counted exactly seven distinct flower stems/heads in the upper portion of the image."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any flowers in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Flowers are clearly visible and prominent."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are the flowers under the bicycles?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The spatial relationship is inverted; the flowers are positioned above the bicycles, not underneath them."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many bicycles are in the image?",
+                "expected": "five",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "There is one blue bike, three black bikes, and one trumpet-bike hybrid. Even counting the hybrid as a bicycle, the total is four, not five."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any bicycles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple bicycle structures are clearly visible."
+            },
+            {
+                "atom_index": 5,
+                "question": "How many trumpets are in the image?",
+                "expected": "two",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "Only one trumpet structure is visible, and it is fused with a bicycle frame rather than being a standalone instrument."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any trumpets in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A golden trumpet body is clearly visible as part of the hybrid object on the right."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bicycle",
+                "checkpoint": "Elongated bicycle of notably extended length with two seats and two sets of pedals arranged in tandem.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "None of the bicycles in the image are tandem 'bicycles-built-for-two'. They are all standard single-rider frames (or the trumpet hybrid)."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Stretched bicycle profile with two distinct rider positions.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "All visible bicycles have single seats and standard wheelbases; no stretched profiles exist."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Extended top tube connecting front and rear triangles.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Standard diamond or step-through frames are present, not the extended top tubes characteristic of tandem bikes."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Two handlebars with front rider steering and rear rider having fixed or adjustable handlebars.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Each bicycle has only one set of handlebars."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Individual saddles positioned at different heights along frame.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Only one saddle per bicycle is visible."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Standard bicycle size wheels.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The wheels on the standard bicycles appear to be normal proportions. The hybrid object also has standard-sized wheels."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Frame significantly longer than standard bicycle.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Frames are standard length; the taxonomy requires a tandem configuration which is absent."
+            },
+            {
+                "object": "bicycle",
+                "checkpoint": "Tandem configuration with one rider behind another.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No tandem configuration exists in the image."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Composite flower with central yellow disc surrounded by single whorl of white ray petals.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While some flowers have yellow centers, the petals are yellow, red, purple, or pink—not exclusively white as specified for a classic daisy."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Flower head is modest in size with numerous elongated white petals radiating outward.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Petals are colored (yellow/red/purple/pink), contradicting the 'white petals' requirement."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Bright yellow center with bumpy, granular texture from individual disc florets.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Most flowers display a textured yellow/orange center consistent with composite flowers."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Petals narrow, slightly pointed, arranged in flat, circular pattern.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Petal shape and arrangement match the description despite color deviation."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Slender green stem supporting flower head.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "All flowers have visible green stems."
+            },
+            {
+                "object": "flower",
+                "checkpoint": "Small alternate leaves along stem.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Leaves are visible on most stems."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Compact conical tubing coiled into oval shape, noticeably shorter than a trumpet.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The tubing is elongated and integrated into a bicycle frame structure, not a compact cornet shape."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Bell flares broadly, facing forward.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The bell is visible and flared, though its orientation is somewhat sideways due to the hybrid design."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Three piston valves arranged vertically on top with finger buttons.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Three valve casings with buttons are visible on the top of the golden instrument body."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Cup-shaped detachable mouthpiece inserted into leadpipe.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The mouthpiece area appears fused or obscured by the bicycle handlebar integration; no distinct detachable cup is visible."
+            },
+            {
+                "object": "trumpet",
+                "checkpoint": "Lacquered brass (golden-yellow) or silver-plated (bright white-metal).",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The instrument body is clearly golden-yellow lacquered brass."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Right side: trumpet-bicycle hybrid object",
+                "severity": 4,
+                "reasoning": "Severe structural fusion where a trumpet body is inexplicably merged with bicycle wheels and handlebars. This is a categorical hallucination/fusion artifact."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Bottom center: black bicycle cluster",
+                "severity": 3,
+                "reasoning": "The middle black bicycle has distorted geometry—handlebars and frame tubes appear to melt into each other, and the front wheel alignment is physically implausible."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Bottom left: black bicycle",
+                "severity": 2,
+                "reasoning": "The chain and drivetrain appear incomplete or disconnected from the rear cog; pedal crank arm looks malformed."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Floating gear/cog near bottom center",
+                "severity": 2,
+                "reasoning": "A detached bicycle gear floats without attachment to any frame, with inconsistent shading suggesting it was generated as a separate element."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Blue bicycle (left)",
+                "severity": 2,
+                "reasoning": "The rear rack and fender geometry don't align properly with the wheel curvature; slight warping in the seat post angle."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flower",
+                "verification_goals": [
+                    "atom_0",
+                    "atom_1"
+                ],
+                "reason": "Verify exact count of flowers and confirm presence with bounding boxes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "atom_3",
+                    "atom_4"
+                ],
+                "reason": "Detect and count all bicycle instances, including the hybrid object, to verify count discrepancy.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "trumpet",
+                "verification_goals": [
+                    "atom_5",
+                    "atom_6"
+                ],
+                "reason": "Detect trumpet instances to verify count and confirm presence despite fusion artifact.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flower",
+                "verification_goals": [
+                    "flower_Flower_or_Top_0",
+                    "flower_Flower_or_Top_1"
+                ],
+                "reason": "Classify flower species to determine if they match 'daisy' taxonomy (white petals vs. colored variants observed).",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "bicycle_Geometry_and_Silhouette_0",
+                    "bicycle_Geometry_and_Silhouette_1",
+                    "bicycle_Material_and_Context_1"
+                ],
+                "reason": "Classify bicycle type to confirm absence of 'bicycle-built-for-two' tandem configuration.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "trumpet-bicycle hybrid",
+                "verification_goals": [
+                    "artifact_fusion_right_side"
+                ],
+                "reason": "Segment the hybrid object to verify the extent of fusion between trumpet and bicycle components.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "artifact_structural_collapse_bottom_center",
+                    "artifact_missing_parts_bottom_left",
+                    "artifact_texture_anomaly_floating_gear"
+                ],
+                "reason": "Holistic audit of all identified artifacts including structural collapse, missing parts, and floating elements.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bicycles",
+                "verification_goals": [
+                    "atom_2",
+                    "artifact_perspective_distortion_blue_bike"
+                ],
+                "reason": "Verify spatial relationship between flowers and bicycles (depth ordering) and assess perspective consistency of bicycle frames.",
+                "weight": 0.12
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Spatial relationship verification: flowers are ABOVE bicycles, contradicting prompt's 'under'",
+            "Count verification: 4 bicycles (not 5), 1 trumpet (not 2), 7 flowers (correct)",
+            "Taxonomy mismatch: no tandem bicycles present despite 'bicycle-built-for-two' class specification",
+            "Fusion artifact severity: trumpet-bicycle hybrid represents major structural hallucination",
+            "Color taxonomy deviation: flowers have colored petals, not white as specified for daisy class"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flower",
+                "reason": "Verify exact count of flowers and confirm presence with bounding boxes.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycle",
+                "reason": "Detect and count all bicycle instances, including the hybrid object, to verify count discrepancy.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "trumpet",
+                "reason": "Detect trumpet instances to verify count and confirm presence despite fusion artifact.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flower",
+                "reason": "Classify flower species to determine if they match 'daisy' taxonomy (white petals vs. colored variants observed).",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "reason": "Classify bicycle type to confirm absence of 'bicycle-built-for-two' tandem configuration.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "trumpet-bicycle hybrid",
+                "reason": "Segment the hybrid object to verify the extent of fusion between trumpet and bicycle components.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Holistic audit of all identified artifacts including structural collapse, missing parts, and floating elements.",
+                "weight": 0.12
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bicycles",
+                "reason": "Verify spatial relationship between flowers and bicycles (depth ordering) and assess perspective consistency of bicycle frames.",
+                "weight": 0.12
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/426.png",
+            "prompt_id": "426",
+            "prompt_text": "seven flowers under five bicycles, and two trumpets",
+            "router_cost_seconds": 61.14,
+            "plan_valid": true
+        }
+    }
+}

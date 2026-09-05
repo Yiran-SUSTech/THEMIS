@@ -1,0 +1,229 @@
+{
+    "image_id": "95",
+    "prompt": "four pink elephants",
+    "iteration": 2,
+    "timestamp": "2026-09-02 00:29:45",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections. The image clearly depicts FIVE elephants (two large in back, three small in front), but the prompt requested FOUR. The Router correctly identified this count in the `image_description` and `atom_verdicts` (predicting 5 vs expected 4), BUT it incorrectly marked Atom 0 as `is_correct: false`. In Text-to-Image evaluation, if the generated image does not match the prompt constraints (4 elephants), the generation is a failure. However, the Router's logic implies the *prediction* was wrong, rather than the *generation*. More importantly, the `expert_verification_plan` assigns `open_vocabulary_detector` to verify the discrepancy, which is correct, but the `animal_pose_auditor` is assigned to check checkpoints that were explicitly marked `is_testable: false` in the `checkpoint_verdicts`. This creates a contradiction: if biological anatomy is untestable due to cartoon style, the pose auditor (which relies on biological keypoints) should not be tasked with verifying those specific anatomical checkpoints. Additionally, the `perceptual_quality_auditor` is tasked with verifying 'color consistency', which is a simple visual attribute better handled by a classifier or direct pixel analysis, whereas the perceptual auditor is best for artifacts. The weights are also slightly off; counting is the primary failure mode here, so the detector should have higher weight.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Atom 0 Verdict Logic",
+                "recommendation": "Clarify that `is_correct: false` refers to the Image failing the Prompt constraint, not the Router's prediction being wrong. The prediction '5' is factually correct for the image, but the image fails the prompt '4'. Ensure the final score reflects prompt adherence."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Contradictory Pose Auditing",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "expert_swap",
+                "point": "Replace animal_pose_auditor with topology_boundary_auditor",
+                "reason": "Since the Router correctly identified that biological checkpoints (skull, skin texture, muscle definition) are `is_testable: false` due to the cartoon style, the `animal_pose_auditor` (which detects 17 biological keypoints) is ill-suited. A `topology_boundary_auditor` is better suited to verify if the stylized limbs are connected to the bodies without floating parts or merging artifacts, which aligns with the observed 'structural_collapse' artifact."
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Increase open_vocabulary_detector weight",
+                "reason": "The primary failure of the generation is the object count (5 instead of 4). The `open_vocabulary_detector` is the definitive tool for this. Its weight should be increased (e.g., to 0.5 or 0.6) to reflect its critical role in determining the pass/fail status of the prompt adherence."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A stylized, cartoon-style illustration featuring five pink elephants standing on a vibrant green grassy field with palm trees and a blue sky in the background. The elephants are arranged in two rows: three smaller ones in the front and two larger ones behind them. They have exaggerated features like large blue eyes, small white tusks, and smooth pink skin.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many elephants are in the image?",
+                "expected": "four",
+                "predicted": "five",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are clearly five distinct elephant figures visible: three in the foreground row and two in the background row."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the elephants pink?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All visible elephants are rendered in various shades of bright pink."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any elephants in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The image prominently features multiple elephant subjects."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "elephant",
+                "checkpoint": "Broad head with twin-domed skull.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The image is a stylized cartoon; biological skull structure is not applicable or testable against realistic taxonomy."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Relatively small ears compared to African elephant.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Cartoon proportions exaggerate features; realistic ear size comparison is not testable in this artistic style."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Trunk (proboscis) elongated and muscular with single finger-like projection at tip.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Stylized trunks lack biological muscle texture and specific anatomical projections required by the checkpoint."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Tusks present primarily in males, shorter than African species.",
+                "category": "Head_and_Face",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Cartoon tusks are generic decorative elements; biological sex differentiation and species-specific length cannot be verified."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Massive body with extraordinarily tall, immense proportions at the shoulder.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bodies are stylized and compact for aesthetic appeal, not matching realistic massive proportions."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Thick wrinkled gray-brown skin with sparse body hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The skin is smooth pink vector art; realistic texture and color checkpoints are invalid for this style."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Barrel-shaped body with arched back.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Body shape is rounded and soft for cartoon aesthetics, not biologically accurate barrel-shape."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Pillar-like legs with five toenails on forefeet.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Legs are stylized stumps; specific toenail counts are not rendered with biological precision."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Long tail with terminal tuft.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Tails are simplified lines without distinct biological tufts or length proportions."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Center foreground elephant's trunk connection",
+                "severity": 2,
+                "reasoning": "The trunk of the center-front elephant appears to merge slightly into the chest/neck area without a clear anatomical origin point, a common fusion artifact in AI generation."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Elephant skin surfaces",
+                "severity": 1,
+                "reasoning": "While expected for cartoons, the uniform plastic-like smoothness lacks even stylized texture variation, indicating potential rendering flatness."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Background elephants' legs",
+                "severity": 2,
+                "reasoning": "The legs of the rear elephants seem to float or attach at impossible angles relative to the ground plane and the front elephants, suggesting weak spatial grounding."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 0"
+                ],
+                "reason": "To definitively count the number of elephant instances and provide bounding boxes, verifying the discrepancy between expected (4) and observed (5).",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 1",
+                    "Artifact: structural_collapse",
+                    "Artifact: texture_anomaly",
+                    "Artifact: perspective_distortion"
+                ],
+                "reason": "To verify color consistency (pink) and audit rendering artifacts like fusion and floating limbs which are critical quality issues regardless of style.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Checkpoint: Pillar-like legs...",
+                    "Checkpoint: Trunk..."
+                ],
+                "reason": "To check if the stylized limbs maintain basic connectivity and valid pose topology despite the cartoon style, ensuring no catastrophic anatomical failures.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [
+            "Biological taxonomy checkpoints (skin texture, skull shape, ear size) due to non-photorealistic cartoon style."
+        ],
+        "focus_areas": [
+            "Count verification (Expected 4 vs Observed 5)",
+            "Color consistency verification",
+            "Structural integrity of trunk and limb connections",
+            "Spatial grounding of background elements"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "reason": "To definitively count the number of elephant instances and provide bounding boxes, verifying the discrepancy between expected (4) and observed (5).",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "elephant",
+                "reason": "To verify color consistency (pink) and audit rendering artifacts like fusion and floating limbs which are critical quality issues regardless of style.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "reason": "To check if the stylized limbs maintain basic connectivity and valid pose topology despite the cartoon style, ensuring no catastrophic anatomical failures.",
+                "weight": 0.3
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/95.png",
+            "prompt_id": "95",
+            "prompt_text": "four pink elephants",
+            "router_cost_seconds": 31.43,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

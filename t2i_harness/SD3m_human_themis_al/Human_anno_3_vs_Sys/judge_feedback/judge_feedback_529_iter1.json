@@ -1,0 +1,489 @@
+{
+    "image_id": "529",
+    "prompt": "seven blue mushrooms, and a lion to the left of three red birds",
+    "iteration": 1,
+    "timestamp": "2026-09-03 01:22:43",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' phases. The Router incorrectly flagged Atom 1 ('Are the mushrooms blue?') as False because one mushroom is red. However, the prompt explicitly requested 'seven blue mushrooms'. The presence of a red mushroom constitutes a generation failure (hallucination/wrong attribute), meaning the correct answer to 'Are the [generated] mushrooms blue?' in the context of verifying prompt adherence should be 'No' (the generation failed) or the atom should be interpreted as 'Did the model generate ONLY blue mushrooms?'. The Router's reasoning that 'the statement is not universally true' leads to an `is_correct: false` verdict for the *prediction*, but the prediction was 'No'. If the Expected Answer is 'Yes' (implying the user expects all to be blue), and the Model generated a red one, the Model Failed. The Router marked `is_correct: false` for the atom verdict, implying the Model's output was wrong to say 'No'? Or did it mean the Image doesn't match the prompt? \n\nLet's re-read carefully:\nAtom 1: Q: Are the mushrooms blue? | Expected: Yes.\nPredicted: No.\nis_correct: false.\nThis implies the Router thinks the Correct Answer is 'Yes', but the Image shows a red mushroom. This is a contradiction. If the image has a red mushroom, the answer to 'Are the mushrooms blue?' is technically 'Not all of them'. If the Prompt asked for 'seven blue mushrooms', and the image has 6 blue and 1 red, the image is a FAIL. \nThe Router's `atom_verdicts` says `predicted: No`, `expected: Yes`, `is_correct: false`. This means the Router believes the Image DOES satisfy the condition 'Mushrooms are blue' (Expected: Yes), despite admitting a red mushroom exists. This is logically inconsistent. The presence of a red mushroom makes the statement 'The mushrooms are blue' false (or at least partially false). Therefore, the Image fails the prompt. The Router should have marked `is_correct: true` for the Prediction 'No' (if the question is interpreted as 'Are ALL mushrooms blue?') OR marked the Image as failing the prompt constraint. \n\nMore importantly, the Expert Plan misses a crucial verification: **Spatial Grounding/Depth**. The prompt specifies 'a lion to the left of three red birds'. While `open_vocabulary_detector` checks presence, it does not rigorously verify the *spatial relationship* 'left of'. The `geometric_depth_auditor` is completely missing from the plan. Given the 'floating mushrooms' and potential 2D collage nature, verifying if the lion is actually spatially 'left' in a coherent scene vs just placed on the left side of the canvas is important, but more critically, the `topology_boundary_auditor` is missing. The artifacts note 'fusion' and 'structural collapse' (feathers on mushrooms). `topology_boundary_auditor` is best suited to verify if the mushroom stems are distinct from the bird feathers/fur they seem to be merging with. The current plan relies on `perceptual_quality_auditor` for this, which is less precise for boundary topology than SAM-based auditing.\n\nAdditionally, the `fine_grained_classifier` for mushrooms is likely to fail or provide low confidence because 'blue spotted mushroom' is not a standard ImageNet class, and the object is a hybrid hallucination. A `topology_boundary_auditor` would be more useful to segment the 'feather-stem' fusion.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial relationship 'left of' between Lion and Birds",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Topological separation of fused mushroom/bird artifacts (feathers on stems)",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "logical_correction",
+                "point": "Atom 1 Verdict Logic: The presence of a red mushroom when 'blue mushrooms' were requested is a prompt adherence failure. The verdict logic needs to reflect that the image FAILED to generate exclusively blue mushrooms.",
+                "recommended_expert": "N/A (Router Logic Update)"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A cartoon-style illustration featuring a large lion sitting on the left, three red birds (two cardinals and one round bird in bushes), and seven mushrooms scattered throughout. Most mushrooms are blue with white spots, but one mushroom near the bottom is red with white spots. The background is white with patches of green grass at the bottom.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many mushrooms are in the image?",
+                "expected": "seven",
+                "predicted": "seven",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Counting visible mushrooms: 3 top cluster, 1 middle right, 1 center large, 1 small floating left-center, 1 bottom right blue, 1 bottom center blue, 1 bottom left red. Total is exactly 7."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the mushrooms blue?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "While six mushrooms are blue, one mushroom in the bottom foreground is distinctly red with white spots. Therefore, the statement that 'the mushrooms are blue' is not universally true for all instances."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any mushrooms in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple mushroom objects are clearly visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many lions are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one lion character visible on the left side."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any lions in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A lion is clearly present."
+            },
+            {
+                "atom_index": 5,
+                "question": "Is the lion to the left of the birds?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The lion occupies the left portion of the canvas, while all three birds are positioned to its right or center-right."
+            },
+            {
+                "atom_index": 6,
+                "question": "How many birds are in the image?",
+                "expected": "three",
+                "predicted": "three",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are two cardinal-like birds in the upper area and one round red bird in the bottom right bush. Total count is 3."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the birds red?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All three visible birds have predominantly red plumage/bodies."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any birds in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Birds are clearly visible."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bird",
+                "checkpoint": "Comb is a fleshy, serrated crest on the crown, bright red and vascularized.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The birds depicted are stylized cardinals with pointed head crests (feathers), not the fleshy, serrated comb characteristic of a rooster/cock taxonomy."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Wattles are paired fleshy appendages hanging from the lower beak, bright red.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No wattles are visible; the beak connects directly to the face without hanging fleshy appendages."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Beak is short, curved, and keratinous with a yellow to grey coloration.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The birds have short, conical, yellow/orange beaks consistent with the description."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Eyes are dark and positioned laterally.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes are visible on the sides of the heads."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Body is compact and robust.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The birds have rounded, sturdy bodies typical of the depicted species."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Plumage is vivid and iridescent with metallic green, blue, purple, or copper tones on the neck, breast, and tail feathers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The plumage is solid matte red. There is no iridescence or metallic green/blue/purple tones as required by the 'cock' taxonomy."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Hackle feathers (neck plumage) are elongated, pointed, and glossy, forming a distinctive ruff.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Neck feathers are smooth and integrated into the body shape; no distinct hackle ruff is present."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Saddle feathers (lower back) are elongated and flowing.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Back feathers are short and contour the body; no long flowing saddle feathers are visible."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Legs are stout with thick, scaled skin and a prominent posterior spur on the tarsus.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are thin stick-like lines typical of cartoon birds; no spurs or thick scaled skin are rendered."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Feet are anisodactyl (three toes forward, one backward) with sharp, curved claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Feet are simplified black shapes; individual toe arrangement (anisodactyl) is not discernible."
+            },
+            {
+                "object": "bird",
+                "checkpoint": "Tail feathers are long, curved, and iridescent with a characteristic arching posture.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Tails are short and fan-like (cardinal style), not long and arching like a rooster's tail."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Head is broad with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lion has a broad, cartoonish head with a short snout."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Ears are small, rounded, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are visible, rounded, and standing up."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Eyes are medium-sized, round, and amber to brown with an intense expression.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eyes are large, bright blue, and stylized/cartoonish, not amber/brown with an intense expression."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Body is large, muscular, and well-proportioned with powerful legs and a long tail with a dark tuft at the end.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The lion has a visible tail with a dark tuft and a sturdy body structure."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Coat is short, dense, and uniform tawny with a lighter underside.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The body fur is orange/tawny with a lighter cream muzzle/chest area."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Males have a prominent shaggy mane ranging from blonde to dark brown surrounding the head and neck.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A large, dark brown, scalloped mane surrounds the head."
+            },
+            {
+                "object": "lion",
+                "checkpoint": "Tail has a dark tuft at the end.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tail tip is clearly darker than the rest of the tail."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cap (pileus) is distinctly fleshy and thick, convex becoming broadly convex to flat only when highly mature.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Caps appear thick and convex/dome-shaped."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Smooth or slightly scaly surface in white, brown, or tan coloration.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The caps are vividly colored blue and red with white spots, not the natural white/brown/tan described in the taxonomy."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Underside reveals gills (lamellae) radiating from stem.",
+                "category": "Flower_or_Top",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Most mushrooms are viewed from above or side; gills are not visible. One mushroom is tilted but shows a solid underside rather than distinct gills."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cylindrical stem (stipe) is smooth, firm, and white, notably stout relative to the cap width.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Stems are beige/tan/brownish, not white as specified in the taxonomy."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Gills range from white to dark brown underneath cap.",
+                "category": "Stem_and_Leaves",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "Gills are not visible due to viewing angle."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Overall umbrella-like form with fleshy, moist texture.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "General shape is correct, though texture is stylized/cartoonish rather than realistically moist."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Stem base attaches to growing substrate.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Bottom mushrooms attach to grass; others float but imply attachment contextually."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Single central stem supporting cap structure.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Each mushroom has one central stem."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Fleshy, moist texture throughout fruiting body.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Texture is matte and illustrative, lacking the specific 'moist/fleshy' biological appearance."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Center mushroom (large blue)",
+                "severity": 3,
+                "reasoning": "The large central blue mushroom has red feather-like or petal-like structures emerging from the base of the stem/cap junction. This is biologically nonsensical for a mushroom and appears to be a fusion artifact where bird features merged with the fungus."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Right-middle mushroom",
+                "severity": 2,
+                "reasoning": "The mushroom on the right has a red, fuzzy/furry base that resembles animal fur or bird down rather than a fungal stem. It looks like a hybrid object."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Floating mushrooms (top and mid-left)",
+                "severity": 2,
+                "reasoning": "Several mushrooms lack ground contact shadows or logical placement, appearing to float in white space without spatial grounding relative to the grass plane."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Lion's paws",
+                "severity": 1,
+                "reasoning": "The lion's front paws are rendered as segmented, sausage-like shapes that lack distinct claw definition or realistic paw pad structure, looking more like bread rolls than feline feet."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "Verify exact count of mushrooms and detect color attributes (blue vs red) to confirm Atom 1 failure.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bird",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "Confirm count of birds and verify red coloration across all instances.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4",
+                    "Atom 5"
+                ],
+                "reason": "Confirm single lion presence and spatial relationship (left of birds).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bird",
+                "verification_goals": [
+                    "bird checkpoints"
+                ],
+                "reason": "Determine if the birds classify as 'cock' (rooster) or 'cardinal'. The visual evidence suggests cardinal, which would explain the taxonomy mismatch.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "mushroom checkpoints"
+                ],
+                "reason": "Classify mushroom type to verify if the red/blue coloring and structural anomalies align with any known species or are pure hallucinations.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "verification_goals": [
+                    "lion checkpoints"
+                ],
+                "reason": "Verify limb integrity and mane structure despite cartoon stylization.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "artifact_observations"
+                ],
+                "reason": "Specifically audit the red feather-like artifacts on the central mushroom and furry bases on others to confirm structural collapse/fusion severity.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Mushroom gill visibility (occluded by angle)",
+            "Exact biological moisture texture of mushrooms (stylized art style makes this subjective)"
+        ],
+        "focus_areas": [
+            "Color consistency of mushrooms (Atom 1 failure due to red mushroom)",
+            "Taxonomy mismatch for birds (Cardinal vs Cock)",
+            "Structural anomalies on central mushroom (red feathers/fusion)",
+            "Spatial grounding of floating objects"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "mushroom",
+                "reason": "Verify exact count of mushrooms and detect color attributes (blue vs red) to confirm Atom 1 failure.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bird",
+                "reason": "Confirm count of birds and verify red coloration across all instances.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "lion",
+                "reason": "Confirm single lion presence and spatial relationship (left of birds).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bird",
+                "reason": "Determine if the birds classify as 'cock' (rooster) or 'cardinal'. The visual evidence suggests cardinal, which would explain the taxonomy mismatch.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "mushroom",
+                "reason": "Classify mushroom type to verify if the red/blue coloring and structural anomalies align with any known species or are pure hallucinations.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "lion",
+                "reason": "Verify limb integrity and mane structure despite cartoon stylization.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mushroom",
+                "reason": "Specifically audit the red feather-like artifacts on the central mushroom and furry bases on others to confirm structural collapse/fusion severity.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/529.png",
+            "prompt_id": "529",
+            "prompt_text": "seven blue mushrooms, and a lion to the left of three red birds",
+            "router_cost_seconds": 75.63,
+            "plan_valid": true
+        }
+    }
+}

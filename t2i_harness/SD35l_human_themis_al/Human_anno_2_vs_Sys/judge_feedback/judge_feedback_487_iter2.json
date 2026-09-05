@@ -1,0 +1,462 @@
+{
+    "image_id": "487",
+    "prompt": "a purple rabbit, and a mushroom to the left of six checkered kangaroos",
+    "iteration": 2,
+    "timestamp": "2026-09-04 02:36:12",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections regarding the definition of the subject 'rabbit'. The Router incorrectly penalizes the image for not containing a 'biological rabbit' (Atom 0, 1, 2), interpreting the prompt's request for 'a purple rabbit' as requiring a full-bodied lagomorph. However, in Text-to-Image generation, 'a purple rabbit' combined with other entities often results in stylized or hybrid representations if the model fails to separate them, OR the user might accept a rabbit head as a valid representation of the character 'rabbit' in a surreal context. More importantly, the Router's reasoning that 'There is no distinct rabbit body... A rabbit implies the full animal' is a rigid semantic constraint that may not align with visual QA standards where 'presence' can be satisfied by salient features (the head). \n\nCrucially, the Expert Verification Plan fails to address the most obvious failure mode: **Counting**. The prompt asks for 'six checkered kangaroos'. The image shows 4 kangaroo bodies (one hybrid, three normal). The Router correctly identifies the count mismatch in Atom 6 but assigns `open_vocabulary_detector` to verify the count. While correct, it misses the opportunity to use `topology_boundary_auditor` to ensure the 'hybrid' isn't actually two overlapping objects (a rabbit behind a kangaroo) which would change the count logic. \n\nHowever, the primary rejection reason is the **missing verification for the 'checkered' attribute**. Atom 7 asks if kangaroos are checkered. The Router assigns `perceptual_quality_auditor` to verify this. This is appropriate. \n\nThe real issue is **Atom 0-2 Logic**: The Router marks Atoms 0, 1, and 2 as `false` because it sees a hybrid. If the ground truth for the prompt 'a purple rabbit' expects a standalone rabbit, the image is indeed a failure. But the Router's plan to 'Confirm absence of a complete rabbit body' using `open_vocabulary_detector` is redundant if the `animal_pose_auditor` is already checking for limb keypoints. \n\nActually, looking closer at the **Expert Registry**, `animal_pose_auditor` is ONLY for limbed subjects. It is assigned to 'kangaroo'. It is NOT assigned to 'rabbit'. This is a gap. If the router claims there is NO rabbit, it should not assign an auditor to it. But if it wants to prove it's a hybrid, it needs to audit the 'rabbit' part too. \n\nLet's look at **Coverage Assessment**:\n- Atoms: 9 atoms. All addressed.\n- Checkpoints: 25 checkpoints. \n- Experts: \n    - `open_vocabulary_detector` for Kangaroo (Count/Presence).\n    - `open_vocabulary_detector` for Rabbit (Absence).\n    - `fine_grained_classifier` for Kangaroo (Species).\n    - `animal_pose_auditor` for Kangaroo (Anatomy).\n    - `topology_boundary_auditor` for Mushroom (Coherence).\n    - `perceptual_quality_auditor` for Kangaroo (Texture/Pattern).\n    - `geometric_depth_auditor` for Mushroom (Spatial).\n\nMissing: **Rabbit Anatomy/Structure**. The Router identifies a 'fusion' artifact (Rabbit head on Kangaroo body). It uses `perceptual_quality_auditor` to check texture. It uses `animal_pose_auditor` for the *Kangaroo* body. It does NOT have an expert auditing the *Rabbit* head's structural integrity or its connection to the body beyond 'perceptual quality'. The `animal_pose_auditor` note says 'ONLY for limbed subjects'. The rabbit head has no limbs. So this is technically correct per the registry. \n\nHowever, there is a **critical missing verification**: The prompt asks for **'six'** kangaroos. The image has **four**. The Router correctly flags this. But the `open_vocabulary_detector` is tasked with 'distinguish between standard kangaroos and the hybrid'. This is good. \n\nThe rejection stems from **Atom 1 & 2 Reasoning Flaw**: The Router states 'Is the rabbit purple? -> No' because 'there is no complete rabbit'. This is logically unsound for Visual QA. If a purple rabbit head is present, the attribute 'purple' applies to the visible rabbit parts. The answer should likely be 'Yes' (for the visible part) or 'Partial', not 'No'. Marking it 'No' implies the purple object is not a rabbit at all, which contradicts the identification of it as a 'rabbit head'. This inconsistency suggests the Router's QA module is flawed, leading to incorrect `is_correct` judgments that the experts won't fix (since they just verify presence/count). \n\nFurthermore, **Atom 7 (Checkered)**: The Router predicts 'No'. The image shows natural fur. This is correct. \n\n**Major Gap**: The `topology_boundary_auditor` is only applied to the **Mushroom**. It should also be applied to the **Hybrid Entity** to verify if the 'Rabbit Head' and 'Kangaroo Body' are topologically connected (fused) or if they are separate objects merely overlapping. This distinction is crucial for determining if the count of 'animals' is 4 (fused) or 5+ (overlapping). The current plan relies on `perceptual_quality_auditor` for 'fusion', which is less rigorous than topological segmentation. \n\nTherefore, the plan is incomplete regarding the structural analysis of the primary hallucination (the hybrid).",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Structural connectivity of the Rabbit-Kangaroo hybrid",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Atom 1 and 2 verdicts rely on a rigid 'full body' definition of 'rabbit' which may conflict with visual evidence of a purple rabbit head. The experts should verify if the 'rabbit' class is detected in the head region specifically.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a surreal composite scene on a grassy patch against a white background. On the far left is a large red mushroom with white spots (Amanita muscaria style). Next to it stands a hybrid creature: a kangaroo body with a purple rabbit head featuring long ears. To the right of this hybrid are three standard-looking kangaroos standing in a row.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many rabbits are in the image?",
+                "expected": "one",
+                "predicted": "zero",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is no distinct rabbit body; only a rabbit head attached to a kangaroo body. A 'rabbit' implies the full animal."
+            },
+            {
+                "atom_index": 1,
+                "question": "Is the rabbit purple?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Since there is no complete rabbit, the attribute cannot be fully applied. The head is purple, but the entity is not a rabbit."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any rabbits in the image?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The visible entity is a chimera/hybrid, not a biological rabbit."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many mushrooms are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One distinct red-capped mushroom is clearly visible on the left."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any mushrooms in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The mushroom is prominent and clearly rendered."
+            },
+            {
+                "atom_index": 5,
+                "question": "Is the mushroom to the left of the kangaroos?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Spatially, the mushroom is at the far left edge, and all kangaroo-like figures are to its right."
+            },
+            {
+                "atom_index": 6,
+                "question": "How many kangaroos are in the image?",
+                "expected": "six",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are three standard kangaroos and one hybrid kangaroo-rabbit. Total count is 4, not 6."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the kangaroos checkered?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The kangaroos have natural fur texture (brown/grey), not a checkered pattern."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any kangaroos in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three clear kangaroos and one hybrid are present."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "kangaroo",
+                "checkpoint": "Ears are relatively short and rounded compared to kangaroos.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The three standard kangaroos have pointed, upright ears typical of macropods, not short/rounded wallaby ears. The hybrid has rabbit ears."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Distinctive facial markings include pale cheek stripes and dark eye bands.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Faces appear uniformly colored without distinct pale cheek stripes or dark eye bands."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Head is small relative to body size.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Standard kangaroos exhibit proportionally small heads. (Note: Hybrid has oversized head, but standard ones match)."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Fur coloration displays grey, brown, red, or black tones depending on species.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Natural brown/grey fur tones are observed on the standard kangaroos."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body exhibits characteristic kangaroo plan with disproportionately large muscular hind limbs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Large hind legs and saltatorial posture are clearly visible."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body is compact to medium-sized with a tail notably shorter than the torso length.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Kangaroo tails are typically as long as or longer than the torso. These tails appear substantial, contradicting the 'shorter than torso' wallaby-specific checkpoint."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Large muscular hind limbs adapted for saltatorial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Hind limbs are massive and structurally correct for hopping."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Small forelimbs with five digits.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Forelimbs are small and held close to chest; digit structure appears plausible."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Thick muscular tail used for balance during bipedal hopping.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Tails are thick at the base and taper, consistent with balance function."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cap (pileus) is distinctly fleshy and thick, convex becoming broadly convex to flat only when highly mature.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Cap is convex, thick, and fleshy-looking."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Smooth or slightly scaly surface in white, brown, or tan coloration.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The cap is bright red with white warts, not white/brown/tan as specified in the taxonomy ground truth."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Underside reveals gills (lamellae) radiating from stem.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "White gills are clearly visible underneath the red cap."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cylindrical stem (stipe) is smooth, firm, and white, notably stout relative to the cap width.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Stem is white, cylindrical, and sturdy."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Gills range from white to dark brown underneath cap.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Gills are white."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Overall umbrella-like form with fleshy, moist texture.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Classic Amanita shape is preserved."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Stem base attaches to growing substrate.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Base is embedded in the grass/moss."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Single central stem supporting cap structure.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "One central stipe supports the cap."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Fleshy, moist texture throughout fruiting body.",
+                "category": "Root_and_Base",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Texture rendering suggests organic moisture."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Exceptionally long ears with black tips, markedly longer than rabbit ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The entity has rabbit ears, but they are solid purple/pink with NO black tips. Also, the prompt asked for a rabbit, but the taxonomy describes a hare; regardless, the black tip feature is missing."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Elongated body with powerful hind limbs, notably larger than rabbit.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The body belongs to a kangaroo, not a rabbit/hare. It is elongated but anatomically incorrect for a lagomorph."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Dense fur in brown, gray, or seasonal white coloration.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head is purple; the body is brown kangaroo fur. Neither matches the natural rabbit/hare coloration described."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Short tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The entity has a long kangaroo tail, not a short rabbit scut."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Larger than rabbit with longer ears and legs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "This checkpoint describes a hare vs rabbit distinction. The image shows a chimera, so this biological comparison is invalid/false."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Massively elongated hind legs with muscular thighs enabling rapid leaping.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the legs are elongated, they are kangaroo legs (digitigrade/macropod structure), not rabbit/hare legs."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Shorter forelegs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The forelegs are small relative to hind legs (true for both rabbits and kangaroos), so this specific trait coincidentally matches, though the limb type is wrong."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Neck of the leftmost kangaroo/rabbit hybrid",
+                "severity": 5,
+                "reasoning": "Catastrophic anatomical failure: a purple rabbit head is seamlessly fused onto a brown kangaroo body. This is a semantic/structural hallucination where two distinct species are merged into one impossible organism."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Purple rabbit head",
+                "severity": 3,
+                "reasoning": "The fur texture on the purple head appears overly smooth and plastic-like compared to the detailed fur on the kangaroo bodies, suggesting inconsistent generation quality or material definition."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Feet of the rightmost kangaroos",
+                "severity": 2,
+                "reasoning": "The feet of the third and fourth kangaroos blend slightly into the grass texture, lacking distinct toe separation and clear grounding shadows."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 8"
+                ],
+                "reason": "Verify the exact count of kangaroo-like entities and distinguish between standard kangaroos and the hybrid.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "Confirm absence of a complete rabbit body to validate the 'zero rabbits' prediction.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Checkpoint: Head_and_Face",
+                    "Checkpoint: Body_and_Plumage"
+                ],
+                "reason": "Classify the species to verify if they are true kangaroos or wallabies based on visual features.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Checkpoint: Limbs_and_Anatomy"
+                ],
+                "reason": "Audit limb keypoints to confirm standard kangaroo anatomy vs. the hybrid's impossible structure.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "Checkpoint: Flower_or_Top",
+                    "Checkpoint: Stem_and_Leaves"
+                ],
+                "reason": "Verify the mushroom is a single coherent object and check boundary sharpness against the white background.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Atom 7",
+                    "Artifact: fusion",
+                    "Artifact: texture_anomaly"
+                ],
+                "reason": "Verify the absence of checkered patterns on kangaroo fur and quantify the severity of the species fusion and texture inconsistency.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "Atom 5"
+                ],
+                "reason": "Validate the spatial relationship 'mushroom to the left of kangaroos' using depth maps to ensure correct foreground-background ordering.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Anatomical validity of the rabbit-headed kangaroo hybrid",
+            "Accurate counting of kangaroo instances (distinguishing hybrid from pure)",
+            "Verification of checkered pattern absence on kangaroo fur",
+            "Mushroom species identification (red cap vs taxonomy description)",
+            "Spatial validation of mushroom position relative to kangaroos"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "reason": "Verify the exact count of kangaroo-like entities and distinguish between standard kangaroos and the hybrid.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "reason": "Confirm absence of a complete rabbit body to validate the 'zero rabbits' prediction.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "reason": "Classify the species to verify if they are true kangaroos or wallabies based on visual features.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "reason": "Audit limb keypoints to confirm standard kangaroo anatomy vs. the hybrid's impossible structure.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "mushroom",
+                "reason": "Verify the mushroom is a single coherent object and check boundary sharpness against the white background.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "kangaroo",
+                "reason": "Verify the absence of checkered patterns on kangaroo fur and quantify the severity of the species fusion and texture inconsistency.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "mushroom",
+                "reason": "Validate the spatial relationship 'mushroom to the left of kangaroos' using depth maps to ensure correct foreground-background ordering.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/487.png",
+            "prompt_id": "487",
+            "prompt_text": "a purple rabbit, and a mushroom to the left of six checkered kangaroos",
+            "router_cost_seconds": 71.04,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

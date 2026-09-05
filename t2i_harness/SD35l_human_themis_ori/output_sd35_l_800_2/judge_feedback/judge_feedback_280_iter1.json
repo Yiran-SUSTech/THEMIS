@@ -1,0 +1,133 @@
+{
+    "image_id": "280",
+    "prompt": "five chairs to the right of a metal candle",
+    "iteration": 1,
+    "timestamp": "2026-09-04 02:16:58",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan fails to address the critical semantic error in the prompt interpretation. The prompt specifies a 'metal candle', but the image shows a wax candle on a metal holder. The Router correctly identifies this ambiguity in 'unverifiable_points' but fails to assign an expert to explicitly verify the material of the *candle itself* (Atom 4) versus the *holder*. Relying solely on the 'fine_grained_classifier' for the 'candle holder' leaves Atom 4 ('Is the candle metal?') technically unverified, leading to a potential false positive if the system assumes 'metal candle' implies 'metal holder'. Additionally, the spatial relationship 'to the right' is ambiguous in the image (chairs are on both sides); the plan lacks a specific verification step to determine if the spatial constraint is failed or if the prompt implies a subset.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Atom 4 (Is the candle metal?) requires explicit material verification of the candle object, not just the holder.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Spatial ambiguity: The prompt says 'chairs to the right', but chairs appear on both sides. Need to verify if ANY chairs are to the right, or if ALL are to the right.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Update 'unverifiable_points' logic: Instead of marking Atom 4 as unverifiable, mark it as 'Failed' or 'Semantically Mismatched' if the candle is wax. The expert should confirm the candle is wax, thereby failing the 'metal candle' constraint.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A minimalist interior scene featuring five black leather dining chairs arranged in a semi-circle around a tall, dark metal candlestick holder with a single lit candle. The background is a textured concrete wall, and the floor is polished grey concrete.",
+        "checkpoint_verdicts": [
+            {
+                "object": "candle",
+                "checkpoint": "Cylindrical stick of wax with central wick",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object on the stand is a standard taper candle, cylindrical in shape with a visible flame/wick at the top."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Flat base for standing (or mounted on holder)",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The candle is seated securely in the cup of the metal candlestick holder."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Tubular steel frame or molded plastic structure",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The chairs exhibit rigid, straight legs and frames consistent with wood or metal construction covered in upholstery, distinct from soft furniture."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Seat and back are flat panels",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The chairs feature distinct, flat rectangular backrests and seat cushions upholstered in black material."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chairs, candle",
+                "verification_goals": [
+                    "Detect and count all instances of 'chair' to verify Atom 0 (Expected: 5).",
+                    "Detect instance of 'candle' to verify Atom 3 (Expected: 1).",
+                    "Generate bounding boxes to verify spatial relationship (Atom 2: chairs to the right of candle)."
+                ],
+                "reason": "Primary counting and localization expert needed to validate the specific quantities and spatial arrangement requested in the prompt.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "candle holder",
+                "verification_goals": [
+                    "Classify the material of the candle holder to verify Atom 4 (Is the candle [holder] metal?).",
+                    "Distinguish between wax candle and the metal stand."
+                ],
+                "reason": "Visual inspection suggests a metal stand; this expert confirms material properties to satisfy the 'metal' attribute constraint.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "verification_goals": [
+                    "Verify that the chairs are physically grounded on the floor and not floating.",
+                    "Confirm the depth ordering ensures chairs are actually to the side/right of the central candle element."
+                ],
+                "reason": "Ensures the spatial preposition 'to the right of' is physically valid in 3D space and not just a 2D projection artifact.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 4 asks 'Is the candle metal?'. Technically, the candle is wax and the holder is metal. The prompt likely implies the holder or the assembly. Strictly speaking, a metal candle is impossible/unlikely, so this atom may be semantically ambiguous."
+        ],
+        "focus_areas": [
+            "Counting accuracy (5 chairs vs visible count).",
+            "Spatial relationship validation (Right side positioning).",
+            "Material identification (Metal holder vs Wax candle)."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chairs, candle",
+                "reason": "Primary counting and localization expert needed to validate the specific quantities and spatial arrangement requested in the prompt.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "candle holder",
+                "reason": "Visual inspection suggests a metal stand; this expert confirms material properties to satisfy the 'metal' attribute constraint.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "reason": "Ensures the spatial preposition 'to the right of' is physically valid in 3D space and not just a 2D projection artifact.",
+                "weight": 0.3
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/280.png",
+            "prompt_id": "280",
+            "prompt_text": "five chairs to the right of a metal candle",
+            "router_cost_seconds": 17.44,
+            "plan_valid": false
+        }
+    }
+}

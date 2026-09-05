@@ -1,0 +1,368 @@
+{
+    "image_id": "552",
+    "prompt": "four white horses and four penguins and four striped cookies",
+    "iteration": 2,
+    "timestamp": "2026-09-03 01:25:23",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections. The Router's image description correctly identifies 7 horse-shaped cookies and 1 penguin-shaped cookie. However, the verification plan assigns `open_vocabulary_detector` to verify counts with reasoning that implies correcting a 'miscount of 6 to 7', while the Atom verdicts already established the count as 7. More importantly, the plan fails to address the semantic mismatch between the prompt ('four white horses... four penguins... four striped cookies') and the image (cookies shaped like horses/penguins). The prompt implies three distinct categories of objects, but the image merges them into two categories of shaped cookies. The current plan treats the 'horse cookies' as valid instances of 'horses' for counting purposes without explicitly auditing the semantic validity of this substitution via the `fine_grained_classifier` or `image_text_auditor` (if text were present, though it isn't). Crucially, the `topology_boundary_auditor` is assigned to 'horse cookie' to check limbs, but the `animal_pose_auditor`—which is specifically designed for biological structural correctness of limbed subjects—is completely missing from the expert list, despite the presence of horse and penguin shapes. While they are cookies, the prompt asks for 'horses' and 'penguins', and the visual representation attempts to mimic their anatomy. The `animal_pose_auditor` is better suited than `topology_boundary_auditor` for verifying if the *depicted* anatomy (even on cookies) is structurally coherent relative to the animal class requested. Additionally, the `fine_grained_classifier` is tasked with verifying 'striped' attributes, but 'striped' is a pattern, not a fine-grained class; a texture analysis or the `perceptual_quality_auditor` is more appropriate, making the classifier's role slightly misaligned.",
+        "suggestions": [
+            {
+                "type": "missing_expert",
+                "point": "Biological/Structural coherence of animal shapes",
+                "recommended_expert": "animal_pose_auditor",
+                "reason": "The prompt requests 'horses' and 'penguins'. Even though they are rendered as cookies, the visual forms attempt to represent these animals. The `animal_pose_auditor` is the specific expert for auditing limb completeness and biological structure (keypoints) for limbed subjects. The current plan uses `topology_boundary_auditor` which checks connectivity but not anatomical plausibility (e.g., number of legs, position of head). Replacing or supplementing with `animal_pose_auditor` would provide a more rigorous audit of whether the 'horse' and 'penguin' shapes are structurally valid representations."
+            },
+            {
+                "type": "logic_correction",
+                "point": "Semantic Ambiguity of 'Striped Cookies'",
+                "recommended_action": "Clarify verification goal for Atom 6",
+                "reason": "The prompt asks for 'four striped cookies' in addition to horses and penguins. The image shows NO separate striped cookies; it only shows horse and penguin shaped cookies. The current plan audits if the *existing* cookies are striped. It should explicitly verify the ABSENCE of the third category (generic striped cookies) using `open_vocabulary_detector` with a negative constraint or explicit search for 'cookie' that is NOT a horse/penguin shape."
+            },
+            {
+                "type": "weight_adjustment",
+                "point": "Count Verification Weight",
+                "recommended_action": "Increase weight of open_vocabulary_detector",
+                "reason": "The primary failure of the generation is the incorrect count and missing object category (the 4 generic striped cookies). The `open_vocabulary_detector` is the most critical tool here. Its combined weight (0.5) is adequate, but the reasoning in the plan is confused regarding the horse count (6 vs 7). The plan should be updated to reflect that the detector is verifying the TOTAL count of all cookie types to ensure the sum matches the prompt's implication (12 items) or at least identifies the missing category."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A top-down view of a white plate containing decorated sugar cookies on a light blue icing background with snowflake decorations. The cookies are shaped like horses and penguins, decorated with white, black, orange, and blue icing. There are seven horse-shaped cookies and one penguin-shaped cookie visible.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many horses are in the image?",
+                "expected": "four",
+                "predicted": "seven",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Visual count reveals seven distinct horse-shaped cookies (Top-Left, Top-Right, Middle-Left Lying Down, Middle-Right Standing, Center Sitting, Bottom-Left Standing, Bottom-Right Standing), contradicting the expected count of four."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the horses white?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The primary body color of all horse cookies is white icing, matching the prompt description despite the taxonomy mismatch for real horses."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any horses in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple horse-shaped cookies are clearly visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many penguins are in the image?",
+                "expected": "four",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only a single penguin-shaped cookie is visible near the bottom center, whereas the prompt requested four."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any penguins in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One penguin cookie is present."
+            },
+            {
+                "atom_index": 5,
+                "question": "How many cookies are in the image?",
+                "expected": "four",
+                "predicted": "eight",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Total count is 7 horses + 1 penguin = 8 cookies. The prompt implied 4+4+4=12, or at least 4 total. The actual count is 8."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are the cookies striped?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The cookies feature solid blocks of color (white bodies, black tails/manes, orange feet) and snowflake patterns, but lack distinct 'striped' patterning as typically defined."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are there any cookies in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The image clearly depicts decorated cookies."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "horse",
+                "checkpoint": "Elongated head with large expressive eyes and mobile ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "As these are stylized cookies, the heads are simplified blobs of icing. They lack biological elongation, realistic eye structure, or mobile ears. The features are symbolic rather than anatomical."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Arched muscular neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The necks are represented by smooth curves of white icing without visible musculature or biological arching structure."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Athletic build with tall, lean proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The cookies have a uniform thickness and cartoonish proportions, not the athletic, lean build of a real sorrel horse."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Uniform brownish-orange to light chestnut coat coloration with no black points.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The prompt specified 'white horses', and the image shows white icing. This directly contradicts the taxonomy prior for 'sorrel' (brownish-orange). Furthermore, the cookies have black points (tails/manes), which sorrels do not have."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Mane and tail same color as body or lighter (flaxen).",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Most horses have black or orange manes/tails, contrasting with the white body. Sorrel taxonomy requires flaxen/same-color mane/tail."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Deep-chested body with strong back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Cookie geometry is flat and stylized; deep chest and strong back anatomy are not represented."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long tail with flowing hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Tails are depicted as solid, static shapes of icing, lacking the texture and flow of real hair."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long slender legs with single hoof per foot.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are thick, stubby cookie structures. Hooves are often colored orange or merged into the leg shape, lacking biological slenderness or distinct hoof anatomy."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Head is glossy black with vibrant orange-yellow auricular patches extending from ear region down neck sides.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The penguin cookie has a simple black head with white face markings. It lacks the specific vibrant orange-yellow auricular patches characteristic of a King Penguin."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Bill is long, slender, and black with bright orange-pink lower mandible and base.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bill is a small, simplified orange triangle/blob, lacking the length, slenderness, and bi-color mandible of a real King Penguin."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Eyes are dark on black head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The eye appears to be a white dot or indentation on the black icing, or simply absent/indistinct, rather than a dark eye on a black head."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Plumage is black and white: head, back, and flippers are glossy black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cookie uses black icing for the back/head area and white for the belly, roughly matching the high-contrast plumage pattern, albeit stylized."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Breast and belly are white transitioning to pale yellow on upper breast.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The belly is solid white icing with no gradient or transition to pale yellow."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Body exhibits upright torpedo-shaped profile of very large penguin proportions.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The cookie is a flat, stylized cutout shape, not a volumetric torpedo-shaped biological form."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Flippers are stiff and paddle-shaped, black on both surfaces.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Flippers are represented by small black icing blobs on the side, lacking the specific stiff, paddle-shaped anatomy."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Feet are black and webbed.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The feet are colored bright orange, contradicting the 'black and webbed' requirement for King Penguins."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Neck is elongated with orange coloration.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The neck area is white/black icing with no distinct orange coloration or elongation."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Middle-left horse cookie",
+                "severity": 3,
+                "reasoning": "The horse lying on its side has a distorted anatomy where the legs and body merge unnaturally. The rear leg structure seems to dissolve into the body icing, lacking distinct limb separation."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Blue background icing",
+                "severity": 2,
+                "reasoning": "The blue icing background has an uneven, slightly granular texture that looks inconsistent with smooth royal icing, suggesting generation noise or texture synthesis artifacts."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Bottom-right horse cookie tail",
+                "severity": 2,
+                "reasoning": "The black tail icing bleeds slightly into the white body icing without a crisp boundary, and the shape merges ambiguously with the rear leg."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse cookie",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To rigorously verify the count of horse-shaped objects (correcting previous miscount of 6 to 7) and confirm their presence as distinct entities separate from the background.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "penguin cookie",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4"
+                ],
+                "reason": "To confirm the exact count of penguin shapes, as visual inspection suggests only one exists despite the prompt asking for four.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cookie",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 7"
+                ],
+                "reason": "To classify the object type definitively as 'cookie' and analyze surface patterns to verify if 'striped' attributes exist or if they are solid/snowflake patterns.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "plate scene",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Artifact: fusion",
+                    "Atom 6"
+                ],
+                "reason": "To validate the severity of the melting/fusion artifacts observed in the middle-left horse and bottom-right tail, AND to perform a detailed visual audit of the cookie patterns to definitively rule out 'striped' textures.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "horse cookie",
+                "verification_goals": [
+                    "Checkpoint: Limbs_and_Anatomy"
+                ],
+                "reason": "To segment individual horse cookies and verify if limbs are topologically connected to the body or if they exhibit floating/disconnected artifacts common in AI generations.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Taxonomy checkpoints regarding internal biology (e.g., 'four-chambered heart', 'endothermy') are unverifiable via visual inspection of cookies.",
+            "Exact flavor or material composition of the cookies cannot be verified visually."
+        ],
+        "focus_areas": [
+            "Count verification for horses (re-evaluating for 7 vs 6) and penguins (major discrepancy with prompt).",
+            "Anatomical validity of the 'lying down' horse cookie (potential structural collapse).",
+            "Color attribute verification (White vs Sorrel taxonomy, Orange feet vs Black feet taxonomy).",
+            "Pattern verification for 'striped' attribute on cookies."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse cookie",
+                "reason": "To rigorously verify the count of horse-shaped objects (correcting previous miscount of 6 to 7) and confirm their presence as distinct entities separate from the background.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "penguin cookie",
+                "reason": "To confirm the exact count of penguin shapes, as visual inspection suggests only one exists despite the prompt asking for four.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cookie",
+                "reason": "To classify the object type definitively as 'cookie' and analyze surface patterns to verify if 'striped' attributes exist or if they are solid/snowflake patterns.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "plate scene",
+                "reason": "To validate the severity of the melting/fusion artifacts observed in the middle-left horse and bottom-right tail, AND to perform a detailed visual audit of the cookie patterns to definitively rule out 'striped' textures.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "horse cookie",
+                "reason": "To segment individual horse cookies and verify if limbs are topologically connected to the body or if they exhibit floating/disconnected artifacts common in AI generations.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/552.png",
+            "prompt_id": "552",
+            "prompt_text": "four white horses and four penguins and four striped cookies",
+            "router_cost_seconds": 58.88,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

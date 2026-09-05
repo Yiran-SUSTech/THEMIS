@@ -1,0 +1,479 @@
+{
+    "image_id": "795",
+    "prompt": "three striped cats chasing four horses in front of four wooden violins",
+    "iteration": 2,
+    "timestamp": "2026-09-04 03:05:39",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains severe hallucinations regarding the image content. The Router's 'image_description' and subsequent 'atom_verdicts' claim there is only one cat and three horses, whereas the image clearly depicts one central cat flanked by three horses (total 4 animals) but fails to show the requested 'three cats'. More critically, the Router claims the horses are holding violins with 'anthropomorphic hands', while the image shows the violins are held in the horses' mouths or suspended near their necks without distinct hands. The count of horses is also misidentified (Router says 3, Image has 3 visible horses + potentially obscured 4th, but definitely not just 3 if we look closely at the composition, actually looking at the image provided: There is 1 Cat and 3 Horses. Wait. Let me re-examine the image carefully.\n\nImage Analysis:\n- Center: One large orange/white cat.\n- Left: One brown horse.\n- Right of Cat: One black horse.\n- Far Right: One grey/black horse.\n- Total Horses: 3.\n- Total Cats: 1.\n- Prompt Request: 3 Cats, 4 Horses.\n\nThe Router's description says: \"single orange and white bicolor cat... Flanking the cat are three horses\". This matches the visual evidence (1 Cat, 3 Horses).\nHowever, the Router's verdict for Atom 0 (How many cats?) says \"predicted: one\", which is correct based on the image. The verdict for Atom 4 (How many horses?) says \"predicted: three\", which is correct based on the image.\n\nSo why reject? \n1. **Missing Expert for Structural Anatomy**: The prompt asks for \"striped cats\". The image shows a bicolor cat. The `fine_grained_classifier` is assigned, which is good. But the prompt asks for \"chasing\". The image shows them running side-by-side playing violins. The `perceptual_quality_auditor` is assigned to check spatial relationships, but `animal_pose_auditor` is missing entirely. The prompt involves complex limb interactions (cats chasing, horses running). The current plan relies on `topology_boundary_auditor` for limbs, but `animal_pose_auditor` is specifically designed for \"Auditing if AI-generated subjects have complete limbs and valid biological structures.\" The horses have very strange front legs (the leftmost horse has a paw-like hand holding the violin?). Actually, looking at the leftmost horse, it has a weird paw/hand hybrid. The cat has arms/paws holding the violin. This is a key anatomical distortion. The `animal_pose_auditor` should be used to verify the skeletal structure of these hybrid/anomalous limbs.\n\n2. **Missing Expert for Text/Details**: The prompt doesn't explicitly ask for text, but violins often have labels. Not critical.\n\n3. **Critical Missing Verification**: The prompt asks for \"four wooden violins\". The image shows 3 clear violins. Is there a 4th? The far right horse has a violin. The middle black horse has a violin. The cat has a violin. The left brown horse has a violin. That's 4 violins. The Router says \"predicted: four\" for Atom 7. This is correct.\n\n4. **Major Logic Error in Plan**: The Router states: \"The horses are actively holding the violins with anthropomorphic hands...\". Looking at the image: \n   - The Cat is holding its violin with paws/hands.\n   - The Left Horse: Has a weird paw/hand coming from its chest/shoulder area holding the violin bow? No, the bow is floating. The violin is in its mouth? No, the violin is under its chin like a human player, but held by... nothing? Or maybe the weird paw belongs to the cat? No, the cat is central. The left horse has a distorted front leg that looks like a hand gripping the violin body. \n   - The Middle Black Horse: Violin under chin. No hands visible.\n   - The Right Grey Horse: Violin under chin. No hands visible.\n   \n   The Router's description is partially hallucinated (claiming ALL horses have hands). Only the left horse has a weird hand-like appendage. The others do not. This misinterpretation affects the `topology_boundary_auditor` target.\n\n5. **Missing `animal_pose_auditor`**: This is the most significant omission. The image features highly anomalous anatomy (cat with arms, horse with hand). The `animal_pose_auditor` is best for auditing biological structural correctness. The current plan uses `topology_boundary_auditor` for this, which is less specialized for *pose* and *keypoint* validity. The `animal_pose_auditor` should be added to verify the keypoints of the cat and horses, especially given the \"chasing\" action and the hybrid limbs.\n\n6. **Unverifiable Points**: Atom 3 (Chasing) is marked unverifiable. However, `animal_pose_auditor` could analyze the relative positions and limb orientations to determine if the pose suggests \"chasing\" (predator/prey dynamic) or \"performing\" (side-by-side). It's not entirely unverifiable.\n\n7. **Coverage Assessment**:\n   - Atoms: 10 atoms. All addressed in verdicts.\n   - Checkpoints: 25 checkpoints. \n     - Cat Head/Face: Covered by `fine_grained_classifier` (indirectly) and `open_vocabulary_detector` (presence). \n     - Cat Body/Coat: Covered by `fine_grained_classifier`.\n     - Cat Limbs: Covered by `topology_boundary_auditor` (via artifact observation). Should be `animal_pose_auditor`.\n     - Horse Head/Face: Covered by `open_vocabulary_detector` (count) and `topology_boundary_auditor` (limbs). \n     - Horse Body: Covered by `topology_boundary_auditor`.\n     - Violin Geometry: Covered by `topology_boundary_auditor` and `perceptual_quality_auditor`.\n   \n   The main gap is the lack of `animal_pose_auditor` for the complex/anomalous limb structures.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Anatomical correctness and pose validation for the cat and horses (especially the anomalous 'hand' on the left horse and the cat's bipedal stance).",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "incorrect_expert_assignment",
+                "point": "The 'topology_boundary_auditor' is currently tasked with auditing limb structure. While it can check boundaries, the 'animal_pose_auditor' is better suited for validating the biological plausibility of the limbs and the 'chasing' pose dynamics.",
+                "recommended_expert": "animal_pose_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A surreal AI-generated image depicting a band of animals running forward. In the center is a single orange and white bicolor cat with anthropomorphic black arms holding a violin and bow. Flanking the cat are three horses (one brown on the left, two black/dark grey on the right), each also holding violins and bows with anthropomorphic hands/paws. The scene features motion blur and dust at the bottom.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many cats are in the image?",
+                "expected": "three",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is clearly only one cat visible in the center of the composition. Two additional cats required by the prompt are missing."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the cats striped?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The single visible cat has an orange and white bicolor (piebald) coat pattern, not the distinct narrow stripes characteristic of a tabby/striped cat."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any cats in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One cat is clearly visible in the center."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the cats chasing the horses?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The cat is running alongside the horses as part of a group/band formation, not pursuing them from behind. Additionally, the count mismatch invalidates the 'cats' plural premise."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many horses are in the image?",
+                "expected": "four",
+                "predicted": "three",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are three distinct horse heads and bodies visible (left brown, middle black, right black). No fourth horse is present."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any horses in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three horses are clearly visible."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are the horses in front of the violins?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The horses are actively holding the violins with anthropomorphic hands; the instruments are integrated into their performance pose, not positioned as separate background objects behind them."
+            },
+            {
+                "atom_index": 7,
+                "question": "How many violins are in the image?",
+                "expected": "four",
+                "predicted": "four",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "There appear to be four violins: one held by the cat, and one held by each of the three horses."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are the violins wooden?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "The violins have the color and texture appearance of varnished wood, despite some rendering artifacts."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are there any violins in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple violin-shaped objects are present."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "cat",
+                "checkpoint": "Head is round with a short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The cat's head shape is anatomically plausible for a feline."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Ears are medium-sized, pointed, and erect.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are visible and correctly shaped."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Eyes are large, round, and green, gold, or copper.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Eyes are visible and yellowish-gold."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Body is medium-sized, well-proportioned, and muscular.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The body proportions are distorted due to anthropomorphism; the torso is elongated and upright like a human, not a quadrupedal cat."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Coat is grey or tawny mottled with black in a tabby pattern.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The coat is orange and white bicolor, lacking the specific grey/tawny mottled tabby pattern described."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Characteristic M-shaped marking on the forehead, dark stripes along the body, and ringed tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No M-marking is visible; the pattern is solid patches, not stripes."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Pattern types include classic (swirled), mackerel (striped), spotted, or ticked.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The pattern does not match any standard tabby variations; it is a piebald/bicolor pattern."
+            },
+            {
+                "object": "cat",
+                "checkpoint": "Striped legs are a distinctive feature.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are solid white or orange, not striped."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Elongated head with large expressive eyes and mobile ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Horse heads are generally recognizable despite some stylization."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Arched muscular neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Necks appear muscular and arched."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Athletic build with tall, lean proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "General build looks athletic."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Uniform brownish-orange to light chestnut coat coloration with no black points.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Only the leftmost horse fits this description partially; the other two are black/dark grey, violating the 'uniform... no black points' rule for the group."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Mane and tail same color as body or lighter (flaxen).",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Manes generally match or contrast appropriately."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Deep-chested body with strong back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Torso structure is acceptable."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long tail with flowing hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Tails are visible and flowing."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long slender legs with single hoof per foot.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The legs exhibit significant structural collapse and fusion, particularly where they meet the ground or overlap. Hooves are indistinct or malformed blobs."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Bowed stringed instrument with a curved wooden body of compact, handheld size.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "General silhouette resembles a violin."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Body has an hourglass shape with C-bouts on each side.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Hourglass shape is roughly maintained."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Neck extends from the body to a carved scroll at the top.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Scrolls are often melted, missing, or fused with the horse's mouth/mane. Necks lack definition."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Four strings run from a tailpiece over a bridge to tuning pegs in the scroll.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Strings are painted on as lines without physical depth; bridges and tuning pegs are largely missing or gibberish."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Top plate has two f-shaped sound holes.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "F-holes are suggested by dark smudges but lack precise geometric definition."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Fingerboard is ebony black with a chin rest attached at the lower left.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Fingerboards blend into the neck; chin rests are nonexistent or merged with the animal's anatomy."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Top plate is spruce; back plate is maple with a distinctive flame pattern.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Texture is smooth plastic-like render; no wood grain or flame pattern is visible."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Varnish finish is amber, reddish-brown, or golden.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Color is correct for a violin."
+            },
+            {
+                "object": "violin",
+                "checkpoint": "Bow is a wooden stick with horsehair.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Bows look like thin metal rods or sticks; horsehair texture is absent."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Horses' mouths and violins",
+                "severity": 4,
+                "reasoning": "The violins appear to be melting into or emerging directly from the horses' mouths/noses. There is no clear separation between the instrument and the animal's flesh."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Cat's arms/hands",
+                "severity": 4,
+                "reasoning": "The cat has anthropomorphic arms that are poorly defined. The 'hands' holding the violin bow and neck are blob-like, lacking distinct fingers or paws, and merge with the instrument."
+            },
+            {
+                "artifact_type": "missing_parts",
+                "location": "Violin scrolls and pegs",
+                "severity": 3,
+                "reasoning": "Most violins lack functional scrolls and tuning pegs. The ends of the necks just taper off or blur into the background/hair."
+            },
+            {
+                "artifact_type": "extra_limbs",
+                "location": "Leftmost horse",
+                "severity": 3,
+                "reasoning": "The leftmost horse appears to have a strange, paw-like appendage holding the violin near its chest, which is anatomically impossible for a horse (should be a leg or nothing)."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Violin strings",
+                "severity": 2,
+                "reasoning": "Strings are rendered as flat black lines without thickness or reflection, looking like a 2D drawing overlay rather than physical objects."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Lower legs/hooves",
+                "severity": 3,
+                "reasoning": "The hooves and lower legs dissolve into the dust/cloud effect, losing structural integrity and making it impossible to verify valid anatomy."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "Verify exact count of cats and confirm presence. Crucial to verify absence of the 2 missing cats required by prompt.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "verification_goals": [
+                    "Atom 1",
+                    "Checkpoint: Coat is grey or tawny...",
+                    "Checkpoint: Pattern types include..."
+                ],
+                "reason": "Confirm if the cat is truly a tabby/striped breed or a bicolor domestic shorthair.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 5"
+                ],
+                "reason": "Verify exact count of horses. Check for potential partial visibility of a 4th horse on edges.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Artifact: extra_limbs (Leftmost horse)",
+                    "Checkpoint: Long slender legs with single hoof per foot"
+                ],
+                "reason": "Audit the anomalous anthropomorphic limb on the left horse and check leg/hoof structural validity amidst the dust.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "violin",
+                "verification_goals": [
+                    "Checkpoint: Four strings run...",
+                    "Checkpoint: Neck extends...",
+                    "Artifact: fusion (Horses' mouths)"
+                ],
+                "reason": "Segment violins to check if they are distinct objects or fused with horses, and verify boundary sharpness of strings/scrolls.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "violin",
+                "verification_goals": [
+                    "Checkpoint: Top plate has two f-shaped sound holes",
+                    "Artifact: texture_anomaly (strings)",
+                    "Atom 6"
+                ],
+                "reason": "Assess fine-grained details of f-holes and string rendering quality. Clarify spatial relationship for Atom 6 (held vs in front).",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 3 (Chasing intent is subjective and relies on count accuracy)",
+            "Checkpoint: Varnish finish is amber... (Color is visible but material property is hard to prove without texture)"
+        ],
+        "focus_areas": [
+            "Count verification for cats and horses (Prompt says 3 cats/4 horses, Image shows 1 cat/3 horses).",
+            "Anatomical correctness of the leftmost horse's 'hand/paw'.",
+            "Boundary separation between violins and horses' mouths.",
+            "Cat coat pattern classification (Tabby vs Bicolor)."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cat",
+                "reason": "Verify exact count of cats and confirm presence. Crucial to verify absence of the 2 missing cats required by prompt.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "cat",
+                "reason": "Confirm if the cat is truly a tabby/striped breed or a bicolor domestic shorthair.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse",
+                "reason": "Verify exact count of horses. Check for potential partial visibility of a 4th horse on edges.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "horse",
+                "reason": "Audit the anomalous anthropomorphic limb on the left horse and check leg/hoof structural validity amidst the dust.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "violin",
+                "reason": "Segment violins to check if they are distinct objects or fused with horses, and verify boundary sharpness of strings/scrolls.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "violin",
+                "reason": "Assess fine-grained details of f-holes and string rendering quality. Clarify spatial relationship for Atom 6 (held vs in front).",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/795.png",
+            "prompt_id": "795",
+            "prompt_text": "three striped cats chasing four horses in front of four wooden violins",
+            "router_cost_seconds": 75.25,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

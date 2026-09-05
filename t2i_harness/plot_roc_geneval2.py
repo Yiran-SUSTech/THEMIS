@@ -438,7 +438,7 @@ def main():
                f"score: {mtitle}"
                + ("; *labels and alignment share the same Reflector responses"
                   if any(c["label"].startswith("THEMIS") for c in curves) else ""))
-        plot_roc(fig, ax, curves, f"ROC — {mtitle} vs checklist labels", sub)
+        plot_roc(fig, ax, curves, f"ROC — Human annotators vs {mtitle}", sub)
         fig.tight_layout(rect=(0, 0.035, 1, 1))
         fig_path = out_dir / fname
         fig.savefig(fig_path, dpi=args.dpi, bbox_inches="tight",

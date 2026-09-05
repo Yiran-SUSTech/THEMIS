@@ -1,0 +1,293 @@
+{
+    "image_id": "290",
+    "prompt": "a blue zebra and seven spotted chairs",
+    "iteration": 1,
+    "timestamp": "2026-09-03 01:00:24",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections. The prompt explicitly requests 'a blue zebra' (biological entity). The image contains NO biological zebras, only chairs with zebra-print fabric. The Router correctly identified this absence but incorrectly marked Atoms 0, 1, and 2 as 'false' (failures) rather than recognizing that the model failed to generate the requested subject entirely. More importantly, the Expert Verification Plan fails to assign an expert to verify the *absence* of the zebra using anatomical constraints. While `open_vocabulary_detector` is assigned to 'zebra', it is primarily for presence/counting. To rigorously prove the 'blue zebra' is missing (and not just a small/obscured one), the `animal_pose_auditor` should be consulted to confirm no valid skeletal structure exists, or the plan should explicitly state that OVD returning 0 boxes is sufficient proof of failure for Atom 0/2. However, the biggest issue is the handling of Atom 1 ('Is the zebra blue?'). Since there is no zebra, the question is N/A, but the prompt failure is the *lack* of the object. The current plan treats the lack of a zebra as a simple count error, missing the semantic failure of the generation. Additionally, the checkpoint verification for 'chair' includes irrelevant flagpole checkpoints which are correctly marked false, but the plan lacks a specific expert to verify the *pattern* on the chairs against the 'spotted' requirement in Atom 4 beyond a generic classifier.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the absence of biological zebra anatomy to definitively fail Atom 0/2.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Update Atom verdicts: The model failed to generate the 'blue zebra'. Atoms 0 and 2 are correctly 'false', but the reasoning should emphasize the total absence of the subject class, not just a count mismatch. Atom 1 is vacuously false/N/A.",
+                "recommended_expert": "N/A"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify the specific 'spotted' pattern on chairs (Atom 4) vs 'striped'. The prompt asks for 'spotted chairs', but some are striped (zebra print). A fine-grained analysis of the pattern type is needed.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a collection of upholstered armchairs arranged in a room with light wood flooring. The chairs feature various animal print patterns, including leopard and zebra stripes, predominantly in blue and white or brown and black color schemes. There are no actual animals (zebras) present in the image; the 'zebra' reference in the prompt likely refers to the zebra-print pattern on the fabric of some chairs.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many zebras are in the image?",
+                "expected": "one",
+                "predicted": "zero",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are no biological zebras in the image. The prompt likely confused the animal with the pattern on the chairs."
+            },
+            {
+                "atom_index": 1,
+                "question": "Is the zebra blue?",
+                "expected": "Yes",
+                "predicted": "N/A",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Since there is no zebra, this attribute cannot be true. However, there are blue zebra-patterned chairs."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any zebras in the image?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "No living zebras are visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many chairs are in the image?",
+                "expected": "seven",
+                "predicted": "eight",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "I can clearly see 8 distinct chairs: 3 in the back row (leopard, zebra-blue, leopard), 2 large ones in the front/mid (zebra-blue, leopard-blue), 1 partial on far right edge, 1 partial on far left edge, and potentially another partially obscured behind the front-right chair. Counting carefully: Back Left (Leopard), Back Mid (Blue Zebra), Back Right (Leopard), Front Left (Blue Zebra), Front Right (Blue Leopard), Far Right Edge (Blue Zebra partial), Far Left Edge (Blue Zebra partial). That is 7 fully or partially visible. Wait, looking closer at the far left, there is a brown leg of a chair behind the front-left blue zebra chair. Let's recount. 1. Back Left (Brown Leopard). 2. Back Center (Blue Zebra). 3. Back Right (Brown Leopard). 4. Front Left (Blue Zebra). 5. Front Right (Blue Leopard). 6. Far Right Edge (Blue Zebra). 7. Far Left Edge (Blue Zebra - mostly cut off). 8. Behind Front Left Blue Zebra chair, there appears to be a brown wooden leg/arm of another chair. Actually, looking at the cluster on the left: There is the main Blue Zebra chair. To its left, a sliver of a blue zebra chair. Behind that sliver, a brown leopard chair leg is visible? No, that's the back left chair's leg. Let's stick to the clearly distinguishable units. 1 (Back L), 2 (Back M), 3 (Back R), 4 (Front L), 5 (Front R), 6 (Far R), 7 (Far L). Total 7. My initial count of 8 might have been double-counting an occluded part or misinterpreting a leg. Let's re-evaluate. Back row: 3 chairs. Front/Mid row: 2 main chairs. Edges: 1 on far right, 1 on far left. Total = 3 + 2 + 2 = 7. Okay, the count is likely 7. I will correct my prediction to 7."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are the chairs spotted?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The chairs feature leopard spots and zebra stripes, which fall under the general category of 'spotted' or patterned animal prints."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any chairs in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The image is filled with chairs."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "chair",
+                "checkpoint": "Tall, slender vertical pole, towering dramatically over surrounding structures.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "This checkpoint describes a flagpole, not a folding chair or wingback chair. The objects are clearly upholstered armchairs with high backs, not poles."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Tapered design (thicker at base, thinner at top) or uniform diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Again, this describes a pole. The chairs have complex silhouettes with legs, arms, and backs, not a simple tapered cylinder."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Finial (decorative ball, eagle, or spear) at apex.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Chairs do not have finials at their apex; they have curved tops or flat backs."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Halyard (rope) runs through pulley at top for raising/lowering flag.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Irrelevant to furniture."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Cleat at base for securing halyard.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Irrelevant to furniture."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Flag flies from halyard, fully extended in wind.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Irrelevant to furniture."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Aluminum (silver, anodized), fiberglass (white), or wood (natural grain).",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The chairs are upholstered in fabric (velvet-like texture) with wooden legs, not made of aluminum or fiberglass poles."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Surface is smooth with metallic or painted finish.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface is textured fabric, not smooth metal/paint."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Base is embedded in concrete or mounted on pedestal.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The chairs stand on wooden legs on a wood floor."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Elongated head with large dark eyes and mobile ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No zebra is present."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Erect bristly mane on arched neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No zebra is present."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Fleet equine body with tall, athletic proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No zebra is present."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Distinctive black-and-white striped coat pattern unique to each individual.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While there is a blue-and-white striped pattern on the chairs, it is not a biological zebra coat."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Stripes extend across body, legs, and mane.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No biological zebra."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Robust muscular body.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No biological zebra."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Long slender legs terminating in single dark hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No biological zebra."
+            },
+            {
+                "object": "zebra",
+                "checkpoint": "Long tail with black tufted hair.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No biological zebra."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chair",
+                "verification_goals": [
+                    "Atom 3"
+                ],
+                "reason": "To accurately count the number of chairs, especially those partially occluded or at the edges of the frame.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "chair",
+                "verification_goals": [
+                    "Atom 4",
+                    "Checkpoint: Material_and_Context"
+                ],
+                "reason": "To verify the material (fabric vs metal) and confirm the object class is indeed a chair/wingback chair despite the mismatched taxonomy checkpoints.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "zebra",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "To definitively confirm the absence of biological zebras and distinguish them from zebra-patterned objects.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [
+            "Taxonomy checkpoints for 'chair' describe a flagpole, making them irrelevant and impossible to satisfy for the visible objects.",
+            "Taxonomy checkpoints for 'zebra' describe a biological animal which is absent; verifying 'absence' via positive detection is limited to confirming no false positives."
+        ],
+        "focus_areas": [
+            "Accurate counting of chairs including partial views.",
+            "Distinguishing between biological entities and patterned textures.",
+            "Identifying the mismatch between provided taxonomy (flagpole/folding chair) and actual visual content (wingback armchairs)."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chair",
+                "reason": "To accurately count the number of chairs, especially those partially occluded or at the edges of the frame.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "chair",
+                "reason": "To verify the material (fabric vs metal) and confirm the object class is indeed a chair/wingback chair despite the mismatched taxonomy checkpoints.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "zebra",
+                "reason": "To definitively confirm the absence of biological zebras and distinguish them from zebra-patterned objects.",
+                "weight": 0.3
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/290.png",
+            "prompt_id": "290",
+            "prompt_text": "a blue zebra and seven spotted chairs",
+            "router_cost_seconds": 50.15,
+            "plan_valid": true
+        }
+    }
+}

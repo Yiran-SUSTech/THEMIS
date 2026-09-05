@@ -1,0 +1,171 @@
+{
+    "image_id": "647",
+    "prompt": "a bicycle to the left of three stone flamingos under three blue sheeps",
+    "iteration": 1,
+    "timestamp": "2026-09-03 01:32:36",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'fine_grained_classifier' verification step. The Router claims the prompt requires a 'tandem bike' and plans to verify against that class; however, the prompt explicitly requests 'a bicycle' (singular, generic). The image shows a standard single-rider bicycle, which is semantically correct for the prompt. The Router's premise that the image fails a 'tandem' requirement is a hallucination of constraints not present in the text. Additionally, the plan lacks a specific expert verification for the 'stone' material attribute of the flamingos, relying only on general perceptual quality checks which may miss subtle texture distinctions.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "The fine_grained_classifier goal incorrectly assumes the prompt requested a tandem bicycle. The prompt says 'a bicycle'. The verification should confirm the presence of a 'standard bicycle' rather than ruling out a non-existent tandem requirement.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 4 asks if the flamingos are 'stone'. The current plan relies on 'perceptual_quality_auditor' for texture, but this is often insufficient for distinguishing rendered stone from feathers in high-fidelity generations. A more targeted check or explicit instruction to the VLM to analyze surface reflectance/specularity is needed.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Atom 6 ('Are the flamingos under the sheeps?') is effectively answered by proving sheep are missing, but the spatial relationship logic should be explicitly confirmed as 'N/A' or 'False due to missing object' in the final verdict reasoning to ensure complete atom coverage.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "bicycle",
+                "checkpoint": "Elongated bicycle of notably extended length with two seats and two sets of pedals arranged in tandem.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The image shows a standard single-rider bicycle frame, not the elongated 'bicycle-built-for-two' (tandem) specified in the taxonomy. There is only one seat and one set of pedals visible."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Plumage ranges from pale pink to vivid scarlet with darker coloration on wings and tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the prompt requested 'stone flamingos', the visual output depicts biological flamingos with bright blue bodies and pink necks/legs. This contradicts the natural plumage taxonomy (pink/scarlet) and the material request (stone)."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "There are no sheep visible in the image. The prompt requested 'three blue sheeps', but the image contains three flamingos (two of which have blue bodies). The model appears to have hallucinated the sheep as part of the flamingo anatomy or failed to generate them entirely."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Semantic Hallucination / Object Fusion",
+                "location": "Center foreground (Flamingos)",
+                "severity": 0.9,
+                "reasoning": "The prompt asked for 'stone flamingos' AND 'blue sheeps'. The image displays flamingos with blue feathered bodies. It is highly probable the model fused the 'blue' attribute and the 'sheep' concept into the flamingo objects, resulting in non-existent sheep and biologically impossible blue flamingos."
+            },
+            {
+                "artifact_type": "Structural Incompleteness",
+                "location": "Left foreground (Bicycle)",
+                "severity": 0.5,
+                "reasoning": "The bicycle appears cropped or partially generated. While it matches a standard bike better than the requested tandem, the framing cuts off the rear wheel area abruptly, and there is a floating handlebar artifact in the sky above the main bike."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "sheep, flamingo, bicycle",
+                "verification_goals": [
+                    "Confirm the absence of any object resembling a sheep (ram/ewe).",
+                    "Count the total number of bird-like entities to verify if there are exactly three.",
+                    "Locate the bicycle to verify its position relative to the birds."
+                ],
+                "reason": "Essential to validate the 'missing sheep' hypothesis and confirm if the blue-bodied entities are being classified as birds or mammals by the detector.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "verification_goals": [
+                    "Classify the bicycle type to definitively rule out 'tandem' or 'bicycle-built-for-two'.",
+                    "Verify if it matches 'standard city bike' or similar single-rider classes."
+                ],
+                "reason": "The taxonomy specifically requires a tandem bike. A high-speed sieve is needed to confirm the visual evidence of a single-rider frame against the specific ground truth class.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "floating handlebar, blue flamingo bodies",
+                "verification_goals": [
+                    "Analyze the floating handlebar in the upper left sky for geometric consistency.",
+                    "Evaluate the texture of the blue bodies to determine if they resemble stone (as requested) or feathers (as rendered)."
+                ],
+                "reason": "To audit the specific artifacts identified: the floating object and the material mismatch (feathers vs. stone).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "flamingos",
+                "verification_goals": [
+                    "Audit the skeletal structure of the blue-bodied birds to confirm they possess valid avian anatomy (legs, neck curvature) despite the wrong color.",
+                    "Check for any mammalian features (hooves, wool texture) that might indicate a failed 'sheep' generation."
+                ],
+                "reason": "Since the 'sheep' are missing but 'blue' attributes are present on birds, we must ensure the birds are anatomically valid flamingos and not distorted hybrids.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "verification_goals": [
+                    "Verify the spatial relationship: Is the bicycle strictly to the left of the group of birds?",
+                    "Check depth consistency between the floating handlebar and the background trees."
+                ],
+                "reason": "To validate Atom 2 (spatial relationship) and the physical grounding of the floating artifact.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Whether the blue bodies were intended to be 'stone' texture but rendered with high-frequency noise resembling feathers (material ambiguity).",
+            "The exact intent of the 'floating handlebar'—whether it is a second bike occluded by the frame edge or a pure generation artifact."
+        ],
+        "focus_areas": [
+            "Missing Objects (Sheep)",
+            "Attribute Binding Errors (Blue Flamingos vs Blue Sheep)",
+            "Taxonomy Mismatch (Standard Bike vs Tandem)",
+            "Geometric Artifacts (Floating Handlebar)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "sheep, flamingo, bicycle",
+                "reason": "Essential to validate the 'missing sheep' hypothesis and confirm if the blue-bodied entities are being classified as birds or mammals by the detector.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycle",
+                "reason": "The taxonomy specifically requires a tandem bike. A high-speed sieve is needed to confirm the visual evidence of a single-rider frame against the specific ground truth class.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "floating handlebar, blue flamingo bodies",
+                "reason": "To audit the specific artifacts identified: the floating object and the material mismatch (feathers vs. stone).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "flamingos",
+                "reason": "Since the 'sheep' are missing but 'blue' attributes are present on birds, we must ensure the birds are anatomically valid flamingos and not distorted hybrids.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "reason": "To validate Atom 2 (spatial relationship) and the physical grounding of the floating artifact.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd3_m_800/647.png",
+            "prompt_id": "647",
+            "prompt_text": "a bicycle to the left of three stone flamingos under three blue sheeps",
+            "router_cost_seconds": 26.3,
+            "plan_valid": false
+        }
+    }
+}

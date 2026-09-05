@@ -1,0 +1,425 @@
+{
+    "image_id": "760",
+    "prompt": "four black cookies to the left of three pink backpacks behind a pink elephant",
+    "iteration": 1,
+    "timestamp": "2026-09-04 00:59:24",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical errors in the 'atom_verdicts' and 'checkpoint_verdicts' that contradict the visual evidence provided in the image. Specifically:\n1. **Counting Error (Atom 0):** The plan claims there are 6 cookies (4+2), but the image clearly shows a stack of 4 and a stack of 2, totaling 6. Wait, looking closer at the image: Left stack has 4 cookies. Right small stack has 2 cookies. Total is 6. The prompt asked for 'four black cookies'. The plan correctly identifies 6 cookies and marks Atom 0 (Expected: 4) as False. This part is actually correct.\n2. **Spatial/Counting Error (Atom 4 & 7):** The plan states there are only 2 backpacks and they are in front of the elephant. The image shows exactly 2 pink backpacks. The prompt asked for 'three pink backpacks'. The plan correctly identifies 2 backpacks and marks Atom 4 (Expected: 3) as False. It also correctly identifies that the backpacks are in front of the elephant (occluding it), marking Atom 7 (Expected: Behind) as False. These judgments are visually accurate.\n3. **Critical Failure in Checkpoint Logic:** The plan marks several elephant checkpoints as 'false' or 'missing' based on the subject being a 'toy' rather than a real animal (e.g., 'Massive body', 'Wrinkled skin'). While technically true that it's not a real elephant, the prompt asks for a 'pink elephant', which implies a toy or stylized representation in this context. However, the bigger issue is the **Cookie Color (Atom 1)**. The plan marks 'Are the cookies black?' as False because they are 'Dark Brown'. In common parlance and visual QA, dark chocolate cookies are often accepted as 'black' or 'dark'. Marking this as a hard failure might be too strict, but acceptable.\n4. **Major Logical Contradiction in Expert Plan:** The `expert_verification_plan` assigns `open_vocabulary_detector` to verify counts. However, the `atom_verdicts` already definitively established the counts (6 cookies, 2 backpacks). The expert plan is redundant if the initial QA was confident (Confidence 1.0). More importantly, the `unverifiable_points` list includes backpack strap symmetry. The image shows the *front* of the backpacks. We cannot see the back. This is correctly marked unverifiable.\n5. **Re-evaluation of Approval:** The plan is actually quite strong in its negative findings (identifying the wrong count of backpacks and wrong spatial relationship). The rejection should stem from the **Expert Verification Coverage** dimension. The plan fails to assign an expert to verify the **color** of the cookies (Atom 1) and **backpacks** (Atom 5) beyond a generic classifier. A `fine_grained_classifier` or color histogram analysis is needed to definitively rule on 'Black' vs 'Dark Brown' and 'Pink' vs 'Red/Magenta'. Additionally, the plan misses verifying the **text** on the backpacks against the prompt. The prompt doesn't specify text, but the `artifact_observations` note gibberish. The `image_text_auditor` is included, which is good.\n\n**Real Reason for Rejection:** The `checkpoint_verdicts` for the elephant are overly pedantic regarding biological realism for a clearly stylized/toy object, potentially skewing the quality score unfairly. However, the main technical flaw is in the **Expert Verification Plan weights and targets**. The `open_vocabulary_detector` is assigned to 'cookie', 'backpack', and 'elephant'. It is NOT assigned to verify the **spatial relationship** directly, though `geometric_depth_auditor` is. The critical missing piece is a specific verification for the **count discrepancy** using a segmentation-based counter if the detector is ambiguous, but the detector is sufficient. \n\nActually, looking at the image again: There are **two** stacks of cookies. One stack of 4, one stack of 2. Total 6. Prompt asked for 4. Atom 0 is correctly False. \nThere are **two** backpacks. Prompt asked for 3. Atom 4 is correctly False.\nBackpacks are **in front** of the elephant. Prompt asked for 'behind'. Atom 7 is correctly False.\n\nThe plan is logically sound in its verdicts. Why reject? \nLook at **Atom 1**: 'Are the cookies black?'. Predicted: 'No (Dark Brown)'. Is_Correct: False. \nLook at **Atom 5**: 'Are the backpacks pink?'. Predicted: 'Yes'. Is_Correct: True.\n\nThe rejection reason is **Incomplete Expert Coverage for Color Attributes**. The `fine_grained_classifier` is tasked with 'Material_and_Context' and 'Head_and_Face', but not explicitly **Color Verification**. While ViTs can do this, a specific color audit or histogram check is more rigorous for 'Black' vs 'Brown' disputes. \n\nMore significantly, the **Checkpoint Verdicts** for the elephant mark 'Tusks present' as True. The image shows white tusks. Correct. \n\nLet's look at **Dimension 4.3**: 'For every taxonomy checkpoint marked is_present=false, is there an expert that could provide contrary evidence?'\nCheckpoints marked false for Elephant: 'Trunk projection', 'Massive body', 'Wrinkled skin', 'Toenails', 'Tail tuft'. \nThe `fine_grained_classifier` is assigned to 'elephant'. It can verify species, but can it verify 'toenails' or 'tail tuft' resolution? Likely not at 800px. These are genuinely low-resolution/stylization issues. \n\nHowever, the **Cookie Count** verification is critical. The plan uses `open_vocabulary_detector`. This is appropriate. \n\nI will approve the plan but with a suggestion to add explicit color verification, as the 'Black' vs 'Brown' distinction is a common failure mode in T2I and relies on precise color space analysis rather than just classification.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Explicit color verification for 'black' cookies vs 'dark brown' ambiguity",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of 'pink' hue consistency across backpacks and elephant",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A studio-style product shot featuring a stack of four dark chocolate cookies on the left, two pink backpacks in the center-right foreground, and a pink toy elephant standing behind the backpacks. The background is a clean white/light gray gradient.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many cookies are in the image?",
+                "expected": "four",
+                "predicted": "six",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is a stack of four cookies on the far left and a separate stack of two cookies next to it, totaling six visible cookies."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the cookies black?",
+                "expected": "Yes",
+                "predicted": "No (Dark Brown)",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The cookies appear to be dark chocolate brown rather than pure black, though they are very dark."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any cookies in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple chocolate cookies are clearly visible in the foreground."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the cookies to the left of the backpacks?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The cookie stacks are positioned on the left side of the frame relative to the backpacks."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many backpacks are in the image?",
+                "expected": "three",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only two distinct pink backpacks are visible in the foreground."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are the backpacks pink?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Both backpacks are a bright, solid pink color."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any backpacks in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two backpacks are clearly present."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the backpacks behind the elephant?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The backpacks are in the foreground, occluding the lower body of the elephant; the elephant is behind the backpacks."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many elephants are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A single pink elephant figure is visible."
+            },
+            {
+                "atom_index": 9,
+                "question": "Is the elephant pink?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The elephant is uniformly pink."
+            },
+            {
+                "atom_index": 10,
+                "question": "Are there any elephants in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "An elephant is clearly visible."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "backpack",
+                "checkpoint": "Fabric bag with rectangular or rounded pouch of torso-covering height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The objects have the correct general shape and proportions of small backpacks."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Bilateral symmetry with straps positioned symmetrically on back panel.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The backpacks are viewed from the front/side; the back panel and strap symmetry cannot be verified and are not visible as described."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Two parallel shoulder straps for carrying on back.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Shoulder straps are not clearly visible on the front-facing view; only top handles and front pockets are distinct."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Main compartment with zipper or drawstring closure.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Zippers are clearly visible on the front pockets and main compartments."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "External features include side pockets front organizer pockets and compression straps.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Front organizer pockets with zippers are visible; side pockets are partially implied by shape."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Padded shoulder straps converging at top with reinforced grab handle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Grab handles are visible, but padded shoulder straps are not visible from this angle."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Made of nylon canvas or polyester.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Texture appears consistent with synthetic fabric like nylon or polyester."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Materials range from smooth synthetic fabric to textured canvas.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Surface finish matches smooth synthetic material description."
+            },
+            {
+                "object": "backpack",
+                "checkpoint": "Colors vary widely.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Pink is a valid color within the 'vary widely' constraint."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Broad head with twin-domed skull.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The toy elephant exhibits the characteristic twin-domed head shape of an Asian elephant."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Relatively small ears compared to African elephant.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are proportionally smaller and do not cover the shoulders, consistent with Asian elephant morphology."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Trunk (proboscis) elongated and muscular with single finger-like projection at tip.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The trunk is stylized and smooth; the specific 'single finger-like projection' anatomical detail is missing due to toy simplification."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Tusks present primarily in males, shorter than African species.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small white tusks are visible protruding from the mouth area."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Massive body with extraordinarily tall, immense proportions at the shoulder.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "As a toy/figurine, it lacks the 'immense proportions' and massive scale of a real elephant; it looks like a small plastic model."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Thick wrinkled gray-brown skin with sparse body hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface is smooth, matte pink plastic/vinyl, lacking the wrinkled texture and gray-brown color of real skin."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Barrel-shaped body with arched back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The general silhouette maintains the barrel-shaped body and arched back profile."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Pillar-like legs with five toenails on forefeet.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are simplified cylinders; toenail details are completely absent."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Long tail with terminal tuft.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "A thin tail is visible but lacks the distinct terminal hair tuft; it tapers to a point."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "text_gibberish",
+                "location": "Rightmost backpack front pocket",
+                "severity": 2,
+                "reasoning": "The text on the right backpack reads 'Pathels' or similar nonsensical word with inconsistent kerning and font weight, typical of AI text generation artifacts."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Elephant surface",
+                "severity": 1,
+                "reasoning": "The elephant has an unnaturally uniform, poreless matte finish that lacks the micro-texture expected even in a toy, appearing slightly 'melted' or overly smoothed."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Cookie stack (left)",
+                "severity": 1,
+                "reasoning": "The bottom cookie in the left stack appears slightly compressed and fused with the surface it rests on, lacking a clear shadow gap."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cookie",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "Verify exact count of cookies to confirm if there are 4 or 6, and establish bounding boxes for segmentation.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "backpack",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 6"
+                ],
+                "reason": "Verify exact count of backpacks (expected 3 vs observed 2) and locate instances.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 10"
+                ],
+                "reason": "Confirm presence and count of elephant.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "backpack",
+                "verification_goals": [
+                    "Atom 5",
+                    "Checkpoint: Material_and_Context"
+                ],
+                "reason": "Confirm object class is indeed 'backpack' and verify material properties via texture analysis.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 9",
+                    "Checkpoint: Head_and_Face"
+                ],
+                "reason": "Verify species classification (Asian vs African) based on head/ear morphology despite color deviation.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 7"
+                ],
+                "reason": "Verify spatial relationships: cookies left of backpacks, and backpacks in front of elephant (depth ordering).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "backpack text",
+                "verification_goals": [
+                    "Artifact: text_gibberish"
+                ],
+                "reason": "Analyze the illegible text on the right backpack to confirm it is gibberish/artifact.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: Bilateral symmetry with straps positioned symmetrically on back panel (Backpack) - Viewpoint prevents verification.",
+            "Checkpoint: Two parallel shoulder straps for carrying on back (Backpack) - Viewpoint prevents verification.",
+            "Checkpoint: Padded shoulder straps converging at top with reinforced grab handle (Backpack) - Partial visibility only."
+        ],
+        "focus_areas": [
+            "Count verification for cookies (stack ambiguity) and backpacks (missing third item).",
+            "Spatial relationship validation (backpacks are IN FRONT of elephant, contradicting prompt).",
+            "Text rendering quality on the right backpack.",
+            "Anatomical fidelity of the elephant toy vs real elephant taxonomy."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cookie",
+                "reason": "Verify exact count of cookies to confirm if there are 4 or 6, and establish bounding boxes for segmentation.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "backpack",
+                "reason": "Verify exact count of backpacks (expected 3 vs observed 2) and locate instances.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "reason": "Confirm presence and count of elephant.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "backpack",
+                "reason": "Confirm object class is indeed 'backpack' and verify material properties via texture analysis.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "elephant",
+                "reason": "Verify species classification (Asian vs African) based on head/ear morphology despite color deviation.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "Verify spatial relationships: cookies left of backpacks, and backpacks in front of elephant (depth ordering).",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "backpack text",
+                "reason": "Analyze the illegible text on the right backpack to confirm it is gibberish/artifact.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/760.png",
+            "prompt_id": "760",
+            "prompt_text": "four black cookies to the left of three pink backpacks behind a pink elephant",
+            "router_cost_seconds": 61.31,
+            "plan_valid": true
+        }
+    }
+}

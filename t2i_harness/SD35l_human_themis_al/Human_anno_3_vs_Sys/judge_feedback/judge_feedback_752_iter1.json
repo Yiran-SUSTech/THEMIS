@@ -1,0 +1,176 @@
+{
+    "image_id": "752",
+    "prompt": "six black donuts to the left of six blue raccoons, and seven purple kangaroos",
+    "iteration": 1,
+    "timestamp": "2026-09-04 05:02:19",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'checkpoint_verdicts' section. Specifically, for the 'donut' object, the 'Count verification' checkpoint is marked as 'is_present: true' with reasoning stating the image contains exactly 6 donuts. However, visual inspection confirms there are only 3 donuts in the top row and 3 in the bottom row, but the middle row contains raccoons, not donuts. Wait, looking closely at the image: Top row = 3 donuts. Bottom row = 3 donuts. Total = 6 donuts. The Router's count of 6 donuts is actually CORRECT. \n\nLet's re-evaluate the rejection based on other factors.\n1. **Atom Coverage**: The prompt asks for 'six black donuts'. The image has 6 donuts, but they are NOT all black (one chocolate, one white/rainbow, one blue, three purple). The Router correctly identifies this attribute failure.\n2. **Raccoon Count**: Prompt asks for 6. Image has 3. Router correctly identifies this failure.\n3. **Kangaroo Existence**: Prompt asks for 7. Image has 0. Router correctly identifies this failure.\n4. **Expert Selection**: \n   - `open_vocabulary_detector` is selected for counting. This is correct.\n   - `fine_grained_classifier` for raccoons. Reasonable to check if they are actually raccoons despite color.\n   - `animal_pose_auditor` for raccoons. The image shows raccoons holding/merged with blue objects. Auditing pose/anatomy is valid.\n   - `perceptual_quality_auditor` for texture. Valid.\n\n**Critical Flaw in Plan Logic**:\nThe `unverifiable_points` section states: \"Spatial relationship 'donuts to the left of raccoons' cannot be fully verified as only 3 of 6 expected raccoons exist.\" This is logically weak. The spatial relationship can be verified for the *existing* objects. If the prompt implies a global arrangement that fails due to missing objects, the spatial check should likely fail or be marked partial, not 'unverifiable'.\n\n**More Importantly**: The `expert_verification_plan` misses a crucial expert for the **Donuts**. While `open_vocabulary_detector` counts them, there is no expert assigned to verify the **color attribute** of the donuts beyond the initial router pass. The `fine_grained_classifier` is only applied to raccoons. The `perceptual_quality_auditor` is generic. To rigorously audit the 'black donut' claim vs the 'chocolate/white/blue/purple' reality, a specific color/attribute verification step or expert focus is needed. However, `open_vocabulary_detector` usually handles class+color if prompted correctly.\n\n**The Real Rejection Reason**:\nThe `checkpoint_verdicts` for `donut` -> `Count verification` says `is_present: true`. The prompt asked for **six black donuts**. The image has 6 donuts. So the count is correct. \nBUT, look at the `spatial_relation` checkpoint. It says `is_present: true` because \"donuts... are spatially located to the left of the raccoons\". In the image, the donuts are in Row 1 and Row 3. The raccoons are in Row 2. The donuts are **above** and **below** the raccoons, not strictly to the **left**. The leftmost column contains a chocolate donut, a raccoon, and a purple donut. The spatial relationship 'left of' is **false** or at least highly ambiguous/incorrect for the global set. The Router accepted it as true based on a subset interpretation which is flawed.\n\nFurthermore, the `expert_verification_plan` does not include a `geometric_depth_auditor` or specific spatial reasoning expert to validate the 'left of' claim rigorously, relying on the Router's potentially flawed visual assessment. The `open_vocabulary_detector` provides boxes, but doesn't inherently reason about 'left of' without a downstream logic step which isn't explicitly assigned to an expert for verification.\n\nFinally, the `unverifiable_points` lists \"Color attribute 'black' for donuts is ambiguous\". This is not unverifiable; it is demonstrably false for 5 of the 6 donuts. Marking it as unverifiable is a cop-out. It should be marked as a failure.\n\nTherefore, the plan is rejected due to:\n1. Incorrect acceptance of the spatial relationship 'left of' (they are above/below).\n2. Misclassification of clear attribute failures (donut color) as 'unverifiable'.\n3. Lack of specific expert verification for the spatial arrangement.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial relationship 'left of' between donuts and raccoons",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Reclassify 'black donut' attribute check from 'unverifiable' to 'failed'",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A top-down studio shot featuring a grid arrangement of food and animals on a white background. The top row contains three donuts: one with dark chocolate glaze, one with white glaze and rainbow sprinkles, and one with blue glaze and blue/purple sprinkles. The middle row features three raccoons: the left and right ones are natural grey/brown but have bright blue paws/arms, while the center one has blue fur on its face and chest. The bottom row consists of three purple-glazed donuts with sprinkles.",
+        "checkpoint_verdicts": [
+            {
+                "object": "donut",
+                "checkpoint": "Count verification",
+                "category": "counting",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image contains exactly 6 donuts (3 in the top row, 3 in the bottom row), matching the expected count."
+            },
+            {
+                "object": "donut",
+                "checkpoint": "Color attribute verification",
+                "category": "attribute_binding",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The prompt specifies 'six black donuts'. While one donut is dark chocolate, the others are white/rainbow, blue, and purple. The attribute 'black' is not consistently applied to all instances."
+            },
+            {
+                "object": "raccoon",
+                "checkpoint": "Count verification",
+                "category": "counting",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The image contains only 3 raccoons in the middle row, failing the expected count of six."
+            },
+            {
+                "object": "raccoon",
+                "checkpoint": "Color attribute verification",
+                "category": "attribute_binding",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The prompt specifies 'blue raccoons'. Only the center raccoon has significant blue fur; the flanking raccoons are natural color with only blue limbs. The attribute is partially present but inconsistent."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Existence verification",
+                "category": "existence",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No kangaroos are visible in the image. The prompt requested seven purple kangaroos, but this object class is completely missing."
+            },
+            {
+                "object": "spatial_relation",
+                "checkpoint": "Left-of relationship",
+                "category": "spatial_reasoning",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The donuts in the top row are spatially located to the left of the raccoons in the middle row (relative to the viewer's perspective of the grid layout), satisfying the relational constraint for that subset."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "anatomical_fusion",
+                "location": "middle_row_raccoons",
+                "severity": 0.8,
+                "reasoning": "The raccoons on the left and right appear to be merging with or holding blue donut-like objects that form their lower bodies/arms, creating a surreal anatomical fusion rather than distinct limbs."
+            },
+            {
+                "artifact_type": "texture_inconsistency",
+                "location": "center_raccoon_face",
+                "severity": 0.4,
+                "reasoning": "The blue coloring on the center raccoon's face lacks realistic fur texture integration, appearing more like a flat paint overlay compared to the surrounding natural fur."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "all_objects",
+                "verification_goals": [
+                    "Generate bounding boxes for all donuts to verify exact count (expected: 6).",
+                    "Generate bounding boxes for all raccoons to verify exact count (expected: 6).",
+                    "Detect presence/absence of kangaroos to confirm zero instances."
+                ],
+                "reason": "Primary bridge expert needed to establish ground truth counts and locations before detailed attribute auditing.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoons",
+                "verification_goals": [
+                    "Verify species classification as Procyon lotor (raccoon).",
+                    "Assess if blue coloration represents a valid biological variant or AI artifact."
+                ],
+                "reason": "High-speed sieve to confirm taxonomic correctness despite unnatural coloring.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoons",
+                "verification_goals": [
+                    "Audit limb completeness and joint positions for the 3 visible raccoons.",
+                    "Check for anatomical correctness in the blue-limbed raccoons (left/right)."
+                ],
+                "reason": "Critical for verifying biological structural correctness given the observed anatomical fusion artifacts.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "verification_goals": [
+                    "Analyze texture consistency between natural fur and blue-colored regions.",
+                    "Detect any rendering artifacts in the donut glazes and sprinkles."
+                ],
+                "reason": "Holistic quality filter to catch subtle graphics-level distortions missed by object-specific experts.",
+                "weight": 0.2
+            }
+        ],
+        "unverifiable_points": [
+            "Spatial relationship 'donuts to the left of raccoons' cannot be fully verified as only 3 of 6 expected raccoons exist.",
+            "Color attribute 'black' for donuts is ambiguous - dark chocolate may be interpreted as black by some observers but fails strict color matching.",
+            "Kangaroo count and color attributes are unverifiable due to complete absence of the object class."
+        ],
+        "focus_areas": [
+            "Count accuracy for raccoons (critical failure: 3 vs 6 expected)",
+            "Attribute binding consistency for donut colors (partial failure: mixed colors vs uniform black)",
+            "Object existence for kangaroos (complete failure: 0 vs 7 expected)",
+            "Anatomical correctness of blue-limbed raccoons (potential artifact: fusion with donut shapes)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "all_objects",
+                "reason": "Primary bridge expert needed to establish ground truth counts and locations before detailed attribute auditing.",
+                "weight": 0.35
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoons",
+                "reason": "High-speed sieve to confirm taxonomic correctness despite unnatural coloring.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoons",
+                "reason": "Critical for verifying biological structural correctness given the observed anatomical fusion artifacts.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire_image",
+                "reason": "Holistic quality filter to catch subtle graphics-level distortions missed by object-specific experts.",
+                "weight": 0.2
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/752.png",
+            "prompt_id": "752",
+            "prompt_text": "six black donuts to the left of six blue raccoons, and seven purple kangaroos",
+            "router_cost_seconds": 27.53,
+            "plan_valid": false
+        }
+    }
+}

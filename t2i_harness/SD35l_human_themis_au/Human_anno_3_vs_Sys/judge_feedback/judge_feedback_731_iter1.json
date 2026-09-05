@@ -1,0 +1,390 @@
+{
+    "image_id": "731",
+    "prompt": "a stone bagel on top of six purple flamingos to the right of four checkered elephants",
+    "iteration": 1,
+    "timestamp": "2026-09-04 05:00:37",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the Expert Verification Plan regarding Atom 1 ('Is the bagel stone?'). The Router assigned the `fine_grained_classifier` to verify this atom. However, a classifier identifies object categories (e.g., 'bagel' vs 'stone'), whereas Atom 1 asks about the *material composition* of the bagel itself. Since the image clearly shows a baked bagel with a separate stone on top, the correct verdict is 'No'. A classifier confirming the object is a 'bagel' supports this, but the reasoning provided in the plan ('addressing the confusion') implies the expert might be used to detect if the bagel *looks like* stone, which is a texture/material analysis task better suited for a VLM or texture auditor, not a class labeler. More importantly, the plan fails to explicitly assign an expert to verify the *spatial relationship* of the stone relative to the bagel for Atom 1, relying instead on the geometric auditor for Atom 3. While the geometric auditor covers the interface, the specific material distinction for Atom 1 is weakly supported.\n\nAdditionally, the `animal_pose_auditor` is assigned to flamingos and elephants. The prompt specifies 'purple flamingos' and 'checkered elephants'. The image shows stylized toy/figurine versions. The `animal_pose_auditor` is designed for biological structural correctness (keypoints). Applying it to stylized toys may yield false negatives for 'anatomical correctness' (as noted in the checkpoints: 'stylized... lack specific biological structure'). The plan should acknowledge that these are *figurines* and perhaps use `topology_boundary_auditor` to ensure they are single coherent objects rather than auditing them against biological ground truth which they intentionally violate. \n\nFinally, the `open_vocabulary_detector` is correctly assigned for counting, but the plan misses verifying the *color* attributes (Atom 5: purple flamingos) and *pattern* attributes (Atom 9: checkered elephants) with specific experts. While `fine_grained_classifier` handles identity, it does not handle color/pattern verification. A `perceptual_quality_auditor` or simple VLM query is needed for color/pattern confirmation, which is currently missing from the explicit expert list, leaving Atoms 5 and 9 reliant solely on the initial QA pass without downstream expert verification.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Atom 5 (Are the flamingos purple?) and Atom 9 (Are the elephants checkered?) lack dedicated expert verification. The current plan relies on initial QA. Color and pattern verification should be added.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "incorrect_expert_assignment",
+                "point": "Atom 1 (Is the bagel stone?) is assigned to fine_grained_classifier. This atom requires material/texture analysis or spatial separation analysis (stone ON bagel), not just class identification. The classifier confirms it's a bagel, but doesn't explicitly rule out 'stone material' as effectively as a texture or VLM audit.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "expert_misapplication",
+                "point": "animal_pose_auditor is applied to stylized toy figurines. The checkpoints correctly note they fail biological anatomy tests. This results in 'false' positives for anatomical errors. The plan should clarify that these are non-biological objects or switch to topology auditing to ensure they are coherent figurines.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A surreal still-life composition featuring a large, glossy bagel in the center. A smooth grey stone rests on top of the bagel. Two purple flamingo figurines stand on either side of the bagel, appearing to support or frame it. At the base, flanking the bagel, are two small elephant figurines with black-and-white checkered bodies and purple heads/trunks.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many bagels are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is clearly a single large bagel in the center of the composition."
+            },
+            {
+                "atom_index": 1,
+                "question": "Is the bagel stone?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The bagel has a golden-brown, glossy crust typical of baked dough. There is a separate grey stone resting ON TOP of the bagel, but the bagel itself is not made of stone."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any bagels in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A prominent bagel is visible in the center."
+            },
+            {
+                "atom_index": 3,
+                "question": "Is the bagel on top of the flamingos?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The bagel sits on the ground plane between the flamingos. The flamingos' feet are on the ground (or obscured), and their bodies rise alongside the bagel. The bagel is not physically supported by or resting on top of the flamingos."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many flamingos are in the image?",
+                "expected": "six",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only two purple flamingo figures are visible in the image."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are the flamingos purple?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The flamingo figures are distinctly purple in color."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any flamingos in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two flamingos are clearly present."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the flamingos to the right of the elephants?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "The flamingos are positioned behind/above the elephants and span across the width. One flamingo is to the left of the left elephant, and one is to the right of the right elephant. They are not exclusively to the right of the group of elephants."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many elephants are in the image?",
+                "expected": "four",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only two checkered elephant figures are visible at the bottom corners."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are the elephants checkered?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The bodies of the elephant figures feature a distinct black and white checkerboard pattern."
+            },
+            {
+                "atom_index": 10,
+                "question": "Are there any elephants in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two elephant figures are visible."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bagel",
+                "checkpoint": "Ring-shaped bread roll with toroidal form and central hole that is narrow relative to the overall ring diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The object is clearly a torus with a central hole, matching the description of a bagel."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Overall form is compact and hand-sized with glossy, chewy crust.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The surface exhibits a high-gloss sheen consistent with a boiled-then-baked bagel crust."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Smooth, shiny glaze from boiling before baking.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Strong specular highlights indicate a smooth, glazed surface."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Dense interior crumb visible at cut surface.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The bagel is whole; no cut surface is visible to inspect the crumb."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Firm exterior with slight blistering from baking.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The skin looks taut and firm, with subtle texture variations suggesting baking blisters."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Golden-brown to deep amber coloration on surface.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The color is a rich golden-brown, typical of a well-baked bagel."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Broad head with twin-domed skull.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The elephants are stylized toy figures. While they have heads, they lack the specific biological 'twin-domed' skull structure of real Indian elephants; they look like generic cartoon elephants."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Relatively small ears compared to African elephant.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The ears are stylized and rounded, not accurately reflecting the anatomical proportions of an Indian elephant relative to an African one."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Trunk (proboscis) elongated and muscular with single finger-like projection at tip.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The trunks are smooth, curved tubes without the detailed muscular texture or the specific single-finger projection at the tip characteristic of Asian elephants."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Massive body with extraordinarily tall, immense proportions at the shoulder.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "These are small toy figurines, not massive animals with immense proportions."
+            },
+            {
+                "object": "elephant",
+                "checkpoint": "Thick wrinkled gray-brown skin with sparse body hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The skin is painted with a checkered pattern and appears smooth/plastic-like, lacking natural wrinkles or hair."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Bill is distinctive with downward-curving shape, deep black at tip transitioning to pale pink at base.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bills are stylized: black tips with a pink middle section, but they lack the complex downward curve and gradient transition of a real flamingo bill. They look more like plastic toy beaks."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Plumage ranges from pale pink to vivid scarlet with darker coloration on wings and tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The plumage is a uniform, solid purple color, not the natural pink-to-scarlet range with darker wing tips."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Legs are exceptionally long and bright pink to red with webbed feet.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The legs are purple (matching the body) rather than pink/red, and the feet are simplified stumps, lacking visible webbing."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Neck is extremely elongated and S-curved, comprising approximately one-third of total body length.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The necks are long and have a gentle curve, reasonably approximating the S-curve proportionally for a stylized figure."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Flamingo legs and base",
+                "severity": 3,
+                "reasoning": "The flamingos appear to be standing on the ground, but their feet merge unnaturally with the floor or the elephant heads. Specifically, the left flamingo's legs seem to pass through or fuse with the left elephant's head/neck area without clear contact points."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Elephant bodies",
+                "severity": 2,
+                "reasoning": "The checkered pattern on the elephants wraps around the curved surfaces with slight distortion and lacks the depth of actual paint or fabric; it looks like a texture map applied to a 3D model."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Bagel and Stone interface",
+                "severity": 1,
+                "reasoning": "The stone sits on the bagel with a very small contact area. While physically possible, the shadowing underneath the stone is soft and diffuse, making the weight and stability look slightly floaty or AI-generated."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flamingo",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 6"
+                ],
+                "reason": "To definitively count the number of flamingos and confirm their presence, as the prompt expects six but only two are visible.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 10"
+                ],
+                "reason": "To definitively count the number of elephants and confirm their presence, as the prompt expects four but only two are visible.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bagel",
+                "verification_goals": [
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "To verify if the central object is classified as a 'bagel' (food) vs 'stone' or other objects, addressing the confusion in Atom 1.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "flamingo",
+                "verification_goals": [
+                    "Checkpoint: Legs are exceptionally long...",
+                    "Checkpoint: Neck is extremely elongated..."
+                ],
+                "reason": "To audit the anatomical correctness of the flamingo limbs and neck curvature, which appear stylized and potentially malformed.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "verification_goals": [
+                    "Checkpoint: Trunk (proboscis)...",
+                    "Checkpoint: Broad head..."
+                ],
+                "reason": "To verify if the elephant figures possess key anatomical features like the trunk tip projection and skull shape, which appeared missing in visual inspection.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bagel",
+                "verification_goals": [
+                    "Artifact: Bagel and Stone interface",
+                    "Atom 3"
+                ],
+                "reason": "To analyze the spatial relationship and contact physics between the stone, bagel, and flamingos to verify if the bagel is truly 'on top' or just adjacent.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 7 (Spatial relation 'right of' is ambiguous with multiple objects)",
+            "Checkpoint: Dense interior crumb visible at cut surface (Bagel is whole)"
+        ],
+        "focus_areas": [
+            "Count verification for flamingos and elephants (Prompt says 6/4, Image shows 2/2)",
+            "Material classification of the central object (Bagel vs Stone)",
+            "Anatomical accuracy of stylized animal figures",
+            "Physical contact points between objects (Stone on Bagel, Flamingos on Ground)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flamingo",
+                "reason": "To definitively count the number of flamingos and confirm their presence, as the prompt expects six but only two are visible.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "elephant",
+                "reason": "To definitively count the number of elephants and confirm their presence, as the prompt expects four but only two are visible.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bagel",
+                "reason": "To verify if the central object is classified as a 'bagel' (food) vs 'stone' or other objects, addressing the confusion in Atom 1.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "flamingo",
+                "reason": "To audit the anatomical correctness of the flamingo limbs and neck curvature, which appear stylized and potentially malformed.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "elephant",
+                "reason": "To verify if the elephant figures possess key anatomical features like the trunk tip projection and skull shape, which appeared missing in visual inspection.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bagel",
+                "reason": "To analyze the spatial relationship and contact physics between the stone, bagel, and flamingos to verify if the bagel is truly 'on top' or just adjacent.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_sd35_l_800/731.png",
+            "prompt_id": "731",
+            "prompt_text": "a stone bagel on top of six purple flamingos to the right of four checkered elephants",
+            "router_cost_seconds": 61.03,
+            "plan_valid": true
+        }
+    }
+}
