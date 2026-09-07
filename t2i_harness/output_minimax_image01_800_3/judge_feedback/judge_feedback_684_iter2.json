@@ -1,0 +1,350 @@
+{
+    "image_id": "684",
+    "prompt": "five purple chairs to the left of two rabbits behind seven motorcycles",
+    "iteration": 2,
+    "timestamp": "2026-09-07 05:26:22",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains significant logical errors in spatial reasoning and taxonomy verification that contradict the visual evidence. Specifically: 1) The Router incorrectly judged Atom 3 (Chairs left of Rabbits) as False; visually, the chairs form a row behind the rabbits, but their collective centroid is clearly to the right of the rabbit cluster (which is on the far left), or at best ambiguous, but certainly not 'strictly incorrect' enough to fail without nuance. More importantly, the prompt asks for chairs 'to the left of two rabbits', implying the rabbits are to the right of the chairs. In the image, the rabbits are on the left/center foreground, and chairs span the width. The spatial relationship is complex, but the Router's binary 'No' with high confidence is suspect. 2) The Router failed to verify the color of the motorcycles (Atom 7/8 context) or the specific type of motorcycle against the prompt's implicit expectations (standard vs scooter). 3) Crucially, the 'fine_grained_classifier' for motorcycles is tasked with distinguishing scooters, but the prompt does not specify scooter vs motorcycle, only 'motorcycles'. The checkpoint rejection for 'step-through frame' is irrelevant unless the prompt specified 'scooter'. 4) The biggest failure: The Router missed verifying the **color** of the motorcycles. While not explicitly asked in an atom, the prompt implies a scene composition. More critically, the Router missed verifying if the **rabbits** are actually **two**. Atom 4 says expected 2, predicted 3. The image shows three distinct rabbit shapes (one left, two center). The Router correctly identified this. However, the plan lacks a `topology_boundary_auditor` to definitively separate the fused central rabbits, relying only on `animal_pose_auditor`. Given the 'structural_collapse' artifact noted, a topology audit is essential to confirm if they are 2 fused or 3 distinct entities.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Topology of fused central rabbits",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Re-evaluate Atom 3 (Spatial Relationship). The chairs are largely behind the rabbits, but the prompt says 'chairs to the left of rabbits'. In the image, the rabbits are on the left side of the frame relative to the main block of motorcycles, but the chairs span the whole width. The relationship 'chairs left of rabbits' is visually false because the chairs are mostly behind or to the right of the leftmost rabbit. The Router's verdict 'No' is likely correct, but the reasoning needs to account for the 2D projection vs 3D depth. The current plan accepts the 'No' verdict. This is acceptable.",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "redundant_verification",
+                "point": "Remove fine_grained_classifier for motorcycle 'scooter vs motorcycle' distinction as the prompt only specifies 'motorcycles' and the generated objects are clearly standard motorcycles. The checkpoint failure for 'step-through frame' is a false negative for the prompt's intent.",
+                "recommended_expert": "none"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "An outdoor desert scene featuring a row of six purple plastic chairs in the foreground. Behind the chairs are four motorcycles parked in a line. In front of the chairs, on the sandy ground, are three brown rabbits (one sitting upright on the left, two huddled together in the center). The background consists of rocky terrain and sparse vegetation under a clear sky.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many chairs are in the image?",
+                "expected": "five",
+                "predicted": "six",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Visual count clearly shows six distinct purple chairs lined up in the foreground."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the chairs purple?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All visible chairs are a distinct shade of purple/violet."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any chairs in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Six chairs are prominently displayed in the foreground."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the chairs to the left of the rabbits?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "The chairs form a horizontal row spanning the width of the frame behind the rabbits. While some chairs are to the left of the central rabbit cluster, others are directly behind or to the right. The relationship is not strictly 'to the left' as implied by the prompt; they are primarily 'behind'. However, based on centroid analysis, the chair group center is roughly aligned with the rabbit group center, making 'left of' factually incorrect as a global descriptor."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many rabbits are in the image?",
+                "expected": "two",
+                "predicted": "three",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is one rabbit on the far left and two rabbits clustered together in the center, totaling three."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any rabbits in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three rabbits are clearly visible in the foreground."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are the rabbits behind the motorcycles?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The rabbits are in the extreme foreground, while the motorcycles are in the background behind the chairs. The spatial order is Rabbits -> Chairs -> Motorcycles."
+            },
+            {
+                "atom_index": 7,
+                "question": "How many motorcycles are in the image?",
+                "expected": "seven",
+                "predicted": "four",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Only four distinct motorcycles are visible in the row behind the chairs. No occluded instances are detectable via depth cues."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any motorcycles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Four motorcycles are clearly visible in the mid-ground."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "chair",
+                "checkpoint": "Portable chair with collapsible frame",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The chairs appear to be solid molded plastic monocoque structures, not folding chairs with collapsible frames or X-braces."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Frame is tubular steel or molded plastic",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The chairs are clearly made of molded purple plastic."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Seat and back are flat panels connected by hinge mechanism",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The seat and back appear to be a single continuous molded piece without visible hinges or separate panels."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Two-wheeled vehicle with step-through frame and small wheels",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The vehicles have standard motorcycle frames (straddle type) and larger wheels, not the step-through frame and small wheels of a scooter."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Flat floorboard for rider's feet with padded seat above",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Riders would need to straddle the fuel tank/engine area; there is no flat floorboard between the handlebars and seat."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Handlebars with hand grips and controls",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Visible handlebars with mirrors and controls are present on all motorcycles."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Front small windscreen or leg shield",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Several motorcycles feature clear windscreens mounted on the front."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Exceptionally long ears with black tips, markedly longer than rabbit ears",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The animals have ears proportional to domestic rabbits, not the exceptionally long ears with black tips characteristic of hares."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Elongated body with powerful hind limbs, notably larger than rabbit",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bodies appear compact and rounded like rabbits, not elongated with massive hind limbs like hares."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Dense fur in brown, gray, or seasonal white coloration",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The animals have dense brown/tan fur consistent with the description."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Center rabbit cluster",
+                "severity": 3,
+                "reasoning": "The two rabbits in the center appear fused together with indistinct boundaries between their bodies and limbs, creating a morphological blob rather than two distinct animals."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Motorcycle handlebars and mirrors",
+                "severity": 2,
+                "reasoning": "Some mirror stems and handlebar controls appear slightly melted or lack precise mechanical definition, blending into the background or adjacent parts."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Chair legs on sand",
+                "severity": 2,
+                "reasoning": "The contact points of some chair legs with the sand are slightly ambiguous or soft, lacking sharp shadow definition expected from direct sunlight."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chair",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2",
+                    "Atom 3"
+                ],
+                "reason": "Verify exact count of chairs and confirm spatial relationship relative to rabbits using bounding box centroids.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 5",
+                    "Atom 6"
+                ],
+                "reason": "Verify exact count of rabbits and confirm spatial relationship relative to motorcycles.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "motorcycle",
+                "verification_goals": [
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "Verify exact count of motorcycles and provide BBox priors for depth audit.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "motorcycle",
+                "verification_goals": [
+                    "Atom 7"
+                ],
+                "reason": "Audit depth layers to verify if additional motorcycles are occluded behind the visible four, confirming if count is truly 4 or potentially 7.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "rabbit Head_and_Face",
+                    "rabbit Body_and_Plumage"
+                ],
+                "reason": "Distinguish between rabbit and hare taxonomy based on ear length and body proportions.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "motorcycle",
+                "verification_goals": [
+                    "motorcycle Geometry_and_Silhouette",
+                    "motorcycle Functional_Components"
+                ],
+                "reason": "Classify vehicle type to verify if they are scooters or standard motorcycles.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "rabbit Limbs_and_Anatomy",
+                    "Artifact: structural_collapse"
+                ],
+                "reason": "Audit limb integrity and separation of the fused central rabbits.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Count verification for all three object classes (chairs, rabbits, motorcycles)",
+            "Spatial relationship validation (left/behind prepositions) using centroid analysis",
+            "Taxonomic classification of rabbits (hare vs rabbit) and motorcycles (scooter vs motorcycle)",
+            "Structural integrity of the central rabbit cluster",
+            "Depth-based occlusion check for motorcycle count"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "chair",
+                "reason": "Verify exact count of chairs and confirm spatial relationship relative to rabbits using bounding box centroids.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "reason": "Verify exact count of rabbits and confirm spatial relationship relative to motorcycles.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "motorcycle",
+                "reason": "Verify exact count of motorcycles and provide BBox priors for depth audit.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "motorcycle",
+                "reason": "Audit depth layers to verify if additional motorcycles are occluded behind the visible four, confirming if count is truly 4 or potentially 7.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbit",
+                "reason": "Distinguish between rabbit and hare taxonomy based on ear length and body proportions.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "motorcycle",
+                "reason": "Classify vehicle type to verify if they are scooters or standard motorcycles.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "reason": "Audit limb integrity and separation of the fused central rabbits.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/684.png",
+            "prompt_id": "684",
+            "prompt_text": "five purple chairs to the left of two rabbits behind seven motorcycles",
+            "router_cost_seconds": 48.18,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

@@ -1,0 +1,176 @@
+{
+    "image_id": "411",
+    "prompt": "a yellow bear and six yellow penguins and three giraffes",
+    "iteration": 1,
+    "timestamp": "2026-09-07 02:58:13",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan fails to address critical prompt constraints and contains logical errors in expert selection. Specifically: 1) It ignores the 'yellow' attribute constraint for penguins (Atom 4), which is a clear failure since the generated penguins are black/white. 2) It assigns the `animal_pose_auditor` to giraffes despite the image clearly showing stylized toy figures; this expert is explicitly defined as 'NOT for limbless' but effectively useless for non-biological rigid toys where skeletal keypoints do not apply. 3) It lacks a specific verification step for the Giraffe count (Atom 6), relying only on general detection.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify if penguins are yellow (Atom 4). The current plan checks count but ignores the color constraint violation.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "incorrect_expert_selection",
+                "point": "Remove animal_pose_auditor for giraffes. The subjects are stylized toys/statues, not biological animals with valid skeletal keypoints. Use topology_boundary_auditor instead to check for structural integrity of the toy figures.",
+                "recommended_expert": "topology_boundary_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Explicitly verify the count of giraffes (Atom 6). The current plan focuses on penguins and bear classification but omits a dedicated counting step for giraffes.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "bear",
+                "checkpoint": "Head is broad with a dished facial profile and short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bear in the image has a stylized, cartoonish face with a rounded snout and simple features, lacking the biological 'dished facial profile' and broad head structure of a real brown bear."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Body is massive, heavily built, and well-muscled with a prominent shoulder hump and powerful legs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the body is massive, it lacks the specific muscular definition and the distinctive shoulder hump of a brown bear. The texture is smooth and uniform (like plastic or clay) rather than having a shaggy coat."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Plumage is black and white: head, back, and flippers are glossy black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The penguins display the correct black and white coloration pattern typical of King Penguins, although they appear as stylized figures rather than biological entities."
+            },
+            {
+                "object": "penguin",
+                "checkpoint": "Breast and belly are white transitioning to pale yellow on upper breast.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The penguins in the image have stark white bellies without the characteristic orange-yellow auricular patches or the pale yellow transition on the upper breast found in King Penguins."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Stylization/Texture Mismatch",
+                "location": "Global (Bear, Penguins, Giraffes)",
+                "severity": 0.9,
+                "reasoning": "The entire scene depicts toy-like or claymation figures with smooth, matte surfaces and simplified anatomy, rather than realistic biological animals with fur, feathers, or skin textures. This indicates a significant deviation from a photorealistic generation intent if one was implied by the taxonomy."
+            },
+            {
+                "artifact_type": "Anatomical Simplification",
+                "location": "Bear Face",
+                "severity": 0.8,
+                "reasoning": "The bear's mouth is open in a fixed, unnatural grin with visible teeth that look like a single strip, and the eyes are simple black dots, lacking biological realism."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "penguins",
+                "verification_goals": [
+                    "Count the exact number of penguin instances to verify against the expected count of six.",
+                    "Locate bounding boxes for all penguins to assist in segmentation."
+                ],
+                "reason": "The prompt specifies 'six' penguins, but visual inspection suggests there may be fewer (approx. 4-5). Precise counting is required to validate Atom 3.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "verification_goals": [
+                    "Classify the bear figure to determine if it matches 'brown bear' or a generic/stylized category.",
+                    "Verify if the yellow coloration is an attribute of the object or a lighting artifact (though likely object attribute)."
+                ],
+                "reason": "The bear is yellow and stylized. We need to confirm if the model recognizes this as a 'bear' despite the non-biological color and shape, and to flag the color mismatch with the 'brown bear' taxonomy.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Audit the skeletal structure of the giraffes to ensure valid limb connectivity.",
+                    "Check for anatomical melting or extra limbs common in AI generations of quadrupeds."
+                ],
+                "reason": "Giraffes have complex leg structures. The stylized nature of the image might hide anatomical errors, so a pose audit is necessary to ensure the figures are structurally sound.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_scene",
+                "verification_goals": [
+                    "Assess the overall rendering style (toy vs. realistic).",
+                    "Detect any blending artifacts between the figures and the yellow background."
+                ],
+                "reason": "To formally document the 'toy-like' aesthetic which contradicts the biological taxonomy provided, and to check for edge quality issues.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "none",
+                "verification_goals": [
+                    "Scan for any unintended text or watermarks."
+                ],
+                "reason": "Standard check, though unlikely to find text in this specific composition.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "The specific species of the 'yellow bear' cannot be verified against biological taxonomy due to its stylized, non-realistic appearance.",
+            "The internal anatomical correctness of the toy-like figures (e.g., bone structure) is unverifiable as they appear to be solid sculptures."
+        ],
+        "focus_areas": [
+            "Penguin Count Verification (Atom 3)",
+            "Bear Color and Morphology Validation (Atom 1, Atom 0)",
+            "Stylization vs. Biological Realism Assessment"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "penguins",
+                "reason": "The prompt specifies 'six' penguins, but visual inspection suggests there may be fewer (approx. 4-5). Precise counting is required to validate Atom 3.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "reason": "The bear is yellow and stylized. We need to confirm if the model recognizes this as a 'bear' despite the non-biological color and shape, and to flag the color mismatch with the 'brown bear' taxonomy.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "giraffe",
+                "reason": "Giraffes have complex leg structures. The stylized nature of the image might hide anatomical errors, so a pose audit is necessary to ensure the figures are structurally sound.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "global_scene",
+                "reason": "To formally document the 'toy-like' aesthetic which contradicts the biological taxonomy provided, and to check for edge quality issues.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "image_text_auditor",
+                "target_subject": "none",
+                "reason": "Standard check, though unlikely to find text in this specific composition.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/411.png",
+            "prompt_id": "411",
+            "prompt_text": "a yellow bear and six yellow penguins and three giraffes",
+            "router_cost_seconds": 24.83,
+            "plan_valid": false
+        }
+    }
+}

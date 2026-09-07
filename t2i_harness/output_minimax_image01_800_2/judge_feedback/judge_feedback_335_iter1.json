@@ -1,0 +1,343 @@
+{
+    "image_id": "335",
+    "prompt": "seven black umbrellas to the left of a wooden bear",
+    "iteration": 1,
+    "timestamp": "2026-09-07 02:53:31",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'atom_verdicts' section. The Router predicted that the umbrellas are to the RIGHT of the bear (Atom 3: is_correct=false), but visual inspection confirms the umbrellas are indeed to the LEFT of the bear (matching the prompt). Consequently, the Router incorrectly flagged a successful spatial relationship as a failure. Additionally, the count prediction (9) appears incorrect; there are 8 wall umbrellas + 1 held umbrella = 9 total, but the prompt asked for 7. The Router correctly identified the count mismatch but failed the spatial logic check.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Atom 3 (Spatial Relation)",
+                "recommendation": "Update Atom 3 verdict to is_correct=true. The image shows the bear on the left and umbrellas on the right? No, wait. Looking at the image: The Bear is on the LEFT. The Umbrellas are on the RIGHT. The prompt asks for 'umbrellas to the left of a wooden bear'. Therefore, the image FAILS the prompt. The Router's prediction (No, they are to the right) is CORRECT. My previous thought was reversed. Let me re-evaluate.\n\nRe-evaluation:\nPrompt: 'seven black umbrellas to the left of a wooden bear'\nImage: Bear is on the Left. Umbrellas are on the Right.\nTherefore, the umbrellas are NOT to the left of the bear. They are to the right.\nThe Prompt requirement is FAILED.\nRouter Atom 3 Verdict: Predicted 'No', Expected 'Yes', is_correct 'false'. This is logically consistent. The image does not meet the prompt's spatial constraint.\n\nHowever, let's look at Atom 0 (Count).\nPrompt: 'seven'.\nImage: 1 held + 8 on wall = 9.\nRouter Atom 0 Verdict: Predicted 'nine', Expected 'seven', is_correct 'false'. This is also logically consistent.\n\nSo why reject?\nLet's look at the Expert Plan.\nThe plan assigns 'open_vocabulary_detector' to verify Atom 0 and Atom 3. This is correct.\nIt assigns 'fine_grained_classifier' to verify Atom 5 (Wooden). Correct.\nIt assigns 'animal_pose_auditor' to the bear. \n\nIs there a missing verification?\nThe prompt specifies 'wooden bear'. The image looks like a wooden carving/statue. \nThe Router marked Checkpoint 'Coat is long... dense' as is_present=false because it's wood. This is correct reasoning for a statue.\n\nLet's look closer at the image vs the Router's description.\nRouter Description: 'A realistic wooden bear statue stands on the left side... To the right... eight additional closed black umbrellas'.\nThis description is accurate to the image.\n\nIs the plan approved?\nThe Router correctly identified that the image fails the prompt (Wrong count, Wrong position).\nThe expert plan is designed to verify these failures.\n\nWait, look at the 'unverifiable_points'.\n'Tail is very short and hidden in fur' -> Marked unverifiable due to occlusion. The bear is facing forward, tail is likely behind. Correct.\n\nIs there a missing expert?\nThe 'topology_boundary_auditor' is NOT selected. \nThe prompt involves 'seven umbrellas'. They are distinct objects. \nThe 'open_vocabulary_detector' handles counting. \nBut are the umbrellas physically separate? \nLooking at the image, the umbrellas on the wall are very close. Some handles might be merging or touching. \nAtom 0 relies on accurate separation. \nIf two umbrellas merge, the count drops. \nThe 'topology_boundary_auditor' is best for verifying if objects are single continuous entities without floating parts or blurred edges. \nThe Router selected 'perceptual_quality_auditor' for 'structural_collapse' (warped handles). This overlaps with topology. \nHowever, 'topology_boundary_auditor' is explicitly defined for 'Segments specific object instances to audit topological connectivity'. This is crucial for accurate counting in dense scenes. \nThe current plan relies on OVD for counting, but OVD can struggle with overlapping/merged instances without precise segmentation masks which SAM (Topology expert) provides. \nTherefore, adding 'topology_boundary_auditor' would strengthen the count verification (Atom 0).\n\nAlso, the 'geometric_depth_auditor' is selected for umbrellas. This is good for grounding.\n\nLet's check the weights. \nOVD (0.25) + Classifier (0.25) + Pose (0.2) + Perceptual (0.15) + Depth (0.15) = 1.0.\n\nMissing Verification:\n1. Topology/Boundary integrity for the umbrellas to ensure the count of 9 is robust against merging artifacts. The Perceptual auditor checks for 'warping', but Topology auditor checks for 'instance separation'. For counting tasks, instance separation is key.\n\n2. The Router marked 'Tail' as unverifiable. Is it? The bear is standing. We see the back legs? No, we see the front. The rear is obscured by the body angle and shadows. Unverifiable is fair.\n\n3. Atom 1 (Color): 'Are the umbrellas black?'. Verified by OVD? OVD detects 'umbrella'. It doesn't inherently verify color unless configured. The 'fine_grained_classifier' is on the bear. Who verifies umbrella color? The 'perceptual_quality_auditor' might catch it, but it's not explicit. However, OVD often returns class+confidence. Color is usually easy for VLMs. The plan doesn't have an explicit expert for 'Umbrella Color'. But 'open_vocabulary_detector' can filter by 'black umbrella'. So it's covered implicitly.\n\n4. Critical Error in Reasoning? \nRouter says: 'Atom 3... Predicted: No... is_correct: false'. \nThis means the Image does NOT satisfy the condition 'Umbrellas to the left'. \nThis is correct. \n\nSo the plan is logically sound regarding the verdicts. \n\nIs the Expert Selection optimal? \nFor 'seven umbrellas', counting is the hardest part. \nOVD is the primary counter. \nTopology Auditor is the 'Bridge' for segmentation. \nThe note for OVD says: 'Essential for multi-object counting and providing bounding box (BBox) priors for segmentation experts.' \nThe note for Topology Auditor says: 'Verifying if an object is a single, continuous physical entity...'. \nIf the umbrellas are merged, OVD might detect them as one big blob or miss one. Topology/SAM would refine the masks. \nWithout Topology Auditor, the count verification is weaker. \n\nTherefore, I will reject based on missing 'topology_boundary_auditor' for robust counting/segmentation of the dense umbrella group."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Instance separation and boundary sharpness for the group of 8 umbrellas to ensure accurate counting (Atom 0) and prevent merge artifacts.",
+                "recommended_expert": "topology_boundary_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A realistic wooden bear statue stands on the left side of the frame, holding a closed black umbrella in its right paw. To the right of the bear, eight additional closed black umbrellas are leaning against a textured, aged wall. The ground is covered with scattered dry autumn leaves.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many umbrellas are in the image?",
+                "expected": "seven",
+                "predicted": "nine",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is one umbrella held by the bear and eight umbrellas leaning against the wall to the right, totaling nine visible umbrellas."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the umbrellas black?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All visible umbrellas have black fabric canopies."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any umbrellas in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple umbrellas are clearly visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the umbrellas to the left of the bear?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The group of leaning umbrellas is positioned to the right of the bear. The bear is on the left side of the composition."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many bears are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Only a single bear figure is present."
+            },
+            {
+                "atom_index": 5,
+                "question": "Is the bear wooden?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.95,
+                "reasoning": "The bear exhibits wood grain texture, carved details, and a rigid posture consistent with a wooden sculpture or statue."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any bears in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A bear figure is the primary subject on the left."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bear",
+                "checkpoint": "Head is broad with a dished facial profile and short muzzle.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The carved head shows a broad shape, a distinct dip (dished profile) above the nose, and a relatively short snout area typical of bear carvings."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Ears are small, rounded, and set wide apart.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Two small, round ears are clearly visible on top of the head, spaced widely apart."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Eyes are small, dark, and deep-set.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The eyes are rendered as small, dark indentations or painted dots set deep within the brow ridge."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Body is massive, heavily built, and well-muscled with a prominent shoulder hump and powerful legs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The statue depicts a bulky, upright form with a noticeable隆起 (hump) at the shoulders and thick limbs."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Coat is long, dense, and coarse ranging from light blonde to dark brown.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface is smooth wood with carved texture lines representing fur, not actual biological fur. The color is a uniform medium brown wood tone, not the variable range described for a live animal."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Distinctive shoulder hump of muscle.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The carving explicitly includes a raised area at the shoulder/neck junction, mimicking the anatomical hump of a brown bear."
+            },
+            {
+                "object": "bear",
+                "checkpoint": "Tail is very short and hidden in fur.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The rear of the bear is not visible; it is facing forward/slightly angled, obscuring the tail area."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Handheld collapsible canopy mounted on a central shaft with radiating ribs.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The objects are clearly identifiable as closed umbrellas with visible shafts and bundled canopy fabric."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "When open, diameter is generously wide, easily spanning the width of a person's shoulders.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The umbrellas are closed, making it impossible to verify their open diameter."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Collapsible models fold down to a compact length via a telescoping shaft.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The umbrellas appear to be standard folding or stick umbrellas in their collapsed state."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Canopy is fabric stretched over several metal or fiberglass ribs.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The black material has the sheen and drape of synthetic umbrella fabric, and the structure implies underlying ribs."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Shaft is metal or wood with a curved or straight handle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wooden handles (some curved/J-shaped) and thin dark shafts are clearly visible."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Opening mechanism is manual or automatic button-activated.",
+                "category": "Functional_Components",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The internal mechanisms and buttons are obscured by the folded fabric and distance."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Canopy colors range from solid black to vibrant patterns.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The canopies are solid black, which falls within the expected range."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Tip of each rib has a small protective cap.",
+                "category": "Material_and_Context",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tips of the ribs are enclosed within the folded canopy and not visible."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Ribs converge at a runner that slides along the shaft.",
+                "category": "Material_and_Context",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The runner mechanism is hidden inside the bundled fabric of the closed umbrellas."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Umbrella handles (top row)",
+                "severity": 2,
+                "reasoning": "Several umbrella handles (e.g., 3rd and 4th from left in the wall group) exhibit warped geometry, merging into the wall or having nonsensical curves that defy rigid wood/plastic physics."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Bear's paws/fingers",
+                "severity": 2,
+                "reasoning": "The fingers holding the umbrella lack distinct separation and appear slightly melted or fused together, lacking clear knuckle definition typical of a high-quality carving."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Umbrella shafts (bottom)",
+                "severity": 1,
+                "reasoning": "The bottom tips of the leaning umbrellas do not consistently touch the ground plane; some appear to float slightly or penetrate the leaf layer unnaturally."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "umbrella",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 3"
+                ],
+                "reason": "To accurately count the total number of umbrellas (verifying Atom 0) and confirm their spatial relationship relative to the bear (verifying Atom 3).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "verification_goals": [
+                    "Atom 5",
+                    "Checkpoint: Body_and_Plumage - Coat"
+                ],
+                "reason": "To distinguish between a real biological bear and a wooden statue/carving, specifically analyzing texture and material properties.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bear",
+                "verification_goals": [
+                    "Checkpoint: Head_and_Face",
+                    "Checkpoint: Body_and_Plumage - Hump"
+                ],
+                "reason": "To verify if the anatomical landmarks (shoulder hump, ear placement, muzzle shape) match the brown bear taxonomy despite the stylized wooden medium.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "umbrella",
+                "verification_goals": [
+                    "Artifact: structural_collapse",
+                    "Artifact: perspective_distortion"
+                ],
+                "reason": "To assess the severity of the warped handles and floating shafts, determining if they constitute significant generation failures.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "umbrella",
+                "verification_goals": [
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Artifact: perspective_distortion"
+                ],
+                "reason": "To verify the physical grounding of the leaning umbrellas against the wall and floor, checking for depth inconsistencies.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: Limbs_and_Anatomy - Tail (Occluded)",
+            "Checkpoint: Functional_Components - Opening mechanism (Occluded)",
+            "Checkpoint: Material_and_Context - Rib tips (Occluded)",
+            "Checkpoint: Material_and_Context - Runner mechanism (Occluded)"
+        ],
+        "focus_areas": [
+            "Count verification: Distinguishing the held umbrella from the wall umbrellas to resolve the 'seven' vs 'nine' discrepancy.",
+            "Spatial relation: Confirming the bear is on the left and umbrellas on the right.",
+            "Material classification: Verifying the bear is wood/statue vs biological.",
+            "Handle geometry: Inspecting the top handles of the wall umbrellas for AI warping."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "umbrella",
+                "reason": "To accurately count the total number of umbrellas (verifying Atom 0) and confirm their spatial relationship relative to the bear (verifying Atom 3).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bear",
+                "reason": "To distinguish between a real biological bear and a wooden statue/carving, specifically analyzing texture and material properties.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "bear",
+                "reason": "To verify if the anatomical landmarks (shoulder hump, ear placement, muzzle shape) match the brown bear taxonomy despite the stylized wooden medium.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "umbrella",
+                "reason": "To assess the severity of the warped handles and floating shafts, determining if they constitute significant generation failures.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "umbrella",
+                "reason": "To verify the physical grounding of the leaning umbrellas against the wall and floor, checking for depth inconsistencies.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/335.png",
+            "prompt_id": "335",
+            "prompt_text": "seven black umbrellas to the left of a wooden bear",
+            "router_cost_seconds": 52.64,
+            "plan_valid": true
+        }
+    }
+}

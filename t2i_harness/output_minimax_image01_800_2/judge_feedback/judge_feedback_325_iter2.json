@@ -1,0 +1,447 @@
+{
+    "image_id": "325",
+    "prompt": "a rabbit to the right of a blue umbrella, and a pink kangaroo",
+    "iteration": 2,
+    "timestamp": "2026-09-07 02:53:59",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in Atom 2 regarding spatial relationships. The image shows the rabbit on the RIGHT and the umbrella/kangaroo on the LEFT. The prompt asks for 'a rabbit to the right of a blue umbrella'. While the rabbit is indeed to the right of the umbrella, the Router's reasoning states: 'The rabbit is positioned horizontally to the right of the umbrella's central shaft... satisfying the spatial relationship'. However, looking at the image, the Rabbit is on the Right side of the frame, and the Umbrella is centered/left. The Kangaroo is on the Left. The prompt says 'rabbit to the right of a blue umbrella'. This is technically true (Rabbit is right of Umbrella). BUT, the Router's description says 'realistic brown rabbit on the right' and 'pink kangaroo on the left'. The Atom 2 verdict is 'Correct'. This seems fine. \n\nWait, let's look closer at the Expert Verification Plan. \n1. The `fine_grained_classifier` is assigned to verify 'Atom 4: Is the umbrella blue?'. A fine-grained classifier (ViT trained on ImageNet) is NOT designed for color verification. It classifies objects (e.g., 'umbrella', 'parasol'). Color verification should be done via simple pixel analysis or a VLM, not a taxonomy classifier. This is a methodological error.\n2. The `animal_pose_auditor` is assigned to the 'pink kangaroo'. The expert registry explicitly states: 'ONLY for limbed subjects... NOTE: ONLY for limbed subjects. NOT for limbless'. A kangaroo is limbed. However, the image depicts a *plush toy* kangaroo. The pose auditor detects biological keypoints. Applying a biological pose auditor to a plush toy will likely fail or return low-confidence garbage because the joints don't exist biologically. The Router acknowledges it's a plush toy in the description but still assigns the pose auditor. This is a mismatch of tool capability vs. subject nature.\n3. Crucially, the `topology_boundary_auditor` is missing. The prompt involves distinct objects (rabbit, umbrella, kangaroo). The image shows them touching/interacting (rabbit holding umbrella). The `geometric_depth_auditor` is used for depth/fusion, but `topology_boundary_auditor` is best for verifying if the rabbit's paw is *actually* holding the handle or just merging with it (segmentation continuity). The current plan relies on `geometric_depth_auditor` for this, which is less precise for boundary connectivity than SAM-based topology auditing.\n4. The `open_vocabulary_detector` is used for counting. This is correct. \n\nThe main rejection reason is the misuse of `fine_grained_classifier` for color verification (Atom 4) and the potential misapplication of `animal_pose_auditor` on a non-biological plush toy without a fallback or specific note on expected failure modes. Additionally, the `topology_boundary_auditor` is a better fit for the 'holding' interaction than just depth auditing.",
+        "suggestions": [
+            {
+                "type": "methodological_error",
+                "point": "Atom 4 (Umbrella Color) verification using fine_grained_classifier",
+                "recommended_expert": "perceptual_quality_auditor or open_vocabulary_detector (with color attribute check)",
+                "reason": "Fine-grained classifiers identify species/object types, not colors. Use a VLM or pixel-based color extraction for color verification."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Interaction boundary between Rabbit paw and Umbrella handle",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "To precisely segment the paw and handle to determine if they are topologically connected (holding) or merged (artifact), which is more accurate than depth auditing alone."
+            },
+            {
+                "type": "tool_mismatch",
+                "point": "Animal Pose Auditor on Pink Kangaroo (Plush Toy)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "The subject is a plush toy, not a biological animal. Biological keypoint detectors will likely fail. A perceptual VLM is better suited to assess if the plush toy's structure is coherent relative to its 'toy' nature."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A studio-style image featuring a pink, plush-textured kangaroo on the left and a realistic brown rabbit on the right. Both animals are positioned under a single open blue umbrella held by the rabbit. The background is a solid light teal/green color. There are scattered wood shavings or debris on the floor between them.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many rabbits are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is clearly one realistic brown rabbit visible on the right side of the image."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any rabbits in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A rabbit is clearly present."
+            },
+            {
+                "atom_index": 2,
+                "question": "Is the rabbit to the right of the umbrella?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The rabbit is positioned horizontally to the right of the umbrella's central shaft and handle. While it stands partially under the canopy, its body mass is distinctly located on the right side of the umbrella's vertical axis, satisfying the spatial relationship 'to the right'."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many umbrellas are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One blue umbrella is clearly visible."
+            },
+            {
+                "atom_index": 4,
+                "question": "Is the umbrella blue?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The umbrella canopy and handle are distinctly blue."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any umbrellas in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "An umbrella is present."
+            },
+            {
+                "atom_index": 6,
+                "question": "How many kangaroos are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One pink kangaroo figure is visible on the left."
+            },
+            {
+                "atom_index": 7,
+                "question": "Is the kangaroo pink?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The kangaroo is rendered in a bright pink color."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are there any kangaroos in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A kangaroo is present."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "kangaroo",
+                "checkpoint": "Ears are relatively short and rounded compared to kangaroos.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The ears on the pink figure are long, upright, and pointed, resembling rabbit ears rather than the short, rounded ears typical of wallabies/kangaroos. This is a structural anomaly likely caused by style transfer or prompt confusion."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Distinctive facial markings include pale cheek stripes and dark eye bands.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The face is uniformly pink with simple black bead-like eyes; no biological markings like cheek stripes or eye bands are visible."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Head is small relative to body size.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The head appears disproportionately large and stylized (toy-like) compared to the body, lacking the sleek, small-headed profile of a real macropod."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Fur coloration displays grey, brown, red, or black tones depending on species.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The subject is bright pink, which contradicts the natural coloration taxonomy for this class, although it matches the specific prompt instruction."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body exhibits characteristic kangaroo plan with disproportionately large muscular hind limbs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The hind limbs are thick and padded like a stuffed animal's, lacking the defined musculature and elongated structure of a biological kangaroo."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Body is compact to medium-sized with a tail notably shorter than the torso length.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The tail is thick, cylindrical, and extends significantly behind the body, appearing roughly equal to or longer than the torso, unlike the tapering balance tail of a wallaby."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Large muscular hind limbs adapted for saltatorial locomotion.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The feet are rounded stumps with dark pads, lacking the distinct elongated toes and claw structure required for saltatorial locomotion."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Small forelimbs with five digits.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The forelimbs end in dark, mitten-like paws without visible distinct digits or claws."
+            },
+            {
+                "object": "kangaroo",
+                "checkpoint": "Thick muscular tail used for balance during bipedal hopping.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While thick, the tail lacks the muscular definition and tapering shape of a functional balancing tail; it looks like a plush appendage."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Exceptionally long ears with black tips, markedly longer than rabbit ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The rabbit has long ears, but they lack the distinctive black tips specified in the taxonomy for hares. They are brown/grey tipped."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Elongated body with powerful hind limbs, notably larger than rabbit.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The subject displays the elongated body and powerful hindquarters characteristic of a hare/large rabbit."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Dense fur in brown, gray, or seasonal white coloration.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The fur is dense and agouti (brown/grey), matching the description."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Short tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A short, fluffy tail is visible at the rear."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Massively elongated hind legs with muscular thighs enabling rapid leaping.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The hind legs are visibly elongated and muscular, consistent with leporid anatomy."
+            },
+            {
+                "object": "rabbit",
+                "checkpoint": "Shorter forelegs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The forelegs are significantly shorter than the hind legs."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Handheld collapsible canopy mounted on a central shaft with radiating ribs.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The structure clearly shows a canopy, central shaft, and visible rib lines underneath."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "When open, diameter is generously wide, easily spanning the width of a person's shoulders.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The umbrella is wide enough to cover both animals, satisfying the scale requirement."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Canopy is fabric stretched over several metal or fiberglass ribs.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The tension of the fabric over the underlying rib structure is visible."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Shaft is metal or wood with a curved or straight handle.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "A smooth blue shaft with a classic J-shaped curved handle is clearly visible."
+            },
+            {
+                "object": "umbrella",
+                "checkpoint": "Tip of each rib has a small protective cap.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small black/dark tips are visible at the outer edge of the canopy where ribs terminate."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Pink Kangaroo",
+                "severity": 3,
+                "reasoning": "The kangaroo exhibits a uniform 'plush toy' texture that completely overrides biological fur details. While this may be an artistic choice, it results in a loss of anatomical fidelity (e.g., lack of muscle definition, simplified paws) making it structurally inconsistent with the 'kangaroo' taxonomy despite the prompt's color constraint."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Umbrella Handle / Rabbit Paw Interface",
+                "severity": 2,
+                "reasoning": "The rabbit's front paw appears to merge slightly with the umbrella handle. The grip is ambiguous—it looks like the paw is fused into the plastic rather than wrapping around it naturally."
+            },
+            {
+                "artifact_type": "other",
+                "location": "Floor Debris",
+                "severity": 1,
+                "reasoning": "The wood shavings/debris on the floor have a slightly repetitive, cloned appearance and lack distinct individual geometry upon close inspection."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "To verify the count of rabbits and precisely locate the bounding box to confirm spatial relationship with the umbrella (Atom 2).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Atom 6",
+                    "Atom 7",
+                    "Atom 8"
+                ],
+                "reason": "To verify the count and location of the kangaroo, and assist in color verification.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Checkpoint: Elongated body...",
+                    "Checkpoint: Dense fur..."
+                ],
+                "reason": "To confirm the species classification aligns with 'hare' or 'rabbit' taxonomy based on visual features.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Checkpoint: Ears are relatively short...",
+                    "Checkpoint: Body exhibits characteristic kangaroo plan..."
+                ],
+                "reason": "To determine if the model recognizes the pink figure as a macropod despite the stylized/plush appearance and incorrect ear shape.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "verification_goals": [
+                    "Checkpoint: Massively elongated hind legs...",
+                    "Checkpoint: Shorter forelegs"
+                ],
+                "reason": "To audit the skeletal correctness of the rabbit's limb proportions.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "verification_goals": [
+                    "Checkpoint: Large muscular hind limbs...",
+                    "Checkpoint: Small forelimbs with five digits"
+                ],
+                "reason": "To check if the plush texture hides valid underlying anatomy or if the limb structure is fundamentally broken (e.g., missing digits, wrong joint angles).",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "umbrella",
+                "verification_goals": [
+                    "Checkpoint: Handheld collapsible canopy...",
+                    "Artifact: Umbrella Handle / Rabbit Paw Interface"
+                ],
+                "reason": "To verify the 3D consistency of the umbrella ribs and check for fusion artifacts where the rabbit holds the handle.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "umbrella",
+                "verification_goals": [
+                    "Atom 4"
+                ],
+                "reason": "To provide hard evidence for the color classification of the umbrella, addressing the Judge's feedback regarding missing verification for Atom 4.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Spatial relationship between rabbit and umbrella (Atom 2)",
+            "Anatomical correctness of the pink kangaroo's ears and limbs (Taxonomy Checkpoints)",
+            "Fusion artifact at the rabbit's paw and umbrella handle",
+            "Color verification of the umbrella (Atom 4)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "rabbit",
+                "reason": "To verify the count of rabbits and precisely locate the bounding box to confirm spatial relationship with the umbrella (Atom 2).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "kangaroo",
+                "reason": "To verify the count and location of the kangaroo, and assist in color verification.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "rabbit",
+                "reason": "To confirm the species classification aligns with 'hare' or 'rabbit' taxonomy based on visual features.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "kangaroo",
+                "reason": "To determine if the model recognizes the pink figure as a macropod despite the stylized/plush appearance and incorrect ear shape.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "rabbit",
+                "reason": "To audit the skeletal correctness of the rabbit's limb proportions.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "kangaroo",
+                "reason": "To check if the plush texture hides valid underlying anatomy or if the limb structure is fundamentally broken (e.g., missing digits, wrong joint angles).",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "umbrella",
+                "reason": "To verify the 3D consistency of the umbrella ribs and check for fusion artifacts where the rabbit holds the handle.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "umbrella",
+                "reason": "To provide hard evidence for the color classification of the umbrella, addressing the Judge's feedback regarding missing verification for Atom 4.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/325.png",
+            "prompt_id": "325",
+            "prompt_text": "a rabbit to the right of a blue umbrella, and a pink kangaroo",
+            "router_cost_seconds": 65.98,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

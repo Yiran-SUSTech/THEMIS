@@ -1,0 +1,170 @@
+{
+    "image_id": "430",
+    "prompt": "five bicycles to the left of a chair, and six sparkling flamingos",
+    "iteration": 1,
+    "timestamp": "2026-09-07 00:57:17",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The Router's plan contains a critical logical contradiction and hallucination regarding the bicycle taxonomy. The checkpoint claims the image depicts 'tandem' bicycles (bicycles-built-for-two) and marks them as absent because they are 'standard single-rider'. However, the prompt only requested 'five bicycles' with no specification for tandem configuration. The Router hallucinated a constraint not present in the prompt, leading to an incorrect failure mode analysis. Additionally, the plan fails to explicitly assign an expert to verify the count of bicycles (Atom 0), relying on the detector for flamingos/chair but omitting the bicycle count verification in the specific goals, despite the visual occlusion making this a high-risk area.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify the count of bicycles (Atom 0). The current plan lists bounding box generation for bicycles but does not explicitly state the goal of counting them to satisfy Atom 0, which is critical given the heavy occlusion in the image.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Remove the 'tandem bicycle' taxonomy checkpoint. The prompt did not request tandem bikes. The checkpoint should simply verify 'standard bicycle' structure. The current reasoning falsely accuses the model of failing a constraint that was never issued.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verify the spatial relationship 'left of' (Atom 2) specifically for the group of bicycles relative to the chair. While depth auditor is included, the primary 2D spatial containment should be verified by the detector's bbox coordinates before depth analysis.",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "bicycle",
+                "checkpoint": "Elongated bicycle of notably extended length with two seats and two sets of pedals arranged in tandem.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bicycles visible in the image are standard single-rider bicycles. They lack the extended top tube, second set of handlebars, and tandem seating configuration required by the 'bicycle-built-for-two' taxonomy."
+            },
+            {
+                "object": "chair",
+                "checkpoint": "Tall, slender vertical pole, towering dramatically over surrounding structures.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is a wooden dining-style chair with a slatted back. It does not match the diagnostic checkpoints provided for a 'folding chair' (which erroneously describe a flagpole), nor does it exhibit the tubular steel frame or X-brace mechanism of a standard folding chair."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Plumage ranges from pale pink to vivid scarlet with darker coloration on wings and tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The flamingos display the correct pink-to-scarlet color gradient. However, they appear to be artificial statues with a glittery/sparkling texture rather than biological birds with natural plumage."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Texture_Mismatch",
+                "location": "Flamingo bodies",
+                "severity": 0.8,
+                "reasoning": "The prompt requests 'sparkling flamingos', which the model interpreted as physical glitter/sparkle texture on artificial statues. While this satisfies the adjective, it deviates from the biological realism implied by the detailed flamingo taxonomy (feathers, webbed feet anatomy)."
+            },
+            {
+                "artifact_type": "Object_Hallucination_Count",
+                "location": "Foreground/Midground",
+                "severity": 0.9,
+                "reasoning": "The prompt explicitly requests 'six' flamingos. Visual inspection reveals only four distinct flamingo figures. This is a clear counting failure."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycles, flamingos, chair",
+                "verification_goals": [
+                    "Generate bounding boxes for all bicycle instances to verify count (Expected: 5).",
+                    "Generate bounding boxes for all flamingo instances to verify count (Expected: 6).",
+                    "Locate the chair to verify spatial relationship (bicycles to the left)."
+                ],
+                "reason": "Primary bridge expert needed to establish object presence and counts before detailed geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycles",
+                "verification_goals": [
+                    "Classify bicycles to distinguish between 'standard bicycle' and 'bicycle-built-for-two'.",
+                    "Verify if the generated objects match the specific tandem taxonomy provided."
+                ],
+                "reason": "The visual evidence suggests standard bikes were generated instead of the requested tandem bikes. High-speed classification is needed to confirm this taxonomy mismatch.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "flamingos",
+                "verification_goals": [
+                    "Analyze the surface texture to distinguish between biological feathers and artificial glitter/sparkle.",
+                    "Assess if the 'sparkling' attribute was rendered as a material property or a lighting effect."
+                ],
+                "reason": "To audit the specific 'sparkling' attribute and determine if the resulting image quality meets the biological realism standards of the provided taxonomy.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "verification_goals": [
+                    "Verify the depth ordering of bicycles relative to the chair.",
+                    "Ensure bicycles are strictly to the left of the chair in 3D space, not just 2D projection."
+                ],
+                "reason": "Spatial relationships (left/right) can be ambiguous in 2D; depth auditing ensures the structural arrangement matches the prompt's logic.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "flamingo legs",
+                "verification_goals": [
+                    "Check connectivity of the thin legs to the body and ground.",
+                    "Identify any floating parts or merging artifacts common in AI generation of thin structures."
+                ],
+                "reason": "Flamingo legs are thin and prone to topological errors (merging with chair or ground). Boundary auditing ensures structural integrity.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Whether the 'sparkling' nature of the flamingos was intended to be biological bioluminescence or artificial decoration (ambiguous prompt interpretation).",
+            "The exact material composition of the chair (wood vs. plastic laminate) due to lighting conditions."
+        ],
+        "focus_areas": [
+            "Count verification (Flamingos: 4 vs 6 requested; Bicycles: count obscured by overlap).",
+            "Taxonomy adherence (Bicycles: Standard vs. Tandem).",
+            "Material rendering (Flamingos: Glitter/Statue vs. Biological Feather)."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bicycles, flamingos, chair",
+                "reason": "Primary bridge expert needed to establish object presence and counts before detailed geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bicycles",
+                "reason": "The visual evidence suggests standard bikes were generated instead of the requested tandem bikes. High-speed classification is needed to confirm this taxonomy mismatch.",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "flamingos",
+                "reason": "To audit the specific 'sparkling' attribute and determine if the resulting image quality meets the biological realism standards of the provided taxonomy.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "reason": "Spatial relationships (left/right) can be ambiguous in 2D; depth auditing ensures the structural arrangement matches the prompt's logic.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "flamingo legs",
+                "reason": "Flamingo legs are thin and prone to topological errors (merging with chair or ground). Boundary auditing ensures structural integrity.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/430.png",
+            "prompt_id": "430",
+            "prompt_text": "five bicycles to the left of a chair, and six sparkling flamingos",
+            "router_cost_seconds": 24.26,
+            "plan_valid": false
+        }
+    }
+}

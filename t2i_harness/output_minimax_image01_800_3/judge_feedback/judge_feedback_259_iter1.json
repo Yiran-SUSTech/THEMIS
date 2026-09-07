@@ -1,0 +1,188 @@
+{
+    "image_id": "259",
+    "prompt": "seven stone giraffes and four suitcases",
+    "iteration": 1,
+    "timestamp": "2026-09-07 04:49:37",
+    "judge_verdict": {
+        "is_approved": true,
+        "reasons_for_rejection": "",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "The 'structural_collapse' artifact on giraffe legs is severe (Severity 3). While the animal_pose_auditor is correctly assigned, the plan should explicitly ensure that the open_vocabulary_detector provides bounding boxes for ALL detected giraffes to the pose auditor. If the detector misses a partially occluded or malformed giraffe, the pose auditor cannot audit it. The current plan implies this but could be more explicit about passing all BBoxes from Atom 0/2 verification to the Pose Auditor.",
+                "recommended_expert": "open_vocabulary_detector -> animal_pose_auditor pipeline"
+            },
+            {
+                "type": "refinement",
+                "point": "For Atom 1 ('Are the giraffes stone?'), the fine_grained_classifier is a good choice, but 'stone' is a material attribute, not necessarily a distinct ImageNet class like 'statue'. A perceptual_quality_auditor or a specialized texture analysis might be more robust than a standard ViT classifier which might just classify it as 'giraffe' regardless of texture. However, given the expert registry, fine_grained_classifier is the best available proxy for 'object identity/type', so this is acceptable but noted as a limitation of the available tools.",
+                "recommended_expert": "fine_grained_classifier"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a surreal desert scene featuring six tall, stone-textured giraffe statues standing in a row. In front of the giraffes, scattered on the sandy ground, are several vintage-style suitcases in various colors (green, brown, reddish-brown). The lighting suggests a bright, sunny day with distinct shadows cast by the statues and luggage.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many giraffes are in the image?",
+                "expected": "seven",
+                "predicted": "six",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Visual counting reveals exactly six distinct giraffe heads and bodies. From left to right: one small head back-left, one large front-left, one mid-left, one center, one mid-right, one far-right. Total is 6, not 7."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the giraffes stone?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The texture of the giraffes is clearly matte, granular, and monochromatic grey-beige, consistent with carved stone or concrete rather than biological fur/skin."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any giraffes in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Six giraffe figures are prominently displayed in the center of the frame."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many suitcases are in the image?",
+                "expected": "four",
+                "predicted": "five",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "Counting visible suitcases: 1 green (front left), 1 reddish-brown (behind green), 1 green (center top), 1 brown (center bottom), 1 large grey/brown (right). There appear to be 5 distinct suitcase objects, though some overlap makes exact count slightly ambiguous, it is certainly more than 4."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are there any suitcases in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple vintage suitcases are clearly visible at the feet of the giraffes."
+            }
+        ],
+        "checkpoint_verdicts": [],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Giraffe legs (specifically the second from left and center giraffes)",
+                "severity": 3,
+                "reasoning": "The front legs of the second giraffe from the left merge unnaturally into the ground and each other; the hooves lack definition and seem to melt into the sand. Similarly, the legs of the central giraffes show ambiguous connectivity where limbs overlap, lacking clear separation."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Suitcase handles and latches",
+                "severity": 2,
+                "reasoning": "The metal hardware on the suitcases (especially the center green one) appears soft and slightly melted into the case body, lacking the sharp, rigid edges expected of metal clasps."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Background horizon line",
+                "severity": 1,
+                "reasoning": "The horizon line on the left side exhibits a slight, unnatural waviness that doesn't align perfectly with the flat desert floor perspective."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 2"
+                ],
+                "reason": "To rigorously verify the count of giraffes (Atom 0) which was visually estimated as 6 against the prompt's 7. Bounding boxes will confirm distinct instances.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4"
+                ],
+                "reason": "To verify the exact count of suitcases (Atom 3) as visual inspection suggested 5 instead of 4, requiring precise detection to resolve occlusion ambiguities.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Atom 1"
+                ],
+                "reason": "To confirm the material classification. While visually stone-like, a classifier can help distinguish between 'stone statue' and 'biological giraffe' classes to validate the 'stone' attribute.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "giraffe",
+                "verification_goals": [
+                    "Artifact: structural_collapse"
+                ],
+                "reason": "To audit the leg structures identified as potentially melting/collapsed. Keypoint detection will reveal if valid anatomical joints exist or if limbs are missing/fused.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "suitcase",
+                "verification_goals": [
+                    "Artifact: texture_anomaly"
+                ],
+                "reason": "To analyze the fine-grained texture of the suitcase hardware and edges to confirm if the observed softness/melting is a generation artifact or just low resolution.",
+                "weight": 0.15
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Exact count verification for giraffes (prompt says 7, image shows 6)",
+            "Exact count verification for suitcases (prompt says 4, image shows ~5)",
+            "Structural integrity of giraffe lower legs and hooves",
+            "Material consistency of giraffe surface (stone vs skin)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "giraffe",
+                "reason": "To rigorously verify the count of giraffes (Atom 0) which was visually estimated as 6 against the prompt's 7. Bounding boxes will confirm distinct instances.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "suitcase",
+                "reason": "To verify the exact count of suitcases (Atom 3) as visual inspection suggested 5 instead of 4, requiring precise detection to resolve occlusion ambiguities.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffe",
+                "reason": "To confirm the material classification. While visually stone-like, a classifier can help distinguish between 'stone statue' and 'biological giraffe' classes to validate the 'stone' attribute.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "giraffe",
+                "reason": "To audit the leg structures identified as potentially melting/collapsed. Keypoint detection will reveal if valid anatomical joints exist or if limbs are missing/fused.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "suitcase",
+                "reason": "To analyze the fine-grained texture of the suitcase hardware and edges to confirm if the observed softness/melting is a generation artifact or just low resolution.",
+                "weight": 0.15
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/259.png",
+            "prompt_id": "259",
+            "prompt_text": "seven stone giraffes and four suitcases",
+            "router_cost_seconds": 26.72,
+            "plan_valid": true
+        }
+    }
+}

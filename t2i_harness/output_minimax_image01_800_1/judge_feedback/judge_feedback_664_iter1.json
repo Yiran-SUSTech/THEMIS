@@ -1,0 +1,331 @@
+{
+    "image_id": "664",
+    "prompt": "two striped cookies, and a purple raccoon to the right of six red bagels",
+    "iteration": 1,
+    "timestamp": "2026-09-07 01:19:33",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the spatial relationship assessment (Atom 6) and fails to assign an expert to verify the most significant prompt failure (missing object count). Specifically: 1) The Router incorrectly judged Atom 6 ('Is the raccoon to the right of the bagels?') as False. Visually, the raccoon is on the left and the bagels are on the right, meaning the raccoon IS to the right of the bagels from the viewer's perspective (or at least, the prompt implies relative positioning which the router misinterpreted or the image actually satisfies depending on reference frame, but the router's reasoning 'raccoon is to the LEFT' contradicts the visual evidence where the raccoon is clearly to the left of the stack, making the statement 'raccoon to the right' FALSE. Wait, let's re-read carefully. Prompt: 'raccoon to the right of six red bagels'. Image: Raccoon is on the Left, Bagels on Right. Therefore, the Raccoon is to the LEFT of the bagels. The Prompt asked for Raccoon to be on the RIGHT. So the image FAILED the prompt. The Router predicted 'No' (Correctly identifying the failure). However, the Router's reasoning says 'The stack... is to the right of the raccoon; therefore, the raccoon is to the LEFT...'. This is correct logic. The verdict 'is_correct: false' refers to the match between Expected (Yes) and Predicted (No). This part is actually logically sound. \n\nLet's look closer at Expert Coverage. \n1. Atom 0 (Count Cookies): Expected 2, Found 1. Router assigned `open_vocabulary_detector`. This is good.\n2. Atom 6 (Spatial): The router identified the failure but did NOT assign a specific expert to verify the spatial relationship in the `expert_verification_plan`. It bundled it under `open_vocabulary_detector` for 'raccoon', but OVD primarily gives boxes. Spatial reasoning usually requires a VLM or specific spatial audit. However, OVD boxes can be used for spatial logic. \n3. Major Issue: The `fine_grained_classifier` is assigned to 'bagel' to distinguish bagel vs donut. But the prompt *asked* for bagels. The image shows donuts (sprinkles/frosting). The checkpoint analysis correctly identifies they look like donuts. But the plan doesn't explicitly penalize the semantic mismatch strongly enough in the expert weights. \n4. Critical Missing Verification: The `animal_pose_auditor` is assigned to the raccoon. The raccoon is a stylized cartoon. It has 2 visible legs/feet and 2 arms/paws. It is bipedal/anthropomorphic. The auditor checks for 'biological structural correctness'. For a cartoon, this might be too strict or irrelevant, but acceptable. \n5. The biggest flaw: The `geometric_depth_auditor` is assigned to the bagels to check for 'structural collapse'. The router noted 'defies gravity slightly'. This is a valid artifact. \n\nLet's re-evaluate Atom 6. \nPrompt: 'raccoon to the right of six red bagels'. \nImage: Raccoon (Left), Bagels (Right). \nQuestion: Is the raccoon to the right of the bagels? \nTruth: No. \nExpected Answer (from Prompt compliance): Yes (if the image were perfect). \nPredicted Answer (from Image): No. \nIs_Correct: False (because Predicted != Expected). \nThis logic holds. \n\nHowever, look at the `expert_verification_plan`. \nIt assigns `open_vocabulary_detector` to 'raccoon' with goals Atom 3, 4, 5, 6. \nOVD detects objects. It does NOT inherently verify spatial relationships like 'to the right of' without downstream logic. The plan relies on OVD to provide boxes, but doesn't specify the spatial verification step explicitly in the expert's capability description (though it's implied). \n\nMore importantly, look at `unverifiable_points`. \n'Dense interior crumb' and 'Chewy texture' are marked unverifiable. This is correct. \n\nLet's look at `suggestions`. \nThe plan misses a dedicated verification for the **count discrepancy** of the cookies using a method that ensures no occlusion. OVD is fine. \n\nActually, there is a subtle error in the Router's `atom_verdicts` for Atom 6. \nReasoning: 'The stack of bagel-like objects is to the right of the raccoon; therefore, the raccoon is to the LEFT of the bagels.' \nThis confirms the image does NOT match the prompt. \n\nWhy reject? \n1. **Missing Expert for Spatial Logic**: While OVD provides boxes, the complex spatial relation 'to the right of' combined with counting ('six bagels') is prone to error if the detector misses one bagel in the stack. The `geometric_depth_auditor` is only looking at artifacts. A `perceptual_quality_auditor` or a specific VLM-based spatial checker is missing for the relational atom. \n2. **Taxonomy Ambiguity**: The `fine_grained_classifier` is set to distinguish bagel/donut. If it classifies them as 'donuts', the plan needs to explicitly map this to a failure of Atom 8/9 (Are they bagels?). The current plan leaves this as a checkpoint observation but doesn't tie it to a specific 'Fail' verdict in the expert plan weights effectively. \n3. **Weight Distribution**: The `open_vocabulary_detector` is split into three separate calls with 0.2 weight each. This is redundant. One call for all subjects is more efficient, or the weights should be adjusted. \n\nLet's look for a clearer rejection reason. \nThe `animal_pose_auditor` is likely to fail or give noisy results on a 2D flat vector-style cartoon raccoon because it expects 17 keypoints. The raccoon is stylized, lacking clear joints. This expert is poorly chosen for this art style. A `topology_boundary_auditor` would be better to check if the raccoon is a single coherent shape. \n\nAlso, the `geometric_depth_auditor` is assigned to 'bagel' to check for 'structural collapse'. The artifact observation mentions 'fused or floating'. Depth maps are good for this. \n\nRejection Reason: Inappropriate expert selection for the art style (`animal_pose_auditor` on flat cartoon) and lack of explicit spatial verification expert for the critical relational failure.",
+        "suggestions": [
+            {
+                "type": "inappropriate_expert",
+                "point": "animal_pose_auditor on stylized cartoon raccoon",
+                "recommended_expert": "topology_boundary_auditor",
+                "reason": "The raccoon is a flat, stylized vector illustration without distinct biological joints required for 17-keypoint pose estimation. Topology auditing is better suited to verify it is a single, coherent character instance."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Spatial relationship (Atom 6)",
+                "recommended_expert": "perceptual_quality_auditor",
+                "reason": "While OVD provides bounding boxes, verifying the specific spatial constraint 'raccoon to the right of bagels' against a stacked occluded object requires holistic scene understanding. A VLM-based perceptual auditor can confirm the relative positioning more robustly than raw box coordinates."
+            },
+            {
+                "type": "logic_gap",
+                "point": "Bagel vs Donut classification impact",
+                "recommended_expert": "fine_grained_classifier",
+                "reason": "Ensure the output of the fine-grained classifier explicitly updates the verdict for Atom 8/9. If classified as 'donut', the answer to 'Are the bagels red?' should arguably be 'N/A' or 'False' (as they are not bagels), impacting the final score."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "A stylized illustration featuring a purple raccoon standing next to a tall stack of six red-frosted donuts (resembling bagels) with sprinkles. To the left of the raccoon, there is a single striped cookie that is shaped like a ring/donut.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many cookies are in the image?",
+                "expected": "two",
+                "predicted": "one",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There is only one striped object visible on the bottom left. The prompt asked for two, but only one was generated."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the cookies striped?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The single cookie-like object has distinct dark brown stripes on a lighter base."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any cookies in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One striped cookie is clearly visible."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many raccoons are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is exactly one raccoon character in the center."
+            },
+            {
+                "atom_index": 4,
+                "question": "Is the raccoon purple?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The raccoon's fur is rendered in shades of purple."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any raccoons in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A raccoon is the central subject."
+            },
+            {
+                "atom_index": 6,
+                "question": "Is the raccoon to the right of the bagels?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The stack of bagel-like objects is to the right of the raccoon; therefore, the raccoon is to the LEFT of the bagels."
+            },
+            {
+                "atom_index": 7,
+                "question": "How many bagels are in the image?",
+                "expected": "six",
+                "predicted": "six",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There is a vertical stack containing exactly six ring-shaped pastries."
+            },
+            {
+                "atom_index": 8,
+                "question": "Are the bagels red?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The top surface of the stacked items is covered in red frosting/glaze."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are there any bagels in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A stack of six ring-shaped items is present."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "bagel",
+                "checkpoint": "Ring-shaped bread roll with toroidal form and central hole that is narrow relative to the overall ring diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The stacked items clearly show a toroidal shape with a central hole. While they look more like donuts due to frosting, they satisfy the geometric definition of a bagel."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Overall form is compact and hand-sized with glossy, chewy crust.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The items appear hand-sized and have a glossy finish from the frosting/glaze."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Smooth, shiny glaze from boiling before baking.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The red topping provides a smooth, shiny surface consistent with a glaze, though it resembles icing more than traditional bagel boil-glaze."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Dense interior crumb visible at cut surface.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bagels are whole and stacked; no cut surfaces revealing interior crumb are visible."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Firm exterior with slight blistering from baking.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The surface is covered in frosting and sprinkles, obscuring any baking blistering. The style is illustrative, not photorealistic enough to show blistering."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "May be topped with sesame seeds, poppy seeds, or coarse salt.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The toppings are colorful sprinkles, not sesame, poppy, or salt."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Golden-brown to deep amber coloration on surface.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The primary surface color is red (frosting), not the golden-brown of baked dough. The side crust is light tan, not deep amber."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Chewy texture characteristic of boiled-then-baked dough.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Texture cannot be verified visually in this illustration style, and the appearance suggests soft cake/donut rather than chewy bagel."
+            },
+            {
+                "object": "bagel",
+                "checkpoint": "Traditional Jewish bread ring format.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The ring format is correct, satisfying the structural requirement despite the non-traditional toppings."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Stack of bagels/donuts",
+                "severity": 2,
+                "reasoning": "The stack of six items defies gravity slightly; the alignment is too perfect and the contact points between layers lack realistic compression or shadow depth, making them look fused or floating."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Raccoon body",
+                "severity": 1,
+                "reasoning": "The raccoon's fur is represented by flat vector shapes rather than texture. While stylistic, the transition between the purple body and the darker stripes lacks logical anatomical flow, appearing as arbitrary patches."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cookie",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "Verify the exact count of striped cookies and confirm their presence/location.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 4",
+                    "Atom 5",
+                    "Atom 6"
+                ],
+                "reason": "Confirm raccoon count, color classification, and spatial relationship relative to bagels.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bagel",
+                "verification_goals": [
+                    "Atom 7",
+                    "Atom 8",
+                    "Atom 9"
+                ],
+                "reason": "Verify the count of ring-shaped items in the stack and detect red coloration.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bagel",
+                "verification_goals": [
+                    "Checkpoint: Geometry_and_Silhouette",
+                    "Checkpoint: Material_and_Context"
+                ],
+                "reason": "Distinguish whether the ring-shaped items are taxonomically 'bagels' or 'donuts' based on visual features like frosting vs. crust.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 5"
+                ],
+                "reason": "Verify that the raccoon has a biologically plausible limb structure (4 limbs) despite the stylized art.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bagel",
+                "verification_goals": [
+                    "Artifact: structural_collapse"
+                ],
+                "reason": "Analyze the depth map of the stack to check for physical grounding errors or fusion between layers.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: Dense interior crumb visible at cut surface (No cut surface exists)",
+            "Checkpoint: Chewy texture characteristic of boiled-then-baked dough (Subjective tactile property)"
+        ],
+        "focus_areas": [
+            "Spatial relationship between raccoon and bagel stack (Left/Right orientation)",
+            "Count accuracy of striped cookies",
+            "Taxonomic classification of red ring-shaped pastries (Bagel vs Donut)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "cookie",
+                "reason": "Verify the exact count of striped cookies and confirm their presence/location.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "reason": "Confirm raccoon count, color classification, and spatial relationship relative to bagels.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "bagel",
+                "reason": "Verify the count of ring-shaped items in the stack and detect red coloration.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "bagel",
+                "reason": "Distinguish whether the ring-shaped items are taxonomically 'bagels' or 'donuts' based on visual features like frosting vs. crust.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoon",
+                "reason": "Verify that the raccoon has a biologically plausible limb structure (4 limbs) despite the stylized art.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "bagel",
+                "reason": "Analyze the depth map of the stack to check for physical grounding errors or fusion between layers.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/664.png",
+            "prompt_id": "664",
+            "prompt_text": "two striped cookies, and a purple raccoon to the right of six red bagels",
+            "router_cost_seconds": 44.98,
+            "plan_valid": true
+        }
+    }
+}

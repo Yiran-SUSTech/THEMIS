@@ -1,0 +1,372 @@
+{
+    "image_id": "409",
+    "prompt": "three turtles, and five raccoons on top of four cars",
+    "iteration": 2,
+    "timestamp": "2026-09-07 00:57:30",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Atom QA Coverage' and 'Expert Verification' sections. The Router incorrectly identified the image as containing only two turtles (Atom 0: predicted 'two', is_correct: false). However, visual inspection clearly shows three turtles: one on the left, one on the right, and a third raccoon-like figure in the bottom center that the Router misclassified or missed, OR more likely, the Router failed to identify the third turtle which is actually present in the foreground between the two main turtles (wait, looking closely at the image: There are two large turtles in the front left and right. In the bottom center, there is a raccoon. Are there 3 turtles? Let's re-examine. Left: Turtle. Right: Turtle. Center bottom: Raccoon. Back left car: Raccoons. Back right car: Raccoons. Top: Raccoons. The prompt asks for THREE turtles. The image shows TWO turtles. Therefore, the generation FAILED Atom 0. The Router correctly identified that there are only two turtles visible. Wait, let me look closer at the image provided. \n\nImage Analysis:\n- Foreground Left: Turtle.\n- Foreground Right: Turtle.\n- Foreground Center: A raccoon sitting on the ground.\n- Cars: Green convertible (left), Red pickup (right), White car (far left background), Maroon car (far right background).\n- Raccoons: \n  1. On green car hood (left).\n  2. On green car roof/windshield area (middle left).\n  3. On red car hood (right).\n  4. On red car roof (middle right).\n  5. Top of green car (top left).\n  6. Top of red car (top right).\n  7. One on the ground in the center.\n  Total Raccoons: 7? Or maybe 6 if one is hidden. Let's count carefully.\n  - Ground center: 1 raccoon.\n  - Green car: 1 on hood, 1 behind it (shoulders visible), 1 on top. (3)\n  - Red car: 1 on hood, 1 on roof, 1 on top. (3)\n  Total Raccoons = 7. \n  \n  The Prompt asked for FIVE raccoons. The image has ~7. \n  The Prompt asked for THREE turtles. The image has 2. \n  The Prompt asked for FOUR cars. The image has 4 (White, Green, Red, Maroon).\n\n  The Router's Atom Verdicts:\n  - Atom 0 (Turtles): Expected 3, Predicted 2. Correctly marked False. \n  - Atom 2 (Raccoons): Expected 5, Predicted 6. Marked False. (Actual count is likely 7, but 6 is also wrong). \n  \n  The Router's Expert Plan:\n  - It assigns `open_vocabulary_detector` to verify counts. This is correct.\n  - It assigns `animal_pose_auditor` to raccoons. Correct.\n  - It assigns `fine_grained_classifier` to cars and turtles. Correct.\n  \n  Why reject? \n  Look at the `unverifiable_points`. \"Checkpoint: Plastron... Occluded\". Correct.\n  Look at `artifact_observations`. \"Fusion... center raccoon pile\". \n  \n  The main issue is the **Taxonomy Checkpoint Reasonableness** and **Expert Verification Coverage** regarding the *third* turtle. The prompt asks for 3 turtles. The image has 2. The Router correctly notes this failure in Atom 0. However, in the `expert_verification_plan`, it only schedules `open_vocabulary_detector` for 'turtle' to \"confirm the exact count... and ensure no small/partial turtles were missed\". This is good.\n  \n  However, there is a subtle error in the `atom_verdicts` reasoning for Atom 2 (Raccoons). The Router predicts 6. If the actual count is 7, the prediction is still wrong, but the reasoning might be flawed if it missed one. \n  \n  Let's look at the `selected_experts`. \n  The plan misses a crucial verification: **The spatial relationship of the third turtle**. The prompt implies \"three turtles... on top of four cars\"? No, the prompt is \"three turtles, and five raccoons on top of four cars\". The grammar is ambiguous. Does \"on top of four cars\" apply to both turtles and raccoons, or just raccoons? Usually, in these benchmarks, it applies to the immediate preceding noun phrase (raccoons). But often it means all subjects are on the cars. \n  If the prompt means \"(3 turtles + 5 raccoons) on top of 4 cars\", then the turtles should be on the cars. In the image, the turtles are on the GROUND. \n  Atom 4 asks: \"Are the raccoons on top of the cars?\" It does NOT ask if the turtles are on the cars. \n  If the prompt interpretation requires turtles on cars, the plan is missing an atom/verification for \"Are turtles on cars?\". \n  Given the ambiguity, standard GenEval interpretation usually groups the prepositional phrase with the nearest noun. But even if it doesn't, the turtles are on the ground. \n  \n  Let's look at the `fine_grained_classifier` for turtles. It verifies species. It does not verify location. \n  \n  The rejection reason is primarily due to **incomplete spatial verification**. The prompt structure \"A and B on C\" is notoriously ambiguous. If the ground truth considers the turtles to be required on the cars, the current plan fails to audit the location of the turtles, only their count and species. The `geometric_depth_auditor` is only assigned to 'raccoon'. It should also be assigned to 'turtle' to verify if they are on the cars or ground, to resolve the semantic ambiguity of the prompt relative to the image content. If the prompt intended turtles on cars, the image is a failure of spatial grounding for turtles too, not just count. \n  \n  Additionally, the `open_vocabulary_detector` for raccoons is weighted 0.3, but the count error is significant (5 vs 7). The plan is generally sound but lacks the spatial audit for turtles which is a potential failure mode depending on prompt parsing.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Spatial grounding of turtles relative to cars",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Verification of total raccoon count (potential undercount in initial pass)",
+                "recommended_expert": "open_vocabulary_detector"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a surreal outdoor scene featuring two large tortoises in the foreground on dirt ground. Behind them is a cluster of vintage cars (a green convertible, a red pickup/convertible, and partial views of white and maroon vehicles). Perched on top of these cars is a pyramid-like arrangement of six raccoons. The lighting suggests a sunny day with soft shadows.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many turtles are in the image?",
+                "expected": "three",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "There are clearly only two turtles visible in the foreground (one left, one right). No third turtle is present."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any turtles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Two distinct turtles are prominent in the foreground."
+            },
+            {
+                "atom_index": 2,
+                "question": "How many raccoons are in the image?",
+                "expected": "five",
+                "predicted": "six",
+                "is_correct": false,
+                "confidence": 0.95,
+                "reasoning": "Counting the raccoons: 2 at the very top, 2 in the middle tier, 1 on the lower right car hood, and 1 at the bottom center between the turtles. Total is 6, not 5."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are there any raccoons in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple raccoons are clearly visible stacked on the cars."
+            },
+            {
+                "atom_index": 4,
+                "question": "Are the raccoons on top of the cars?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The raccoons are physically positioned on the roofs, hoods, and windshields of the vehicles."
+            },
+            {
+                "atom_index": 5,
+                "question": "How many cars are in the image?",
+                "expected": "four",
+                "predicted": "four",
+                "is_correct": true,
+                "confidence": 0.9,
+                "reasoning": "Visible vehicles include: 1 white car (left), 1 green car (center-left), 1 red vehicle (center-right), and 1 maroon/dark red car (far right). This matches the count of four."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any cars in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Multiple vintage automobiles are the central structural element of the composition."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "car",
+                "checkpoint": "Passenger car with retractable soft-top or hardtop roof mechanism.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The green car clearly shows a folded soft-top mechanism behind the seats, and the red vehicle has a convertible-style open cabin structure."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Body style is 2-door or 4-door with characteristic roof cut line.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The green car exhibits a clear 2-door coupe silhouette with the expected roofline cut for a convertible."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Proportions match sedan base with modified roof structure.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The vehicle proportions (hood length, wheelbase) are consistent with vintage sedans/coupes adapted as convertibles."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Roof material is fabric (canvas, vinyl) or retractable hardtop panels matching body paint.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The folded roof on the green car appears to be dark fabric/vinyl, consistent with soft-top materials."
+            },
+            {
+                "object": "car",
+                "checkpoint": "When top is down, interior upholstery is visible with roll bar or reinforced windshield frame.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the tops are down, the interiors are largely obscured by the raccoons sitting directly in the cabin areas. No clear roll bars or specific upholstery details are verifiable due to occlusion."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Folding mechanism seams visible at roof joints.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The resolution and angle do not reveal specific mechanical seams of the folding roof; it appears as a generic textured mass rather than a detailed mechanism."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Weather stripping visible along door frames and windshield.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Black rubber weather stripping is visible around the windshield frames of the green and red cars."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Rear window is integrated into soft top or separate glass panel.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The rear windows are either folded away with the top or completely obscured by the animals; they are not distinctly visible as separate panels."
+            },
+            {
+                "object": "car",
+                "checkpoint": "Roof color is black, tan, or matching body color.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The visible folded roof material on the green car is black/dark grey, which is a standard acceptable color."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Head is moderately sized with a pointed snout and small eyes.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Both turtles display heads with appropriate proportions, small eyes, and snouts consistent with terrapins/tortoises."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Skin coloration is grey to olive with distinctive striped or spotted patterning on the head and neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The skin on the necks and heads shows a mottled grey/olive pattern with lighter speckling, matching the description."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Carapace is oval and moderately domed with a smooth surface.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The shells are distinctly oval and domed. While 'smooth' is relative, they lack the extreme keeling of some species and fit the general description."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Coloration varies from brown to olive with concentric growth rings visible on each scute.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The scutes show clear concentric ring patterns and vary in brown/olive tones."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Some species exhibit ornate patterning with yellow or orange markings on dark scutes.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "There are subtle yellowish/orange highlights on the edges of the scutes, particularly on the left turtle."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Plastron is large and hinged, enabling partial closure.",
+                "category": "Body_and_Plumage",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The turtles are on the ground; the plastron (bottom shell) is completely occluded and impossible to see."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Limbs are moderately long with webbed feet and sharp claws.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Front limbs are visible with distinct claws and scaling. While 'webbing' is hard to confirm definitively without seeing the feet spread in water, the limb structure is anatomically plausible for semi-aquatic turtles."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Tail is short.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The tails are tucked under the shell or hidden by the body angle; not visible."
+            },
+            {
+                "object": "turtle",
+                "checkpoint": "Skin texture is smooth with fine scales.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The leg skin shows a distinct pebbled/scaly texture consistent with reptilian skin."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "fusion",
+                "location": "Center raccoon pile, specifically where the middle-tier raccoons meet the top-tier raccoons",
+                "severity": 3,
+                "reasoning": "The fur of the raccoons blends together unnaturally at contact points. Specifically, the paws of the top raccoons seem to melt into the backs of the ones below them rather than resting distinctly on top."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Red car windshield area beneath the right-side raccoons",
+                "severity": 2,
+                "reasoning": "The A-pillar and roofline of the red car appear distorted and warped under the weight of the raccoons, lacking rigid geometric straight lines expected of a metal vehicle frame."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Turtle shells",
+                "severity": 1,
+                "reasoning": "The texture of the scutes is slightly repetitive and overly uniform, lacking the random wear-and-tear variations typical of real animal shells, though this is minor."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 2"
+                ],
+                "reason": "To rigorously verify the count of raccoons (expected 5 vs predicted 6) by generating bounding boxes for each instance, addressing the primary failure mode identified in previous feedback.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Atom 0"
+                ],
+                "reason": "To confirm the exact count of turtles (expected 3 vs predicted 2) and ensure no small/partial turtles were missed in the background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Atom 4"
+                ],
+                "reason": "To verify the spatial relationship 'on top of' by analyzing depth maps to ensure raccoons are physically grounded on car surfaces and not floating or bleeding into the background.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoon",
+                "verification_goals": [
+                    "Artifact: fusion"
+                ],
+                "reason": "To audit the limb connectivity in the raccoon stack and confirm if the observed 'melting' is a structural failure or just dense fur occlusion.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car",
+                "verification_goals": [
+                    "Checkpoint: Passenger car with retractable soft-top...",
+                    "Checkpoint: Body style is 2-door..."
+                ],
+                "reason": "To validate if the vehicles are correctly classified as convertibles and possess the specific structural attributes of that class.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "verification_goals": [
+                    "Checkpoint: Carapace is oval...",
+                    "Checkpoint: Skin coloration..."
+                ],
+                "reason": "To verify the species-level accuracy of the turtle generation against the 'terrapin' taxonomy provided.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Checkpoint: Plastron is large and hinged (Occluded)",
+            "Checkpoint: Tail is short (Occluded)",
+            "Checkpoint: Rear window is integrated... (Occluded/Ambiguous)"
+        ],
+        "focus_areas": [
+            "Exact count verification for raccoons and turtles using open-vocabulary detection",
+            "Spatial grounding verification of raccoons on cars using geometric depth analysis",
+            "Structural integrity of the raccoon stack (limb fusion)",
+            "Geometric correctness of the car windshields/roofs"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoon",
+                "reason": "To rigorously verify the count of raccoons (expected 5 vs predicted 6) by generating bounding boxes for each instance, addressing the primary failure mode identified in previous feedback.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "turtle",
+                "reason": "To confirm the exact count of turtles (expected 3 vs predicted 2) and ensure no small/partial turtles were missed in the background.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "raccoon",
+                "reason": "To verify the spatial relationship 'on top of' by analyzing depth maps to ensure raccoons are physically grounded on car surfaces and not floating or bleeding into the background.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoon",
+                "reason": "To audit the limb connectivity in the raccoon stack and confirm if the observed 'melting' is a structural failure or just dense fur occlusion.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "car",
+                "reason": "To validate if the vehicles are correctly classified as convertibles and possess the specific structural attributes of that class.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "turtle",
+                "reason": "To verify the species-level accuracy of the turtle generation against the 'terrapin' taxonomy provided.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/409.png",
+            "prompt_id": "409",
+            "prompt_text": "three turtles, and five raccoons on top of four cars",
+            "router_cost_seconds": 59.95,
+            "plan_valid": true,
+            "is_revision": true,
+            "revision_feedback_count": 1
+        }
+    }
+}

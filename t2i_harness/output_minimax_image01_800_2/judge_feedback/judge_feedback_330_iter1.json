@@ -1,0 +1,182 @@
+{
+    "image_id": "330",
+    "prompt": "four striped sheeps to the left of seven motorcycles",
+    "iteration": 1,
+    "timestamp": "2026-09-07 02:52:37",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains a critical logical error in the 'Taxonomy Checkpoint Reasoning' regarding motorcycles. The Router marked checkpoints for 'motor scooter' features (step-through frame, floorboard) as 'is_present: false' and used this to claim a 'Taxonomy Mismatch'. However, the prompt explicitly requested 'motorcycles', and the image correctly depicts standard motorcycles. Penalizing the image for *not* being scooters is a hallucinated constraint violation; the checkpoints should have been deemed irrelevant or the vehicles verified as correct 'motorcycles'. Additionally, the plan fails to explicitly verify the count of 'seven' motorcycles against the visual evidence of only four, treating it merely as a detection task rather than a quantitative failure audit.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Motorcycle Taxonomy Checkpoints",
+                "recommendation": "Remove or reframe the scooter-specific checkpoints. Since the prompt asked for 'motorcycles' and the image shows 'motorcycles', the absence of scooter features is correct behavior, not an error. The fine_grained_classifier should verify they ARE motorcycles, not that they are NOT scooters."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Quantitative Mismatch (Atom 4)",
+                "recommended_expert": "open_vocabulary_detector",
+                "detail": "The plan counts objects but does not explicitly flag the discrepancy between the prompt's request for 'seven' motorcycles and the image's 'four'. The verification goal must explicitly state: 'Verify if count == 7. If count != 7, mark Atom 4 as Failed.'"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Spatial Relationship Logic (Atom 3)",
+                "recommended_expert": "geometric_depth_auditor",
+                "detail": "The prompt asks for sheep 'to the left of' motorcycles. The image shows sheep 'on' motorcycles. The auditor must determine if 'riding' satisfies 'to the left of' (likely no, as they are co-located/overlapping). The current plan notes this ambiguity but needs a definitive boolean judgment for the atom."
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "motorcycle",
+                "checkpoint": "Two-wheeled vehicle with step-through frame and small wheels, noticeably smaller than standard motorcycle wheels.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The vehicles in the image are standard motorcycles with large wheels and fuel tanks between the rider's legs, not motor scooters with step-through frames and small wheels as defined by the taxonomy prior knowledge."
+            },
+            {
+                "object": "motorcycle",
+                "checkpoint": "Flat floorboard for rider's feet with padded seat above.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Riders are using footpegs typical of motorcycles; there are no flat floorboards characteristic of motor scooters."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The subjects have sheep heads but human bodies wearing striped clothing. They lack the dense woolly fleece covering the body required by the 'ram' taxonomy definition."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Sturdy legs with cloven hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The subjects possess human legs wearing jeans and boots/shoes, not sturdy animal legs with cloven hooves."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "Semantic/Anatomical Hybridization",
+                "location": "Sheep figures (riders)",
+                "severity": 1.0,
+                "reasoning": "The image depicts anthropomorphic hybrids (sheep heads on human bodies) rather than biological sheep. This contradicts the prompt's implication of 'striped sheeps' (likely referring to coat pattern or breed) and violates the biological taxonomy of a 'ram'."
+            },
+            {
+                "artifact_type": "Taxonomy Mismatch",
+                "location": "Vehicles",
+                "severity": 0.9,
+                "reasoning": "The prompt uses the generic term 'motorcycles', but the provided taxonomy strictly defines the class as 'motor scooter'. The generated vehicles are clearly standard motorcycles, creating a conflict between the visual output, the prompt, and the specific taxonomy constraints."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "sheep, motorcycle",
+                "verification_goals": [
+                    "Count the number of distinct sheep-headed figures to verify Atom 0 (Expected: 4).",
+                    "Count the number of distinct motorcycles to verify Atom 4 (Expected: 7).",
+                    "Generate bounding boxes for segmentation experts to isolate the hybrid figures."
+                ],
+                "reason": "Primary bridge expert needed to establish object counts and locations before detailed anatomical or geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep figures",
+                "verification_goals": [
+                    "Audit the skeletal structure of the riders to confirm they are human bipeds rather than quadrupedal sheep.",
+                    "Verify the absence of cloven hooves and presence of human footwear/legs.",
+                    "Check for biological consistency of the sheep head attachment."
+                ],
+                "reason": "Essential for verifying the anatomical impossibility of the 'striped sheep' representation against the 'ram' taxonomy (limbed subject audit).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "vehicles",
+                "verification_goals": [
+                    "Classify the vehicles specifically as 'standard motorcycle' vs 'motor scooter'.",
+                    "Confirm the presence of fuel tanks between legs and footpegs vs floorboards."
+                ],
+                "reason": "To rigorously test the diagnostic checkpoints regarding the vehicle type mismatch (Scooter taxonomy vs Motorcycle visual).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "verification_goals": [
+                    "Verify the spatial relationship: Are the sheep figures strictly to the left of the motorcycles?",
+                    "Assess if the figures are riding the motorcycles (spatial overlap) rather than standing to the left of them."
+                ],
+                "reason": "To validate Atom 3 (Spatial relationship) which appears visually false as the sheep are riding the bikes, not standing to their left.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "stripes on sheep",
+                "verification_goals": [
+                    "Analyze the 'striped' attribute: Are the stripes on the animal's fur or on the clothing?",
+                    "Detect any texture blending artifacts between the sheep head and human neck."
+                ],
+                "reason": "To evaluate the semantic interpretation of 'striped sheeps' and check for generation artifacts in the hybrid zone.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 1 (Are the sheeps striped?): While the clothing is striped, it is unverifiable if the *sheep itself* is striped due to the anthropomorphic nature of the generation. The prompt likely intended a biological trait, but the image shows a clothing trait.",
+            "Atom 3 (Are the sheeps to the left of the motorcycles?): The spatial preposition 'to the left of' is ambiguous when the subjects are interacting (riding). Strictly speaking, they are 'on' the motorcycles, making the 'left of' condition false or unverifiable depending on interpretation."
+        ],
+        "focus_areas": [
+            "Anthropomorphic Representation vs Biological Taxonomy (Sheep/Ram)",
+            "Vehicle Classification Discrepancy (Motorcycle vs Motor Scooter)",
+            "Spatial Relationship Accuracy (Riding vs Standing Left Of)",
+            "Object Count Verification (4 Sheep vs 7 Motorcycles)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "sheep, motorcycle",
+                "reason": "Primary bridge expert needed to establish object counts and locations before detailed anatomical or geometric auditing.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "sheep figures",
+                "reason": "Essential for verifying the anatomical impossibility of the 'striped sheep' representation against the 'ram' taxonomy (limbed subject audit).",
+                "weight": 0.25
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "vehicles",
+                "reason": "To rigorously test the diagnostic checkpoints regarding the vehicle type mismatch (Scooter taxonomy vs Motorcycle visual).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene layout",
+                "reason": "To validate Atom 3 (Spatial relationship) which appears visually false as the sheep are riding the bikes, not standing to their left.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "stripes on sheep",
+                "reason": "To evaluate the semantic interpretation of 'striped sheeps' and check for generation artifacts in the hybrid zone.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_minimax_image01/330.png",
+            "prompt_id": "330",
+            "prompt_text": "four striped sheeps to the left of seven motorcycles",
+            "router_cost_seconds": 26.65,
+            "plan_valid": false
+        }
+    }
+}
