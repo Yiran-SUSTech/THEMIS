@@ -1,0 +1,419 @@
+{
+    "image_id": "538",
+    "prompt": "four horses in front of a plastic guitar to the left of a brown toy",
+    "iteration": 1,
+    "timestamp": "2026-09-13 06:12:55",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan contains critical logical errors in the Atom QA verdicts and fails to assign necessary expert verification for key spatial and counting atoms.",
+        "suggestions": [
+            {
+                "type": "logic_correction",
+                "point": "Atom 2 (Spatial Relationship)",
+                "recommendation": "The Router marked Atom 2 ('Are the horses in front of the guitar?') as False because the guitar is in the foreground. However, the prompt requested 'horses in front of a plastic guitar'. In standard English, 'A in front of B' means A is closer to the viewer than B. The image shows the Guitar (Foreground) and Horses (Background). Thus, the Horses are BEHIND the guitar. The generation failed the prompt constraint. The Router's reasoning correctly identified the visual state but incorrectly labeled the atom 'is_correct: false' based on a confused interpretation of whether the *image* matched the *prompt*. If the prompt asked for horses in front, and they are behind, the answer to 'Are the horses in front?' is No. The Expected answer in the Atom list is 'Yes' (implying the prompt wanted them in front). Since the image shows them behind, the Prediction 'No' is visually correct, but the Generation Failed the Prompt. The Atom Verdict logic needs to clearly distinguish between 'Visual Truth' and 'Prompt Adherence'. Currently, it marks is_correct=false, which is ambiguous. More importantly, the Router failed to flag this as a major prompt adherence failure in the final verdict summary."
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 6 (Spatial Relationship: Guitar left of Toy)",
+                "recommended_expert": "geometric_depth_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 7 (Count: Toys)",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "expert_assignment_error",
+                "point": "Fine Grained Classifier for Guitar",
+                "recommendation": "The plan assigns a 'fine_grained_classifier' to determine if the guitar is 'real' or 'toy'. This is inefficient. The prompt explicitly asks for a 'plastic guitar'. The 'perceptual_quality_auditor' or simple 'open_vocabulary_detector' with material attributes is sufficient. Using a ViT trained on ImageNet classes (likely distinguishing Stratocaster vs Les Paul) to detect 'plasticness' is a category error. Replace with 'perceptual_quality_auditor' focusing on material texture analysis."
+            },
+            {
+                "type": "coverage_gap",
+                "point": "Horse Count Verification",
+                "recommendation": "While 'open_vocabulary_detector' is assigned to 'horse', the plan lacks a specific 'animal_pose_auditor' pass to ensure the 4 detected boxes correspond to 4 distinct, complete biological entities (ruling out merged bodies or extra heads). Given the complexity of 4 overlapping horses, pose auditing is critical for count validation."
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "Four brown horses standing in a grassy field with trees and a wooden fence in the background. In the foreground right, there is a colorful plastic toy guitar lying on the grass next to a brown teddy bear.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many horses are in the image?",
+                "expected": "four",
+                "predicted": "four",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are clearly four distinct horse heads and bodies visible in the lineup."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are there any horses in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Horses are the primary subject of the image."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are the horses in front of the guitar?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The guitar is in the immediate foreground (bottom right), while the horses are standing further back in the mid-ground. The prompt asked for horses 'in front of' the guitar, but visually the guitar is in front of the horses."
+            },
+            {
+                "atom_index": 3,
+                "question": "How many guitars are in the image?",
+                "expected": "one",
+                "predicted": "one",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "One blue and yellow toy guitar is visible."
+            },
+            {
+                "atom_index": 4,
+                "question": "Is the guitar plastic?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 0.95,
+                "reasoning": "The guitar has bright primary colors, simplified shapes, and a glossy sheen characteristic of molded plastic toys."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are there any guitars in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "A toy guitar is clearly present."
+            },
+            {
+                "atom_index": 6,
+                "question": "Is the guitar to the left of the toy?",
+                "expected": "Yes",
+                "predicted": "No",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "The guitar is positioned to the LEFT of the teddy bear (the toy). Wait, looking at the image: The guitar is on the left side of the bear. So 'guitar to the left of the toy' is actually TRUE. My previous thought was wrong. Let me re-evaluate. Guitar is at x=~600, Bear is at x=~800. Guitar is indeed to the left of the bear. Verdict should be True."
+            },
+            {
+                "atom_index": 7,
+                "question": "How many toys are in the image?",
+                "expected": "one",
+                "predicted": "two",
+                "is_correct": false,
+                "confidence": 0.9,
+                "reasoning": "The prompt implies 'a brown toy' (singular) distinct from the guitar. However, visually there is a guitar AND a teddy bear. Both are toys. If the prompt meant 'toy' = 'teddy bear', then count is 1. But strictly speaking, there are two toy objects. Given the prompt phrasing 'plastic guitar... left of a brown toy', it treats them as separate entities. I will predict 'two' based on visual reality, making the atom 'one' incorrect relative to strict visual counting, OR interpret 'toy' as the specific object class 'teddy bear'. Let's stick to visual truth: there are two toy-like objects. However, usually these atoms test prompt adherence. Prompt says 'a brown toy'. Image has a bear. Count of 'brown toys' is 1. Count of 'toys' generally is 2. I will predict 'two' and mark is_correct false because the prompt likely intended the bear to be the sole 'toy' reference, or failed to account for the guitar also being a toy. Actually, simpler interpretation: The prompt distinguishes 'guitar' and 'toy'. Visually we see a guitar and a bear. If the question asks 'How many toys', and we classify both as toys, the answer is 2. Expected is 1. Thus is_correct=false."
+            },
+            {
+                "atom_index": 8,
+                "question": "Is the toy brown?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The teddy bear is brown."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are there any toys in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Both the guitar and the bear are toys."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "guitar",
+                "checkpoint": "Solid or semi-hollow body with no sound hole required.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The object is a stylized toy guitar. While it has a body, it lacks the structural definition of a real electric guitar body (no depth cues for semi-hollow, simplified molding). It does not match the taxonomy of a functional instrument."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Body shape varies: Stratocaster (double-cutaway), Les Paul (single-cutaway, carved top), Telecaster (single-cutaway, slab body).",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The shape is a generic cartoonish guitar silhouette, not matching specific Strat/Les Paul/Telecaster geometries defined in taxonomy."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Neck is maple or mahogany with fretted fingerboard with numerous frets.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The neck is painted black with colored blocks representing frets, not wood with metal frets."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Pickups (magnetic, 1-3) mounted on body.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No magnetic pickups are visible; only painted red rectangles simulating them."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Control knobs (volume, tone) and pickup selector switch.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Knobs are represented by simple yellow circles/bumps, not functional hardware."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Headstock has 6 tuning pegs. Cable jack on body edge.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Headstock has painted details, no distinct tuning pegs. No cable jack visible."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Body is wood with glossy polyester or nitrocellulose finish in solid colors, sunburst, or natural wood grain.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Material is clearly molded plastic, not wood with finish."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Bridge is fixed or tremolo.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No bridge hardware exists; strings appear to terminate at a painted area."
+            },
+            {
+                "object": "guitar",
+                "checkpoint": "Fingerboard is rosewood or maple.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Fingerboard is painted black plastic."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Elongated head with large expressive eyes and mobile ears.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Heads are proportionate, eyes and ears are visible and correctly shaped."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Arched muscular neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Necks show appropriate musculature and arch for standing horses."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Athletic build with tall, lean proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Horses appear healthy and well-proportioned."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Uniform brownish-orange to light chestnut coat coloration with no black points.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The taxonomy specifies 'sorrel' (no black points). However, the horses in the image have distinct black manes, tails, and lower legs (black points). They are bay or seal brown, not sorrel."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Mane and tail same color as body or lighter (flaxen).",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Manes and tails are black, contrasting with the brown bodies. Sorrel requires matching/lighter mane/tail."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Deep-chested body with strong back.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Torso anatomy looks correct."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long tail with flowing hair.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Tails are visible and textured correctly."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Long slender legs with single hoof per foot.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Legs and hooves appear anatomically correct."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Horse legs (lower)",
+                "severity": 2,
+                "reasoning": "The transition from fur to hoof on some legs (especially the second horse from left) looks slightly smudged or lacks crisp definition typical of high-res photography."
+            },
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Guitar strings",
+                "severity": 3,
+                "reasoning": "Strings do not appear to be physically attached to tuning pegs or bridge; they float or merge into the painted surface."
+            },
+            {
+                "artifact_type": "perspective_distortion",
+                "location": "Background fence",
+                "severity": 1,
+                "reasoning": "The fence lines on the right seem to warp slightly inconsistently with the terrain slope."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1"
+                ],
+                "reason": "Verify exact count of horses and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Checkpoint: Uniform brownish-orange to light chestnut coat coloration with no black points",
+                    "Checkpoint: Mane and tail same color as body or lighter (flaxen)"
+                ],
+                "reason": "Confirm if the breed/coloration matches 'sorrel' taxonomy or if black points indicate a different classification (e.g., Bay).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "horse",
+                "verification_goals": [
+                    "Checkpoint: Long slender legs with single hoof per foot",
+                    "Checkpoint: Athletic build with tall, lean proportions at the withers"
+                ],
+                "reason": "Audit limb integrity and anatomical correctness of the four horses.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "guitar",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 5"
+                ],
+                "reason": "Detect and count guitar instances.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "guitar",
+                "verification_goals": [
+                    "Checkpoint: Body is wood with glossy polyester or nitrocellulose finish",
+                    "Checkpoint: Pickups (magnetic, 1-3) mounted on body"
+                ],
+                "reason": "Determine if the object classifies as a real 'electric guitar' or a 'toy/plastic guitar' based on material and component features.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 2",
+                    "Atom 6"
+                ],
+                "reason": "Verify spatial relationships: Are horses truly behind the guitar? Is the guitar left of the toy?",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "guitar",
+                "verification_goals": [
+                    "Artifact: structural_collapse (strings)",
+                    "Checkpoint: Headstock has 6 tuning pegs"
+                ],
+                "reason": "Inspect fine details of the toy guitar for melting/fusion artifacts and missing functional parts.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Horse coat color verification (Sorrel vs Bay/Black points)",
+            "Spatial relationship between horses and guitar (Depth)",
+            "Material classification of the guitar (Plastic vs Wood)"
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "horse",
+                "reason": "Verify exact count of horses and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "horse",
+                "reason": "Confirm if the breed/coloration matches 'sorrel' taxonomy or if black points indicate a different classification (e.g., Bay).",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "horse",
+                "reason": "Audit limb integrity and anatomical correctness of the four horses.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "guitar",
+                "reason": "Detect and count guitar instances.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "guitar",
+                "reason": "Determine if the object classifies as a real 'electric guitar' or a 'toy/plastic guitar' based on material and component features.",
+                "weight": 0.1
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "Verify spatial relationships: Are horses truly behind the guitar? Is the guitar left of the toy?",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "guitar",
+                "reason": "Inspect fine details of the toy guitar for melting/fusion artifacts and missing functional parts.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_gemini31_flash/538.png",
+            "prompt_id": "538",
+            "prompt_text": "four horses in front of a plastic guitar to the left of a brown toy",
+            "router_cost_seconds": 64.05,
+            "plan_valid": true
+        }
+    }
+}

@@ -1,0 +1,189 @@
+{
+    "image_id": "732",
+    "prompt": "five striped raccoons under three green giraffes in front of a glass horse",
+    "iteration": 1,
+    "timestamp": "2026-09-13 06:27:39",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The plan contains a critical logical contradiction and a factual error regarding object counts. The 'checkpoint_verdicts' explicitly state that the image displays 'four raccoons', yet the 'focus_areas' and 'expert_verification_plan' aim to verify 'exactly 5 raccoons'. Furthermore, visual inspection confirms there are only 4 raccoons in the foreground, meaning the prompt requirement (Atom 0: 'five') is failed. The plan fails to acknowledge this failure in the initial checkpoints and sets up experts to search for a non-existent fifth raccoon. Additionally, Atom 1 ('Are the raccoons striped?') is not adequately covered; while the classifier checks for patterns, the specific attribute of 'stripes' (vs spots or rings) requires explicit verification, likely via the perceptual auditor or fine-grained classifier with specific attribute prompting.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Atom 0 (Raccoon Count): The checkpoint verdict correctly identifies 4 raccoons, but the plan ignores this discrepancy against the prompt's 'five'. The plan should explicitly flag Atom 0 as FAILED based on the detector/count results, rather than asking experts to 'ensure exactly 5'.",
+                "recommended_expert": "open_vocabulary_detector"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Atom 1 (Raccoon Stripes): The current plan relies on 'fine_grained_classifier' to check for 'stripe/ring patterns'. However, standard classifiers often conflate these. A specific check for linear striping on the body/tail vs ringed tails is needed to fully satisfy Atom 1.",
+                "recommended_expert": "perceptual_quality_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Contradiction in Plan: The 'checkpoint_verdicts' say 4 raccoons, but 'focus_areas' say ensure 5. This internal inconsistency must be resolved. The verdict should be updated to reflect the count mismatch immediately.",
+                "recommended_expert": null
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "giraffe",
+                "checkpoint": "Taxonomy Class Verification",
+                "category": "Class Label",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image contains three distinct giraffes. While they possess the characteristic long necks and ossicones of giraffes, their coloration is an unnatural green with dark spots, deviating from standard biological taxonomy but matching the prompt's specific 'green' constraint."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Head_and_Face",
+                "category": "Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The horse figure has an elongated head, large expressive eyes, and mobile ears consistent with equine anatomy. The neck is arched and muscular. However, the material is transparent glass/crystal rather than biological tissue."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Body_and_Plumage",
+                "category": "Anatomy",
+                "is_testable": false,
+                "is_present": false,
+                "reasoning": "The checkpoint expects a 'uniform brownish-orange to light chestnut coat' and 'flowing hair'. The subject is a glass sculpture with no fur, mane, or tail hair, failing the biological texture requirements despite having the correct athletic build and deep-chested proportions."
+            },
+            {
+                "object": "horse",
+                "checkpoint": "Limbs_and_Anatomy",
+                "category": "Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The glass horse exhibits long, slender legs ending in single hooves, accurately reflecting the skeletal structure of a horse despite the non-biological material."
+            },
+            {
+                "object": "raccoon",
+                "checkpoint": "Taxonomy Class Verification",
+                "category": "Class Label",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The image displays four raccoons in the foreground. They exhibit the characteristic masked faces, ringed tails, and grey-brown fur typical of the Procyon lotor species."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoons, giraffes, horse",
+                "verification_goals": [
+                    "Generate bounding boxes for all instances of raccoons, giraffes, and the horse to verify counts (Atom 0, 4, 8).",
+                    "Confirm spatial relationships: raccoons under giraffes (Atom 3), giraffes in front of horse (Atom 7)."
+                ],
+                "reason": "Essential first step to localize objects for counting and spatial relationship verification before detailed anatomical audits.",
+                "weight": 1.0
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffes, raccoons",
+                "verification_goals": [
+                    "Verify if the green-colored animals are correctly classified as giraffes despite the unnatural coloration.",
+                    "Confirm the foreground animals are raccoons and check for stripe/ring patterns (Atom 1)."
+                ],
+                "reason": "High-speed sieve to ensure the generated classes match the prompt labels, especially given the anomalous green color of the giraffes.",
+                "weight": 0.9
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoons, giraffes",
+                "verification_goals": [
+                    "Audit limb completeness and structural correctness for the four raccoons.",
+                    "Audit limb completeness and structural correctness for the three giraffes."
+                ],
+                "reason": "Both raccoons and giraffes are limbed subjects requiring biological structural validation to detect AI generation artifacts like missing limbs or fused legs.",
+                "weight": 0.85
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "glass horse",
+                "verification_goals": [
+                    "Segment the glass horse to verify it is a single continuous entity without floating parts.",
+                    "Check boundary sharpness between the transparent horse and the background foliage."
+                ],
+                "reason": "Transparent objects are prone to segmentation errors and boundary bleeding; this audit ensures the horse is a coherent physical object.",
+                "weight": 0.8
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "entire scene",
+                "verification_goals": [
+                    "Generate relative depth map to verify raccoons are in foreground, giraffes in midground, and horse in background.",
+                    "Check for geometric melting or spatial grounding errors between the overlapping giraffe legs."
+                ],
+                "reason": "Validates the 3D structure and layering of the scene, crucial for verifying 'under' and 'in front of' relationships.",
+                "weight": 0.75
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "verification_goals": [
+                    "Holistic quality check for standard graphics-level distortions.",
+                    "Verify the glass material rendering looks physically plausible."
+                ],
+                "reason": "Quick filter to catch obvious rendering artifacts before heavy downstream audits.",
+                "weight": 0.6
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 9: 'Is the horse glass?' - While visually apparent, 'glass' is a material property that cannot be definitively verified by visual experts alone without tactile or refractive index analysis, though perceptual auditors can assess rendering plausibility."
+        ],
+        "focus_areas": [
+            "Count verification: Ensure exactly 5 raccoons (currently see 4), 3 giraffes, and 1 horse.",
+            "Color verification: Confirm giraffes are green (unnatural but prompt-compliant).",
+            "Material verification: Assess if the horse appears to be made of glass/crystal.",
+            "Spatial relationships: Verify raccoons are positioned under the giraffes and giraffes are in front of the horse.",
+            "Anatomical correctness: Check for limb fusion or missing limbs in raccoons and giraffes."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoons, giraffes, horse",
+                "reason": "Essential first step to localize objects for counting and spatial relationship verification before detailed anatomical audits.",
+                "weight": 1.0
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "giraffes, raccoons",
+                "reason": "High-speed sieve to ensure the generated classes match the prompt labels, especially given the anomalous green color of the giraffes.",
+                "weight": 0.9
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "raccoons, giraffes",
+                "reason": "Both raccoons and giraffes are limbed subjects requiring biological structural validation to detect AI generation artifacts like missing limbs or fused legs.",
+                "weight": 0.85
+            },
+            {
+                "expert_name": "topology_boundary_auditor",
+                "target_subject": "glass horse",
+                "reason": "Transparent objects are prone to segmentation errors and boundary bleeding; this audit ensures the horse is a coherent physical object.",
+                "weight": 0.8
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "entire scene",
+                "reason": "Validates the 3D structure and layering of the scene, crucial for verifying 'under' and 'in front of' relationships.",
+                "weight": 0.75
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "entire image",
+                "reason": "Quick filter to catch obvious rendering artifacts before heavy downstream audits.",
+                "weight": 0.6
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_gemini31_flash/732.png",
+            "prompt_id": "732",
+            "prompt_text": "five striped raccoons under three green giraffes in front of a glass horse",
+            "router_cost_seconds": 27.1,
+            "plan_valid": false
+        }
+    }
+}
