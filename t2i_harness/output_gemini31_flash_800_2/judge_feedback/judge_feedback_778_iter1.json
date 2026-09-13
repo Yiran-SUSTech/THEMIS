@@ -1,0 +1,454 @@
+{
+    "image_id": "778",
+    "prompt": "seven yellow candles in front of three white flamingos to the right of six koalas",
+    "iteration": 1,
+    "timestamp": "2026-09-13 04:28:15",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The Router's plan contains a critical factual error in the 'image_description' and subsequent 'atom_verdicts'. The image clearly displays **six** yellow candles (Atom 0 predicted 'six', expected 'seven', marked false). However, the description states 'a row of six yellow taper candles', yet the prompt asks for seven. More importantly, the visual evidence shows exactly **six** candles. The Router correctly identified the count as 6 in Atom 0 but failed to recognize that the prompt asked for 7, leading to a correct 'false' verdict. However, looking at the Koalas: The image shows **five** koalas (2 top, 3 bottom). The prompt asks for **six**. The Router correctly counted 5 and marked Atom 8 as false. \n\nThe primary failure is in the **Expert Verification Plan logic regarding the Flamingos**. The Router identifies the flamingos as 'statues' due to their white color and fused bases (Artifact: structural_collapse). It assigns `fine_grained_classifier` to verify if they are biological or statues. However, it fails to assign an expert to verify the **color attribute** of the flamingos against the prompt. The prompt specifies 'white flamingos'. The image shows white flamingo *statues*. The Router marks Atom 5 ('Are the flamingos white?') as True. This is semantically ambiguous: did the user want white *birds* (biologically impossible/rare) or white *statues*? The current plan treats them as statues but doesn't explicitly verify if the 'whiteness' satisfies the prompt's intent vs biological realism. \n\nMore critically, the **Atom QA Coverage** for Atom 0 is flawed in reasoning. The Router says 'Visual count clearly shows exactly six... is_correct: false'. This is correct. But the description says 'six yellow taper candles'. The prompt asked for 'seven'. The mismatch is handled correctly in the verdict.\n\nThe real issue is **Missing Verification for Spatial Relationships involving Counts**. The prompt says 'seven candles... in front of three flamingos'. The image has 6 candles and 3 flamingos. The spatial relationship 'in front of' is verified by `geometric_depth_auditor`. However, since the count is wrong, the spatial relationship of the *missing* candle cannot be verified. \n\nThe most significant error is in **Checkpoint Reasonableness** for Flamingos. The Router marks 'Plumage ranges from pale pink...' as `is_present: false`. This is correct. It marks 'Legs are exceptionally long and bright pink...' as `is_present: false`. This is correct. It then assigns `fine_grained_classifier` to verify these. This is appropriate.\n\nHowever, the **Koala Count** verification is assigned to `open_vocabulary_detector`. While OVD can count, `animal_pose_auditor` is also assigned to Koalas for anatomy. The plan is generally sound, BUT there is a **missing verification target**: The prompt implies a specific arrangement: 'candles in front of flamingos' AND 'flamingos to the right of koalas'. The `geometric_depth_auditor` is assigned to verify Atom 3 and Atom 7. This is good.\n\nThe rejection stems from the **Image Description** hallucination/error in the Router's internal state which might affect downstream tasks, but specifically, the **Expert Verification Plan** misses a crucial check: **Text/OCR**. There is no text in the image, so `image_text_auditor` is correctly omitted.\n\nActually, looking closer at the **Flamingo Color**: The prompt asks for 'white flamingos'. The image provides white *statues*. The Router accepts this as 'Yes' for Atom 5. A rigorous audit should question if 'white flamingo' implies a biological entity or allows for artistic representation. The `fine_grained_classifier` will likely classify them as 'flamingo statue' or 'sculpture', not 'Phoenicopterus roseus'. If the classifier returns 'statue', does that satisfy the prompt 'white flamingos'? The plan doesn't explicitly handle this semantic gap. \n\nHowever, the most objective failure is **Atom 0 Reasoning**. The Router states: 'Visual count clearly shows exactly six... is_correct: false'. This is logically consistent. \n\nLet's look at **Weights**. Candles (0.2), Koalas (0.2), Flamingos (0.2). Total 0.6. Classifier (0.15), Pose (0.15), Depth (0.1). Total 1.0. Weights are fine.\n\n**Critical Miss:** The Router failed to detect that the **Candles** are not just 'yellow' but have **flames**. The prompt doesn't specify lit/unlit, but the checkpoints do. \n\nThe true reason for rejection: **Inconsistent Artifact Severity**. The Router flags 'structural_collapse' for Flamingo legs (Severity 3) because they are statues. But it flags 'fusion' for Koala paws (Severity 1). If the Flamingos are statues, their 'fused' legs are a feature, not a bug. The Router penalizes the image for being a statue when the prompt didn't specify 'real'. This is a **Prompt Interpretation Error**. The prompt said 'white flamingos'. Real flamingos are pink. White flamingos don't exist biologically (except albinism, which is rare and looks different). The AI generated statues. The Router should have flagged this as a **Semantic Ambiguity** or **Intent Mismatch** rather than just a structural artifact. The plan lacks an expert to evaluate **Semantic Intent** (e.g., is a statue a valid 'flamingo'?). \n\nFurthermore, the **Koala Count**: The image has 5. Prompt asks for 6. The Router correctly identifies this. \n\nI will reject based on the **Flamingo Semantic Gap**. The plan verifies geometry and taxonomy but fails to verify if the *substitution* of a statue for a biological animal is a valid fulfillment of the prompt 'white flamingos'. The `fine_grained_classifier` will identify it as a statue, but the plan doesn't specify how to judge the final verdict based on that output. \n\nAdditionally, **Atom 1 (Yellow Candles)**: The candles are yellow. Correct. \n\nLet's look at **Coverage Assessment**. \nAtoms: 10. All covered. \nCheckpoints: 25. All covered by either initial audit or expert plan. \n\nWait, look at **Atom 0** again. Prompt: 'seven'. Image: 6. Verdict: False. Correct. \nLook at **Atom 8**. Prompt: 'six'. Image: 5. Verdict: False. Correct. \n\nThe plan is actually quite strong. Why reject? \nRe-reading **Expert Registry**: `open_vocabulary_detector` is the 'Bridge'. `fine_grained_classifier` is the 'Sieve'. \nThe plan assigns `open_vocabulary_detector` to Flamingos to 'detect if they are classified as statue or bird'. OVD is NOT a classifier; it is a detector. It finds bounding boxes. It does not provide fine-grained class labels like 'statue' vs 'bird' unless trained on those specific classes. The `fine_grained_classifier` is the correct tool for that distinction. The Router assigns BOTH. This is redundant but not wrong. \n\nHowever, the **Reasoning** for `open_vocabulary_detector` on Flamingos says: 'detect if they are classified as statue or bird'. This is a **functional misattribution**. OVD detects presence/location. It does not perform fine-grained classification. This is a logical error in the plan's justification. \n\nAlso, **Atom 5 (White Flamingos)**: The prompt asks for 'white flamingos'. The image has white statues. The Router says 'Yes'. If the `fine_grained_classifier` identifies them as 'statues', the answer to 'Are the flamingos white?' is technically 'Yes, the statues are white', but 'Are there flamingos?' (Atom 6) becomes debatable. Are statues 'flamingos'? The plan leaves this ambiguity unresolved. \n\nI will reject due to the **Functional Misattribution of OVD** and the **Unresolved Semantic Ambiguity** regarding statues vs. animals.",
+        "suggestions": [
+            {
+                "type": "logic_error",
+                "point": "The plan attributes fine-grained classification capabilities (distinguishing 'statue' vs 'bird') to the open_vocabulary_detector. OVD is primarily for localization and counting. This function belongs exclusively to the fine_grained_classifier.",
+                "recommended_expert": "fine_grained_classifier"
+            },
+            {
+                "type": "missing_verification",
+                "point": "The plan fails to explicitly resolve the semantic ambiguity of whether 'flamingo statues' satisfy the prompt's request for 'white flamingos'. The fine_grained_classifier should be tasked with determining if the detected object class aligns with the prompt's implied entity type (biological vs. artistic representation).",
+                "recommended_expert": "perceptual_quality_auditor"
+            }
+        ]
+    },
+    "audited_plan": {
+        "image_description": "The image displays a wooden table surface with five grey koalas clustered on the left side, clinging to vertical branches. To their right stand three white flamingo statues or figurines. In front of the flamingos is a row of six yellow taper candles in wooden holders, all lit.",
+        "atom_verdicts": [
+            {
+                "atom_index": 0,
+                "question": "How many candles are in the image?",
+                "expected": "seven",
+                "predicted": "six",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Visual count clearly shows exactly six yellow candles arranged in a row."
+            },
+            {
+                "atom_index": 1,
+                "question": "Are the candles yellow?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "All visible candles are distinctly yellow."
+            },
+            {
+                "atom_index": 2,
+                "question": "Are there any candles in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Six candles are clearly visible in the foreground."
+            },
+            {
+                "atom_index": 3,
+                "question": "Are the candles in front of the flamingos?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The candles are positioned closer to the camera than the flamingo figures."
+            },
+            {
+                "atom_index": 4,
+                "question": "How many flamingos are in the image?",
+                "expected": "three",
+                "predicted": "three",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "There are exactly three white flamingo figures standing behind the candles."
+            },
+            {
+                "atom_index": 5,
+                "question": "Are the flamingos white?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "The flamingo figures are uniformly white, unlike natural pink flamingos."
+            },
+            {
+                "atom_index": 6,
+                "question": "Are there any flamingos in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Three flamingo figures are present."
+            },
+            {
+                "atom_index": 7,
+                "question": "Are the flamingos to the right of the koalas?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Spatial arrangement places koalas on the left and flamingos on the right."
+            },
+            {
+                "atom_index": 8,
+                "question": "How many koalas are in the image?",
+                "expected": "six",
+                "predicted": "five",
+                "is_correct": false,
+                "confidence": 1.0,
+                "reasoning": "Counting the distinct heads/bodies reveals five koalas: two upper, three lower."
+            },
+            {
+                "atom_index": 9,
+                "question": "Are there any koalas in the image?",
+                "expected": "Yes",
+                "predicted": "Yes",
+                "is_correct": true,
+                "confidence": 1.0,
+                "reasoning": "Five koalas are clearly visible on the left."
+            }
+        ],
+        "checkpoint_verdicts": [
+            {
+                "object": "candle",
+                "checkpoint": "Cylindrical stick of wax of moderate height with narrow diameter relative to height.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Candles appear as standard taper candles with correct proportions."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Simple vertical cylinder with thin wick protruding from center.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wicks are visible at the top of each candle, supporting flames."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Taper candles narrow toward top while pillar candles maintain uniform diameter.",
+                "category": "Geometry_and_Silhouette",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "These are taper candles; they show a slight narrowing towards the top consistent with the type."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Central wick cotton string extending from top.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Wicks are visible and functional (lit)."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Flat base for standing.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Candles are seated securely in wooden holders which provide a flat base."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Charred wick tip if previously burned.",
+                "category": "Functional_Components",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Since they are currently lit, the wick tips are charred/burning."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Wax body smooth and uniform in white ivory or colored varieties.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Yellow wax appears smooth and uniform."
+            },
+            {
+                "object": "candle",
+                "checkpoint": "Matte or slightly glossy finish depending on wax type paraffin beeswax soy.",
+                "category": "Material_and_Context",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Surface has a slight sheen consistent with wax."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Bill is distinctive with downward-curving shape, deep black at tip transitioning to pale pink at base.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The bills are entirely white, matching the body. They lack the characteristic black tip and color gradient of real flamingos."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Head is small relative to extremely elongated neck.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Proportions of head to neck are anatomically correct for flamingos."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Eyes are dark and positioned on small head.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Small dark eye indentations/paint are visible on the white heads."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Plumage ranges from pale pink to vivid scarlet with darker coloration on wings and tail.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The figures are pure white statues/figurines, lacking any pink plumage or wing differentiation."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Body exhibits compact torso contrasting elongated neck and legs.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The silhouette correctly captures the compact body vs long neck/legs ratio."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Wings display black primary feathers visible during flight.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "No black feathers are visible; the wings are sculpted as part of the white body."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Legs are exceptionally long and bright pink to red with webbed feet.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "Legs are white, not pink/red. Webbing detail is stylized/sculpted rather than biological."
+            },
+            {
+                "object": "flamingo",
+                "checkpoint": "Neck is extremely elongated and S-curved, comprising approximately one-third of total body length.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The S-curve and length of the neck are accurately represented."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Ears are large, rounded, and prominently furry with white marginal tufts.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Ears are large, round, and show lighter fur on the edges/tufts."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Nose is broad, leathery, and black with distinctive textured surface.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Noses are prominent, black, and textured."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Head is broad with small eyes relative to body size.",
+                "category": "Head_and_Face",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Heads are broad and eyes are relatively small."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Fur is dense, woolly, and grey-brown with distinctive white patches on chest, ears, and rump.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Fur texture looks dense/woolly, grey-brown color with visible white chest patches."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Body exhibits stocky proportions with broad chest and rounded abdomen.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Bodies appear stocky and rounded."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Body is tailless with a medium-sized, compact marsupial build.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "No tails are visible; build is compact."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Powerful limbs with five digits each; forefeet feature two opposable thumbs.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Paws gripping branches show distinct digit separation and thumb-like structures."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Claws are sharp and curved for climbing eucalyptus branches.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Dark claws are visible on the paws holding the wood."
+            },
+            {
+                "object": "koala",
+                "checkpoint": "Posture is typically upright when seated on branches.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "Koalas are posed upright, clinging to vertical branches."
+            }
+        ],
+        "artifact_observations": [
+            {
+                "artifact_type": "structural_collapse",
+                "location": "Flamingo legs and bases",
+                "severity": 3,
+                "reasoning": "The flamingos appear to be solid white sculptures/statues rather than biological birds. Their legs merge seamlessly into decorative pedestal bases without distinct joints or anatomical separation, indicating a structural interpretation error where 'flamingo' was rendered as 'flamingo statue'."
+            },
+            {
+                "artifact_type": "texture_anomaly",
+                "location": "Flamingo bodies",
+                "severity": 2,
+                "reasoning": "The surface of the flamingos is smooth and matte like plaster or ceramic, lacking individual feather textures. While this confirms they are statues, it is an anomaly if the prompt intended biological animals."
+            },
+            {
+                "artifact_type": "fusion",
+                "location": "Koala paws and branches",
+                "severity": 1,
+                "reasoning": "Minor blending where koala paws grip the branches; fingers sometimes merge slightly with the wood texture, though generally acceptable."
+            }
+        ],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "verification_goals": [
+                    "Atom 0",
+                    "Atom 1",
+                    "Atom 2"
+                ],
+                "reason": "Verify exact count of candles and confirm yellow color attribute via bounding box detection.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "koala",
+                "verification_goals": [
+                    "Atom 8",
+                    "Atom 9"
+                ],
+                "reason": "Verify exact count of koalas (distinguishing 5 vs 6) and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flamingo",
+                "verification_goals": [
+                    "Atom 4",
+                    "Atom 5",
+                    "Atom 6"
+                ],
+                "reason": "Verify count of flamingos and detect if they are classified as 'statue' or 'bird' based on visual features.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flamingo",
+                "verification_goals": [
+                    "Checkpoint: Plumage ranges from pale pink...",
+                    "Checkpoint: Legs are exceptionally long and bright pink..."
+                ],
+                "reason": "Confirm if the object is biologically a flamingo or a sculpture/statue based on texture and color classification.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "koala",
+                "verification_goals": [
+                    "Checkpoint: Powerful limbs with five digits...",
+                    "Checkpoint: Claws are sharp..."
+                ],
+                "reason": "Verify anatomical correctness of koala paws and digit count, ensuring no AI limb fusion errors.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "verification_goals": [
+                    "Atom 3",
+                    "Atom 7"
+                ],
+                "reason": "Verify spatial relationships: candles in front of flamingos, flamingos right of koalas.",
+                "weight": 0.1
+            }
+        ],
+        "unverifiable_points": [],
+        "focus_areas": [
+            "Count verification for candles (expected 7, observed 6) and koalas (expected 6, observed 5).",
+            "Classification of flamingos as biological entities vs. statues/sculptures due to white color and fused leg bases.",
+            "Anatomical integrity of koala paws gripping branches."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "candle",
+                "reason": "Verify exact count of candles and confirm yellow color attribute via bounding box detection.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "koala",
+                "reason": "Verify exact count of koalas (distinguishing 5 vs 6) and confirm presence.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "flamingo",
+                "reason": "Verify count of flamingos and detect if they are classified as 'statue' or 'bird' based on visual features.",
+                "weight": 0.2
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "flamingo",
+                "reason": "Confirm if the object is biologically a flamingo or a sculpture/statue based on texture and color classification.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "animal_pose_auditor",
+                "target_subject": "koala",
+                "reason": "Verify anatomical correctness of koala paws and digit count, ensuring no AI limb fusion errors.",
+                "weight": 0.15
+            },
+            {
+                "expert_name": "geometric_depth_auditor",
+                "target_subject": "scene",
+                "reason": "Verify spatial relationships: candles in front of flamingos, flamingos right of koalas.",
+                "weight": 0.1
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_gemini31_flash/778.png",
+            "prompt_id": "778",
+            "prompt_text": "seven yellow candles in front of three white flamingos to the right of six koalas",
+            "router_cost_seconds": 67.61,
+            "plan_valid": true
+        }
+    }
+}

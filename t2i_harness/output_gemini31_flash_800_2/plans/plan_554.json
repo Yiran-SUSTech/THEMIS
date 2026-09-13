@@ -1,0 +1,143 @@
+{
+    "image_description": "A photorealistic indoor scene featuring four fluffy white dogs (resembling Samoyeds) sitting in a row on a patterned rug. In the foreground to the left, there are three suitcases of varying sizes and colors (blue plaid, grey, beige). To the right of the suitcases, in front of the dogs, sits a small pink knitted flamingo toy. The background includes a window with sheer curtains, a wooden bookshelf, and a framed picture on the wall.",
+    "checkpoint_verdicts": [
+        {
+            "object": "dog",
+            "checkpoint": "Coat is medium-length double coat in black-and-tan, sable, or solid black.",
+            "category": "Body_and_Plumage",
+            "is_testable": true,
+            "is_present": false,
+            "reasoning": "The dogs in the image have pure white coats. This directly contradicts the taxonomy prior knowledge for 'German shepherd' which specifies black-and-tan, sable, or solid black. The visual evidence confirms the prompt's request for 'white dogs' but fails the specific taxonomy check for German Shepherds."
+        },
+        {
+            "object": "dog",
+            "checkpoint": "Ears are large, erect, pointed, and set high.",
+            "category": "Head_and_Face",
+            "is_testable": true,
+            "is_present": true,
+            "reasoning": "The dogs possess erect, triangular ears set high on the head, consistent with spitz-type breeds like Samoyeds, though also a feature of German Shepherds. However, combined with the white coat, this supports the identification as a non-German Shepherd breed."
+        },
+        {
+            "object": "suitcase",
+            "checkpoint": "N/A",
+            "category": "N/A",
+            "is_testable": false,
+            "is_present": true,
+            "reasoning": "No specific taxonomy checkpoints exist for suitcases. Visual inspection confirms the presence of three distinct suitcases matching the prompt."
+        },
+        {
+            "object": "toy",
+            "checkpoint": "N/A",
+            "category": "N/A",
+            "is_testable": false,
+            "is_present": true,
+            "reasoning": "No specific taxonomy checkpoints exist for toys. Visual inspection confirms one pink flamingo toy."
+        }
+    ],
+    "artifact_observations": [],
+    "expert_verification_plan": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "dogs, suitcases, toy",
+            "verification_goals": [
+                "Count the exact number of dogs to verify Atom 3 (Expected: 4).",
+                "Count the exact number of suitcases to verify Atom 0 (Expected: 3).",
+                "Locate the pink toy to verify Atom 6 & 7.",
+                "Provide bounding box priors for the dogs to assist the animal_pose_auditor."
+            ],
+            "reason": "This is the primary 'Bridge' expert required to validate the counting atoms (0, 3, 6) and establish spatial grounding for the other experts.",
+            "weight": 0.35
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "dogs",
+            "verification_goals": [
+                "Classify the breed of the white dogs to determine if they are misidentified as German Shepherds by the system taxonomy.",
+                "Verify if the visual features (white coat, fluffy texture) align with Samoyed or similar spitz breeds rather than the provided German Shepherd taxonomy."
+            ],
+            "reason": "The provided taxonomy for 'dog' is 'German shepherd' with specific black/tan coat requirements. The image shows white dogs. This expert is needed to rigorously classify the actual breed and confirm the mismatch with the provided taxonomy prior knowledge.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "dogs",
+            "verification_goals": [
+                "Detect 17 keypoints on each of the four dogs to ensure biological structural correctness.",
+                "Verify that all four dogs have complete limbs and valid anatomy (no floating legs or merged bodies).",
+                "Confirm the 'sitting' pose is anatomically plausible for the detected breed."
+            ],
+            "reason": "Essential for auditing the biological structure of the four limbed subjects. Ensures the AI generation didn't produce anatomical horrors common in multi-subject generations.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "suitcases, dogs, floor",
+            "verification_goals": [
+                "Verify that the suitcases are physically resting on the floor/rug and not floating.",
+                "Check that the dogs are seated behind the suitcases with correct occlusion (suitcases blocking lower parts of dogs if applicable, or clear separation).",
+                "Ensure the perspective of the room (window, bookshelf) aligns with the foreground objects."
+            ],
+            "reason": "Validates the spatial relationship 'suitcases in front of dogs' (Atom 2) and ensures physical grounding of rigid objects.",
+            "weight": 0.1
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire image",
+            "verification_goals": [
+                "Scan for any subtle texture artifacts on the suitcases (e.g., warped zippers, melted wheels).",
+                "Check the knitted texture of the pink toy for consistency.",
+                "Identify any lighting inconsistencies between the window light and the subjects."
+            ],
+            "reason": "Acts as a holistic quality filter to catch standard graphics-level distortions before heavy downstream audits.",
+            "weight": 0.1
+        }
+    ],
+    "unverifiable_points": [
+        "The specific brand or model of the suitcases cannot be verified as no taxonomy exists.",
+        "The exact material composition of the pink toy (knitted vs plastic) is difficult to verify without tactile data, though visual cues suggest knitted."
+    ],
+    "focus_areas": [
+        "Breed Classification Mismatch: The conflict between the 'German Shepherd' taxonomy (black/tan) and the visual 'White Dogs' (Samoyed-like) is the most critical verification point.",
+        "Object Counting Accuracy: Rigorous counting of 4 dogs and 3 suitcases is required to satisfy the primary prompt constraints.",
+        "Spatial Occlusion: Verifying the 'in front of' relationship between suitcases and dogs using depth and boundary analysis."
+    ],
+    "selected_experts": [
+        {
+            "expert_name": "open_vocabulary_detector",
+            "target_subject": "dogs, suitcases, toy",
+            "reason": "This is the primary 'Bridge' expert required to validate the counting atoms (0, 3, 6) and establish spatial grounding for the other experts.",
+            "weight": 0.35
+        },
+        {
+            "expert_name": "fine_grained_classifier",
+            "target_subject": "dogs",
+            "reason": "The provided taxonomy for 'dog' is 'German shepherd' with specific black/tan coat requirements. The image shows white dogs. This expert is needed to rigorously classify the actual breed and confirm the mismatch with the provided taxonomy prior knowledge.",
+            "weight": 0.25
+        },
+        {
+            "expert_name": "animal_pose_auditor",
+            "target_subject": "dogs",
+            "reason": "Essential for auditing the biological structure of the four limbed subjects. Ensures the AI generation didn't produce anatomical horrors common in multi-subject generations.",
+            "weight": 0.2
+        },
+        {
+            "expert_name": "geometric_depth_auditor",
+            "target_subject": "suitcases, dogs, floor",
+            "reason": "Validates the spatial relationship 'suitcases in front of dogs' (Atom 2) and ensures physical grounding of rigid objects.",
+            "weight": 0.1
+        },
+        {
+            "expert_name": "perceptual_quality_auditor",
+            "target_subject": "entire image",
+            "reason": "Acts as a holistic quality filter to catch standard graphics-level distortions before heavy downstream audits.",
+            "weight": 0.1
+        }
+    ],
+    "metadata": {
+        "original_image": "geneval2_gemini31_flash/554.png",
+        "prompt_id": "554",
+        "prompt_text": "three suitcases in front of four white dogs, and a pink toy",
+        "router_cost_seconds": 27.09,
+        "plan_valid": false
+    }
+}
