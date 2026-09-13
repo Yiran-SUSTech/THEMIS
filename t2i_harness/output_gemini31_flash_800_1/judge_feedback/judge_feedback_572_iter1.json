@@ -1,0 +1,165 @@
+{
+    "image_id": "572",
+    "prompt": "two black raccoons, and five sheeps to the right of a plastic mushroom",
+    "iteration": 1,
+    "timestamp": "2026-09-13 02:40:44",
+    "judge_verdict": {
+        "is_approved": false,
+        "reasons_for_rejection": "The evaluation plan is critically flawed due to a failure in the 'Taxonomy Checkpoint' logic and incomplete expert coverage for structural integrity. \n\n1. **Logical Contradiction in Checkpoints**: The Router applied biological taxonomy checkpoints (e.g., 'fleshy/moist texture', 'gills') to an object explicitly defined as 'plastic' in the prompt. It then marked these checkpoints as `is_present: false` because the object is plastic. This creates a false negative signal; the object is correct *because* it lacks biological features. The plan fails to recognize that 'plastic' overrides biological taxonomy.\n\n2. **Missing Structural Audits**: The plan relies solely on `open_vocabulary_detector` for counting sheep. In the image, one sheep is partially occluded behind another. A bounding box detector may merge them or miss the occluded one. The plan lacks `animal_pose_auditor` to verify limb count and distinct bodies, which is essential for accurate counting of overlapping animals.\n\n3. **Unverified Spatial Logic**: While `open_vocabulary_detector` is assigned to check spatial relationships, there is no explicit verification of the 'black raccoons' anatomy. `fine_grained_classifier` checks identity, but `animal_pose_auditor` is needed to ensure the black shapes are actually raccoons (correct limb structure) and not just black blobs or other animals painted black.",
+        "suggestions": [
+            {
+                "type": "missing_verification",
+                "point": "Verify anatomical correctness and distinct body counts for the sheep, especially given the occlusion/overlap in the group.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "missing_verification",
+                "point": "Audit the structural integrity and limb connectivity of the 'black raccoons' to ensure they are biologically plausible raccoons despite the color anomaly.",
+                "recommended_expert": "animal_pose_auditor"
+            },
+            {
+                "type": "logic_correction",
+                "point": "Remove or flag biological taxonomy checkpoints (e.g., 'moist texture', 'gills') as 'Not Applicable' for objects specified as 'plastic' or 'toy' in the prompt to avoid false negative penalties.",
+                "recommended_expert": null
+            }
+        ]
+    },
+    "audited_plan": {
+        "checkpoint_verdicts": [
+            {
+                "object": "mushroom",
+                "checkpoint": "Cap (pileus) is distinctly fleshy and thick, convex becoming broadly convex to flat only when highly mature.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The mushroom features a prominent, thick red cap with white spots. While the shape is stylized (resembling a toy Amanita muscaria), it fits the description of a thick, convex pileus."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Smooth or slightly scaly surface in white, brown, or tan coloration.",
+                "category": "Flower_or_Top",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "The cap is bright red with white spots, which deviates from the 'white, brown, or tan' coloration specified in the taxonomy prior knowledge, though it matches the visual prompt for a plastic mushroom."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Underside reveals gills (lamellae) radiating from stem.",
+                "category": "Flower_or_Top",
+                "is_testable": false,
+                "is_present": null,
+                "reasoning": "The angle of the image and the solid nature of the 'plastic' mushroom obscure the underside; no gills are visible."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Cylindrical stem (stipe) is smooth, firm, and white, notably stout relative to the cap width.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The stem is clearly visible, cylindrical, smooth, cream/white in color, and appears very stout and firm, consistent with a plastic object."
+            },
+            {
+                "object": "mushroom",
+                "checkpoint": "Overall umbrella-like form with fleshy, moist texture.",
+                "category": "Stem_and_Leaves",
+                "is_testable": true,
+                "is_present": false,
+                "reasoning": "While the form is umbrella-like, the texture is distinctly dry, smooth, and glossy (plastic), lacking the 'fleshy, moist' texture of a biological fungus."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Body covered with dense woolly fleece in white, brown, or black.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The sheep in the image possess dense, textured woolly fleeces that appear off-white/cream, fitting the description."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Compact stocky body with moderate to substantial proportions at the withers.",
+                "category": "Body_and_Plumage",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The animals exhibit the characteristic stocky, compact build of sheep."
+            },
+            {
+                "object": "sheep",
+                "checkpoint": "Sturdy legs with cloven hooves.",
+                "category": "Limbs_and_Anatomy",
+                "is_testable": true,
+                "is_present": true,
+                "reasoning": "The legs are visible and sturdy; while hooves are partially obscured by grass, the limb structure is correct for ovines."
+            }
+        ],
+        "artifact_observations": [],
+        "expert_verification_plan": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoons, sheeps, mushroom",
+                "verification_goals": [
+                    "Locate and count all instances of raccoons to verify Atom 0 (Expected: 2).",
+                    "Locate and count all instances of sheep to verify Atom 3 (Expected: 5).",
+                    "Confirm the spatial relationship: are the detected sheep bounding boxes strictly to the right of the mushroom bounding box? (Atom 5)."
+                ],
+                "reason": "This is the primary 'Bridge' expert required to establish ground truth for object counts and spatial relationships before detailed anatomical auditing.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoons",
+                "verification_goals": [
+                    "Verify if the black animals are biologically plausible raccoons despite the unnatural black coloration (Atom 1).",
+                    "Check for raccoon-specific facial markings (mask) and ringed tail patterns which might be distorted by the color shift."
+                ],
+                "reason": "Since 'black raccoons' are not a standard natural phenotype, this expert is needed to ensure the AI hasn't generated generic black mammals (like cats or bears) mislabeled as raccoons.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mushroom",
+                "verification_goals": [
+                    "Analyze surface reflections and texture to confirm the material is 'plastic' as requested (Atom 7), distinguishing it from a biological mushroom.",
+                    "Check for rendering artifacts at the base where the plastic object meets the grass."
+                ],
+                "reason": "The prompt specifies a 'plastic' mushroom, which contradicts the biological taxonomy provided. This expert focuses on material properties rather than biological correctness.",
+                "weight": 0.3
+            }
+        ],
+        "unverifiable_points": [
+            "Atom 7 (Is the mushroom plastic?): While visually it appears plastic, verifying the material composition definitively without tactile input or metadata is an estimation based on visual cues (glossiness, seams).",
+            "Sheep Horns (Taxonomy Check): The taxonomy mentions 'laterally spiraling horns', but many sheep breeds are polled (hornless). Verifying the specific breed or sex (Ram vs Ewe) is difficult due to wool coverage and distance."
+        ],
+        "focus_areas": [
+            "Count Verification: Ensuring exactly 5 sheep are present, as occlusion behind the front row might hide or reveal extra animals.",
+            "Color vs. Anatomy (Raccoons): Balancing the verification of the 'black' color constraint against the preservation of raccoon anatomical features (snout shape, ears, tail rings).",
+            "Spatial Logic: Rigorously checking if *all* 5 sheep are to the right of the mushroom, or if any part of a sheep overlaps the mushroom's vertical axis."
+        ],
+        "selected_experts": [
+            {
+                "expert_name": "open_vocabulary_detector",
+                "target_subject": "raccoons, sheeps, mushroom",
+                "reason": "This is the primary 'Bridge' expert required to establish ground truth for object counts and spatial relationships before detailed anatomical auditing.",
+                "weight": 0.4
+            },
+            {
+                "expert_name": "fine_grained_classifier",
+                "target_subject": "raccoons",
+                "reason": "Since 'black raccoons' are not a standard natural phenotype, this expert is needed to ensure the AI hasn't generated generic black mammals (like cats or bears) mislabeled as raccoons.",
+                "weight": 0.3
+            },
+            {
+                "expert_name": "perceptual_quality_auditor",
+                "target_subject": "mushroom",
+                "reason": "The prompt specifies a 'plastic' mushroom, which contradicts the biological taxonomy provided. This expert focuses on material properties rather than biological correctness.",
+                "weight": 0.3
+            }
+        ],
+        "metadata": {
+            "original_image": "geneval2_gemini31_flash/572.png",
+            "prompt_id": "572",
+            "prompt_text": "two black raccoons, and five sheeps to the right of a plastic mushroom",
+            "router_cost_seconds": 46.84,
+            "plan_valid": false
+        }
+    }
+}
